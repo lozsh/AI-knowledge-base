@@ -45,13 +45,9 @@
     
     
       
-        
-        
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-      
     
+    
+      <link rel="stylesheet" href="../../assets/site.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -63,8 +59,6 @@
   
   
     
-    
-      
     
     
     
@@ -90,7 +84,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="页眉">
     <a href="../.." title="AI 知识库" class="md-header__button md-logo" aria-label="AI 知识库" data-md-component="logo">
       
@@ -120,33 +116,7 @@
     </div>
     
       
-        <form class="md-header__option" data-md-component="palette">
-  
     
-    
-    
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="切换到深色"  type="radio" name="__palette" id="__palette_0">
-    
-      <label class="md-header__button md-icon" title="切换到深色" for="__palette_1" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
-      </label>
-    
-  
-    
-    
-    
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="切换到浅色"  type="radio" name="__palette" id="__palette_1">
-    
-      <label class="md-header__button md-icon" title="切换到浅色" for="__palette_0" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
-      </label>
-    
-  
-</form>
-      
-    
-    
-      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
     
@@ -202,516 +172,6 @@
       
         
           
-            
-<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
-        
-  
-  
-    
-  
-  AI 知识库
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-tabs__link">
-          
-  
-  
-  01 AI概述与发展
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/01-%E7%AC%A6%E5%8F%B7/" class="md-tabs__link">
-          
-  
-  
-  02 数学与机器学习基础
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../03-%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E5%9F%BA%E7%A1%80/01-%E7%BA%BF%E6%80%A7%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/" class="md-tabs__link">
-          
-  
-  
-  03 神经网络基础
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../04-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E4%B8%8E%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/01-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/" class="md-tabs__link">
-          
-  
-  
-  04 卷积神经网络与计算机视觉
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../05-%E5%BE%AA%E7%8E%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E4%B8%8E%E5%BA%8F%E5%88%97%E5%BB%BA%E6%A8%A1/01-%E5%BE%AA%E7%8E%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/" class="md-tabs__link">
-          
-  
-  
-  05 循环神经网络与序列建模
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-    
-  
-  
-    
-    
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../01-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/" class="md-tabs__link">
-          
-  
-  
-  06 注意力机制与Transformer
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/01-NLP%20%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5/" class="md-tabs__link">
-          
-  
-  
-  07 大语言模型
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../08-AI%E6%99%BA%E8%83%BD%E4%BD%93/01-%E5%88%9D%E8%AF%86%E6%99%BA%E8%83%BD%E4%BD%93/" class="md-tabs__link">
-          
-  
-  
-  08 AI智能体
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/01-%E5%9C%A8%E8%AF%95%E9%94%99%E4%B8%AD%E6%88%90%E9%95%BF%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/" class="md-tabs__link">
-          
-  
-  
-  09 强化学习
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../10-%E7%94%9F%E6%88%90%E5%BC%8F%E6%A8%A1%E5%9E%8B%E4%B8%8E%E5%A4%9A%E6%A8%A1%E6%80%81/01-%E6%89%A9%E6%95%A3%E6%A8%A1%E5%9E%8B/" class="md-tabs__link">
-          
-  
-  
-  10 生成式模型与多模态
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../11-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E4%B8%8E%E6%9C%BA%E5%99%A8%E4%BA%BA/01-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E4%B8%8E%E6%9C%BA%E5%99%A8%E4%BA%BA/" class="md-tabs__link">
-          
-  
-  
-  11 具身智能与机器人
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/01-%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95/" class="md-tabs__link">
-          
-  
-  
-  12 模型训练与优化
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E8%AE%A1%E7%AE%97/" class="md-tabs__link">
-          
-  
-  
-  13 深度学习框架与计算
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/01-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E5%AF%BC%E8%AE%BA/" class="md-tabs__link">
-          
-  
-  
-  14 机器学习系统与MLOps
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/01-%E9%92%A2%E4%B8%8E%E7%A1%85AI%E7%9A%84%E7%89%A9%E7%90%86%E5%BA%95%E5%BA%A7/" class="md-tabs__link">
-          
-  
-  
-  15 AI基础设施与硬件
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../16-%E5%AE%89%E5%85%A8%E5%8F%AF%E4%BF%A1%E4%B8%8E%E8%B4%9F%E8%B4%A3%E4%BB%BBAI/01-%E8%84%86%E5%BC%B1%E7%9A%84%E5%B7%A8%E4%BA%BAAI%E7%9A%84%E9%A3%8E%E9%99%A9%E4%B8%8E%E6%8C%91%E6%88%98/" class="md-tabs__link">
-          
-  
-  
-  16 安全可信与负责任AI
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../17-AI%20for%20Science/01-AI%20%E5%8A%A0%E9%80%9F%E7%A7%91%E5%AD%A6%E5%8F%91%E7%8E%B0/" class="md-tabs__link">
-          
-  
-  
-  17 AI for Science
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../18-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%B7%A5%E7%A8%8B%E4%B8%8E%E5%AE%9E%E8%B7%B5/01-DeepSeek%20%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%B7%A5%E7%A8%8B%E4%B8%8E%E8%90%BD%E5%9C%B0%E5%9C%BA%E6%99%AF/" class="md-tabs__link">
-          
-  
-  
-  18 提示词工程与实践
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../19-%E6%A0%87%E5%87%86%E4%B8%8E%E6%9C%AF%E8%AF%AD/01-GB-T%2041867-2022%20%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD%E6%9C%AF%E8%AF%AD/" class="md-tabs__link">
-          
-  
-  
-  19 标准与术语
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../20-%E9%80%9A%E7%94%A8%E6%99%BA%E8%83%BD%E4%B8%8E%E6%9C%AA%E6%9D%A5%E5%B1%95%E6%9C%9B/01-%E9%80%9A%E5%BE%80%E9%80%9A%E7%94%A8%E6%99%BA%E8%83%BD/" class="md-tabs__link">
-          
-  
-  
-  20 通用智能与未来展望
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../21-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99%E4%B8%8E%E9%99%84%E5%BD%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE/" class="md-tabs__link">
-          
-  
-  
-  21 参考资料与附录
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../22-%E6%A3%80%E7%B4%A2%E4%B8%8ERAG/01-%E6%A3%80%E7%B4%A2%E6%8A%80%E6%9C%AF%E5%9F%BA%E7%A1%80%EF%BC%9A%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%E4%B8%8E%E6%89%93%E5%88%86%E6%8E%92%E5%BA%8F/" class="md-tabs__link">
-          
-  
-  
-  22 检索与RAG
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../23-%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/01-%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E4%B8%8E%E5%88%86%E5%B1%82/" class="md-tabs__link">
-          
-  
-  
-  23 推荐系统
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../24-%E5%A4%A7%E6%95%B0%E6%8D%AE%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%B7%A5%E7%A8%8B/01-%E5%A4%A7%E6%95%B0%E6%8D%AE%E4%BD%93%E7%B3%BB%E4%B8%8E%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B/" class="md-tabs__link">
-          
-  
-  
-  24 大数据与数据工程
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -725,10 +185,8 @@
                     
 
 
-  
 
-
-<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="导航栏" data-md-level="0">
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="AI 知识库" class="md-nav__button md-logo" aria-label="AI 知识库" data-md-component="logo">
       
@@ -779,19 +237,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -950,19 +408,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -1261,19 +719,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -1516,19 +974,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -1659,19 +1117,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1777,9 +1235,6 @@
     
       
         
-        
-      
-      
         
       
     
@@ -2135,19 +1590,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
             
   
   
@@ -2754,19 +2209,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
             
   
   
@@ -3681,19 +3136,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
             
   
   
@@ -3796,19 +3251,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
             
   
   
@@ -4051,19 +3506,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
         
           
-          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
             
   
   
@@ -4138,19 +3593,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
         
           
-          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
             
   
   
@@ -4533,19 +3988,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
         
           
-          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="">
             
   
   
@@ -4844,19 +4299,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
         
           
-          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="">
             
   
   
@@ -5519,19 +4974,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
         
           
-          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="">
             
   
   
@@ -5830,19 +5285,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
         
           
-          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
             
   
   
@@ -6085,19 +5540,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
         
           
-          <label class="md-nav__link" for="__nav_18" id="__nav_18_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_18" id="__nav_18_label" tabindex="">
             
   
   
@@ -6172,19 +5627,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
         
           
-          <label class="md-nav__link" for="__nav_19" id="__nav_19_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_19" id="__nav_19_label" tabindex="">
             
   
   
@@ -6371,19 +5826,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
         
           
-          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="">
             
   
   
@@ -6458,19 +5913,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
         
           
-          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="">
             
   
   
@@ -6573,19 +6028,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
         
           
-          <label class="md-nav__link" for="__nav_22" id="__nav_22_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_22" id="__nav_22_label" tabindex="">
             
   
   
@@ -6828,19 +6283,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
         
           
-          <label class="md-nav__link" for="__nav_23" id="__nav_23_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_23" id="__nav_23_label" tabindex="">
             
   
   
@@ -7055,19 +6510,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
         
           
-          <label class="md-nav__link" for="__nav_24" id="__nav_24_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_24" id="__nav_24_label" tabindex="">
             
   
   
@@ -7366,19 +6821,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
         
           
-          <label class="md-nav__link" for="__nav_25" id="__nav_25_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_25" id="__nav_25_label" tabindex="">
             
   
   
@@ -8099,34 +7554,34 @@
 
 
 
-<h1 id="_1">注意力：引爆大模型的引擎<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<h1 id="_1">注意力：引爆大模型的引擎</h1>
 <blockquote>
-<p>来源：原资料（科普书章节，wiki 化重写于 2026-11-03）</p>
+<p>来源：原资料（科普书章节，更新于 2026-11-03）</p>
 </blockquote>
 <p><strong>一句话定义</strong>：注意力机制是"根据当前查询，有选择地参考所有位置信息并加权聚合"的神经网络组件，它（以自注意力的形式）构成了 Transformer 的核心，也是大模型时代的架构基石。</p>
 <p>今天的大语言模型、图像生成模型、多模态模型大多共享同一个底层架构——Transformer，而 Transformer 的核心正是注意力机制。2017 年 Google 的论文《Attention Is All You Need》提出 Transformer，摒弃了当时 NLP 主流的循环与卷积结构；此后 BERT、GPT 系列、ChatGPT、Claude、Gemini 等重要系统都沿这条架构路线扩展。</p>
-<h2 id="_2">核心原理<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
-<h3 id="rnn">从 RNN 的困境说起<a class="headerlink" href="#rnn" title="Permanent link">&para;</a></h3>
+<h2 id="_2">核心原理</h2>
+<h3 id="rnn">从 RNN 的困境说起</h3>
 <p>RNN 靠隐状态逐步传递信息，处理长文本时暴露两个严重问题：</p>
 <ul>
 <li><strong>长距离依赖弱</strong>：信息从序列开头流到末尾要经过大量矩阵乘法和非线性变换，信号衰减（对应梯度消失）。LSTM 的门控只是缓解而非根治，几百词的依赖仍难捕捉。典型例子："The animal didn't cross the street because it was too tired" 中 "it" 指代 "animal"，跨距一长 RNN 就判断不了。</li>
 <li><strong>无法并行</strong>：第 t+1 步依赖第 t 步的隐状态，只能串行计算。GPU 的大规模并行优势完全施展不开，在万亿词元级训练数据的时代，这种串行效率是灾难。</li>
 </ul>
 <p>注意力的解法：跳出"一步一步传"的模式，让模型<strong>一次性看到所有位置，自己决定关注哪些</strong>——就像人读长文时根据当前问题（"第三段说了什么"）有选择地跳读。</p>
-<h3 id="qkv">用字典查询理解 QKV<a class="headerlink" href="#qkv" title="Permanent link">&para;</a></h3>
+<h3 id="qkv">用字典查询理解 QKV</h3>
 <p>把注意力想象成柔性字典查询：键（Key）是词条标签，值（Value）是词条内容，查询（Query）是正在找的词。普通字典要求精确匹配；注意力则让 query 与每个 key 比相似度，越相似的 key 对应的 value 权重越大，按权重加权求和得到"综合答案"：</p>
 <p>Attention(q, K, V) = Σᵢ αᵢ·vᵢ，  αᵢ = softmax(score(q, kᵢ))</p>
 <p>最常用的相似度是点积（方向越接近点积越大）。为防止维度 d 大时点积过大导致 softmax 梯度消失，除以 √d，得到 Transformer 最核心的公式——<strong>缩放点积注意力</strong>：</p>
 <p>Attention(Q, K, V) = softmax(QKᵀ/√d)·V</p>
 <p>直观理解：QKᵀ 生成一张 N×N 的"谁该看谁"关系表。任意两个位置都能直接联系是它的力量；上下文越长这张表膨胀越快（O(N²)），是它的麻烦。</p>
 <p><strong>"软"在哪里</strong>：softmax 让每个 key 都拿到非零权重（相关的权重大、不相关的小），且每一步连续可导，可以端到端用梯度下降训练。硬性"只选最相关的一个"不可微，无法用主流方法训练——这正是必须用柔性注意力的原因。</p>
-<h3 id="_3">早期应用：机器翻译<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h3>
+<h3 id="_3">早期应用：机器翻译</h3>
 <p>2014 年 Bahdanau 等人把注意力引入编码器-解码器翻译模型：解码器每生成一个目标词时，以当前解码状态为 query，源句各位置为 key/value，动态决定参考哪些源词。这解决了"整句话压缩进一个固定向量、长句信息损失严重"的问题，长句翻译质量大幅提升。此后注意力成为机器翻译标配，但仍只是 RNN 的辅助，直到 2017 年 Transformer 把它推上主角。</p>
-<h3 id="_4">自注意力与多头<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<h3 id="_4">自注意力与多头</h3>
 <p><strong>自注意力（self-attention）</strong>：query、key、value 全部来自同一个序列。每个位置 xᵢ 经三个可学习矩阵变换出 qᵢ = W_Q xᵢ、kᵢ = W_K xᵢ、vᵢ = W_V xᵢ，再用 qᵢ 与所有 kⱼ 算相似度加权聚合所有 vⱼ。效果：每个位置的输出综合全序列信息，任意两位置一步直连——一举解决 RNN 的长距离依赖（1 到 100 不再需要 99 步传递）和并行性（所有位置同时算）两大痛点。没有自注意力，今天的大语言模型很难以这样的规模出现。</p>
 <p><strong>多头自注意力（multi-head）</strong>：一次注意力只能从一个视角看序列，而词的含义有多层（语法、语义、指代、位置）。多头让每组独立的 W_Q、W_K、W_V 各产生一套注意力权重和输出，拼接后经线性变换输出——好比不同专家从各自角度分析同一文本再综合意见。原始论文用 8 头，后来常用 12/16/32 或更多；每头维度相应变小，总参数量不随头数线性增长。</p>
-<h2 id="_5">关键概念<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
-<h3 id="transformer">Transformer 积木：一个层的四个部件<a class="headerlink" href="#transformer" title="Permanent link">&para;</a></h3>
+<h2 id="_5">关键概念</h2>
+<h3 id="transformer">Transformer 积木：一个层的四个部件</h3>
 <table>
 <thead>
 <tr>
@@ -8155,7 +7610,7 @@
 </table>
 <p>串联顺序：x → 层规范化 → 多头自注意力 → 残差相加 → 层规范化 → 前馈网络 → 残差相加 → x′。这个标准化积木堆叠 N 次（典型 12/24/96 层甚至更多）就是 Transformer 主体。标准化带来的工程优势：可反复堆深、便于超参搜索、模型缩放和分布式训练。</p>
 <p><strong>位置编码</strong>：自注意力对位置不敏感——打乱词序，计算结果完全一样（"我打他"和"他打我"无法区分）。必须显式注入位置信息，方案演化见下。</p>
-<h3 id="_6">三种架构范式<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h3>
+<h3 id="_6">三种架构范式</h3>
 <p>同样的积木，组合方式不同，对应三类任务：</p>
 <ul>
 <li><strong>仅编码器（理解类）</strong>：代表作 BERT（2018）。注意力无方向限制，真正双向；用"填空"（遮住 15% 的词做预测）预训练。在分类、问答、命名实体识别等理解任务上曾碾压此前方法，2018-2020 年及其变体（RoBERTa、ALBERT、ELECTRA）是 NLP 主力。</li>
@@ -8163,7 +7618,7 @@
 <li><strong>编码器-解码器（转换类）</strong>：原始 Transformer 架构，编码器理解输入、解码器生成输出，中间靠<strong>交叉注意力（cross-attention）</strong>让解码器查询编码器结果。适合翻译、摘要、语音识别（Whisper）等边界清晰的输入→输出任务，代表作 T5、BART。</li>
 </ul>
 <p>三种范式底层积木完全相同，只是组合方式和训练目标不同。</p>
-<h3 id="_7">位置编码的演化<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h3>
+<h3 id="_7">位置编码的演化</h3>
 <table>
 <thead>
 <tr>
@@ -8195,33 +7650,33 @@
 </tr>
 </tbody>
 </table>
-<h3 id="_8">注意力机制的工程变体<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h3>
+<h3 id="_8">注意力机制的工程变体</h3>
 <ul>
 <li><strong>省显存</strong>：多查询注意力 MQA（所有头共享 K/V）、分组查询注意力 GQA（组内共享 KV，Llama 2/3 采用），主要压缩推断时的 KV 缓存。</li>
 <li><strong>降复杂度</strong>：稀疏注意力（局部窗口 + 全局标记 + 随机连接，Longformer、BigBird、Mistral，可到 O(N log N) 或 O(N)）；线性注意力（Performer、Linformer，直接近似到 O(N)，但有精度损失）。</li>
 <li><strong>改计算方式</strong>：FlashAttention（2022）不改数学目标，重排计算顺序让中间结果留在 GPU 高速缓存（SRAM）里，显著提速省显存——"工程优化改变可能边界"的典范。</li>
 </ul>
-<h3 id="_9">现代优化方向<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h3>
+<h3 id="_9">现代优化方向</h3>
 <ul>
 <li><strong>混合专家（MoE）</strong>：把 FFN 拆成多个"专家"，路由器每个词元只激活一两个，总参数量巨大但每次前向只算一小部分（"大而不贵"）。DeepSeek-V3、Mixtral、Switch Transformer 采用。MoE 拆的是 FFN 而非注意力——因为 FFN 是"胖"的部分。</li>
 <li><strong>KV 缓存（KV Cache）</strong>：自回归生成时已算过的 K/V 不变，缓存后每生成新词只算新位置的 K/V，与缓存匹配——避免重复劳动，是大模型能实时响应的关键。代价是显存（要存所有已生成位置的 K/V），是推理服务的主要瓶颈之一，衍生出缓存压缩、共享、量化等技术。</li>
 <li><strong>层规范化位置</strong>：原始论文是后规范化（Post-LN），深层网络训练不稳；现代主流是前规范化（Pre-LN），可训更深的网络（Llama、GPT 系列采用）。</li>
 </ul>
-<h2 id="_10">经验与常见坑<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h2>
+<h2 id="_10">经验与常见坑</h2>
 <ul>
 <li><strong>为什么用 softmax</strong>：权重归一化成分布，防止权重爆炸或消失；且 softmax 温度敏感——打分差距悬殊则注意力集中（精确匹配），打分接近则分散（综合考量），模型可自适应选择。</li>
 <li><strong>FFN 才是参数大头</strong>：典型配置 FFN 维度 = 4 倍注意力维度。知识编辑实验发现 FFN 常是事实知识的载体（类比人脑海马体），但知识整体是分布式的，遍布注意力、残差流和整套回路。</li>
 <li><strong>长上下文的"中间丢失"</strong>：即使有 RoPE，模型面对远超训练长度的输入时可能出现只关注开头结尾、忽略中间的现象，需长上下文继续训练、位置编码微调等技巧。</li>
 <li><strong>可解释性仍在前沿</strong>：注意力可视化（部分头学语法/指代/实体边界）、探针实验（浅层学表层特征、深层学抽象语义）、回路分析（Anthropic、OpenAI；国内 OpenMOSS 的 SAE/字典学习路线如 Llama Scope）都在试图拆解内部机制，但离"真正理解"还很远。上下文学习的机制也未有定论，一个流行假设是模型参数里隐式编码了"如何从例子中学习"的元能力。</li>
 </ul>
-<h2 id="_11">⚠️ 时效性说明<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h2>
+<h2 id="_11">⚠️ 时效性说明</h2>
 <ul>
 <li>2017-2026 时间线：2017 Transformer → 2018 BERT/GPT-1 → 2019 GPT-2 → 2020 GPT-3/ViT/AlphaFold 2 → 2021 CLIP/Codex → 2022 ChatGPT/文生图革命 → 2023 GPT-4/Llama 开源 → 2024 Sora/o1/百万词元上下文 → 2025 DeepSeek R1 与智能体产业化 → 2026 前后竞争转向编程、长任务、工具使用与安全。</li>
 <li>架构竞争未结束：Mamba（状态空间模型，O(N) 复杂度，RNN 的现代化版本）、RWKV、RetNet 等尝试结合 RNN 效率与 Transformer 表达力，尚未替代 Transformer，但证明注意力不是唯一的序列建模方式。</li>
 <li>八位原作者大多离开 Google：Shazeer 创办 Character.AI（2024 年 Google 以约 27 亿美元授权协议请回）、Gomez 创办 Cohere、Polosukhin 转向 NEAR Protocol 等。人才流动是 Google 起大早却未独占大模型商业化的原因之一。</li>
 <li>Transformer 的"通用悖论"：它放弃了 CNN 的空间先验和 RNN 的时序先验，"一无所长"反而让它在数据和算力足够时最容易跨任务迁移——Bitter Lesson 的又一次应验。应用已覆盖视觉（ViT、Swin、DINO）、语音（Whisper、Conformer）、多模态（CLIP、GPT-4V）、生物（AlphaFold）、机器人（RT-1、PaLM-E）。</li>
 </ul>
-<h2 id="_12">参见<a class="headerlink" href="#_12" title="Permanent link">&para;</a></h2>
+<h2 id="_12">参见</h2>
 <ul>
 <li><a href="../01-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/">01-注意力机制</a>：查询/键/值、评分函数等注意力机制的教材式详解</li>
 <li><a href="../03-Transformer%20%E6%9E%B6%E6%9E%84/">03-Transformer 架构</a>：Transformer 编码器-解码器的结构与实现细节</li>
@@ -8284,7 +7739,7 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>

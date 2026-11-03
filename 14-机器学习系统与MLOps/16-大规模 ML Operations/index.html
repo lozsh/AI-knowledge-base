@@ -45,13 +45,9 @@
     
     
       
-        
-        
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-      
     
+    
+      <link rel="stylesheet" href="../../assets/site.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -63,8 +59,6 @@
   
   
     
-    
-      
     
     
     
@@ -90,7 +84,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="页眉">
     <a href="../.." title="AI 知识库" class="md-header__button md-logo" aria-label="AI 知识库" data-md-component="logo">
       
@@ -120,33 +116,7 @@
     </div>
     
       
-        <form class="md-header__option" data-md-component="palette">
-  
     
-    
-    
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="切换到深色"  type="radio" name="__palette" id="__palette_0">
-    
-      <label class="md-header__button md-icon" title="切换到深色" for="__palette_1" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
-      </label>
-    
-  
-    
-    
-    
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="切换到浅色"  type="radio" name="__palette" id="__palette_1">
-    
-      <label class="md-header__button md-icon" title="切换到浅色" for="__palette_0" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
-      </label>
-    
-  
-</form>
-      
-    
-    
-      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
     
@@ -202,516 +172,6 @@
       
         
           
-            
-<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
-        
-  
-  
-    
-  
-  AI 知识库
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-tabs__link">
-          
-  
-  
-  01 AI概述与发展
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/01-%E7%AC%A6%E5%8F%B7/" class="md-tabs__link">
-          
-  
-  
-  02 数学与机器学习基础
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../03-%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E5%9F%BA%E7%A1%80/01-%E7%BA%BF%E6%80%A7%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/" class="md-tabs__link">
-          
-  
-  
-  03 神经网络基础
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../04-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E4%B8%8E%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/01-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/" class="md-tabs__link">
-          
-  
-  
-  04 卷积神经网络与计算机视觉
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../05-%E5%BE%AA%E7%8E%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E4%B8%8E%E5%BA%8F%E5%88%97%E5%BB%BA%E6%A8%A1/01-%E5%BE%AA%E7%8E%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/" class="md-tabs__link">
-          
-  
-  
-  05 循环神经网络与序列建模
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/01-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/" class="md-tabs__link">
-          
-  
-  
-  06 注意力机制与Transformer
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/01-NLP%20%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5/" class="md-tabs__link">
-          
-  
-  
-  07 大语言模型
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../08-AI%E6%99%BA%E8%83%BD%E4%BD%93/01-%E5%88%9D%E8%AF%86%E6%99%BA%E8%83%BD%E4%BD%93/" class="md-tabs__link">
-          
-  
-  
-  08 AI智能体
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/01-%E5%9C%A8%E8%AF%95%E9%94%99%E4%B8%AD%E6%88%90%E9%95%BF%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/" class="md-tabs__link">
-          
-  
-  
-  09 强化学习
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../10-%E7%94%9F%E6%88%90%E5%BC%8F%E6%A8%A1%E5%9E%8B%E4%B8%8E%E5%A4%9A%E6%A8%A1%E6%80%81/01-%E6%89%A9%E6%95%A3%E6%A8%A1%E5%9E%8B/" class="md-tabs__link">
-          
-  
-  
-  10 生成式模型与多模态
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../11-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E4%B8%8E%E6%9C%BA%E5%99%A8%E4%BA%BA/01-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E4%B8%8E%E6%9C%BA%E5%99%A8%E4%BA%BA/" class="md-tabs__link">
-          
-  
-  
-  11 具身智能与机器人
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/01-%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95/" class="md-tabs__link">
-          
-  
-  
-  12 模型训练与优化
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E8%AE%A1%E7%AE%97/" class="md-tabs__link">
-          
-  
-  
-  13 深度学习框架与计算
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-    
-  
-  
-    
-    
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../01-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E5%AF%BC%E8%AE%BA/" class="md-tabs__link">
-          
-  
-  
-  14 机器学习系统与MLOps
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/01-%E9%92%A2%E4%B8%8E%E7%A1%85AI%E7%9A%84%E7%89%A9%E7%90%86%E5%BA%95%E5%BA%A7/" class="md-tabs__link">
-          
-  
-  
-  15 AI基础设施与硬件
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../16-%E5%AE%89%E5%85%A8%E5%8F%AF%E4%BF%A1%E4%B8%8E%E8%B4%9F%E8%B4%A3%E4%BB%BBAI/01-%E8%84%86%E5%BC%B1%E7%9A%84%E5%B7%A8%E4%BA%BAAI%E7%9A%84%E9%A3%8E%E9%99%A9%E4%B8%8E%E6%8C%91%E6%88%98/" class="md-tabs__link">
-          
-  
-  
-  16 安全可信与负责任AI
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../17-AI%20for%20Science/01-AI%20%E5%8A%A0%E9%80%9F%E7%A7%91%E5%AD%A6%E5%8F%91%E7%8E%B0/" class="md-tabs__link">
-          
-  
-  
-  17 AI for Science
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../18-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%B7%A5%E7%A8%8B%E4%B8%8E%E5%AE%9E%E8%B7%B5/01-DeepSeek%20%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%B7%A5%E7%A8%8B%E4%B8%8E%E8%90%BD%E5%9C%B0%E5%9C%BA%E6%99%AF/" class="md-tabs__link">
-          
-  
-  
-  18 提示词工程与实践
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../19-%E6%A0%87%E5%87%86%E4%B8%8E%E6%9C%AF%E8%AF%AD/01-GB-T%2041867-2022%20%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD%E6%9C%AF%E8%AF%AD/" class="md-tabs__link">
-          
-  
-  
-  19 标准与术语
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../20-%E9%80%9A%E7%94%A8%E6%99%BA%E8%83%BD%E4%B8%8E%E6%9C%AA%E6%9D%A5%E5%B1%95%E6%9C%9B/01-%E9%80%9A%E5%BE%80%E9%80%9A%E7%94%A8%E6%99%BA%E8%83%BD/" class="md-tabs__link">
-          
-  
-  
-  20 通用智能与未来展望
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../21-%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99%E4%B8%8E%E9%99%84%E5%BD%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE/" class="md-tabs__link">
-          
-  
-  
-  21 参考资料与附录
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../22-%E6%A3%80%E7%B4%A2%E4%B8%8ERAG/01-%E6%A3%80%E7%B4%A2%E6%8A%80%E6%9C%AF%E5%9F%BA%E7%A1%80%EF%BC%9A%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95%E4%B8%8E%E6%89%93%E5%88%86%E6%8E%92%E5%BA%8F/" class="md-tabs__link">
-          
-  
-  
-  22 检索与RAG
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../23-%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/01-%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E4%B8%8E%E5%88%86%E5%B1%82/" class="md-tabs__link">
-          
-  
-  
-  23 推荐系统
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../24-%E5%A4%A7%E6%95%B0%E6%8D%AE%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%B7%A5%E7%A8%8B/01-%E5%A4%A7%E6%95%B0%E6%8D%AE%E4%BD%93%E7%B3%BB%E4%B8%8E%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B/" class="md-tabs__link">
-          
-  
-  
-  24 大数据与数据工程
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -725,10 +185,8 @@
                     
 
 
-  
 
-
-<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="导航栏" data-md-level="0">
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="AI 知识库" class="md-nav__button md-logo" aria-label="AI 知识库" data-md-component="logo">
       
@@ -779,19 +237,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -950,19 +408,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -1261,19 +719,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -1516,19 +974,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -1659,19 +1117,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1774,19 +1232,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
             
   
   
@@ -1917,19 +1375,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
             
   
   
@@ -2536,19 +1994,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
             
   
   
@@ -3463,19 +2921,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
             
   
   
@@ -3578,19 +3036,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
             
   
   
@@ -3833,19 +3291,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
         
           
-          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
             
   
   
@@ -3920,19 +3378,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
         
           
-          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
             
   
   
@@ -4315,19 +3773,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
         
           
-          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="">
             
   
   
@@ -4629,9 +4087,6 @@
     
       
         
-        
-      
-      
         
       
     
@@ -5940,19 +5395,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
         
           
-          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="">
             
   
   
@@ -6251,19 +5706,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
         
           
-          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
             
   
   
@@ -6506,19 +5961,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
         
           
-          <label class="md-nav__link" for="__nav_18" id="__nav_18_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_18" id="__nav_18_label" tabindex="">
             
   
   
@@ -6593,19 +6048,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
         
           
-          <label class="md-nav__link" for="__nav_19" id="__nav_19_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_19" id="__nav_19_label" tabindex="">
             
   
   
@@ -6792,19 +6247,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
         
           
-          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="">
             
   
   
@@ -6879,19 +6334,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
         
           
-          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="">
             
   
   
@@ -6994,19 +6449,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
         
           
-          <label class="md-nav__link" for="__nav_22" id="__nav_22_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_22" id="__nav_22_label" tabindex="">
             
   
   
@@ -7249,19 +6704,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
         
           
-          <label class="md-nav__link" for="__nav_23" id="__nav_23_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_23" id="__nav_23_label" tabindex="">
             
   
   
@@ -7476,19 +6931,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
         
           
-          <label class="md-nav__link" for="__nav_24" id="__nav_24_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_24" id="__nav_24_label" tabindex="">
             
   
   
@@ -7787,19 +7242,19 @@
     
     
       
-      
+        
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
         
           
-          <label class="md-nav__link" for="__nav_25" id="__nav_25_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_25" id="__nav_25_label" tabindex="">
             
   
   
@@ -8941,13 +8396,13 @@
 
 
 
-<h1 id="ml-operations">大规模 ML Operations<a class="headerlink" href="#ml-operations" title="Permanent link">&para;</a></h1>
+<h1 id="ml-operations">大规模 ML Operations</h1>
 <blockquote>
-<p>来源：原资料（教材《ML Operations at Scale》第 12 章，wiki 化重写于 2026-11-03）</p>
+<p>来源：原资料（教材《ML Operations at Scale》第 12 章，更新于 2026-11-03）</p>
 </blockquote>
 <p><strong>一句话定义</strong>：大规模 ML Operations 研究当一个组织从运维 1 个模型变为运维数百个模型时，为什么单模型实践会失效，以及如何用共享平台（注册表、CI/CD/CT、分级监控、特征存储、FinOps、平台团队）把逐模型的固定运维税转化为边际成本。</p>
 <p>管理一个模型是一个项目；管理一百个模型是一个"系统之系统"——数据管道变更会级联影响多个团队的模型，部署故障需要跨服务协调回滚，仪表盘泛滥直到警报疲劳使监控失效。让单团队管单模型的实践（手动部署、临时监控、电子表格跟踪）在规模化后变成组织负债。大规模 MLOps 的核心主张是：<strong>模型管理必须成为基础设施</strong>——具有一致 API 的共享平台、强制质量门禁的自动化管道、跨集群聚合信号的监控，以及追踪工件依赖的治理框架。用 C³ 术语说，它把人类协调转化为自动化计算。</p>
-<h2 id="n">核心原理：N 模型问题与平台经济学<a class="headerlink" href="#n" title="Permanent link">&para;</a></h2>
+<h2 id="n">核心原理：N 模型问题与平台经济学</h2>
 <p><strong>复杂度超线性增长。</strong> 模型间的依赖使运维复杂度超线性增长：监控告警随模型数线性增长，部署协调按 𝒪(N·log N) 增长，依赖冲突按平方增长（共享特征与数据源）。总运维负载在约 <strong>50 个模型</strong>处越过团队能力上限——这是"手工作坊 → 必须建平台"的经验阈值。</p>
 <table>
 <thead>
@@ -8997,7 +8452,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="roi">平台 ROI 与盈亏平衡<a class="headerlink" href="#roi" title="Permanent link">&para;</a></h3>
+<h3 id="roi">平台 ROI 与盈亏平衡</h3>
 <p>平台投资回报率公式：</p>
 <p>$$ROI_{platform} = \frac{N_{models} \times T_{saved} \times C_{engineer}}{C_{platform}}$$</p>
 <ul>
@@ -9006,7 +8461,7 @@
 <li>实例：50 个模型、平台团队 $120K/月、每模型省 20 小时/月 × $150/h → 月省 $150K，ROI = 1.25；若只有 20 个模型则亏损 50%。</li>
 <li>结论：建平台的时机是"全集群的手工繁琐税 &gt; 平台维护税"。拖到 100+ 模型再建，迁移成本是当初建平台的 3–5 倍。</li>
 </ul>
-<h3 id="_1">技术债务的量化与偿还<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h3>
+<h3 id="_1">技术债务的量化与偿还</h3>
 <p>ML 技术债四类，各有可观测症状与阈值：</p>
 <table>
 <thead>
@@ -9043,10 +8498,10 @@
 <p>偿债优先级公式：</p>
 <p>$$Paydown\ Priority = \frac{Impact \times Frequency \times Benefit}{Resolution\ Cost}$$</p>
 <p>决策规则不对称：比例超过功能开发的期望价值就还债；债务只影响单团队、频率低（月度以下）、系统 12 个月内退役、或修复成本超 6 个月工程量时推迟。建议把 20–30% 的冲刺容量划为"债务预算"（&lt;10% 的团队债务通常越滚越大）。自动化是最高的偿债杠杆：例——CI/CD 投入 120 小时，把每次部署 10 小时手工降到 0.5 小时，3 部署/周，约 <strong>4.2 周回本</strong>。主动维护（重构管道）在 3 年模型生命周期内把总成本降 <strong>3.2 倍</strong>。</p>
-<h3 id="_2">共享红利与多租户<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h3>
+<h3 id="_2">共享红利与多租户</h3>
 <p>100 块 GPU：团队专属配额下平均闲置 70%，多租户平台共享后降至 30% → 同样负载所需硬件减少 1 − (0.30/0.70) ≈ <strong>57%</strong>。统计复用（不同团队的峰值需求很少重合）是共享平台在经济上可持续的机制；平台团队的核心角色就是收割这份红利并再投资于容量增长。</p>
-<h2 id="_3">集群经济学与利用率<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
-<h3 id="tcocapex-opex">TCO：CapEx 与 OpEx<a class="headerlink" href="#tcocapex-opex" title="Permanent link">&para;</a></h3>
+<h2 id="_3">集群经济学与利用率</h2>
+<h3 id="tcocapex-opex">TCO：CapEx 与 OpEx</h3>
 <ul>
 <li><strong>CapEx</strong>（一次性）：加速器与服务器占 50–60%，网络 10–15%（1024 GPU fat-tree 约 $10–20M），设施与冷却 15–25%。</li>
 <li><strong>OpEx</strong>（持续）：电力占 60–70%（1024-GPU H100 集群约 1 MW、PUE 1.1、$0.07/kWh → 年电费约 $615K），人员维护 20–30%。</li>
@@ -9054,7 +8509,7 @@
 <li><strong>利用率是核心不变量</strong>：自建 vs 租云的盈亏平衡点约在 40–60% 持续利用率（单节点模型约 42.5%，万卡集群约 53.9%）。80% 利用率下自建三年省约 $274M；20% 利用率下永远租云更便宜。这就是"基础设施护城河"：有持续训练+推理负载的大厂能达到 70–90% 利用率，自建形成正循环。</li>
 <li>云侧约束：预留实例降 40–60% 但牺牲灵活性；Spot 降 60–80% 但要付"检查点税"（每 10 分钟 checkpoint、每次 30 秒 ≈ 5% 算力开销）；Placement group 上限 256–512 GPU，跨组通信可损失 20–40% 扩展效率。</li>
 </ul>
-<h3 id="_4">折旧与功耗效率<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<h3 id="_4">折旧与功耗效率</h3>
 <p>ML 加速器 3–4 年即经济性淘汰（V100 2018 年 $10–12K → 2023 年 $2–3K，贬值 70–80%）。各代能效（最佳精度）：</p>
 <table>
 <thead>
@@ -9098,19 +8553,19 @@
 </tbody>
 </table>
 <p>换代不只是更快，而是<strong>每美元电费的产出更高</strong>——V100 → H100 同卡数刷新吞吐 15.8× 而功耗仅 2.3×；同功耗预算下计算量 6.8×。电力（而非采购预算）日益成为扩张的约束。</p>
-<h3 id="_5">交付周期与选址<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h3>
+<h3 id="_5">交付周期与选址</h3>
 <p>大集群采购 6–12 个月；供应链高度集中（NVIDIA 占 80–90% 数据中心 GPU、TSMC 代工、HBM 仅三家）。自建机房 18–30 个月，<strong>变电站是真正的关键路径</strong>（不受花钱压缩）。选址三角约束：电力（万卡 pod 需 10–15 MW，水电区便宜但远离人才）、冷却（北欧免费冷却 PUE≈1.03；蒸发冷却年耗水超 1 亿升）、网络（训练要 WAN 带宽、服务要靠近交换点）；再叠加出口管制与数据主权法规，形成"电力走廊"（北弗吉尼亚、太平洋西北、北欧）。经验做法：电力基础设施超配 30–50%、分阶段投产（先上 10–20% 容量验证软件栈）——大型模型的<strong>时间价值</strong>（延迟 3 个月上线可损失 $30M）常常超过利息成本。</p>
-<h2 id="_6">多模型管理：注册表与依赖图<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
-<h3 id="_7">模型注册表<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h3>
+<h2 id="_6">多模型管理：注册表与依赖图</h2>
+<h3 id="_7">模型注册表</h3>
 <p>企业级注册表四项基本能力：<strong>版本管理</strong>（唯一标识 + 训练血缘）、<strong>元数据</strong>（训练配置、评估结果、硬件、所有权）、<strong>工件存储</strong>（大模型可超 100 GB，不能靠临时文件分发）、<strong>访问控制</strong>（团队/依赖边界的读写权限）。区分性能力是<strong>显式依赖追踪</strong>：上游 embedding 更新时注册表执行四步图遍历——(1) 识别所有下游依赖模型；(2) 用新输出重新评估下游；(3) 兼容性验证前阻止部署；(4) 协调部署顺序。没有它，组织只能通过生产事故发现依赖。</p>
 <p>注册表 YAML 关键字段模式：<code>model</code>（名称/版本/类型/域）→ <code>artifact</code>（路径/格式/大小）→ <code>training</code>（数据版本/代码提交/硬件）→ <code>evaluation</code>（指标/评估集）→ <code>dependencies</code>（upstream/downstream）→ <code>serving</code>（副本数/延迟目标）→ <code>ownership</code>（团队/值班）。</p>
-<h3 id="ensemble">集成（Ensemble）管理<a class="headerlink" href="#ensemble" title="Permanent link">&para;</a></h3>
+<h3 id="ensemble">集成（Ensemble）管理</h3>
 <p>推荐系统一次请求调用 10–50 个模型，平台必须把集成当作一个生产接口管理。组件更新采用四阶段发布：<strong>Shadow（24–48h，只记录不服务）→ Canary（1% 流量 4–8h）→ 分级放量（5%→100%，24–72h）→ Soak（7–14 天抓延迟效应）</strong>。为什么本地验证不够——三种交互效应：
 - <strong>补偿效应</strong>：检索变差后排序模型学着补偿，修好检索反而过度补偿。
 - <strong>分布偏移传播</strong>：上游改进改变下游输入分布，下游模型按旧表示训练。
 - <strong>反馈环路</strong>：排序影响用户交互，交互在数天到数周后成为训练数据。</p>
 <p>对策：无变更的 holdout 组、中间输出全量日志、长期监控反馈环、周期性集成重置实验（所有组件一起重训）。</p>
-<h3 id="_8">生命周期、僵尸模型与部署模式<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h3>
+<h3 id="_8">生命周期、僵尸模型与部署模式</h3>
 <p>Development → Staging → Canary → Production → Deprecation → Archive。每一步以门禁定义：开发期保可复现元数据；staging 须影子模式跑生产流量与生产级硬件；生产期需持续监控+回滚+值班；退役须迁移消费者后才能归档回收资源。业界估计成熟组织 <strong>20–40% 的生产模型是僵尸模型</strong>——继续消耗 GPU 内存、值班注意力与监控预算却几乎无业务价值，且膨胀依赖图使全局升级更慢更险。</p>
 <table>
 <thead>
@@ -9149,10 +8604,10 @@
 </tbody>
 </table>
 <p>平台级部署额外要求：按风险分类的自动发布策略、跨模型影响分析、<strong>全局限速</strong>防止多个高风险部署同时进行、事件与近期部署的自动关联。</p>
-<h2 id="cicdct">CI/CD/CT：训练管道与验证门禁<a class="headerlink" href="#cicdct" title="Permanent link">&para;</a></h2>
-<h3 id="_9">训练管道六阶段<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h3>
+<h2 id="cicdct">CI/CD/CT：训练管道与验证门禁</h2>
+<h3 id="_9">训练管道六阶段</h3>
 <p>数据验证（钉住数据版本，拒绝 schema/新鲜度/分布失败）→ 特征工程（保训练-服务特征契约）→ 训练（记录代码、数据、超参、硬件、随机种子）→ 评估（对比基线、切片指标、延迟预算）→ 工件生成（打包服务配置与回滚目标）→ 注册（血缘、审批、可部署性）。每阶段<strong>独立可执行且幂等</strong>。编排器用 DAG 表达依赖（Kubeflow / Airflow / Vertex / SageMaker Pipelines），配置与代码分离（参数文件本身是审计工件，可重建产生该模型的确切配置）。</p>
-<h3 id="_10">验证门禁<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h3>
+<h3 id="_10">验证门禁</h3>
 <ul>
 <li><strong>性能门禁</strong>：三重检查——绝对阈值（低于最低可接受性能即拒）、相对基线（须不低于现网版本）、次要指标回归界。</li>
 <li><strong>延迟门禁</strong>（按模型类型）：欺诈检测 5ms p50 / 20ms p99（违规即阻塞）；推荐 10/50ms；LLM 500/2000ms；视觉 50/200ms（警告性放行）。</li>
@@ -9160,17 +8615,17 @@
 <li><strong>数据质量门禁</strong>：schema 一致性、统计分布界、新鲜度、完整性。</li>
 <li>⚠️ 最危险的失败是<strong>语义静默</strong>：上游特征管道 schema 变更让某切片返回 null，服务端把 null 自动填补为 0.0——语法有效、无报错，模型持续变差直到业务指标异动才被发现。</li>
 </ul>
-<h3 id="_11">分级发布<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h3>
+<h3 id="_11">分级发布</h3>
 <ul>
 <li><strong>蓝绿部署</strong>：大模型场景基本不可行——双份模型权重意味着双份 GPU 显存预留，且权重加载需数十秒到分钟级，"秒级回滚"要求 standby 常热。只适合轻量低风险模型。</li>
 <li><strong>金丝雀</strong>：5% 起步比 100% 切换把故障爆炸半径缩小 <strong>20 倍</strong>。阶段时长由样本量决定：T_stage = n_needed / (r_requests × p_stage)。例：1M 请求/小时、检测 1% CTR 变化需 1 万样本 → 1% 流量下 1 小时，5% 下 12 分钟；典型 5 级发布（1%×2h → 5%×30min → 25%×30min → 50%×1h → 100%）共约 4 小时。</li>
 <li><strong>延迟告警的代价</strong>：高流量模型 0.5 个百分点 CTR 回归（5000 QPS、$0.50/点击）若 24 小时不被发现 = <strong>每天损失 $1.08M</strong>。MLOps 本质是经济风险管理。</li>
 </ul>
-<h3 id="_12">多区域部署协调<a class="headerlink" href="#_12" title="Permanent link">&para;</a></h3>
+<h3 id="_12">多区域部署协调</h3>
 <p>两大 ML 特有负担：(1) 工件巨大（数十到数百 GB），跨 WAN 分发是带宽调度问题；(2) 模型依赖特征存储——若 B 区域有新模型但特征库未同步最新 embedding，该区域照样降级。<strong>就绪检查必须把模型二进制、特征库一致性、服务健康作为一个整体状态验证</strong>。三种策略：顺序区域发布（爆炸半径最小，5 区域约 4–8 天）、同步全局发布（全局一致，任一区域问题变成全局决策）、混合发布（协调器定上下界，区域内自主加速或暂停）。流量控制：粘性路由（用户哈希固定区域）、版本钉住（请求携带版本哈希）、关键阶段禁跨区流量。一致性模型：金融预测需强一致；内容推荐可最终一致；实时排序可用有界陈旧（差 k 个版本内）。回滚协议两阶段：先全局停止新版本流量（等所有区域确认+在途请求完成），再全局恢复旧版本——避免部分区域回滚造成的混合版本。A/B 有效性要求处理组内强一致（否则处理效应被稀释）。</p>
-<h3 id="_13">影子部署<a class="headerlink" href="#_13" title="Permanent link">&para;</a></h3>
+<h3 id="_13">影子部署</h3>
 <p>新模型与生产并行接收相同输入、只记录不影响用户。三种流量模式：实时镜像（100% 流量，须异步调用+超时+资源隔离防止影子变生产依赖）、采样回放（10% 也有足够统计功效）、批量回放（离线异步，但对时效敏感系统信号延迟数小时到数天）。比较指标：输出分歧率（分类看不一致率/概率偏移，回归看 RMSE）、性能分布（p99 延迟）、错误模式计数，并用两比例 z 检验区分真实变化与噪声（例：100K 请求、1% vs 1.5% 分歧率，z≈10.1 &gt; 1.96，显著）。适用：新架构、高风险模型、实时特征依赖复杂、性能敏感、合规要求预生产证据；不适用：同架构重训、低风险可快速回滚、资源受限。</p>
-<h3 id="interleavingab-sutva">实验验证：Interleaving、A/B 与 SUTVA<a class="headerlink" href="#interleavingab-sutva" title="Permanent link">&para;</a></h3>
+<h3 id="interleavingab-sutva">实验验证：Interleaving、A/B 与 SUTVA</h3>
 <ul>
 <li><strong>Interleaving</strong>：两个排序器的结果混合给同一用户，点击归属来源 ranker。每用户产生被试内直接比较，Netflix 报告某些排序实验只需 A/B 的 <strong>1/100 用户量</strong>。</li>
 <li><strong>A/B 样本量</strong>：n = (Z_α + Z_β)² × 2p(1−p) / δ²。例：基线 CTR 5%、检测 0.5pp 绝对提升（95% 置信、80% 功效）→ 每组约 3 万样本；基线 1%、检测 0.05pp → 每组 62 万样本。基线越低、效应越小，实验越长。</li>
@@ -9178,9 +8633,9 @@
 <li><strong>SUTVA 违背（网络效应）</strong>：社交产品中处理组用户把优化内容分享给对照组，污染对照。三类：直接网络效应、间接（市场级）效应、溢出效应。方差膨胀设计效应 DEFF ≈ 1 + (m−1)ρ（例：ρ=0.15、m=1.4 → 仅 6% 方差膨胀），但<strong>偏差修正远比方差修正重要</strong>——社交推荐实例中修正后真实效应 +6.9%，朴素估计只有 +3.2%（被腰斩）。检测：ego 网络暴露分析、干扰检验、时间趋势分析。缓解：图聚类随机化（Louvain/谱聚类，牺牲功效）、ego 剔除、时间轮换（switchback）、地理实验。</li>
 <li><strong>边缘集群的三个 MLOps 约束</strong>：极端版本偏斜（设备离线数周，任意时刻可能存在 50 个活跃版本，须保持向后兼容的数据/服务契约）、设备感知验证（精度门禁测不出 1MB 内存或热节流问题，须硬件在环 HIL 验证）、隐私受限可观测（不能回传原始预测，用联邦分析：设备本地算统计量只传聚合匿名信号）。</li>
 </ul>
-<h3 id="_14">风险分级发布与自动回滚<a class="headerlink" href="#_14" title="Permanent link">&para;</a></h3>
+<h3 id="_14">风险分级发布与自动回滚</h3>
 <p>部署风险 R = p_regression × I_regression × E_exposure，三个因子对应三种缓解（更多测试 / 限制爆炸半径 / 更慢放量）。低风险走快速金丝雀；关键核心模型须影子+人工评审+分级。回滚触发器绑定指标：如互动率相对下降 2%（15 分钟窗口、最少 1000 样本）、错误率升 1%（5 分钟、500 样本）、p99 延迟升至 1.5 倍（5 分钟、100 样本）——最小样本量防止随机波动误触发。</p>
-<h3 id="cicd">按模型类型选 CI/CD 模式<a class="headerlink" href="#cicd" title="Permanent link">&para;</a></h3>
+<h3 id="cicd">按模型类型选 CI/CD 模式</h3>
 <table>
 <thead>
 <tr>
@@ -9223,24 +8678,24 @@
 </tbody>
 </table>
 <p>核心原则：<strong>风险画像决定运维节奏</strong>。LLM 慢因为通用性回归风险大（"通才困境"：改好 Python 生成可能悄悄劣化写诗，发布门禁要 MMLU/HumanEval 基准+安全评估+多日影子）；推荐快因为新鲜度比坏更新更致命（特征新鲜度延迟 T_freshness = T_available − T_event：批处理 12–24h vs 流式 1–5s，会话式推荐从批转流常见 10–20% 互动提升）；欺诈持续运维因为对手不等你排期发布。</p>
-<h2 id="_15">大规模监控<a class="headerlink" href="#_15" title="Permanent link">&para;</a></h2>
-<h3 id="_16">舰队遥测与硬件可观测<a class="headerlink" href="#_16" title="Permanent link">&para;</a></h3>
+<h2 id="_15">大规模监控</h2>
+<h3 id="_16">舰队遥测与硬件可观测</h3>
 <p>万卡集群按 MTBF 约每 5 小时一次硬件故障。三级信号：GPU 级（结温、ECC 错误计数——可纠正错误率上升常先于崩溃、SM 利用率）、网络级（端口包重传率）、设施级（冷却液温度偏差触发自动甩负载）。规模：万卡集群日产生约 <strong>1TB 指标数据</strong>，监控栈占用集群 1–2% 算力/存储。关键能力是<strong>跨尺度关联</strong>：单卡升温=风扇、同节点 8 卡=节点级冷却、跨机架=机房事件——须在正确空间尺度归类，避免一个根因产生数百条独立告警。任务启动前预检（GEMM 基准、NCCL AllReduce 测试、内存压测）只花 5–10 分钟。最阴险的是<strong>灰色故障</strong>（活着但性能退化）：同步训练中一个 75% 带宽的 HBM 拖慢全集群——须微基准对比舰队基线（GEMM &lt;90% 中位数或 NVLink &lt;85% 即标记）。主动维护（预测性诊断 24–72h 预报、烧机测试、滚动维护窗口）可达 95–98% 有效利用率，被动只有 80–90%。</p>
-<h3 id="_17">告警疲劳的数学必然<a class="headerlink" href="#_17" title="Permanent link">&para;</a></h3>
+<h3 id="_17">告警疲劳的数学必然</h3>
 <p>100 模型 × 10 指标 × 2σ 阈值（5% 假阳性）× 每 5 分钟检查 = <strong>每天 14,400 条假告警</strong>；即 3σ 也有约 864 条/天。一般式：Pr(至少一条假告警) = 1 − (1−α_fp)^N_tests，N=1000 时概率≈1。解法是<strong>分级监控</strong>：业务指标（收入/互动，触发给事故负责人）→ 组合指标（按域聚合，路由给领域团队）→ 模型指标（支持本地诊断）→ 基础设施指标（路由给平台团队）。高级别决定"是否+在哪"告警，低级别保留证据用于定位。</p>
-<h3 id="_18">异常检测与漂移<a class="headerlink" href="#_18" title="Permanent link">&para;</a></h3>
+<h3 id="_18">异常检测与漂移</h3>
 <ul>
 <li><strong>统计过程控制（SPC）</strong>：控制图区分普通波动与真异常，UCL/LCL = μ ± 3σ（假阳性 0.27%），连续 7 点同侧也触发调查。</li>
 <li><strong>舰队级关联</strong>：异常模型占比超阈值（如 60%）→ 从"多个本地调试任务"变为"一次共享根因调查"，归属共享依赖（部署/数据/基础设施）。</li>
 <li><strong>漂移检测</strong>：协变量偏移 p(x) 变化可实时监控（无需标签）；概念漂移 p(y|x) 变化需要延迟标签。因此实时监控用协变量漂移作为<strong>前导指标</strong>。PSI 公式：PSI = Σ (Aᵢ − Eᵢ) × ln(Aᵢ/Eᵢ)，&lt;0.1 稳定、0.1–0.25 开调查单、≥0.25 立即处理。⚠️ 监控有滞后：95%→93% 的准确率退化，1000 标签/小时下约需 2.2 小时才能统计显著——高风险舰队应在输入漂移上告警而非等准确率下降。</li>
 <li><strong>按模型类型</strong>：推荐（CTR/互动，5% 相对下降阈值，实时）、欺诈（精确率/召回率，1% 退化，实时）、LLM（质量分+安全指标，按模型校准，小时级；安全失败如诱导性错误信息自动指标测不到，须红队作为生产监控通道）、搜索（NDCG，2%，实时）、视觉（按类准确率，日检）。</li>
 </ul>
-<h3 id="_19">可观测架构与仪表盘<a class="headerlink" href="#_19" title="Permanent link">&para;</a></h3>
+<h3 id="_19">可观测架构与仪表盘</h3>
 <p>四条证据通道各答一个问题：指标（哪个属性越界？实时告警）、追踪（请求时间去哪了？Google Dapper 开创，跨模型延迟归因的唯一可靠手段，Dapper 开销 &lt;0.3% CPU）、日志（哪个组件异常？）、预测日志（模型行为留痕，采样记录因成本最高）。仪表盘按注意力分层：高管（业务是否受损）、组合（哪个域在拖累）、模型（该模型变了什么）、调查（根因追踪）。</p>
-<h3 id="_20">成本监控<a class="headerlink" href="#_20" title="Permanent link">&para;</a></h3>
+<h3 id="_20">成本监控</h3>
 <p>ML 成本异常与通用 Web 服务不同：GPU 扩容是阶梯式（加一个副本=一整个多卡节点）、分布式训练可灾难性失控（错误超参扫描、不响应抢占的 DAG、无界重试）、僵尸模型贡献慢性基线。异常检测用 Z-score（3σ 下每天假告警约 0.0027，全年约 1 条，可接受；2σ 全年约 16 条）+ 日环比百分比（捕捉阶梯跳变）。根因五类：流量增长（QPS 同比）、效率退化（成本升 QPS 平、延迟升——查近期部署）、资源泄漏（渐增）、定价变更（一切平稳）、配置错误（阶梯跳变）。成本归属：按 team/service/environment/model_type/cost_center 打标签，共享成本按 GPU 小时比例、查询量或均摊分配。四个核心指标：每次推理成本、每活跃用户成本、GPU 利用效率（每 GPU 小时产出的价值）、预算燃烧率。</p>
-<h2 id="finops">平台工程与 FinOps<a class="headerlink" href="#finops" title="Permanent link">&para;</a></h2>
-<h3 id="_21">抽象层级<a class="headerlink" href="#_21" title="Permanent link">&para;</a></h3>
+<h2 id="finops">平台工程与 FinOps</h2>
+<h3 id="_21">抽象层级</h3>
 <table>
 <thead>
 <tr>
@@ -9273,20 +8728,20 @@
 </tbody>
 </table>
 <p>自服务部署 API 的不变量：模型工件与版本（只加载注册表中验证过的那个）、资源包络（配额内）、流量策略（金丝雀/影子/回滚先于全量）、质量门禁（错误/延迟/漂移/任务质量阈值阻塞不安全晋升）、遥测汇（运维指标与模型质量信号分流入不同的监控）、审批边界（敏感数据、预算超支、高风险窗口需评审）。</p>
-<h3 id="_22">资源管理与效率指标<a class="headerlink" href="#_22" title="Permanent link">&para;</a></h3>
+<h3 id="_22">资源管理与效率指标</h3>
 <p>训练（批处理、可抢占、可用检查点换时间）与服务（延迟 SLO 绑定、不能抢占活请求）须用<strong>不同的调度策略</strong>；单一策略无法同时优化两者。平台效率 = Σ(Uᵢ × Capᵢ) / Σ Capᵢ（按容量加权）。更进一步用 <strong>ML 生产力 Goodput（MPG）</strong>，"舰队效率铁律"：</p>
 <p>$$MPG = Scheduling\ Eff \times Runtime\ Eff \times Program\ Eff$$</p>
 <p>调度效率惩罚排队与碎片；运行时效率惩罚重启开销、数据加载瓶颈、掉队者；程序效率惩罚劣化 kernel、过度精度（FP32 够用却用 BF16 可省则不用）、冗余计算。高利用率集群可能 MPG 很低（频繁失败或低效代码）——这把优化指向真正的瓶颈。</p>
 <p>多租户三重隔离（性能/安全/成本）+ 四项控制（请求资源上限、租户限速、优先级、突发预算）。GPU 显存不能超卖，物理隔离是唯一可靠预防——noisy neighbor 在 RDMA 集群尤其靠静态 rail 对齐或交换机级拥塞控制缓解。</p>
-<h3 id="finops-for-ml">FinOps for ML<a class="headerlink" href="#finops-for-ml" title="Permanent link">&para;</a></h3>
+<h3 id="finops-for-ml">FinOps for ML</h3>
 <p>定义：把计算成本当作一等工程约束（按实验/按模型实时计量，与精度、延迟联合优化），而非事后年度对账。误区：FinOps 不是最小化支出，而是<strong>全生命周期每美元精度最大化</strong>——$500K 训练出的模型若推理便宜 10 倍，可能远胜 $50K 的模型。成本结构：训练计算 40–60%（spot + 早停为主杠杆）、服务 20–40%（自动缩放 + 模型优化）、存储 10–20%、网络 5–15%、平台开销 5–10%。Spot 三实践：检查点频率调优（每小时 checkpoint，损失上限 1 小时）、实例多样化（多类型多可用区）、自动回退按需实例。服务自动缩放受大模型加载时间与显存阶梯约束——策略是选择仍能保护 p99 的最便宜容量档。成本-质量权衡表（小 92% / $500 训练；中 95% / $5K；大 96% / $50K）说明递减回报，应显式分析而非默认最大模型。</p>
-<h3 id="rag-vs">RAG vs 微调：知识运维权衡<a class="headerlink" href="#rag-vs" title="Permanent link">&para;</a></h3>
+<h3 id="rag-vs">RAG vs 微调：知识运维权衡</h3>
 <ul>
 <li><strong>RAG</strong>：新鲜度与可归因换推理成本——每次查询携带约 1 万 token 上下文，注意力计算随长度近平方增长、KV cache 线性增长；上下文过长还有"未充分利用证据"的质量风险。适合易变事实、强归因要求、中等查询量。</li>
 <li><strong>微调（SFT/LoRA）</strong>：紧凑推理换缓慢的知识更新——付数据清洗/训练/评估的前置成本，但成功后 prompt 更短、单查更便宜；数千个客户 LoRA 适配器本身成为多租户服务问题，且写进权重的错误事实比文档难删。适合领域语言、严格延迟预算、稳定行为。</li>
 <li>成熟平台两者兼用：微调教"怎么用工具和文风"，RAG 供"必须新鲜的事实"。</li>
 </ul>
-<h3 id="ml-tco">ML 系统 TCO 框架<a class="headerlink" href="#ml-tco" title="Permanent link">&para;</a></h3>
+<h3 id="ml-tco">ML 系统 TCO 框架</h3>
 <p>$$TCO_{ML} = C_{train} + C_{infer} + C_{data} + C_{iter}$$</p>
 <p>"TCO 冰山"：GPU 计算（约 40%）与存储（10%）是水面上的可见成本，工程人力（20%）、管道维护、重训、监控、事件响应、合规合计约占一半。主导成本随成熟度迁移：早期 𝐶_iter（实验）主导 → 成长期 𝐶_train → 生产规模 𝐶_infer。关键公式：</p>
 <ul>
@@ -9296,28 +8751,28 @@
 <li>迭代：C_iter = N_exp × T_exp × (C_engineer + C_compute)；90% 实验失败 → 单个成功实验有效成本 10 倍。</li>
 </ul>
 <p>规模对比：创业公司 84% 花在迭代（人力+实验），成熟生产公司 41% 花在推理；用户 100× 只带来 TCO 20.6×（规模经济），但数据成本超线性 160×。敏感性：模型数量影响最广（总冲击 85%，因为每个模型同时触碰训练/推理/数据/监控/治理），是<strong>最昂贵的扩展维度</strong>。投资决策按主导成本定姿态：迭代主导 → 买开发速度，基础设施优化缓行（回本 &gt; 迭代周期则延期）；训练主导 → 混合精度、梯度检查点、spot（3–6 个月回本可接受）；推理主导 → 量化/批处理/缓存/蒸馏（1–3 个月回本是硬要求）。例：$400K/月推理成本上 INT8 量化，投入 $80K、省 40% → 0.5 个月回本，高度划算。</p>
-<h2 id="_23">特征存储运维<a class="headerlink" href="#_23" title="Permanent link">&para;</a></h2>
-<h3 id="-">双库架构与训练-服务偏差<a class="headerlink" href="#-" title="Permanent link">&para;</a></h3>
+<h2 id="_23">特征存储运维</h2>
+<h3 id="-">双库架构与训练-服务偏差</h3>
 <p>特征存储解决的核心问题是<strong>训练-服务偏差（training-serving skew）</strong>：训练时特征用批处理跨历史数据算（小时级，GB/s 吞吐），服务时同一特征须亚毫秒点查（p99 &lt;10ms）——没有单一数据库能同时满足两种访问模式，故必须双库：
 - <strong>离线库</strong>：历史事实源（BigQuery/Snowflake/S3+Iceberg），吞吐优先，PB 级。
 - <strong>在线库</strong>：KV 点查（Redis/DynamoDB/Bigtable），延迟优先，百万 QPS。
 - <strong>物化管道</strong>连接两者：Spark 日/小时批、Flink/Kafka 流式、按需请求时计算。</p>
 <p>平台级目标是把 f_train(x) ≡ f_serve(x) 从每个团队的手工约定变成<strong>可测试的架构不变量</strong>。</p>
-<h3 id="slo">新鲜度 SLO<a class="headerlink" href="#slo" title="Permanent link">&para;</a></h3>
+<h3 id="slo">新鲜度 SLO</h3>
 <p>Staleness = t_current − t_feature_update。按特征类型分层：静态（人口属性，天级，批）、缓变（偏好，小时，批）、会话级（分钟，流）、实时（最后动作，秒，流/按需）。DLRM 类工作负载对陈旧度最敏感——用户点了篮球视频，特征库若滞后 10 分钟，接下来 100 条推荐全部错过新意图（"陈旧税"）。实例：实时特征（&lt;1min）互动提升 +12.3% vs 日级 +8.1%，时级到实时差 2.1 个百分点——若值 $10M/年互动价值，流式基础设施成本低于此即值得。</p>
-<h3 id="point-in-time-correctness">点时正确性（Point-in-time Correctness）<a class="headerlink" href="#point-in-time-correctness" title="Permanent link">&para;</a></h3>
+<h3 id="point-in-time-correctness">点时正确性（Point-in-time Correctness）</h3>
 <p>用当前特征值标注历史事件 = 数据泄漏（"时间旅行"）：<code>total_clicks_today</code> 在午夜是 10，但正午的预测只能看到当时的 4——用 10 训练会得到漂亮的离线指标和生产灾难。实现用点时 join（SQL LATERAL join 取事件时间戳之前最近的特征值）。代价是存储：保留历史 = N_entities × N_features × (T_retention / T_update)——1 亿用户 × 1000 特征 × 1 年 × 每小时更新 ≈ 876 万亿个值，100 字节/值约 <strong>87.6 PB</strong>（压缩前），靠列存、压缩与保留策略控制。</p>
-<h3 id="_24">版本、血缘与回填<a class="headerlink" href="#_24" title="Permanent link">&para;</a></h3>
+<h3 id="_24">版本、血缘与回填</h3>
 <p>特征定义是生产接口：把 <code>user_engagement_score</code> 从 30 天 z-score 改成 7 天 min-max，输出仍是浮点数——<strong>schema 校验通过但语义全变</strong>。安全迁移链：版本命名语义变更 → 血缘找出所有新旧含义下的模型 → 回填重算历史 → 新鲜度/质量检查判定重写历史是否可用。回填按日期分区增量执行、逐分区验证、双写期并行新旧计算以对比、保留旧版本直至依赖模型全部重训重部署。⚠️ 共享特征需要不可变版本号（如 <code>engagement_score_v2</code>），因为特征语义是接口不是实现细节。</p>
-<h3 id="_25">规模与数据质量运维<a class="headerlink" href="#_25" title="Permanent link">&para;</a></h3>
+<h3 id="_25">规模与数据质量运维</h3>
 <p>推荐规模：10 亿推荐/日 × 100 特征 = 1000 亿次特征查询/日，均值约 116 万 QPS、峰值 5–10 倍；50ms 推荐预算中特征库只分到 5–10ms（网络占 1–2ms）。数据质量四维：完整性（预期 1000 万事件只来 820 万 = 82%，通常是管道故障）、一致性（age=999 说明哨兵值泄漏；失败超 5% 校验规则的批次通常直接拒绝）、及时性（按消费模型 SLO 定阈值）、准确性（KS 检验/卡方/MMD 做统计门禁）。运维集成：<strong>数据契约</strong>（schema、新鲜度 SLO、质量阈值、升级流程，生产方变更须与消费方显式协商）、三层验证（摄取前/转换后/进模型前）、熔断器+最后已知好数据回退+坏批次隔离。监控按共享故障模式聚合（源系统/计算管道/更新频率/业务域），采样 1% 实体 + 管道级聚合即可在 O(F) 开销下维持系统性新鲜度信号。案例：CTR 降 8% 疑似模型漂移，分布分析发现 <code>user_engagement_score</code> 均值偏移 26%，血缘追溯到 5 天前的管道版本——根因是特征计算 bug 而非漂移，损失 $857K/5 天；分布监控门禁可把检测从 5 天缩到 4 小时。</p>
-<h2 id="_26">组织模式<a class="headerlink" href="#_26" title="Permanent link">&para;</a></h2>
+<h2 id="_26">组织模式</h2>
 <p>三种平台团队形态：
 - <strong>集中式</strong>：一致性最强、集中专家、基础设施工程师有职业路径；风险是<strong>瓶颈</strong>（所有请求排一个队）和离产品上下文远导致的抽象错配。适合共同不变量主导的场景。
 - <strong>嵌入式</strong>：基础设施工程师进驻模型团队，响应最快；风险是<strong>碎片化</strong>（每团队各解一遍部署/监控/特征管理，平台质量取决于 Whoever 恰好在场）。
 - <strong>混合</strong>（多数成熟组织的选择）：核心平台团队（12–15 人）拥有计算/存储/训练服务/监控/安全/合规/成本，领域平台负责人进驻最大的模型团队，社区实践协调标准，贡献模型让领域团队上游化可复用组件。</p>
 <p>选择因子：模型数多（100+）、模型同质、组织大、监管严、基础设施早期 → 偏集中；模型少（10–20）、异构、小组织、监管轻、基础设施成熟 → 偏分布式。</p>
-<h2 id="_27">案例研究<a class="headerlink" href="#_27" title="Permanent link">&para;</a></h2>
+<h2 id="_27">案例研究</h2>
 <ul>
 <li><strong>Uber Michelangelo</strong>：解决"双重实现"（Python 建模、工程重写管道上线）——统一训练/部署/服务/特征管理，提供"Golden Path"，特征库集中复用并解决训练-服务一致性。</li>
 <li><strong>Meta FBLearner Flow</strong>：25%+ 工程师使用、百万级模型、600 万预测/秒。管道抽象为 DAG，平台接管资源/依赖/容错；特征价值衰减快 → 流处理 + 分布监控（CPU 指标测不出特征流静默失败）；Shadow Mode / 金丝雀管理发布风险。</li>
@@ -9325,10 +8780,10 @@
 <li><strong>Google Vertex AI</strong>：去除胶水代码（95% ML 代码是基础设施样板）同时保留控制；AutoML 用算力换人工调参；"预测 sidecar"（隔离容器 + 共享代理）解决 noisy neighbor；托管特征服务强制点时检索，消灭时间泄漏整类 bug。</li>
 <li><strong>Spotify</strong>：反事实评估 + 上下文 bandit 对抗过滤气泡；候选生成与排序解耦；"Paved Road" 的核心是<strong>血缘</strong>——能从静默回归追溯到产生它的数据/工作流状态；延迟决定计算位置：Discover Weekly 批量预计算、Home 屏 embedding 流式更新，实现 sub-100ms。</li>
 </ul>
-<h2 id="_28">生产调试与事件响应<a class="headerlink" href="#_28" title="Permanent link">&para;</a></h2>
-<h3 id="_29">事件分类<a class="headerlink" href="#_29" title="Permanent link">&para;</a></h3>
+<h2 id="_28">生产调试与事件响应</h2>
+<h3 id="_29">事件分类</h3>
 <p>四类，各类指路不同的第一检查点：<strong>数据事件</strong>（管道失败、schema 变更、质量退化、特征陈旧超 SLO——常表现为共享数据源的多个模型同时精度下降）、<strong>模型事件</strong>（精度退化、延迟尖峰、内存耗尽如 KV cache 增长、预测偏置——通常只影响单模型，多个无关模型同坏则怀疑共享数据/基础设施）、<strong>基础设施事件</strong>（GPU 故障、网络分区、负载均衡错配——错误率尖峰而非渐进退化）、<strong>业务指标事件</strong>（无明确技术原因的 KPI 异动——最难归因，可能是竞争/季节/营销等外部因素）。</p>
-<h3 id="_30">归因分析<a class="headerlink" href="#_30" title="Permanent link">&para;</a></h3>
+<h3 id="_30">归因分析</h3>
 <p>时间序回溯：查最近部署 → 查特征新鲜度 SLO → 查管道状态（如 Kafka 消费延迟 1000 万事件 vs 正常 1 万）→ 查底层（broker 磁盘 95% 满）。跨模型退化模式即诊断信号：</p>
 <table>
 <thead>
@@ -9360,15 +8815,15 @@
 </tr>
 </tbody>
 </table>
-<h3 id="runbook-pir">Runbook 与 PIR<a class="headerlink" href="#runbook-pir" title="Permanent link">&para;</a></h3>
+<h3 id="runbook-pir">Runbook 与 PIR</h3>
 <p>ML 系统静默失败：特征管道停滞后模型继续用陈旧特征返回 HTTP 200、延迟正常——基础设施检查全绿而预测质量在崩。因此 ML runbook 的诊断顺序与基础设施直觉<strong>相反</strong>：先查数据与语义健康（特征新鲜度、输入分布 vs 训练分布、近期模型版本变更），再下沉到基础设施。Runbook 反模式：过于具体（"BERT 失败就重启容器"）、过于含糊（"调查该问题"）、过时（指向已废弃系统）。PIR（事后复盘）的价值在于把一次事故变成更强的平台控制：关键问题不是"磁盘满了"，而是"为什么没有新鲜度门禁在业务指标异动前抓住停摆的管道"。要求心理安全：问哪个系统允许了事故发生、哪个信号本可更早检测，而非哪个人犯了错。</p>
-<h3 id="ml">分布式调试与 ML 值班<a class="headerlink" href="#ml" title="Permanent link">&para;</a></h3>
+<h3 id="ml">分布式调试与 ML 值班</h3>
 <p>NCCL 集合通信挂起是死锁（一个 rank 等永远不来的数据），无错误无崩溃只有静默——用 <code>NCCL_DEBUG=INFO</code> 等环境变量定位阻塞 rank。梯度不稳定症状表：loss NaN → 梯度爆炸（看梯度范数）；loss 卡住 → 梯度消失（逐层范数）；收敛慢 → 学习率失配（对比单卡基线）；rank 分歧 → 非确定性（对比各 rank loss）。OOM 须按 rank 追踪内存（聚合值掩盖真正越限的设备）；吞吐受最慢 rank 限制（掉队者：热节流、网络拥塞、数据加载不均、硬件退化）。</p>
 <p>ML 值班的结构性挑战：<strong>诊断专长不在一个人身上</strong>（症状是推荐指标降级，根因可能是上游 Kafka schema 变更）。成熟做法是分层/领域矩阵值班：主响应者 15–30 分钟内路由到正确领域，而非要求单人不遗漏。轮换设计：1 周轮换、主+备、30 分钟交接重叠、follow-the-sun 最长 8 小时班。告警疲劳治理：季度调阈值、去重关联告警为单页、告警附 runbook、追踪告警-行动比（目标 &gt;80%）。toil 目标 &lt;25% 值班时间；每省 10 分钟/次事故的自动化投入当季回本。</p>
 <blockquote>
 <p>战争故事：2021-10-04 Meta 骨干网一条评估命令意外切断数据中心互联，同时切断了 DNS 和内部工具——<strong>修复事故的工具依赖于正在宕机的系统</strong>。教训：控制平面本身是带爆炸半径的依赖，ML 平台的调度器/注册表/特征库/路由常共享同一套认证、DNS 和网络平面，须显式隔离。</p>
 </blockquote>
-<h2 id="_31">谬误与常见坑<a class="headerlink" href="#_31" title="Permanent link">&para;</a></h2>
+<h2 id="_31">谬误与常见坑</h2>
 <ol>
 <li><strong>谬误：运维复杂度随模型数线性增长。</strong> 实际超线性（依赖图、告警数学）——40 个模型按逐模型实践需要 1600 工程时/月（$2.88M/年）。</li>
 <li><strong>坑：每个模型每个指标独立告警。</strong> 数学上必然告警疲劳；解法是分级监控 + 组合聚合。</li>
@@ -9378,13 +8833,13 @@
 <li><strong>坑：所有特征默认走批管道。</strong> 批 T_freshness 12–24h vs 流式 1–5s；欺诈场景日级特征给对手 24 小时利用窗口。</li>
 <li><strong>谬误：技术债不可避免，等阻塞了再还。</strong> 阈值证据表明债务须在可 Redirect 时量化偿还，否则 toil 吃掉 70–80% 工程容量形成死亡螺旋。</li>
 </ol>
-<h2 id="_32">⚠️ 时效性说明<a class="headerlink" href="#_32" title="Permanent link">&para;</a></h2>
+<h2 id="_32">⚠️ 时效性说明</h2>
 <ul>
 <li>硬件价格与能效数据（H100 $2/GPU-h、DGX 节点 $350K、V100/A100 二手价、B200 规格、云商定价、placement group 上限）为教材写作时的示例性市场假设，实际随时间快速变化，用于理解方法论而非照搬报价。</li>
 <li>案例数据（FBLearner 600 万 QPS、Netflix 100× 采样效率等）引自各公司当时公开披露。</li>
 <li>工具生态（Kubeflow、TFX、Michelangelo 等）持续演进，模式比具体工具更耐用。</li>
 </ul>
-<h2 id="_33">参见<a class="headerlink" href="#_33" title="Permanent link">&para;</a></h2>
+<h2 id="_33">参见</h2>
 <ul>
 <li><a href="../09-ML%20Operations/">09-ML Operations</a> —— 单模型/小规模 ML 运维基础（本章是其规模化的续篇）</li>
 <li><a href="../14-%E5%A4%A7%E8%A7%84%E6%A8%A1%E6%8E%A8%E7%90%86/">14-大规模推理</a> —— 推理服务规模化机制，本章 TCO 中 𝐶_infer 的技术底层</li>
@@ -9447,7 +8902,7 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
