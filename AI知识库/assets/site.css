@@ -1,0 +1,276 @@
+/* ============================================================
+   AI 知识库 · 极简杂志风
+   纸白底 / 墨色字 / 衬线标题 / 细线分隔 / 大留白
+   ============================================================ */
+
+:root {
+  --paper: #faf9f5;          /* 纸白 */
+  --paper-2: #f3f1ea;        /* 纸灰（代码/表格底） */
+  --ink: #1c1b18;            /* 墨色 */
+  --ink-2: #55524a;          /* 次级墨 */
+  --ink-3: #8a857a;          /* 淡墨（辅助文字） */
+  --hairline: #ddd8cc;       /* 发丝线 */
+  --accent: #8c2f1b;         /* 唯一强调色：砖红，极少量使用 */
+}
+
+/* ---------- 全局 ---------- */
+body,
+.md-typeset {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
+    "Microsoft YaHei", sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.95;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 顶栏：白纸细线，无色块 ---------- */
+.md-header {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: none;
+  border-bottom: 1px solid var(--hairline);
+}
+.md-header .md-header__title {
+  font-family: "Songti SC", "Noto Serif SC", "STSong", serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.md-header .md-icon,
+.md-header svg,
+.md-search__icon svg {
+  color: var(--ink-2);
+}
+.md-search__input {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+.md-search__input::placeholder { color: var(--ink-3); }
+.md-search-result .md-typeset { background: var(--paper); }
+
+/* ---------- 侧栏：纯文字目录 ---------- */
+.md-sidebar {
+  border: none;
+}
+.md-sidebar--primary .md-nav__link {
+  color: var(--ink-2);
+  font-weight: 400;
+  margin-top: 0.15em;
+}
+.md-sidebar--primary .md-nav__item--nested > .md-nav__link {
+  font-family: "Songti SC", "Noto Serif SC", serif;
+  font-weight: 700;
+  color: var(--ink);
+}
+.md-sidebar--primary .md-nav__link:hover {
+  color: var(--ink);
+}
+.md-sidebar--primary .md-nav__link--active,
+.md-sidebar--primary .md-nav__item--active > .md-nav__link {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--accent);
+}
+/* 去掉 Material 的彩色指示条 */
+.md-sidebar .md-nav__item--active > .md-nav__link,
+.md-nav__item .md-nav__link--passed,
+.md-nav__item .md-nav__link--active {
+  box-shadow: none;
+}
+
+/* ---------- 正文 ---------- */
+.md-content {
+  box-shadow: none;
+}
+.md-content__inner {
+  padding: 2.2rem 1.6rem 4rem;
+}
+.md-main__inner {
+  margin-top: 0;
+}
+
+/* 文章标题：衬线大字 + 发丝线 */
+.md-typeset h1 {
+  font-family: "Songti SC", "Noto Serif SC", "STSong", serif;
+  font-weight: 900;
+  font-size: 2.1rem;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  margin: 0 0 0.4em;
+  padding-bottom: 0.45em;
+  border-bottom: 3px double var(--hairline);
+}
+/* 小节标题：衬线、编号已有 */
+.md-typeset h2 {
+  font-family: "Songti SC", "Noto Serif SC", serif;
+  font-weight: 800;
+  font-size: 1.32rem;
+  color: var(--ink);
+  margin-top: 2.6em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--hairline);
+}
+.md-typeset h3 {
+  font-family: "Songti SC", "Noto Serif SC", serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.md-typeset h4 {
+  color: var(--ink-2);
+  font-weight: 700;
+}
+
+/* 正文段落：放宽字距与行距，控制行长 */
+.md-typeset p {
+  letter-spacing: 0.015em;
+  margin: 0.9em 0;
+}
+
+/* 链接：墨色 + 淡下划线，悬停转砖红 */
+.md-typeset a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.md-typeset a:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+/* 引用块：一根竖线，不要底色 */
+.md-typeset blockquote {
+  border-left: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink-2);
+  padding: 0.1em 0 0.1em 1.1em;
+}
+.md-typeset blockquote p { margin: 0.35em 0; }
+
+/* 列表更透气 */
+.md-typeset ul li,
+.md-typeset ol li {
+  margin: 0.45em 0;
+}
+
+/* ---------- 表格：书页式三线表 ---------- */
+.md-typeset table:not([class]) {
+  background: transparent;
+  border: none;
+  border-top: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  font-size: 0.78rem;
+  box-shadow: none;
+}
+.md-typeset table:not([class]) th {
+  background: transparent;
+  color: var(--ink);
+  font-weight: 700;
+  border: none;
+  border-bottom: 1px solid var(--ink);
+  padding: 0.6em 0.9em;
+}
+.md-typeset table:not([class]) td {
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.55em 0.9em;
+}
+.md-typeset table:not([class]) tr:hover { background: rgba(0,0,0,0.02); }
+
+/* ---------- 代码：纸灰底、去花哨 ---------- */
+.md-typeset code {
+  background: var(--paper-2);
+  color: var(--ink);
+  border-radius: 2px;
+  padding: 0.12em 0.4em;
+  font-size: 0.86em;
+}
+.md-typeset pre > code {
+  background: var(--paper-2);
+}
+.md-typeset pre {
+  background: var(--paper-2);
+  border: 1px solid var(--hairline);
+}
+.md-typeset .highlighttable .linenos { color: var(--ink-3); }
+
+/* ---------- 标签页 / 提示块：统一为墨线 ---------- */
+.md-typeset .admonition,
+.md-typeset details {
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--ink);
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.78rem;
+}
+.md-typeset .admonition-title,
+.md-typeset summary {
+  background: transparent;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ---------- 右侧目录 ---------- */
+.md-sidebar--secondary .md-nav__link {
+  color: var(--ink-3);
+}
+.md-sidebar--secondary .md-nav__link:hover,
+.md-sidebar--secondary .md-nav__link--active {
+  color: var(--ink);
+}
+
+/* ---------- 首页封面 ---------- */
+.md-typeset .mag-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.5em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 0.2em;
+}
+.md-typeset .mag-sub {
+  color: var(--ink-2);
+  font-size: 0.92rem;
+  margin-top: -0.4em;
+}
+/* 首页域列表：双栏、去圆点 */
+@media (min-width: 76.25em) {
+  .md-typeset .mag-domains ul {
+    columns: 2;
+    column-gap: 3rem;
+  }
+}
+.md-typeset .mag-domains li {
+  list-style: none;
+  margin: 0.5em 0 !important;
+  break-inside: avoid;
+}
+
+/* ---------- 页脚与浮动件 ---------- */
+.md-footer {
+  background: var(--paper);
+  color: var(--ink-2);
+  border-top: 1px solid var(--hairline);
+}
+.md-footer-meta {
+  background: var(--paper);
+  color: var(--ink-3);
+}
+.md-top {
+  background: var(--paper);
+  color: var(--ink-2);
+  border: 1px solid var(--hairline);
+  box-shadow: none;
+}
+.md-top:hover { background: var(--paper-2); color: var(--ink); }
+.md-content__button.md-icon { color: var(--ink-3); }
+
+/* 滚动条也收进墨色世界 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--hairline); }
+::-webkit-scrollbar-track { background: transparent; }

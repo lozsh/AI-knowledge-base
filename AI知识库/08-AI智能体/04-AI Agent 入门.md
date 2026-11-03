@@ -1,6 +1,6 @@
 # AI Agent 入门
 
-> 来源：bojieli《AI Agent 入门课》第 1 章（wiki 化重写于 2026-11-03）
+> 来源：bojieli《AI Agent 入门课》第 1 章（更新于 2026-11-03）
 
 **一句话定义**：现代 AI Agent = LLM（大脑）+ 上下文（眼睛）+ 工具（手脚）；要让它从能跑的 Demo 变成可靠的产品，还需在模型之外加上约束、验证、纠正三层工程外壳，即 Harness（Agent = Model + Harness）。
 
