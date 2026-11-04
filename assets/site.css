@@ -53,6 +53,10 @@ body,
 .md-sidebar {
   border: none;
 }
+/* 侧栏顶部的站点名标题与顶栏重复，隐藏（顶栏标题即首页入口） */
+.md-nav--primary > .md-nav__title[for="__drawer"] {
+  display: none;
+}
 .md-sidebar--primary .md-nav__link {
   color: var(--ink-2);
   font-weight: 400;
