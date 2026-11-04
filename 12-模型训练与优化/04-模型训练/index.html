@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -8036,15 +8008,14 @@
 
 
 <h1 id="_1">模型训练</h1>
-<blockquote>
-<p>来源：原资料（ML 系统教材第 8 章，更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：模型训练系统是执行"前向 → 损失 → 反向 → 参数更新"迭代优化循环的软硬件系统；其工程核心是用铁律分解训练时间，定位计算/内存/数据/通信四类瓶颈，再用混合精度、FlashAttention、梯度累计、checkpointing、预取和并行策略逐一击破。</p>
 <p>训练与推理的成本极度不对称：推理一次只算一个前向，训练则要对每个样本做前向 + 反向（反向约为前向 2 倍计算量）+ 优化器更新（其状态可超过模型自身显存），再乘以数十亿次样本、多个 epoch 和多组超参。GPT-2 推理一次不到一分钱，而 GPT-4 级别的训练公开估计接近 1 亿美元。这个不对称是 AI 创新的守门人：三天能训完的团队比一个月训完的团队迭代快一个量级。对系统工程师而言，训练是硬件决策最重要、并行策略决定可行性、最贵的迭代循环要么加速要么拖垮整个项目的阶段。</p>
 <h2 id="_2">核心原理</h2>
 <h3 id="iron-law-of-training-performance">铁律（Iron Law of Training Performance）</h3>
-<p>$$T_{train} = \frac{O}{R_{peak} \times \eta_{hw}}$$</p>
-<p>其中 $O$ 是总操作数（FLOPs）、$R_{peak}$ 是硬件峰值吞吐、$\eta_{hw}$ 是利用率。这是通用铁律（$D_{vol}/BW$、$O/(R_{peak}\cdot\eta_{hw})$、$L_{lat}$ 三项）在训练场景的简化形式——前提是流水线正确分stage：数据搬运被预取重叠、通信被梯度重叠吸收，利用率成为主导杠杆；小 batch 或带宽受限时简化不再成立。</p>
+<div class="arithmatex">\[T_{train} = \frac{O}{R_{peak} \times \eta_{hw}}\]</div>
+<p>其中 <span class="arithmatex">\(O\)</span> 是总操作数（FLOPs）、<span class="arithmatex">\(R_{peak}\)</span> 是硬件峰值吞吐、<span class="arithmatex">\(\eta_{hw}\)</span> 是利用率。这是通用铁律（<span class="arithmatex">\(D_{vol}/BW\)</span>、<span class="arithmatex">\(O/(R_{peak}\cdot\eta_{hw})\)</span>、<span class="arithmatex">\(L_{lat}\)</span> 三项）在训练场景的简化形式——前提是流水线正确分stage：数据搬运被预取重叠、通信被梯度重叠吸收，利用率成为主导杠杆；小 batch 或带宽受限时简化不再成立。</p>
 <p>三个杠杆对应三类优化：</p>
 <table>
 <thead>
@@ -8057,47 +8028,47 @@
 <tbody>
 <tr>
 <td>混合精度 FP16/BF16</td>
-<td>$R_{peak}$ ↑</td>
+<td><span class="arithmatex">\(R_{peak}\)</span> ↑</td>
 <td>Tensor Core 峰值可达 FP32 的 16 倍</td>
 </tr>
 <tr>
 <td>数据预取</td>
-<td>$\eta_{hw}$ ↑</td>
+<td><span class="arithmatex">\(\eta_{hw}\)</span> ↑</td>
 <td>消除加速器等数据的空转</td>
 </tr>
 <tr>
 <td>梯度 checkpointing</td>
-<td>$O$ ↑（换内存）</td>
+<td><span class="arithmatex">\(O\)</span> ↑（换内存）</td>
 <td>增加重算，换取更大模型</td>
 </tr>
 <tr>
 <td>梯度累计</td>
-<td>$\eta_{hw}$ ↑</td>
+<td><span class="arithmatex">\(\eta_{hw}\)</span> ↑</td>
 <td>维持大有效 batch 的并行效率</td>
 </tr>
 <tr>
 <td>算子融合</td>
-<td>$\eta_{hw}$ ↑</td>
+<td><span class="arithmatex">\(\eta_{hw}\)</span> ↑</td>
 <td>减少内存带宽瓶颈</td>
 </tr>
 <tr>
 <td>FlashAttention</td>
-<td>内存流量 ↓、$\eta_{hw}$ ↑</td>
+<td>内存流量 ↓、<span class="arithmatex">\(\eta_{hw}\)</span> ↑</td>
 <td>同量级 FLOPs，HBM IO 大幅降低</td>
 </tr>
 </tbody>
 </table>
-<p>注意铁律只管执行效率：数据质量/数量/课程设计影响所需 $O$，干净的数据可以不碰硬件就缩短训练。峰值与实际训练速度的差距常为 2-3 倍。</p>
+<p>注意铁律只管执行效率：数据质量/数量/课程设计影响所需 <span class="arithmatex">\(O\)</span>，干净的数据可以不碰硬件就缩短训练。峰值与实际训练速度的差距常为 2-3 倍。</p>
 <h3 id="_3">训练负载的三个特征</h3>
 <ol>
-<li><strong>计算强度</strong>：GPT-2 级训练约 $1.5 \times 10^{21}$ FLOPs，需要持续 PFLOP/s 级吞吐，而实际大模型吞吐远低于理论峰值；</li>
+<li><strong>计算强度</strong>：GPT-2 级训练约 <span class="arithmatex">\(1.5 \times 10^{21}\)</span> FLOPs，需要持续 PFLOP/s 级吞吐，而实际大模型吞吐远低于理论峰值；</li>
 <li><strong>内存压力</strong>：权重 + 梯度 + 优化器状态 + 激活。Adam 下每个参数需要 FP16 权重 2B + FP16 梯度 2B + FP32 一二阶矩 8B（加 master weights 更多）≈ 12-16 字节/参数——7B 模型仅非激活状态就 84 GB，这是"单卡能推理、多卡才能训"的首要原因；</li>
 <li><strong>数据依赖</strong>：每步梯度更新依赖上一步，串行链限制可并行度。</li>
 </ol>
-<p>最常见误区：把训练失败当计算问题。最常见的失败其实是 OOM——内存管理问题：$N_L$ 层的激活张量在前向时全部累积，第一个梯度还没算出来就爆显存了。</p>
+<p>最常见误区：把训练失败当计算问题。最常见的失败其实是 OOM——内存管理问题：<span class="arithmatex">\(N_L\)</span> 层的激活张量在前向时全部累积，第一个梯度还没算出来就爆显存了。</p>
 <h2 id="_4">关键概念</h2>
 <h3 id="flops-gpt-2">FLOPs 记账（GPT-2 灯塔模型）</h3>
-<p>单个 Transformer 层（$B{=}32, S{=}1024, d{=}1600$）：QKV 投影 ≈503 GFLOP + 注意力两个 matmul ≈215 + 输出投影 ≈168 + FFN ≈1132，每层约 2.2 TFLOP；48 层约 320.8 TFLOP/步（前向），含反向（2×）约 1 PFLOP/步量级，5 万步共约 $1.6 \times 10^{22}$ FLOP。经验公式：训练 FLOPs ≈ 6 × 参数量 × token 数（前向 2，反向 4）。</p>
+<p>单个 Transformer 层（<span class="arithmatex">\(B{=}32, S{=}1024, d{=}1600\)</span>）：QKV 投影 ≈503 GFLOP + 注意力两个 matmul ≈215 + 输出投影 ≈168 + FFN ≈1132，每层约 2.2 TFLOP；48 层约 320.8 TFLOP/步（前向），含反向（2×）约 1 PFLOP/步量级，5 万步共约 <span class="arithmatex">\(1.6 \times 10^{22}\)</span> FLOP。经验公式：训练 FLOPs ≈ 6 × 参数量 × token 数（前向 2，反向 4）。</p>
 <h3 id="_5">优化器的系统代价</h3>
 <table>
 <thead>
@@ -8135,18 +8106,18 @@
 </tr>
 </tbody>
 </table>
-<p>Adam 维护两个动量缓冲：$m_t = \beta_1 m_{t-1} + (1-\beta_1)g_t$，$v_t = \beta_2 v_{t-1} + (1-\beta_2)g_t^2$，经偏差修正后 $\theta_{t+1} = \theta_t - \eta\,\hat{m}_t/(\sqrt{\hat{v}_t}+\epsilon)$。GPT-2 XL（1.5B）FP32 下：参数 6 GB + 梯度 6 GB + Adam 状态 12 GB = 静态 24 GB，还没算激活。AdamW 解耦权重衰减（不增内存、改善泛化），是 Transformer 训练默认。内存紧张时的替代：Adafactor（分解二阶矩）、8-bit 优化器、GaLoRE（低秩空间算更新）。</p>
+<p>Adam 维护两个动量缓冲：<span class="arithmatex">\(m_t = \beta_1 m_{t-1} + (1-\beta_1)g_t\)</span>，<span class="arithmatex">\(v_t = \beta_2 v_{t-1} + (1-\beta_2)g_t^2\)</span>，经偏差修正后 <span class="arithmatex">\(\theta_{t+1} = \theta_t - \eta\,\hat{m}_t/(\sqrt{\hat{v}_t}+\epsilon)\)</span>。GPT-2 XL（1.5B）FP32 下：参数 6 GB + 梯度 6 GB + Adam 状态 12 GB = 静态 24 GB，还没算激活。AdamW 解耦权重衰减（不增内存、改善泛化），是 Transformer 训练默认。内存紧张时的替代：Adafactor（分解二阶矩）、8-bit 优化器、GaLoRE（低秩空间算更新）。</p>
 <h3 id="batch-size-batch-size">Batch size 与关键 batch size</h3>
 <ul>
-<li>batch 增大降噪 $\sigma \propto 1/\sqrt{B}$，提高算术强度，把运算推入 compute-bound 区；</li>
-<li>存在<strong>关键 batch size</strong>（ResNet-50/ImageNet 约 8192）：超过后梯度质量收益递减，需线性缩放学习率（$\eta \propto B$）；线性规则只在关键 batch 内成立，超过后即使完美缩放验证精度也下降；</li>
-<li>内存公式：总内存 = 参数 + 梯度 + $B \times$ 激活。激活随 $B$ 线性增长，是 batch 上限的决定项。</li>
+<li>batch 增大降噪 <span class="arithmatex">\(\sigma \propto 1/\sqrt{B}\)</span>，提高算术强度，把运算推入 compute-bound 区；</li>
+<li>存在<strong>关键 batch size</strong>（ResNet-50/ImageNet 约 8192）：超过后梯度质量收益递减，需线性缩放学习率（<span class="arithmatex">\(\eta \propto B\)</span>）；线性规则只在关键 batch 内成立，超过后即使完美缩放验证精度也下降；</li>
+<li>内存公式：总内存 = 参数 + 梯度 + <span class="arithmatex">\(B \times\)</span> 激活。激活随 <span class="arithmatex">\(B\)</span> 线性增长，是 batch 上限的决定项。</li>
 </ul>
 <h3 id="checkpointing">激活内存与 checkpointing</h3>
-<p>反向传播需要前向的中间激活，内存 = $B \times \sum_{\ell=1}^{N_L}(s_\ell + a_\ell)$。GPT-2 单步激活可达 71.7 GB（注意力分数项 $5 \times N_{heads} \times S^2 \times B$ 是主导项，随序列长度平方增长）。</p>
-<p>梯度 checkpointing 只在检查点层存激活，反向时从最近检查点重算其余部分。每 $\sqrt{N_L}$ 层设一个检查点，峰值激活从 $\mathcal{O}(N_L)$ 降到 $\mathcal{O}(\sqrt{N_L})$，代价约 33% 额外前向计算——GPT-2 48 层约 7 个检查点，内存省 71%。选择性 checkpointing：注意力层（激活大）值得重算，LayerNorm（激活小）不值得。</p>
+<p>反向传播需要前向的中间激活，内存 = <span class="arithmatex">\(B \times \sum_{\ell=1}^{N_L}(s_\ell + a_\ell)\)</span>。GPT-2 单步激活可达 71.7 GB（注意力分数项 <span class="arithmatex">\(5 \times N_{heads} \times S^2 \times B\)</span> 是主导项，随序列长度平方增长）。</p>
+<p>梯度 checkpointing 只在检查点层存激活，反向时从最近检查点重算其余部分。每 <span class="arithmatex">\(\sqrt{N_L}\)</span> 层设一个检查点，峰值激活从 <span class="arithmatex">\(\mathcal{O}(N_L)\)</span> 降到 <span class="arithmatex">\(\mathcal{O}(\sqrt{N_L})\)</span>，代价约 33% 额外前向计算——GPT-2 48 层约 7 个检查点，内存省 71%。选择性 checkpointing：注意力层（激活大）值得重算，LayerNorm（激活小）不值得。</p>
 <h3 id="roofline">算术强度与 Roofline</h3>
-<p>$$\text{Arithmetic Intensity} = \frac{\text{FLOPs}}{\text{bytes moved}}$$</p>
+<div class="arithmatex">\[\text{Arithmetic Intensity} = \frac{\text{FLOPs}}{\text{bytes moved}}\]</div>
 <p>高于硬件脊点（ridge point）为 compute-bound，低于为 memory-bound：</p>
 <table>
 <thead>
@@ -8159,7 +8130,7 @@
 <tbody>
 <tr>
 <td>大矩阵乘</td>
-<td>$\mathcal{O}(n)$ FLOP/byte</td>
+<td><span class="arithmatex">\(\mathcal{O}(n)\)</span> FLOP/byte</td>
 <td>compute-bound</td>
 </tr>
 <tr>
@@ -8181,7 +8152,7 @@
 </table>
 <p>这就是为什么换更快的激活函数几乎不省时间（瓶颈在内存搬运），也是混合精度有效的原因之一：数值减半等于带宽翻倍。</p>
 <h3 id="flops-mfu">模型 FLOPs 利用率（MFU）</h3>
-<p>$$MFU = \frac{O_{model}}{R_{peak} \times T_{step}}$$</p>
+<div class="arithmatex">\[MFU = \frac{O_{model}}{R_{peak} \times T_{step}}\]</div>
 <p>只计对收敛有用的模型 FLOPs（不含重算与 padding），跨硬件可比。生产系统典型 30-50%；PaLM 540B 在 6144 块 TPUv4 上 46.2%；实用上限约 55-65%（需 FlashAttention + 调好的 batch）。低于 30% 说明存在可定位的瓶颈。</p>
 <h2 id="_6">分类/类型：四类瓶颈与对应解法</h2>
 <table>
@@ -8218,7 +8189,7 @@
 <p>数据受限最常被误诊：MFU 40% + GPU 轨迹满是空隙看着像硬件问题，根因常是输入管线的串行化（如 Python GIL 锁死单线程数据加载）。诊断工具：PyTorch Profiler / TF Profiler（框架时间线）、Nsight Systems（系统级）、Nsight Compute（内核级）。方法论是循环：profile → 定位瓶颈 → 对症下药 → 重新 profile。</p>
 <h2 id="_7">核心优化技术</h2>
 <h3 id="_8">数据预取与重叠</h3>
-<p>随机访问 shuffle 使有效存储带宽只有峰值的约 10%（$R_{eff} = R_{storage} \times F_{access}$）；GPU 等 JPEG 解码/tokenization 时整卡空转。预取让读数据、预处理、训练三段流水线并行，迭代时间从各段之和变成最慢段（$T_{iter} = \max(T_{fetch}, T_{process}, T_{transfer})$）——串行 105 s → 重叠 55 s（省 47.6%）。PyTorch 参数：<code>num_workers</code>（CPU 并行度）+ <code>prefetch_factor</code>（缓冲深度）；起点设 num_workers = CPU 核数，再用 profile 验证 GPU 不再等数据。代价是缓冲占内存。</p>
+<p>随机访问 shuffle 使有效存储带宽只有峰值的约 10%（<span class="arithmatex">\(R_{eff} = R_{storage} \times F_{access}\)</span>）；GPU 等 JPEG 解码/tokenization 时整卡空转。预取让读数据、预处理、训练三段流水线并行，迭代时间从各段之和变成最慢段（<span class="arithmatex">\(T_{iter} = \max(T_{fetch}, T_{process}, T_{transfer})\)</span>）——串行 105 s → 重叠 55 s（省 47.6%）。PyTorch 参数：<code>num_workers</code>（CPU 并行度）+ <code>prefetch_factor</code>（缓冲深度）；起点设 num_workers = CPU 核数，再用 profile 验证 GPU 不再等数据。代价是缓冲占内存。</p>
 <h3 id="_9">混合精度训练</h3>
 <p>FP16/BF16 算，FP32 存 master weights 与敏感累加。六步循环：FP32 master cast 到 FP16 → 前向 → loss 缩放 → 反向 → 梯度拷回 FP32 并 unscale → 更新 master weights。</p>
 <table>
@@ -8263,16 +8234,16 @@
 <li>硬件波量子效应（wave quantization）提醒：batch 和隐藏维度取 32/64 的倍数，batch=33 和 64 跑一样快但利用率减半。</li>
 </ul>
 <h3 id="flashattention">FlashAttention</h3>
-<p>标准注意力要在 HBM 里物化 $S \times S$ 分数矩阵并反复读写——$S{=}4096$ 单头 FP32 就 67 MB，注意力执行时间的 70-80% 在等内存。FlashAttention 的洞察是把注意力当 <strong>IO 问题</strong>而非计算问题：Q/K/V 分块装入 SRAM（快 10 倍但仅 20-40 MB），用 online softmax（维护 running max $m$ 和分母 $l$，块到达时增量更新并重缩放累积输出），$S \times S$ 矩阵从不写入 HBM。</p>
+<p>标准注意力要在 HBM 里物化 <span class="arithmatex">\(S \times S\)</span> 分数矩阵并反复读写——<span class="arithmatex">\(S{=}4096\)</span> 单头 FP32 就 67 MB，注意力执行时间的 70-80% 在等内存。FlashAttention 的洞察是把注意力当 <strong>IO 问题</strong>而非计算问题：Q/K/V 分块装入 SRAM（快 10 倍但仅 20-40 MB），用 online softmax（维护 running max <span class="arithmatex">\(m\)</span> 和分母 <span class="arithmatex">\(l\)</span>，块到达时增量更新并重缩放累积输出），<span class="arithmatex">\(S \times S\)</span> 矩阵从不写入 HBM。</p>
 <ul>
-<li>激活内存 $\mathcal{O}(S^2) \to \mathcal{O}(S)$（$S{=}4096$ 时单头 67 MB → 3.1 MB）；</li>
-<li>FLOPs 不变（仍是 $\mathcal{O}(S^2 d)$，反向多一次重算），但 HBM 流量大幅降低，把运算从 memory-bound 移到 compute-bound，端到端 2-4× 加速；FlashAttention-2 再提速 1.5-2×（达 A100 峰值 50-73%），FA-3 用 FP8 + 异步在 H100 上约 740 TFLOP/s（75% 峰值）；</li>
+<li>激活内存 <span class="arithmatex">\(\mathcal{O}(S^2) \to \mathcal{O}(S)\)</span>（<span class="arithmatex">\(S{=}4096\)</span> 时单头 67 MB → 3.1 MB）；</li>
+<li>FLOPs 不变（仍是 <span class="arithmatex">\(\mathcal{O}(S^2 d)\)</span>，反向多一次重算），但 HBM 流量大幅降低，把运算从 memory-bound 移到 compute-bound，端到端 2-4× 加速；FlashAttention-2 再提速 1.5-2×（达 A100 峰值 50-73%），FA-3 用 FP8 + 异步在 H100 上约 740 TFLOP/s（75% 峰值）；</li>
 <li>使用门槛低：<code>F.scaled_dot_product_attention</code> 一行替换；配合 checkpointing 可训 4-8× 更大模型 / 4× 更长上下文；</li>
 <li>适用性：长序列 Transformer 收益最大；短序列、老 GPU、CNN/MLP 收益小。</li>
 <li>更广的原则是 <strong>IO-aware 算法设计</strong>：算力相对带宽过剩时，运行时间由字节搬运而非 FLOP 数决定——同样的逻辑出现在分块 GEMM（CUTLASS）、梯度压缩和边缘设备节能中。</li>
 </ul>
 <h3 id="_10">梯度累计</h3>
-<p>把有效 batch $B = k \times b$ 拆成 $k$ 个 micro-batch，各自算梯度累加，凑齐 $k$ 个后一次 optimizer.step()。梯度可加性保证数学等价（loss 除以 $k$ 的平均约定下无需调学习率；若用求和约定则学习率要除 $k$——框架约定不一，是常见 bug 源）。BatchNorm/dropout/有限精度累加顺序会破坏严格等价，大 batch 需验证。GPT-2 例子：目标有效 batch 512，V100 只装得下 16 → 8 卡 × (16×4 累计) = 512，成本从 $512/h（32 卡）降到 $128/h，通信次数也降 4×，困惑度差异 0.5% 以内。配合 <code>no_sync()</code> 在非最后 micro-batch 抑制 AllReduce。</p>
+<p>把有效 batch <span class="arithmatex">\(B = k \times b\)</span> 拆成 <span class="arithmatex">\(k\)</span> 个 micro-batch，各自算梯度累加，凑齐 <span class="arithmatex">\(k\)</span> 个后一次 optimizer.step()。梯度可加性保证数学等价（loss 除以 <span class="arithmatex">\(k\)</span> 的平均约定下无需调学习率；若用求和约定则学习率要除 <span class="arithmatex">\(k\)</span>——框架约定不一，是常见 bug 源）。BatchNorm/dropout/有限精度累加顺序会破坏严格等价，大 batch 需验证。GPT-2 例子：目标有效 batch 512，V100 只装得下 16 → 8 卡 × (16×4 累计) = 512，成本从 $512/h（32 卡）降到 $128/h，通信次数也降 4×，困惑度差异 0.5% 以内。配合 <code>no_sync()</code> 在非最后 micro-batch 抑制 AllReduce。</p>
 <h3 id="gpt-2">GPT-2 单机优化全流程（走查）</h3>
 <p>FP32 + batch 4 基线 95.7 GB（V100 32 GB 爆）→ 混合精度 59.9 GB（仍不够）→ + checkpointing 33 GB（放得下，代价 33% 计算）→ profile 发现利用率仅 45%、数据加载占 40% 时间 → 8 workers + pinned memory + prefetch_factor=2 → 利用率 85%、1200 token/s、每 epoch 8.3 小时。批次 32 时优化后仍需 95.7 GB——单机极限已到，该扩了。集群级汇总：内存 597.8 GB → 95.7 GB（6×），训练时间 14 天 → 8.4 天，能耗 3914 → 2348 kWh，碳排 1.7 t → 1.01 t。</p>
 <h2 id="_11">扩展到多机</h2>
@@ -8338,7 +8309,7 @@
 <tbody>
 <tr>
 <td>铁律</td>
-<td>$T = O/(R_{peak} \times \eta_{hw})$，训练时间的三项分解</td>
+<td><span class="arithmatex">\(T = O/(R_{peak} \times \eta_{hw})\)</span>，训练时间的三项分解</td>
 </tr>
 <tr>
 <td>MFU</td>
@@ -8450,6 +8421,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

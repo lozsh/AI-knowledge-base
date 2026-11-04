@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7858,9 +7830,8 @@
 
 
 <h1 id="_1">自然语言处理：预训练</h1>
-<blockquote>
-<p>来源：原资料（《动手学深度学习》第 14 章"自然语言处理：预训练"，更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：NLP 预训练是利用大型语料库上的自监督学习（用文本的一部分预测另一部分，无需人工标注）为词元学习向量表示的技术谱系——从上下文无关的 word2vec/GloVe/fastText，到上下文敏感的 BERT。</p>
 <h2 id="_2">概述</h2>
 <p>计算机要理解人类语言，第一步是学习文本的<strong>表示</strong>。自监督预训练的思路是：用周围文本预测隐藏部分（或反过来），海量文本天然成为训练数据，省去昂贵的标注。预训练好的文本表示可放入各种深度学习架构，服务于不同的下游 NLP 任务。</p>
@@ -7872,15 +7843,15 @@
 <h3 id="_4">两个模型：跳元与连续词袋</h3>
 <p>word2vec（Mikolov et al., 2013）含两个自监督模型，均依赖条件概率，每词有两个 d 维向量：中心词向量 v_i 和上下文词向量 u_i。</p>
 <p><strong>跳元模型（Skip-Gram）</strong>：假设中心词生成周围词。以"the man loves his son"为例，中心词"loves"、窗口 2，在条件独立假设下：</p>
-<p>$$P(w_o \mid w_c) = \frac{\exp(\mathbf{u}<em>o^\top \mathbf{v}_c)}{\sum</em>{i \in V} \exp(\mathbf{u}_i^\top \mathbf{v}_c)}$$</p>
+<div class="arithmatex">\[P(w_o \mid w_c) = \frac{\exp(\mathbf{u}_o^\top \mathbf{v}_c)}{\sum_{i \in V} \exp(\mathbf{u}_i^\top \mathbf{v}_c)}\]</div>
 <p>对长度 T 的序列、窗口 m，最大化似然即最小化损失 −Σ_t Σ_{−m≤j≤m, j≠0} log P(w^{(t+j)} | w^{(t)})。<strong>应用中跳元模型的中心词向量用作词表示</strong>。</p>
 <p><strong>连续词袋（CBOW）</strong>：方向相反，用上下文词预测中心词，多个上下文词向量先<strong>取平均</strong>再算 softmax：</p>
-<p>$$P(w_c \mid w_{o_1},\dots,w_{o_{2m}}) = \frac{\exp(\mathbf{u}<em>c^\top \bar{\mathbf{v}}_o)}{\sum</em>{i \in V} \exp(\mathbf{u}<em>i^\top \bar{\mathbf{v}}_o)},\quad \bar{\mathbf{v}}_o = \frac{1}{2m}\sum</em>{j=1}^{2m}\mathbf{v}_{o_j}$$</p>
+<div class="arithmatex">\[P(w_c \mid w_{o_1},\dots,w_{o_{2m}}) = \frac{\exp(\mathbf{u}_c^\top \bar{\mathbf{v}}_o)}{\sum_{i \in V} \exp(\mathbf{u}_i^\top \bar{\mathbf{v}}_o)},\quad \bar{\mathbf{v}}_o = \frac{1}{2m}\sum_{j=1}^{2m}\mathbf{v}_{o_j}\]</div>
 <p>CBOW 通常用<strong>上下文词向量</strong>作为词表示。</p>
 <h2 id="_5">近似训练</h2>
 <p>softmax 的分母要对<strong>整个词表</strong>（几十万到数百万词）求和，梯度计算代价巨大。两种近似方法：</p>
 <p><strong>负采样（Negative Sampling）</strong>：改写目标函数为二分类——真实上下文词为正例（σ(u_oᵀv_c)），再从预定义分布 P(w) 采 K 个噪声词为负例。对数损失变为：</p>
-<p>$$-\log \sigma(\mathbf{u}<em>{i_t+j}^\top \mathbf{v}</em>{i_t}) - \sum_{k=1}^{K} \log \sigma(-\mathbf{u}<em>{h_k}^\top \mathbf{v}</em>{i_t})$$</p>
+<div class="arithmatex">\[-\log \sigma(\mathbf{u}_{i_t+j}^\top \mathbf{v}_{i_t}) - \sum_{k=1}^{K} \log \sigma(-\mathbf{u}_{h_k}^\top \mathbf{v}_{i_t})\]</div>
 <p>每步梯度成本与词表大小无关，线性依赖 K。噪声词采样概率实践上取词频的 0.75 次幂（word2vec 论文建议）。</p>
 <p><strong>层序 Softmax（Hierarchical Softmax）</strong>：把词表放进二叉树，每个叶节点一个词；条件概率分解为从根到叶路径上每步"向左/向右"的 sigmoid 判定之积。路径长度 L(w)−1 约为 O(log₂|V|)，训练成本降为词表大小的对数。</p>
 <h2 id="ptb">预训练数据集与工程流程（以 PTB + 跳元 + 负采样为例）</h2>
@@ -7888,7 +7859,7 @@
 <li><strong>读取与建词表</strong>：Penn Tree Bank（PTB，华尔街日报文章，42069 句），出现次数 &lt; 10 的词替换为 <code>&lt;unk&gt;</code>，词表 6719。</li>
 <li><strong>下采样（Subsampling）</strong>：高频词（the/a/in）共现信息少、拖慢训练，按概率丢弃：</li>
 </ol>
-<p>$$P(w_i) = \max\left(1 - \sqrt{\frac{t}{f(w_i)}},\ 0\right)$$</p>
+<p>$<span class="arithmatex">\(P(w_i) = \max\left(1 - \sqrt{\frac{t}{f(w_i)}},\ 0\right)\)</span>$</p>
 <p>其中 f(w_i) 是词的相对频率，t ≈ 10⁻⁴。效果："the" 从 50770 次降到 2056 次（不到 1/20），低频词 "join"（45 次）完全保留。
 3. <strong>提取中心词-上下文词对</strong>：每个位置随机采样 1 到 max_window_size（PTB 上取 5）之间的窗口，收集约 150 万对。
 4. <strong>负采样</strong>：每对上下文词配 K=5 个噪声词（词频^0.75 加权采样，排除真实上下文词）。
@@ -7897,7 +7868,7 @@
 7. <strong>应用</strong>：用词向量余弦相似度找最近词，如 "chip" → microprocessor(0.773)、hitachi、computers。</p>
 <h2 id="glove">GloVe：全局向量的词嵌入</h2>
 <p>GloVe（Pennington et al., 2014）用<strong>全局共现统计</strong>重新解释跳元模型：x_ij 为词 w_j 与中心词 w_i 在整个语料库的共现计数。因交叉熵损失对大语料中的罕见事件权重过高且需全词表归一化，GloVe 改用加权平方损失拟合共现计数的对数：</p>
-<p>$$\sum_{i \in V}\sum_{j \in V} h(x_{ij})\left(\mathbf{u}<em>j^\top \mathbf{v}_i + b_i + c_j - \log x</em>{ij}\right)^2$$</p>
+<div class="arithmatex">\[\sum_{i \in V}\sum_{j \in V} h(x_{ij})\left(\mathbf{u}_j^\top \mathbf{v}_i + b_i + c_j - \log x_{ij}\right)^2\]</div>
 <p>权重函数 h(x)：x &lt; c（c=100）时取 (x/c)^α（α=0.75），否则取 1；h(0)=0 使零共现项可直接省略。</p>
 <p><strong>理解角度——共现概率比值</strong>：以 ice/steam 为例，P(solid|ice)/P(solid|steam)=8.9（与 ice 相关的词比值大）、gas 为 0.085（与 steam 相关）、water 为 1.36、fashion 为 0.96（无关词接近 1）。比值能直观表达词间关系，GloVe 用 exp(uⱼᵀv_i) 拟合这个比值。</p>
 <p>对称性：共现计数 x_ij = x_ji，GloVe 中中心词向量与上下文词向量数学上等价，实际因初始化不同而异，<strong>输出时取两者之和</strong>。</p>
@@ -8107,6 +8078,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

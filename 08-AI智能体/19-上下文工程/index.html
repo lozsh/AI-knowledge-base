@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -2851,10 +2823,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_9" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 记忆与检索
       
     </span>
   </a>
@@ -7664,10 +7636,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_9" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 记忆与检索
       
     </span>
   </a>
@@ -7692,9 +7664,8 @@
 
 
 <h1 id="_1">上下文工程</h1>
-<blockquote>
-<p>来源：原资料（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：上下文工程（Context Engineering）是在每次模型调用前，以可复用、可度量、可演进的方式拼装并优化输入上下文的工程方法——核心是管理 LLM 有限的"注意力预算"。</p>
 <p>提示工程关注"如何写出有效提示"；上下文工程是它的自然演进：在推理阶段策划与维护"最优的信息集合（tokens）"，涵盖系统指令、工具、MCP、外部数据、消息历史等一切进入上下文窗口的内容。循环运行的 Agent 会不断产生下一轮可能相关的数据，上下文工程的"艺与术"就在于：从持续扩张的候选信息宇宙中，甄别哪些内容应进入有限的上下文窗口。</p>
 <p><strong>为什么重要——上下文腐蚀（context rot）</strong>：针堆找针类基准揭示，随着上下文 tokens 增加，模型准确回忆信息的能力反而下降。上下文是有限资源且边际收益递减——LLM 也有一笔"注意力预算"。根源在架构：Transformer 的两两注意力关系随长度增长被"拉薄"；训练数据中短序列远多于长序列，模型对全上下文依赖的经验更少；位置编码插值等技术可外推更长序列但牺牲位置精度。综合效果是性能梯度而非悬崖式崩溃——长上下文下依旧强大，但检索与长程推理精度下降。</p>
@@ -7786,9 +7757,8 @@
 <li>理论部分主要取自 Anthropic《Effective Context Engineering for AI Agents》与开源 Context-Engineering 仓库，属 2025 前后的业界共识；此后出现的更新实践（如更细粒度的注意力预算管理）未包含。</li>
 <li>Jaccard 关键词相关性、字符比例 token 估算是教学简化实现，生产环境应替换为向量相似度与精确 tokenizer。</li>
 </ul>
-<h2 id="_9">参见</h2>
+<h2 id="-">参见- <a href="../18-%E8%AE%B0%E5%BF%86%E4%B8%8E%E6%A3%80%E7%B4%A2/">记忆与检索</a></h2>
 <ul>
-<li><a href="../18-%E8%AE%B0%E5%BF%86%E4%B8%8E%E6%A3%80%E7%B4%A2/">记忆与检索</a></li>
 <li><a href="../22-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B%E6%B7%B1%E5%85%A5/">上下文工程深入</a></li>
 <li><a href="../17-Coding%20Agent%20%E4%B8%8E%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90/">Coding Agent 与代码生成</a></li>
 <li><a href="../24-%E5%B7%A5%E5%85%B7/">工具</a></li>
@@ -7856,6 +7826,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

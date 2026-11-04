@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7770,9 +7742,8 @@
 
 
 <h1 id="q-learning-ppo">经典强化学习算法谱系：从 Q-Learning 到 PPO</h1>
-<blockquote>
-<p>更新于 2026-11-03</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：经典深度强化学习算法沿"值函数派 → 策略梯度派 → 演员-评论员 → PPO"的主线演化，每一步都是为了治上一代的病：表格装不下状态空间、回报方差太大、策略一步迈太大把数据分布带崩。</p>
 <h2 id="_1">概述</h2>
 <p><a href="../01-%E5%9C%A8%E8%AF%95%E9%94%99%E4%B8%AD%E6%88%90%E9%95%BF%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/">RL 概览</a>按"学什么"分了派别，<a href="../11-%E8%B4%9D%E5%B0%94%E6%9B%BC%E6%96%B9%E7%A8%8B%E4%B8%8E%E5%80%BC%E5%87%BD%E6%95%B0%E6%B1%82%E8%A7%A3/">贝尔曼方程篇</a>给了数学地基。本篇沿<strong>动机链</strong>把主要算法串成一条河：每个新算法都针对前代的一个具体病灶。理解"为什么出现"，比记住"怎么算"更重要——这条动机链也一直延伸到大模型后训练（PPO 至今仍是 RLHF 的主力，见<a href="../13-RLHF%E4%B8%8E%E5%AF%B9%E9%BD%90%E7%AE%97%E6%B3%95/">RLHF 与对齐算法</a>）。</p>
@@ -7785,32 +7756,32 @@
 </code></pre></div>
 <h2 id="_2">核心原理</h2>
 <h3 id="dqn-q">DQN：把 Q 表换成神经网络</h3>
-<p><strong>病灶</strong>：悬崖行走几十个格子可以填表，但像素级游戏画面、围棋 $10^{170}$ 量级局面根本无法枚举（状态空间远超宇宙原子数的 $10^{80}$）。</p>
-<p><strong>药方</strong>（DeepMind，2013/2015 Nature）：一个卷积网络吃进状态（如堆叠的 4 帧 84×84 灰度图，让网络看得出物体运动方向），输出每个动作的 Q 值，训练目标是逼近 TD 目标 $r + \gamma \max_{a'} Q(s',a';\theta^-)$。</p>
+<p><strong>病灶</strong>：悬崖行走几十个格子可以填表，但像素级游戏画面、围棋 <span class="arithmatex">\(10^{170}\)</span> 量级局面根本无法枚举（状态空间远超宇宙原子数的 <span class="arithmatex">\(10^{80}\)</span>）。</p>
+<p><strong>药方</strong>（DeepMind，2013/2015 Nature）：一个卷积网络吃进状态（如堆叠的 4 帧 84×84 灰度图，让网络看得出物体运动方向），输出每个动作的 Q 值，训练目标是逼近 TD 目标 <span class="arithmatex">\(r + \gamma \max_{a'} Q(s',a';\theta^-)\)</span>。</p>
 <p><strong>为什么朴素做法会崩，以及两大稳定化技巧</strong>：</p>
 <ol>
-<li><strong>经验回放（Experience Replay）</strong>：把 $(s,a,r,s')$ 存进大缓冲区，训练时随机抽小批量。治两个病——<em>样本相关性</em>（连续帧几乎一样，直接顺序训练等于给网络喂重复数据，违反 SGD 的独立同分布假设）；<em>数据浪费</em>（一条轨迹只学一遍太贵，回放让珍贵交互被反复利用）。</li>
-<li><strong>目标网络（Target Network）</strong>：TD 目标里的 $Q(s',a';\theta^-)$ 用一份<strong>滞后更新</strong>的参数。没有它，目标随 $\theta$ 每步都在动，等于"追着自己的影子跑"，Q 值容易一路外推发散。主网络每 N 步才同步一次目标网络，让"靶子"短暂静止。</li>
+<li><strong>经验回放（Experience Replay）</strong>：把 <span class="arithmatex">\((s,a,r,s')\)</span> 存进大缓冲区，训练时随机抽小批量。治两个病——<em>样本相关性</em>（连续帧几乎一样，直接顺序训练等于给网络喂重复数据，违反 SGD 的独立同分布假设）；<em>数据浪费</em>（一条轨迹只学一遍太贵，回放让珍贵交互被反复利用）。</li>
+<li><strong>目标网络（Target Network）</strong>：TD 目标里的 <span class="arithmatex">\(Q(s',a';\theta^-)\)</span> 用一份<strong>滞后更新</strong>的参数。没有它，目标随 <span class="arithmatex">\(\theta\)</span> 每步都在动，等于"追着自己的影子跑"，Q 值容易一路外推发散。主网络每 N 步才同步一次目标网络，让"靶子"短暂静止。</li>
 </ol>
 <p><strong>战绩</strong>：同一套架构从零学玩 49 个 Atari 游戏，只看屏幕和分数。经典桥段是《打砖块》：DQN 自己发现了人类玩家也会用的"隧道阴招"——把球打到砖墙侧面钻到墙后疯狂反弹。这第一次让研究者真切看到，深度 RL 不只是记动作，而是<strong>从经验里发现策略</strong>。</p>
 <h3 id="_3">策略梯度：不估分，直接学招式</h3>
 <p><strong>病灶</strong>：机器人扭矩、方向盘角度是连续值，值函数派要"对所有动作取 max"，但连续空间有无穷多个动作，取不了。</p>
-<p><strong>药方</strong>：直接参数化策略 $\pi_\theta(a|s)$，沿"让好动作概率更大"的方向调参数。策略梯度定理给出梯度：</p>
-<p>$$\nabla_\theta J(\theta) = \mathbb{E}<em>{\tau\sim\pi</em>\theta}\Big[\sum_t \nabla_\theta \log \pi_\theta(a_t|s_t) \cdot G_t\Big]$$</p>
-<p>直觉读法：$\log \pi_\theta(a_t|s_t)$ 的梯度指向"提高动作 $a_t$ 概率的方向"，乘上回报 $G_t$ 作权重——<strong>回报高的轨迹，整条上的动作概率都调大；回报低就调小</strong>。这就是 REINFORCE 算法，朴素得近乎天真。</p>
+<p><strong>药方</strong>：直接参数化策略 <span class="arithmatex">\(\pi_\theta(a|s)\)</span>，沿"让好动作概率更大"的方向调参数。策略梯度定理给出梯度：</p>
+<div class="arithmatex">\[\nabla_\theta J(\theta) = \mathbb{E}_{\tau\sim\pi_\theta}\Big[\sum_t \nabla_\theta \log \pi_\theta(a_t|s_t) \cdot G_t\Big]\]</div>
+<p>直觉读法：<span class="arithmatex">\(\log \pi_\theta(a_t|s_t)\)</span> 的梯度指向"提高动作 <span class="arithmatex">\(a_t\)</span> 概率的方向"，乘上回报 <span class="arithmatex">\(G_t\)</span> 作权重——<strong>回报高的轨迹，整条上的动作概率都调大；回报低就调小</strong>。这就是 REINFORCE 算法，朴素得近乎天真。</p>
 <p><strong>两个后患与两副药</strong>：</p>
 <ul>
-<li><em>方差巨大</em>：一整局游戏的随机性全压在每个动作的权重上，同一条策略采两条轨迹回报可能差一个数量级。<strong>药 1：减 baseline</strong>，把 $G_t$ 换成 $G_t - b(s_t)$，不影响梯度期望但大幅降方差；<strong>药 2：优势函数</strong>，取 $A(s,a) = Q(s,a) - V(s)$——"这个动作比这个状态的平均水平好多少"。为什么有效：好状态下所有动作回报都高，但你要判断的是"这个动作<strong>在这个状态下</strong>相对好不好"，减掉 $V$ 正是这个判断。A3C、PPO、GAE 全在用。</li>
+<li><em>方差巨大</em>：一整局游戏的随机性全压在每个动作的权重上，同一条策略采两条轨迹回报可能差一个数量级。<strong>药 1：减 baseline</strong>，把 <span class="arithmatex">\(G_t\)</span> 换成 <span class="arithmatex">\(G_t - b(s_t)\)</span>，不影响梯度期望但大幅降方差；<strong>药 2：优势函数</strong>，取 <span class="arithmatex">\(A(s,a) = Q(s,a) - V(s)\)</span>——"这个动作比这个状态的平均水平好多少"。为什么有效：好状态下所有动作回报都高，但你要判断的是"这个动作<strong>在这个状态下</strong>相对好不好"，减掉 <span class="arithmatex">\(V\)</span> 正是这个判断。A3C、PPO、GAE 全在用。</li>
 <li><em>步子大了就崩</em>：见下文 PPO。</li>
 </ul>
 <h3 id="-">演员-评论员：两派合流</h3>
 <p><strong>直觉</strong>：歌手（Actor，策略网络，负责选动作）+ 乐评老师（Critic，值函数网络，负责打分）。演员行动，评论员给反馈；评论员评不准时，也根据真实奖励修正自己的评分标准。两边边学边教，比单干都快。</p>
-<p><strong>技术本质</strong>：用 Critic 学的 $V(s)$（或 $Q$）当 REINFORCE 的 baseline，得到低方差的优势估计 $A \approx r + \gamma V(s') - V(s)$（即 TD 误差）。策略梯度的灵活 + 值函数的稳定。现代主流算法（A3C、PPO、SAC、DDPG）几乎全是 Actor-Critic 变种。Q-Learning/SARSA/DQN 反倒成了"教学算法"——思想重要，工业现场直接用得少。</p>
+<p><strong>技术本质</strong>：用 Critic 学的 <span class="arithmatex">\(V(s)\)</span>（或 <span class="arithmatex">\(Q\)</span>）当 REINFORCE 的 baseline，得到低方差的优势估计 <span class="arithmatex">\(A \approx r + \gamma V(s') - V(s)\)</span>（即 TD 误差）。策略梯度的灵活 + 值函数的稳定。现代主流算法（A3C、PPO、SAC、DDPG）几乎全是 Actor-Critic 变种。Q-Learning/SARSA/DQN 反倒成了"教学算法"——思想重要，工业现场直接用得少。</p>
 <h3 id="ppo">PPO：不要学飞了</h3>
 <p><strong>病灶</strong>：RL 训练最大的风险是"学飞"——策略一步更新迈太大，突然变得很差，而<strong>训练数据是当前策略自己生成的</strong>，坏策略生成坏数据，再训只会越来越糟。这个<strong>数据分布漂移</strong>是 RL 训练不稳定、且与监督学习本质不同的根源（监督学习数据是固定的，这次训坏了数据还在）。这也是为什么 RL 比监督学习容易崩：奖励稀疏、信号有噪声、分布非平稳，三者叠加。</p>
 <p><strong>药方</strong>（Schulman et al., 2017）：每次只允许策略小步改进。TRPO 用复杂二阶约束实现，PPO 把它简化成一个"剪切"的代理目标：</p>
-<p>$$L^{\text{CLIP}}(\theta) = \mathbb{E}<em>t\Big[\min\big(r_t(\theta) A_t,\ \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) A_t\big)\Big],\quad r_t(\theta) = \frac{\pi</em>\theta(a_t|s_t)}{\pi_{\theta_{old}}(a_t|s_t)}$$</p>
-<p>机制拆解：新策略相对旧策略的概率比 $r_t(\theta)$ 偏离 1 超过 $\epsilon$（典型 0.2）就被 clip 截断，min 再取"保守的那个"，等于给策略拴了安全绳——<strong>单步改进的收益有上限，崩坏也有限度</strong>。</p>
+<div class="arithmatex">\[L^{\text{CLIP}}(\theta) = \mathbb{E}_t\Big[\min\big(r_t(\theta) A_t,\ \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) A_t\big)\Big],\quad r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{old}}(a_t|s_t)}\]</div>
+<p>机制拆解：新策略相对旧策略的概率比 <span class="arithmatex">\(r_t(\theta)\)</span> 偏离 1 超过 <span class="arithmatex">\(\epsilon\)</span>（典型 0.2）就被 clip 截断，min 再取"保守的那个"，等于给策略拴了安全绳——<strong>单步改进的收益有上限，崩坏也有限度</strong>。</p>
 <p><strong>地位</strong>：简单、稳定、通用、好并行，使它成为工业界 RL 的长期强基线：机器人控制、游戏 AI（OpenAI Five 用 PPO 自我对弈，训练量达数万年级别游戏经验，2019 年 2:0 击败 Dota 2 世界冠军 OG），以及大模型 RLHF（见<a href="../13-RLHF%E4%B8%8E%E5%AF%B9%E9%BD%90%E7%AE%97%E6%B3%95/">RLHF 与对齐算法</a>）。</p>
 <h2 id="_4">关键概念</h2>
 <h3 id="_5">一张表看主线</h3>
@@ -7838,7 +7809,7 @@
 </tr>
 <tr>
 <td>REINFORCE</td>
-<td>策略 $\pi_\theta$</td>
+<td>策略 <span class="arithmatex">\(\pi_\theta\)</span></td>
 <td>连续动作空间</td>
 <td>方差巨大、样本效率低</td>
 </tr>
@@ -7889,7 +7860,7 @@
 <tr>
 <td>策略梯度定理</td>
 <td>Policy Gradient Theorem</td>
-<td>$\nabla J = \mathbb{E}[\nabla\log\pi \cdot G]$，好动作提概率的数学依据</td>
+<td><span class="arithmatex">\(\nabla J = \mathbb{E}[\nabla\log\pi \cdot G]\)</span>，好动作提概率的数学依据</td>
 </tr>
 <tr>
 <td>REINFORCE</td>
@@ -7898,7 +7869,7 @@
 </tr>
 <tr>
 <td>优势函数</td>
-<td>Advantage $A=Q-V$</td>
+<td>Advantage <span class="arithmatex">\(A=Q-V\)</span></td>
 <td>动作相对状态平均水平的优劣，降方差的核心技巧</td>
 </tr>
 <tr>
@@ -7913,7 +7884,7 @@
 </tr>
 <tr>
 <td>概率比</td>
-<td>Importance ratio $r_t(\theta)$</td>
+<td>Importance ratio <span class="arithmatex">\(r_t(\theta)\)</span></td>
 <td>新旧策略对同一动作的概率之比，PPO 剪切的对象</td>
 </tr>
 <tr>
@@ -8009,6 +7980,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7770,9 +7742,8 @@
 
 
 <h1 id="agentic-rl">Agentic-RL：用强化学习训练大模型智能体</h1>
-<blockquote>
-<p>来源：教程《Hello Agents》第 11 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：Agentic RL 是把大语言模型（LLM）当作可学习的策略，嵌入智能体的"感知-决策-执行"循环中，用强化学习优化多步任务（推理、工具使用、长期规划）表现的训练范式。</p>
 <p>传统监督学习训练智能体有三个核心局限：数据质量完全决定上限（模型只能模仿训练数据）；缺乏探索能力（只能被动学习人类给的路径）；难以优化长期目标（无法精确优化多步推理的中间过程）。强化学习让智能体自主生成多个候选答案并根据结果获得奖励，从而学会哪些推理路径更优，甚至发现比人类标注更好的解法。</p>
 <p>原笔记以 HelloAgents 框架（集成 Hugging Face TRL 库、Qwen3-0.6B 模型）为载体讲解，本文保留其方法论与关键公式，省略具体工程代码细节。</p>
@@ -7780,12 +7751,12 @@
 <h3 id="llm">LLM 训练全景：预训练 + 后训练</h3>
 <p>一个强大的 LLM 通常经历两个阶段：</p>
 <p><strong>预训练（Pretraining）</strong>：在海量文本（数 TB 级）上做自监督的因果语言建模（下一个词预测），目标函数为负对数似然：</p>
-<p>$$\mathcal{L}<em>{pretrain} = -\sum</em>{t=1}^{T} \log P(x_t \mid x_1, \dots, x_{t-1}; \theta)$$</p>
+<div class="arithmatex">\[\mathcal{L}_{pretrain} = -\sum_{t=1}^{T} \log P(x_t \mid x_1, \dots, x_{t-1}; \theta)\]</div>
 <p>学到语法、语义、世界知识和基础推理能力，但模型只会"预测下一个词"，不会遵循指令、对话或对齐人类偏好。</p>
 <p><strong>后训练（Post-training）</strong>三步：
-1. <strong>监督微调（SFT）</strong>：用 (prompt, completion) 对训练，目标仍是最大化正确输出的概率 $\mathcal{L}<em>{SFT} = -\sum_i \log P(y_i \mid x_i; \theta)$。数据量小、人工标注、快速见效，学任务格式和基本能力。
-2. <strong>奖励建模（RM）</strong>：用偏好对比数据（同一问题的两个回答，一个 chosen、一个 rejected）训练评分模型：$\mathcal{L}</em>{RM} = -\mathbb{E}[\log \sigma(r_\phi(x, y_w) - r_\phi(x, y_l))]$，让好回答得分更高。
-3. <strong>强化学习微调</strong>：最经典用 PPO，最大化奖励同时用 KL 散度约束不偏离参考模型（SFT 模型）太远：$J_{PPO} = \mathbb{E}<em>{x,y \sim \pi</em>\theta}[r_\phi(x,y)] - \beta \cdot D_{KL}(\pi_\theta | \pi_{ref})$。</p>
+1. <strong>监督微调（SFT）</strong>：用 (prompt, completion) 对训练，目标仍是最大化正确输出的概率 <span class="arithmatex">\(\mathcal{L}_{SFT} = -\sum_i \log P(y_i \mid x_i; \theta)\)</span>。数据量小、人工标注、快速见效，学任务格式和基本能力。
+2. <strong>奖励建模（RM）</strong>：用偏好对比数据（同一问题的两个回答，一个 chosen、一个 rejected）训练评分模型：<span class="arithmatex">\(\mathcal{L}_{RM} = -\mathbb{E}[\log \sigma(r_\phi(x, y_w) - r_\phi(x, y_l))]\)</span>，让好回答得分更高。
+3. <strong>强化学习微调</strong>：最经典用 PPO，最大化奖励同时用 KL 散度约束不偏离参考模型（SFT 模型）太远：<span class="arithmatex">\(J_{PPO} = \mathbb{E}_{x,y \sim \pi_\theta}[r_\phi(x,y)] - \beta \cdot D_{KL}(\pi_\theta \| \pi_{ref})\)</span>。</p>
 <p>为降低人工标注成本，<strong>RLAIF</strong>（Reinforcement Learning from AI Feedback）用强大的 AI 模型（如 GPT-4）替代人类标注员做评分排序，实验表明效果接近甚至超过 RLHF，成本大幅降低。</p>
 <h3 id="agentic-rl-vs-pbrftmdp">Agentic RL vs PBRFT：MDP 视角的对比</h3>
 <p>传统的基于偏好的强化微调（PBRFT）优化单轮对话质量；Agentic RL 优化多步序贯决策。在 MDP 五元组 (S, A, P, R, γ) 下两者的对比：</p>
@@ -7816,7 +7787,7 @@
 <tr>
 <td>奖励</td>
 <td>单步 r(s₀, y)，由奖励模型给出</td>
-<td>多步累积 $\sum_t \gamma^t r(s_t, a_t)$，可稀疏/密集/混合</td>
+<td>多步累积 <span class="arithmatex">\(\sum_t \gamma^t r(s_t, a_t)\)</span>，可稀疏/密集/混合</td>
 </tr>
 <tr>
 <td>目标</td>
@@ -7869,19 +7840,19 @@
 <p>奖励函数定义"什么是好行为"。好的奖励函数应：清楚定义成功、能提供梯度信号、方差不过大、易调整组合。三种基础类型（均只在答案正确时生效，避免模型为降惩罚/刷步骤牺牲正确性）：</p>
 <ol>
 <li><strong>准确率奖励（AccuracyReward）</strong>：正确 +1，错误 0。简单直接但稀疏，无法区分"接近正确"与"完全错误"。工程要点：答案提取（找 "Final Answer:" 后的数字 / <code>####</code> 标记 / 最后一个数字）与数值比较（72.0 = 72、单位转换、格式差异）。</li>
-<li><strong>长度惩罚（LengthPenaltyReward）</strong>：$r = r_{acc} - \alpha \cdot \max(0, l - l_{target})$，鼓励简洁、控制推理成本；惩罚系数需仔细调，过强会抑制详细推理。</li>
-<li><strong>步骤奖励（StepReward）</strong>：$r = r_{acc} + \beta \cdot s$（s 为检测到的推理步骤数，β 默认 0.1），鼓励可解释推理；可能导致为刷步骤生成冗余内容。</li>
+<li><strong>长度惩罚（LengthPenaltyReward）</strong>：<span class="arithmatex">\(r = r_{acc} - \alpha \cdot \max(0, l - l_{target})\)</span>，鼓励简洁、控制推理成本；惩罚系数需仔细调，过强会抑制详细推理。</li>
+<li><strong>步骤奖励（StepReward）</strong>：<span class="arithmatex">\(r = r_{acc} + \beta \cdot s\)</span>（s 为检测到的推理步骤数，β 默认 0.1），鼓励可解释推理；可能导致为刷步骤生成冗余内容。</li>
 </ol>
 <p>常见组合：准确率 + 长度惩罚（问答系统）、准确率 + 步骤奖励（教育场景）、三者平衡（全面优化），需调权重避免某一目标过度主导。</p>
 <h3 id="lora">LoRA：参数高效微调</h3>
 <p>全量微调 0.6B 模型需约 12GB 显存（FP16），更大模型在消费级 GPU 上几乎不可行。<strong>LoRA</strong> 的核心假设：微调的参数变化 ΔW 可用低秩矩阵分解表示：</p>
-<p>$$\Delta W = BA, \quad h = Wx + BAx$$</p>
+<div class="arithmatex">\[\Delta W = BA, \quad h = Wx + BAx\]</div>
 <p>其中 W ∈ ℝ^{d×k} 冻结，只训练 B ∈ ℝ^{d×r}、A ∈ ℝ^{r×k}，r ≪ min(d, k)。例：d=k=4096、r=8 时参数量从约 1677 万降到约 6.5 万，减少 256 倍。优势是省显存、训练快、易部署、防过拟合；效果通常略逊于全量微调。</p>
 <p>关键超参数：<strong>rank</strong>（r，典型 4-64，越大表达越强）、<strong>alpha</strong>（缩放因子，常设为 rank 的 2 倍）、<strong>target_modules</strong>（通常选注意力的 q/k/v/o_proj，可扩展 MLP 层）。</p>
 <h3 id="grpo-llm-ppo">GRPO：为 LLM 设计的 PPO 简化版</h3>
 <p>PPO 在 LLM 训练中的问题：需要额外训练价值模型（Value Model）估计优势函数；要同时维护四个模型（Policy、Reference、Value、Reward），工程复杂且显存占用高；易出现奖励崩塌或策略退化。</p>
 <p><strong>GRPO（Group Relative Policy Optimization，出自 DeepSeekMath）</strong>的核心：去掉 Value Model，用<strong>组内相对奖励</strong>代替绝对奖励估计优势：</p>
-<p>$$J_{GRPO}(\theta) = \mathbb{E}\left[\frac{\pi_\theta(a|s)}{\pi_{ref}(a|s)} \cdot (r(s,a) - \bar{r}<em>{group})\right] - \beta \cdot D</em>{KL}(\pi_\theta | \pi_{ref})$$</p>
+<div class="arithmatex">\[J_{GRPO}(\theta) = \mathbb{E}\left[\frac{\pi_\theta(a|s)}{\pi_{ref}(a|s)} \cdot (r(s,a) - \bar{r}_{group})\right] - \beta \cdot D_{KL}(\pi_\theta \| \pi_{ref})\]</div>
 <p>训练循环五步：① 每个问题用当前策略生成 N 个答案构成"组"→ ② 计算每个答案的奖励 → ③ 减去组内平均得相对奖励（降低方差）→ ④ 带 KL 惩罚更新策略 → ⑤ 重复。KL 散度按 token 计算后求和，防止"遗忘"SFT 阶段学到的知识。</p>
 <p>关键参数与经验值：</p>
 <table>
@@ -8021,6 +7992,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

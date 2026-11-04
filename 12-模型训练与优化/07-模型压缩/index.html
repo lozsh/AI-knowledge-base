@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7748,9 +7720,8 @@
 
 
 <h1 id="model-compression">模型压缩（Model Compression）</h1>
-<blockquote>
-<p>来源：原资料（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：模型压缩是一族系统性技术——通过剪枝消除冗余参数、量化降低数值精度、蒸馏把大模型行为迁移进小架构、NAS 从头发现高效架构——在尽量保住任务精度的前提下，削减已训练模型的计算量与内存占用，使其能跑进手机、边缘设备乃至微控制器。</p>
 <p>Benchmark 上的赢家很少能直接变成生产环境里跑的模型：训练追求的是测试集精度，而生产追求的是"每美元/每瓦/每毫秒的精度"。7B 参数模型仅权重就要 14 GB（FP16），手机只有 8 GB 共享内存；175B 模型 FP16 超 350 GB，微控制器只给约 524 KB SRAM—— bridging 六个数量级的差距靠的不是修修补补，而是可预测权衡的系统方法。核心洞察是：<strong>训练出来的模型对多数生产任务是严重"超配"的</strong>，携带了远超部署所需的精度、连接和容量，这些盈余可以被系统性剥离而不毁掉部署真正需要的能力。</p>
 <p>压缩沿三个互补维度展开，构成一个从软件到硬件的优化栈：</p>
@@ -7881,8 +7852,8 @@
 <h3 id="knowledge-distillation">知识蒸馏（Knowledge Distillation）</h3>
 <p>训练一个小的"学生"模型模仿大的"教师"模型的行为（Hinton et al. 2015）。教师的概率分布比 0/1 硬标签携带更多信息——软标签 [0.85, 0.10, 0.05] 揭示"猫更像狗而不像狐狸"的<strong>暗知识</strong>（dark knowledge，类间相似性），学生据此泛化更好。</p>
 <p>损失函数（带温度 T 的软化 softmax）：</p>
-<p>$$p_i^{(T)} = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}$$</p>
-<p>$$\mathcal{L}<em>{distill} = (1-\gamma</em>{KD})\,\mathcal{L}<em>{CE}(p^{student}, y) + \gamma</em>{KD}\, T^2\, \mathcal{D}<em>{KL}\big(p^{teacher}</em>{(T)} \,|\, p^{student}_{(T)}\big)$$</p>
+<div class="arithmatex">\[p_i^{(T)} = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}\]</div>
+<div class="arithmatex">\[\mathcal{L}_{distill} = (1-\gamma_{KD})\,\mathcal{L}_{CE}(p^{student}, y) + \gamma_{KD}\, T^2\, \mathcal{D}_{KL}\big(p^{teacher}_{(T)} \,\|\, p^{student}_{(T)}\big)\]</div>
 <ul>
 <li>T 通常取 3–5：T=1 时教师输出近似 one-hot，几乎无类间信息；T 越大分布越平滑，泄露越多"教师认为哪些错类可信"。T² 保证换 T 时梯度量级一致。</li>
 <li>γ_KD ∈ [0,1] 平衡软标签与硬标签。</li>
@@ -8069,11 +8040,11 @@
 </ul>
 <h2 id="_8">参见</h2>
 <ul>
-<li><a href="../32-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96%E4%B8%8E%E8%BD%BB%E9%87%8F%E5%8C%96/">32-大模型推理优化与轻量化</a>——LLM 时代的量化/解码加速续篇</li>
-<li><a href="../08-%E6%A8%A1%E5%9E%8B%E5%90%8E%E8%AE%AD%E7%BB%83/">08-模型后训练</a>——压缩之外改造已训好模型的另一条主线</li>
-<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/04-%E8%AE%A1%E7%AE%97%E6%80%A7%E8%83%BD/">../13-深度学习框架与计算/04-计算性能.md</a>——算子融合与 Roofline 分析的硬件侧原理</li>
-<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/15-%E8%BE%B9%E7%BC%98%E6%99%BA%E8%83%BD/">../14-机器学习系统与MLOps/15-边缘智能.md</a>——TinyML 与端侧部署约束</li>
-<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/14-%E5%A4%A7%E8%A7%84%E6%A8%A1%E6%8E%A8%E7%90%86/">../14-机器学习系统与MLOps/14-大规模推理.md</a>——云端推理服务的吞吐与延迟工程</li>
+<li><a href="../32-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96%E4%B8%8E%E8%BD%BB%E9%87%8F%E5%8C%96/">大模型推理优化与轻量化</a>——LLM 时代的量化/解码加速续篇</li>
+<li><a href="../08-%E6%A8%A1%E5%9E%8B%E5%90%8E%E8%AE%AD%E7%BB%83/">模型后训练</a>——压缩之外改造已训好模型的另一条主线</li>
+<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/04-%E8%AE%A1%E7%AE%97%E6%80%A7%E8%83%BD/">深度学习框架与计算 · 计算性能</a>——算子融合与 Roofline 分析的硬件侧原理</li>
+<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/15-%E8%BE%B9%E7%BC%98%E6%99%BA%E8%83%BD/">机器学习系统与MLOps · 边缘智能</a>——TinyML 与端侧部署约束</li>
+<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/14-%E5%A4%A7%E8%A7%84%E6%A8%A1%E6%8E%A8%E7%90%86/">机器学习系统与MLOps · 大规模推理</a>——云端推理服务的吞吐与延迟工程</li>
 </ul>
 
 
@@ -8137,6 +8108,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

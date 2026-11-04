@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7836,9 +7808,8 @@
 
 
 <h1 id="_1">强化学习：在试错中成长</h1>
-<blockquote>
-<p>来源：教材《深度学习引言》第 7 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：强化学习（Reinforcement Learning, RL）是让智能体（agent）在环境（environment）中通过试错与奖励反馈，学习最大化长期累积奖励的行动策略的机器学习范式。</p>
 <p>强化学习的基本模式可以用教小狗"坐下"来理解：你无法给它讲解教科书，只能在它碰巧坐下时立刻给一块肉干，反复几次后它就学会了"口令→坐下"。学骑自行车、学下棋、玩电子游戏都是同一种学习——没有标准答案，只有结果好坏的反馈，哪个动作得到奖励就多做，被惩罚就少做。</p>
 <p>这一思路并非凭空而来：行为心理学家斯金纳（B. F. Skinner）早在 20 世纪中期就用"斯金纳箱"研究了动物如何从奖励中塑造行为，强化学习后来把这种"奖励塑造行为"的直觉写成了数学和算法。</p>
@@ -7894,11 +7865,11 @@
 <p><strong>马尔可夫性</strong>：下一步只依赖当前状态和动作，不依赖更早历史。现实中常只是近似；状态看不全时问题变成<strong>部分可观测 MDP（POMDP）</strong>，应对办法是给智能体"记忆"——用循环网络、Transformer 等从历史观测补全局面。</p>
 <h3 id="_4">回报、折扣因子与值函数</h3>
 <p>智能体关心的不是单步奖励而是<strong>回报</strong>（Return）：</p>
-<p>$$G_t = r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \cdots = \sum_{k=0}^{\infty} \gamma^k r_{t+k}$$</p>
+<div class="arithmatex">\[G_t = r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \cdots = \sum_{k=0}^{\infty} \gamma^k r_{t+k}\]</div>
 <p>折扣因子 γ∈[0,1] 的存在有三个理由：现在的奖励比未来值钱（机会成本）、未来不确定（任务可能随时终止）、数学上防止无穷和发散。γ=0.9 偏短视，γ=0.99 更长远；γ 决定智能体的"性格"，是调参基本功。</p>
 <p><strong>值函数</strong>给局面打分：
-- 状态价值函数 $V^\pi(s) = \mathbb{E}<em>\pi[G_t \mid s_t = s]$：按策略 π 从状态 s 出发能拿多少回报；
-- 动作价值函数 $Q^\pi(s,a) = \mathbb{E}</em>\pi[G_t \mid s_t = s, a_t = a]$：在 s 下先做 a 再按 π 行事的期望回报。Q 比 V 细化一步，学好后选 Q 值最大的动作即可决策。</p>
+- 状态价值函数 <span class="arithmatex">\(V^\pi(s) = \mathbb{E}_\pi[G_t \mid s_t = s]\)</span>：按策略 π 从状态 s 出发能拿多少回报；
+- 动作价值函数 <span class="arithmatex">\(Q^\pi(s,a) = \mathbb{E}_\pi[G_t \mid s_t = s, a_t = a]\)</span>：在 s 下先做 a 再按 π 行事的期望回报。Q 比 V 细化一步，学好后选 Q 值最大的动作即可决策。</p>
 <p>经典教学例子<strong>悬崖行走</strong>：掉入悬崖 -100 并回起点，每走一步 -1。训练后智能体学到两种策略——激进派贴悬崖走最短路（风险高），保守派绕远路（安全）。SARSA 因考虑行为策略的噪声而学出保守策略，Q-Learning 学出激进策略。</p>
 <h3 id="drl">深度强化学习（DRL）</h3>
 <p>状态空间大（像素画面、连续关节角度、围棋约 10^170 量级局面）时，值函数无法用表格存储。DRL 用神经网络近似值函数或策略（输入状态如原始像素，输出各动作的 Q 值或策略分布），把 RL 框架与深度学习的函数逼近能力结合。没有这次融合，RL 会一直被限制在简单场景；有了它才有围棋、Atari、机器人控制、大模型对齐上的突破。</p>
@@ -8035,6 +8006,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

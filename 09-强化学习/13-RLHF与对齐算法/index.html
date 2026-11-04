@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7714,9 +7686,8 @@
 
 
 <h1 id="rlhf-ppo-dpo">RLHF 与对齐算法：奖励建模、PPO 微调与 DPO</h1>
-<blockquote>
-<p>更新于 2026-11-03</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：RLHF（Reinforcement Learning from Human Feedback，人类反馈强化学习）通过"人类排序偏好 → 训练奖励模型 → 用 PPO 微调语言模型"三步，把主观模糊的人类价值观变成可优化的奖励信号，是 ChatGPT 区别于 GPT-3 的最核心突破；DPO 则用一次数学变换把这条流水线简化成监督学习。</p>
 <h2 id="_1">概述</h2>
 <p>预训练赋予模型海量知识，但对齐（alignment）让模型与人类价值观一致——SFT 实现指令对齐（会读题解题），RLHF 实现更深层的价值观对齐（安全、有用、无害）。ChatGPT 技术报告中的三阶段训练，后两阶段（训练 RM + PPO 训练）就是 RLHF。</p>
@@ -7728,7 +7699,7 @@
 <h3 id="rm">第二步：训练奖励模型（RM）——学"排序"而非"打分"</h3>
 <p>RM 本质是一个文本回归模型：LLM 架构（或 BERT 架构）把 <code>(prompt, 回答)</code> 编码后，接一层输出<strong>标量奖励</strong>——和文本分类模型结构完全一致，只是取隐藏层输出而非分类概率。</p>
 <p>训练用 <strong>Bradley-Terry 模型</strong>（统计学处理配对比较的经典方法）：把模型对两个回答的标量分差转化为"人类会选 chosen 的概率"，用负对数似然训练：</p>
-<p>$$\mathcal{L}<em>{\text{RM}} = -\log \sigma\big(r</em>\phi(x, y_{\text{chosen}}) - r_\phi(x, y_{\text{rejected}})\big)$$</p>
+<div class="arithmatex">\[\mathcal{L}_{\text{RM}} = -\log \sigma\big(r_\phi(x, y_{\text{chosen}}) - r_\phi(x, y_{\text{rejected}})\big)\]</div>
 <p>直觉：对人类选中的给高分、没选中的给低分，<strong>分差越大代表模型越确信人类的偏好</strong>。注意训练的是排序能力，绝对分值本身没有意义。</p>
 <p>工程细节：RM 与最终 LLM 大小常不同（OpenAI 用 6B 的 RM 配 175B 的 LLM）；RM 可以从 SFT 后的模型初始化，也可以用偏好数据从头训，孰优尚无定论。</p>
 <h3 id="ppo">第三步：PPO 微调——四模型流水线</h3>
@@ -7771,7 +7742,7 @@
 </table>
 <p>流程：输入 prompt → Actor 与 Ref 各生成回答 → 计算两者分布的 KL 散度 → Actor 回答分别送入 RM（得标量分）和 Critic（得逐位置累积奖励估计）→ 合成最终奖励并计算 actor loss / critic loss → 分别更新两个可训练模型。</p>
 <p><strong>KL 惩罚是防崩绳</strong>：最终奖励中扣掉与 Ref 模型的 KL 散度（乘权重 β），惩罚新模型偏离 SFT 起点太远。为什么要拴：不拴的话，策略会一路滑向"奖励模型最喜欢"的输出分布，把 Pretrain/SFT 赋予的语言能力和知识全丢掉（reward hacking 的结构性诱因，见下）。综合目标即：</p>
-<p>$$J(\theta) = \mathbb{E}<em>{x,\,y\sim\pi</em>\theta}\big[r_\phi(x,y)\big] - \beta\, D_{KL}\big(\pi_\theta | \pi_{\text{ref}}\big)$$</p>
+<div class="arithmatex">\[J(\theta) = \mathbb{E}_{x,\,y\sim\pi_\theta}\big[r_\phi(x,y)\big] - \beta\, D_{KL}\big(\pi_\theta \| \pi_{\text{ref}}\big)\]</div>
 <p><strong>代价</strong>：四模型并存使显存数倍于 SFT——RM 和 LLM 各 7B 时，PPO 全程约需 240G 显存（4 张 80G A100，每卡约 60G）。高门槛正是后来 DPO、GRPO 等简化方案的动力。</p>
 <h3 id="rlhf">RLHF 的三大实际病症</h3>
 <ol>
@@ -7782,9 +7753,9 @@
 <p>另一个根本局限：人类偏好本身有偏差、噪声和矛盾，RLHF 最终对齐的是<strong>标注员群体的平均偏好</strong>，未必是"真正的好"。</p>
 <h3 id="dpo-rl">DPO：把 RL 问题变回监督学习</h3>
 <p><strong>动机</strong>：RLHF 流程复杂、训练慢、四模型显存爆炸。DPO（Direct Preference Optimization, 2023）证明：带 KL 约束的偏好优化目标存在闭式解——最优奖励可以用策略与参考策略的概率比直接写出：</p>
-<p>$$r(x,y) = \beta \log \frac{\pi_\theta(y|x)}{\pi_{\text{ref}}(y|x)} + \text{const}$$</p>
+<div class="arithmatex">\[r(x,y) = \beta \log \frac{\pi_\theta(y|x)}{\pi_{\text{ref}}(y|x)} + \text{const}\]</div>
 <p>把这个等价关系代回 Bradley-Terry 目标，奖励模型被<strong>消元</strong>，得到直接关于 π_θ 的分类式损失：</p>
-<p>$$\mathcal{L}<em>{\text{DPO}} = -\mathbb{E}\Big[\log \sigma\Big(\beta \log \tfrac{\pi</em>\theta(y_c|x)}{\pi_{\text{ref}}(y_c|x)} - \beta \log \tfrac{\pi_\theta(y_r|x)}{\pi_{\text{ref}}(y_r|x)}\Big)\Big]$$</p>
+<div class="arithmatex">\[\mathcal{L}_{\text{DPO}} = -\mathbb{E}\Big[\log \sigma\Big(\beta \log \tfrac{\pi_\theta(y_c|x)}{\pi_{\text{ref}}(y_c|x)} - \beta \log \tfrac{\pi_\theta(y_r|x)}{\pi_{\text{ref}}(y_r|x)}\Big)\Big]\]</div>
 <p>效果：<strong>不需要训练 RM，不需要 PPO 采样循环</strong>，只需两个 LLM（训练的 π_θ + 冻结的 π_ref，Ref 还可离线预计算），训练形式接近加权交叉熵，简单稳定得多，因此成为开源社区做偏好对齐的常用工具。</p>
 <p><strong>定位要摆正</strong>：DPO 不是"RLHF 已过时"的证据。需要复杂交互、工具使用、长程任务时，显式 RL（在线采样、试错、多步信用分配）仍不可替代；DPO 更像一把轻便的瑞士军刀，不是万能施工队。</p>
 <h3 id="_4">后续演化一览</h3>
@@ -7937,6 +7908,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

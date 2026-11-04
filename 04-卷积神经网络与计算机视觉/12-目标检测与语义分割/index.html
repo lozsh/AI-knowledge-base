@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7736,50 +7708,49 @@
 
 
 <h1 id="_1">目标检测与语义分割：机制详解</h1>
-<blockquote>
-<p>来源：《动手学深度学习》第 13 章（13.3–13.11 节）深化（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：目标检测要同时回答"是什么"和"在哪里"，语义分割要回答"每个像素是什么"；前者靠锚框 + 类别/偏移量预测 + NMS 的机制体系，后者靠转置卷积把特征图还原到输入尺寸。</p>
 <p><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a>已给出检测与分割任务的概览和模型清单，本条目深化：锚框机制的完整数学（生成 → 匹配 → 编码偏移 → 解码 → NMS）、SSD 的逐层结构账、R-CNN 系列每一步改进"为什么快了"、转置卷积的矩阵本质与 FCN 的实现细节。</p>
 <h2 id="_2">核心原理</h2>
 <h3 id="1">1. 锚框：一个像素为中心生成几个框</h3>
-<p>设图像高 $h$ 宽 $w$，缩放比列表 $s_1,\ldots,s_n \in (0,1]$，宽高比列表 $r_1,\ldots,r_m$。锚框宽高为 $h s\sqrt{r}$ 与 $h s/\sqrt{r}$。全组合有 $whnm$ 个框——计算爆炸。实践只保留含 $s_1$ 或 $r_1$ 的组合：</p>
-<p>$$\underbrace{s_1 r_1}_{\text{共享项}} + (s_2 r_1, \ldots) + (s_1 r_2, \ldots) \quad\Rightarrow\quad \text{每像素 } n+m-1 \text{ 个，全图 } wh(n+m-1) \text{ 个}$$</p>
+<p>设图像高 <span class="arithmatex">\(h\)</span> 宽 <span class="arithmatex">\(w\)</span>，缩放比列表 <span class="arithmatex">\(s_1,\ldots,s_n \in (0,1]\)</span>，宽高比列表 <span class="arithmatex">\(r_1,\ldots,r_m\)</span>。锚框宽高为 <span class="arithmatex">\(h s\sqrt{r}\)</span> 与 <span class="arithmatex">\(h s/\sqrt{r}\)</span>。全组合有 <span class="arithmatex">\(whnm\)</span> 个框——计算爆炸。实践只保留含 <span class="arithmatex">\(s_1\)</span> 或 <span class="arithmatex">\(r_1\)</span> 的组合：</p>
+<div class="arithmatex">\[\underbrace{s_1 r_1}_{\text{共享项}} + (s_2 r_1, \ldots) + (s_1 r_2, \ldots) \quad\Rightarrow\quad \text{每像素 } n+m-1 \text{ 个，全图 } wh(n+m-1) \text{ 个}\]</div>
 <p>例：561×728 图、sizes=[0.75,0.5,0.25]、ratios=[1,2,0.5]，每像素 5 框、全图 200 万+——这就是要引入多尺度与降低锚框密度的原因。</p>
 <h3 id="2">2. 偏移量编码：为什么用对数和归一常数</h3>
-<p>锚框 $A$ 分配到真实框 $B$ 后，标签不是"框本身"而是偏移量（中心相对位移 + 宽高相对比值的对数）：</p>
-<p>$$\left( \frac{\frac{x_b - x_a}{w_a} - \mu_x}{\sigma_x},\ \frac{\frac{y_b - y_a}{h_a} - \mu_y}{\sigma_y},\ \frac{\log\frac{w_b}{w_a} - \mu_w}{\sigma_w},\ \frac{\log\frac{h_b}{h_a} - \mu_h}{\sigma_h} \right)$$</p>
-<p>默认 $\mu_x=\mu_y=\mu_w=\mu_h=0$，$\sigma_x=\sigma_y=0.1$，$\sigma_w=\sigma_h=0.2$。设计意图：</p>
+<p>锚框 <span class="arithmatex">\(A\)</span> 分配到真实框 <span class="arithmatex">\(B\)</span> 后，标签不是"框本身"而是偏移量（中心相对位移 + 宽高相对比值的对数）：</p>
+<div class="arithmatex">\[\left( \frac{\frac{x_b - x_a}{w_a} - \mu_x}{\sigma_x},\ \frac{\frac{y_b - y_a}{h_a} - \mu_y}{\sigma_y},\ \frac{\log\frac{w_b}{w_a} - \mu_w}{\sigma_w},\ \frac{\log\frac{h_b}{h_a} - \mu_h}{\sigma_h} \right)\]</div>
+<p>默认 <span class="arithmatex">\(\mu_x=\mu_y=\mu_w=\mu_h=0\)</span>，<span class="arithmatex">\(\sigma_x=\sigma_y=0.1\)</span>，<span class="arithmatex">\(\sigma_w=\sigma_h=0.2\)</span>。设计意图：</p>
 <ul>
 <li><strong>中心用相对位移</strong>（除以锚框宽高），消除绝对尺度影响，让偏移量分布与目标大小无关；</li>
-<li><strong>宽高用对数</strong>：宽高恒为正且乘性变化，$\log$ 把乘法关系变成加法关系、分布更对称；</li>
-<li><strong>除以 $\sigma$</strong>：把不同量纲的偏移归到相近量级，回归目标更均匀易拟合（类似特征标准化）。</li>
+<li><strong>宽高用对数</strong>：宽高恒为正且乘性变化，<span class="arithmatex">\(\log\)</span> 把乘法关系变成加法关系、分布更对称；</li>
+<li><strong>除以 <span class="arithmatex">\(\sigma\)</span></strong>：把不同量纲的偏移归到相近量级，回归目标更均匀易拟合（类似特征标准化）。</li>
 </ul>
-<p>预测时做逆变换还原框：$x_b = 10\,\hat{o}_x w_a + x_a$，$w_b = w_a \exp(5\,\hat{o}_w)$（系数 10、5 即 $1/\sigma_x$、$1/\sigma_w$）。</p>
+<p>预测时做逆变换还原框：<span class="arithmatex">\(x_b = 10\,\hat{o}_x w_a + x_a\)</span>，<span class="arithmatex">\(w_b = w_a \exp(5\,\hat{o}_w)\)</span>（系数 10、5 即 <span class="arithmatex">\(1/\sigma_x\)</span>、<span class="arithmatex">\(1/\sigma_w\)</span>）。</p>
 <h3 id="3">3. 训练标注的贪心分配算法</h3>
-<p>锚框 $A_1..A_{n_a}$ 与真实框 $B_1..B_{n_b}$（$n_a \ge n_b$）构成 IoU 矩阵 $X \in \mathbb{R}^{n_a \times n_b}$：</p>
+<p>锚框 <span class="arithmatex">\(A_1..A_{n_a}\)</span> 与真实框 <span class="arithmatex">\(B_1..B_{n_b}\)</span>（<span class="arithmatex">\(n_a \ge n_b\)</span>）构成 IoU 矩阵 <span class="arithmatex">\(X \in \mathbb{R}^{n_a \times n_b}\)</span>：</p>
 <ol>
-<li>取 $X$ 中最大元素 $x_{i_1 j_1}$，把 $B_{j_1}$ 分给 $A_{i_1}$，删除该行该列（保证每个真实框必有一个最优锚框）；</li>
-<li>在剩余元素中重复，直到 $n_b$ 列全部删完；</li>
+<li>取 <span class="arithmatex">\(X\)</span> 中最大元素 <span class="arithmatex">\(x_{i_1 j_1}\)</span>，把 <span class="arithmatex">\(B_{j_1}\)</span> 分给 <span class="arithmatex">\(A_{i_1}\)</span>，删除该行该列（保证每个真实框必有一个最优锚框）；</li>
+<li>在剩余元素中重复，直到 <span class="arithmatex">\(n_b\)</span> 列全部删完；</li>
 <li>遍历剩余锚框：取其行内最大 IoU，<strong>超过阈值（如 0.5）</strong>才分配，否则标为<strong>背景（负类）</strong>。</li>
 </ol>
 <p>正类锚框标两个标签（类别 + 偏移量）；掩码变量保证负类的偏移量不参与损失。</p>
 <h3 id="4-nms">4. NMS 与预测后处理</h3>
-<p>预测框按<strong>置信度</strong>（该框最大类别概率）降序排成 $L$：取最高者作基准，删除与基准 IoU &gt; $\epsilon$ 的其余框；换次高者重复，直到每个框都当过基准。输出两两 IoU 都 $\le \epsilon$ 的框。工程细节：被 NMS 丢弃与置信度过低（&lt; 阈值）的框类别置 −1、置信度替换为 $1-\text{conf}$ 便于过滤排序。</p>
+<p>预测框按<strong>置信度</strong>（该框最大类别概率）降序排成 <span class="arithmatex">\(L\)</span>：取最高者作基准，删除与基准 IoU &gt; <span class="arithmatex">\(\epsilon\)</span> 的其余框；换次高者重复，直到每个框都当过基准。输出两两 IoU 都 <span class="arithmatex">\(\le \epsilon\)</span> 的框。工程细节：被 NMS 丢弃与置信度过低（&lt; 阈值）的框类别置 −1、置信度替换为 <span class="arithmatex">\(1-\text{conf}\)</span> 便于过滤排序。</p>
 <h3 id="5-ssd">5. SSD：多尺度检测的逐层结构账</h3>
 <p>TinySSD（输入 256×256）的结构与感受野逻辑：</p>
 <ul>
 <li><strong>基础网络块</strong>：3 个高宽减半块串联（每块 = 2 个 padding 1 的 3×3 卷积 + BN + ReLU + 2×2 最大池化），通道 3→16→32→64，输出 32×32 特征图；</li>
-<li><strong>减半块的感受野计算</strong>：串两个 3×3 卷积再接 2×2 池化，输出单元的感受野为 $1\times2 + (3-1) + (3-1) = 6$，即 6×6——每个减半块都在扩大感受野；</li>
+<li><strong>减半块的感受野计算</strong>：串两个 3×3 卷积再接 2×2 池化，输出单元的感受野为 <span class="arithmatex">\(1\times2 + (3-1) + (3-1) = 6\)</span>，即 6×6——每个减半块都在扩大感受野；</li>
 <li>之后接 4 个多尺度特征块，<strong>5 个尺度共生成 5444 个锚框</strong>（对比每像素全量锚框的 200 万+）；</li>
-<li><strong>类别预测层</strong>：保持分辨率的 3×3 卷积，输出通道 $a(q+1)$（$a$=每单元锚框数，$q$=类别数，0 号是背景），通道 $i(q+1)+j$ 对应锚框 $i$ 的类别 $j$ 预测——用卷积通道替代全连接，参数量从"锚框数 × 全连接宽"降为固定卷积核；</li>
-<li><strong>边界框预测层</strong>：同设计，输出通道 $a\times4$；</li>
+<li><strong>类别预测层</strong>：保持分辨率的 3×3 卷积，输出通道 <span class="arithmatex">\(a(q+1)\)</span>（<span class="arithmatex">\(a\)</span>=每单元锚框数，<span class="arithmatex">\(q\)</span>=类别数，0 号是背景），通道 <span class="arithmatex">\(i(q+1)+j\)</span> 对应锚框 <span class="arithmatex">\(i\)</span> 的类别 <span class="arithmatex">\(j\)</span> 预测——用卷积通道替代全连接，参数量从"锚框数 × 全连接宽"降为固定卷积核；</li>
+<li><strong>边界框预测层</strong>：同设计，输出通道 <span class="arithmatex">\(a\times4\)</span>；</li>
 <li>多尺度预测形状不一，统一 reshape 成（批量，高×宽×通道）后沿通道维连结再进损失。</li>
 </ul>
 <p><strong>损失与改进</strong>：训练损失 = 类别交叉熵 + 偏移 L1 损失（掩码只算正类）。两个经典升级：</p>
 <ul>
-<li><strong>平滑 L1</strong>：$f(x)=\begin{cases}(\sigma x)^2/2, &amp; |x| \le 1/\sigma^2 \ |x| - 0.5/\sigma^2, &amp; \text{否则}\end{cases}$——零点附近二次（可导）、远处线性（不放大离群梯度），$\sigma$ 越大越接近纯 L1；</li>
-<li><strong>焦点损失</strong>：$-\alpha(1-p_j)^\gamma \log p_j$——$\gamma$ 压低易分样本（$p_j&gt;0.5$）的相对损失，缓解"海量易分负框淹没少量难分正框"的类别不平衡（YOLO/RetinaNet 系列的标准件）。</li>
+<li><strong>平滑 L1</strong>：<span class="arithmatex">\(f(x)=\begin{cases}(\sigma x)^2/2, &amp; |x| \le 1/\sigma^2 \\ |x| - 0.5/\sigma^2, &amp; \text{否则}\end{cases}\)</span>——零点附近二次（可导）、远处线性（不放大离群梯度），<span class="arithmatex">\(\sigma\)</span> 越大越接近纯 L1；</li>
+<li><strong>焦点损失</strong>：<span class="arithmatex">\(-\alpha(1-p_j)^\gamma \log p_j\)</span>——<span class="arithmatex">\(\gamma\)</span> 压低易分样本（<span class="arithmatex">\(p_j&gt;0.5\)</span>）的相对损失，缓解"海量易分负框淹没少量难分正框"的类别不平衡（YOLO/RetinaNet 系列的标准件）。</li>
 </ul>
 <h3 id="6-r-cnn">6. R-CNN 系列：每一步为什么快了</h3>
 <p>演进主线是<strong>不断消灭重复计算和外部组件</strong>：</p>
@@ -7800,7 +7771,7 @@
 <tr>
 <td>Fast R-CNN (2015)</td>
 <td>特征抽取不共享</td>
-<td><strong>整图只过一次 CNN</strong>；RoI 池化层把形状各异的提议区域特征统一为 $n\times c\times h_2\times w_2$；CNN 参与训练</td>
+<td><strong>整图只过一次 CNN</strong>；RoI 池化层把形状各异的提议区域特征统一为 <span class="arithmatex">\(n\times c\times h_2\times w_2\)</span>；CNN 参与训练</td>
 </tr>
 <tr>
 <td>Faster R-CNN (2015)</td>
@@ -7814,22 +7785,22 @@
 </tr>
 </tbody>
 </table>
-<p><strong>RoI 池化的机制细节</strong>：对 $h\times w$ 的兴趣区域划分为 $h_2\times w_2$ 子窗口网格（每个约 $(h/h_2)\times(w/w_2)$，实际尺寸向上取整），每个子窗口取最大值。输出形状<strong>直接指定</strong>（区别于普通池化由窗口/步幅间接决定）。例：4×4 输入取左上 3×3 区域做 2×2 RoI 池化，四个子窗口分别含 {0,1,4,5}{2,6}{8,9,10,11}{10,14,15} → 输出 5,6,9,10 所在的最大值。</p>
+<p><strong>RoI 池化的机制细节</strong>：对 <span class="arithmatex">\(h\times w\)</span> 的兴趣区域划分为 <span class="arithmatex">\(h_2\times w_2\)</span> 子窗口网格（每个约 <span class="arithmatex">\((h/h_2)\times(w/w_2)\)</span>，实际尺寸向上取整），每个子窗口取最大值。输出形状<strong>直接指定</strong>（区别于普通池化由窗口/步幅间接决定）。例：4×4 输入取左上 3×3 区域做 2×2 RoI 池化，四个子窗口分别含 {0,1,4,5}{2,6}{8,9,10,11}{10,14,15} → 输出 5,6,9,10 所在的最大值。</p>
 <h3 id="7">7. 转置卷积：机制与矩阵本质</h3>
-<p><strong>基本操作</strong>（步幅 1、无填充）：输入 $n_h\times n_w$、核 $k_h\times k_w$ 时，每个输入元素乘整个核得到一个 $(n_h+k_h-1)\times(n_w+k_w-1)$ 的中间张量，放在与该元素位置对应处，最后<strong>全部相加</strong>——常规卷积"汇总减少"输入，转置卷积"广播放大"输入。</p>
+<p><strong>基本操作</strong>（步幅 1、无填充）：输入 <span class="arithmatex">\(n_h\times n_w\)</span>、核 <span class="arithmatex">\(k_h\times k_w\)</span> 时，每个输入元素乘整个核得到一个 <span class="arithmatex">\((n_h+k_h-1)\times(n_w+k_w-1)\)</span> 的中间张量，放在与该元素位置对应处，最后<strong>全部相加</strong>——常规卷积"汇总减少"输入，转置卷积"广播放大"输入。</p>
 <ul>
 <li><strong>填充作用于输出</strong>：padding=1 会把输出的首末行列裁掉；</li>
 <li><strong>步幅作用于中间结果</strong>：中间张量间隔拉大，输出更大；</li>
-<li><strong>放大公式</strong>：步幅 $s$、填充 $s/2$、核 $2s$ 时恰把高宽放大 $s$ 倍（FCN 用的 $s=32$、核 64、padding 16 即如此）；</li>
+<li><strong>放大公式</strong>：步幅 <span class="arithmatex">\(s\)</span>、填充 <span class="arithmatex">\(s/2\)</span>、核 <span class="arithmatex">\(2s\)</span> 时恰把高宽放大 <span class="arithmatex">\(s\)</span> 倍（FCN 用的 <span class="arithmatex">\(s=32\)</span>、核 64、padding 16 即如此）；</li>
 <li><strong>多通道</strong>：与常规卷积一致，每对输入输出通道一个核。</li>
 </ul>
-<p><strong>矩阵视角（名字的由来）</strong>：卷积可写成稀疏矩阵乘 $Y = W x$（$W$ 由核 $K$ 平移铺出，如 3×3 输入、2×2 核时 $W\in\mathbb{R}^{4\times9}$）。转置卷积就是乘 $W^\top$：$Z = W^\top y$ 还原输入形状。推论：<strong>转置卷积等价于交换该卷积层正向传播与反向传播的角色</strong>，数值一般不相等，但形状可逆。</p>
+<p><strong>矩阵视角（名字的由来）</strong>：卷积可写成稀疏矩阵乘 <span class="arithmatex">\(Y = W x\)</span>（<span class="arithmatex">\(W\)</span> 由核 <span class="arithmatex">\(K\)</span> 平移铺出，如 3×3 输入、2×2 核时 <span class="arithmatex">\(W\in\mathbb{R}^{4\times9}\)</span>）。转置卷积就是乘 <span class="arithmatex">\(W^\top\)</span>：<span class="arithmatex">\(Z = W^\top y\)</span> 还原输入形状。推论：<strong>转置卷积等价于交换该卷积层正向传播与反向传播的角色</strong>，数值一般不相等，但形状可逆。</p>
 <h3 id="8-fcn">8. FCN 与双线性插值初始化</h3>
 <p>FCN = 预训练 ResNet-18 去掉全局池化与全连接 → 1×1 卷积把通道变到类别数（21）→ 转置卷积（stride 32, kernel 64, padding 16）放大 32 倍回输入尺寸。像素级要点：</p>
 <ul>
 <li>输出通道即该空间位置的类别预测，输入输出逐像素对应，所以<strong>标签也是同尺寸图</strong>；</li>
 <li>转置卷积用<strong>双线性插值核初始化</strong>（等效于经典上采样算子），远好于随机初始化——网络只需在合理起点上微调；</li>
-<li>双线性插值：输出坐标 $(x,y)$ 按尺寸比例映射回输入实数坐标 $(x',y')$，取最近 4 个像素按相对距离加权。</li>
+<li>双线性插值：输出坐标 <span class="arithmatex">\((x,y)\)</span> 按尺寸比例映射回输入实数坐标 <span class="arithmatex">\((x',y')\)</span>，取最近 4 个像素按相对距离加权。</li>
 </ul>
 <h2 id="_3">关键概念</h2>
 <table>
@@ -7842,11 +7813,11 @@
 <tbody>
 <tr>
 <td>锚框</td>
-<td>以每像素为中心、按缩放比与宽高比生成的候选框，全图 $wh(n+m-1)$ 个</td>
+<td>以每像素为中心、按缩放比与宽高比生成的候选框，全图 <span class="arithmatex">\(wh(n+m-1)\)</span> 个</td>
 </tr>
 <tr>
 <td>偏移量编码</td>
-<td>中心相对位移 + 宽高比对数，除以 $\sigma$（0.1/0.1/0.2/0.2）归一化</td>
+<td>中心相对位移 + 宽高比对数，除以 <span class="arithmatex">\(\sigma\)</span>（0.1/0.1/0.2/0.2）归一化</td>
 </tr>
 <tr>
 <td>置信度</td>
@@ -7854,7 +7825,7 @@
 </tr>
 <tr>
 <td>RoI 池化</td>
-<td>把任意形状提议区域特征池化到指定 $h_2\times w_2$，输出形状直接指定</td>
+<td>把任意形状提议区域特征池化到指定 <span class="arithmatex">\(h_2\times w_2\)</span>，输出形状直接指定</td>
 </tr>
 <tr>
 <td>RPN</td>
@@ -7862,11 +7833,11 @@
 </tr>
 <tr>
 <td>焦点损失</td>
-<td>$-\alpha(1-p_j)^\gamma\log p_j$，压低易分样本权重应对正负框失衡</td>
+<td><span class="arithmatex">\(-\alpha(1-p_j)^\gamma\log p_j\)</span>，压低易分样本权重应对正负框失衡</td>
 </tr>
 <tr>
 <td>转置卷积</td>
-<td>用核"广播"输入的上采样层，矩阵视角即乘 $W^\top$</td>
+<td>用核"广播"输入的上采样层，矩阵视角即乘 <span class="arithmatex">\(W^\top\)</span></td>
 </tr>
 <tr>
 <td>双线性插值</td>
@@ -7891,11 +7862,11 @@
 </ul>
 <h2 id="_6">参见</h2>
 <ul>
-<li><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">03-计算机视觉.md</a> — 本条目各机制的概览与实验精度</li>
-<li><a href="../11-%E7%8E%B0%E4%BB%A3CNN%E6%A8%A1%E5%9E%8B%E6%BC%94%E8%BF%9B%E8%AF%A6%E8%A7%A3/">11-现代CNN模型演进详解.md</a> — 检测/分割所依赖的骨干网络设计</li>
-<li><a href="../13-%E5%9B%BE%E5%83%8F%E5%A2%9E%E5%B9%BF%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E5%AE%9E%E8%B7%B5/">13-图像增广与迁移学习实践.md</a> — 检测/分割训练的数据侧技术</li>
-<li><a href="../01-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">01-卷积神经网络.md</a> — 感受野、池化等先修概念</li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/07-%E6%A8%A1%E5%9E%8B%E5%8E%8B%E7%BC%A9/">../12-模型训练与优化/07-模型压缩.md</a> — 检测模型落地部署的配套技术</li>
+<li><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a> — 本条目各机制的概览与实验精度</li>
+<li><a href="../11-%E7%8E%B0%E4%BB%A3CNN%E6%A8%A1%E5%9E%8B%E6%BC%94%E8%BF%9B%E8%AF%A6%E8%A7%A3/">现代CNN模型演进详解</a> — 检测/分割所依赖的骨干网络设计</li>
+<li><a href="../13-%E5%9B%BE%E5%83%8F%E5%A2%9E%E5%B9%BF%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E5%AE%9E%E8%B7%B5/">图像增广与迁移学习实践</a> — 检测/分割训练的数据侧技术</li>
+<li><a href="../01-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">卷积神经网络</a> — 感受野、池化等先修概念</li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/07-%E6%A8%A1%E5%9E%8B%E5%8E%8B%E7%BC%A9/">模型训练与优化 · 模型压缩</a> — 检测模型落地部署的配套技术</li>
 </ul>
 
 
@@ -7959,6 +7930,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

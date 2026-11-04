@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7760,9 +7732,8 @@
 
 
 <h1 id="_1">大模型训练流程实践</h1>
-<blockquote>
-<p>来源：原资料（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：基于 Hugging Face Transformers（配合 DeepSpeed、peft、datasets 等框架）完成大语言模型预训练（Pretrain）、有监督微调（SFT）与 LoRA 高效微调的工程全流程。</p>
 <p>现代 LLM 训练很少从零手写模型结构：手写实现工作量大、难以跟进最新架构创新、无法方便地做多卡分布式训练，也无法复用预训练权重。业界主流做法是以 Transformers 框架为基础，加载开源模型结构或权重，在自己的数据上做 Pretrain / SFT / 高效微调。本条目梳理这条工程路线的核心环节：模型与 tokenizer 初始化、预训练数据处理、Trainer 训练、DeepSpeed 分布式启动、SFT 数据构造与 Chat Template、以及 LoRA 微调原理与实践。</p>
 <h2 id="_2">核心原理</h2>
@@ -7801,9 +7772,9 @@
 </table>
 <p>因此 SFT 相对 Pretrain 只需修改数据处理环节（指令对 → 训练样本），训练框架部分完全一致。</p>
 <h3 id="lora">LoRA 的低秩假设</h3>
-<p>预训练模型针对特定下游任务微调后，权重更新矩阵具有较低的本征秩（intrinsic rank）；任务越简单本征秩越低。因此可以不做全量参数更新，而是用秩分解矩阵间接训练密集层：对预训练权重 $W_0$（$d \times k$），其更新 $\Delta W$ 分解为 $\Delta W = BA$，其中 $B \in \mathbb{R}^{d \times r}$、$A \in \mathbb{R}^{r \times k}$，$r \ll \min(d,k)$（实践中 r 常取 4、8、16）。前向计算为：</p>
-<p>$$h = W_0 x + \frac{\alpha}{r} B A x$$</p>
-<p>训练时 $W_0$ 冻结，仅更新 $A$、$B$；$A$ 用随机高斯初始化，$B$ 用零初始化（保证起始时旁路输出为零）。Transformer 中 LoRA 主要应用在注意力模块的 $W_q, W_k, W_v, W_o$ 四个矩阵，消融实验显示同时调整 $W_q$ 和 $W_v$ 效果最佳。可训练参数量约为 $2 \times r \times d \times$（应用 LoRA 的层数），远小于全量参数。</p>
+<p>预训练模型针对特定下游任务微调后，权重更新矩阵具有较低的本征秩（intrinsic rank）；任务越简单本征秩越低。因此可以不做全量参数更新，而是用秩分解矩阵间接训练密集层：对预训练权重 <span class="arithmatex">\(W_0\)</span>（<span class="arithmatex">\(d \times k\)</span>），其更新 <span class="arithmatex">\(\Delta W\)</span> 分解为 <span class="arithmatex">\(\Delta W = BA\)</span>，其中 <span class="arithmatex">\(B \in \mathbb{R}^{d \times r}\)</span>、<span class="arithmatex">\(A \in \mathbb{R}^{r \times k}\)</span>，<span class="arithmatex">\(r \ll \min(d,k)\)</span>（实践中 r 常取 4、8、16）。前向计算为：</p>
+<div class="arithmatex">\[h = W_0 x + \frac{\alpha}{r} B A x\]</div>
+<p>训练时 <span class="arithmatex">\(W_0\)</span> 冻结，仅更新 <span class="arithmatex">\(A\)</span>、<span class="arithmatex">\(B\)</span>；<span class="arithmatex">\(A\)</span> 用随机高斯初始化，<span class="arithmatex">\(B\)</span> 用零初始化（保证起始时旁路输出为零）。Transformer 中 LoRA 主要应用在注意力模块的 <span class="arithmatex">\(W_q, W_k, W_v, W_o\)</span> 四个矩阵，消融实验显示同时调整 <span class="arithmatex">\(W_q\)</span> 和 <span class="arithmatex">\(W_v\)</span> 效果最佳。可训练参数量约为 <span class="arithmatex">\(2 \times r \times d \times\)</span>（应用 LoRA 的层数），远小于全量参数。</p>
 <h2 id="_3">关键概念</h2>
 <h3 id="transformers">Transformers 框架要点</h3>
 <ul>
@@ -7849,7 +7820,7 @@
 <p><code>ds_config_zero2.json</code> 关键项：<code>zero_optimization.stage: 2</code>、优化器 AdamW（参数设 "auto" 从 TrainingArguments 继承）、<code>overlap_comm: true</code>、bf16/fp16 "auto"。⚠️ 该课程示例基于早期版本 API（如 <code>evaluation_strategy</code>、<code>tokenizer=</code> 参数在新版 Transformers 中已改名/弃用），照抄需按所用版本调整。</p>
 <h2 id="_6">分类/类型：高效微调方案</h2>
 <p>全量微调参数量大、资源压力高，资源有限时主要有两条路线：</p>
-<p><strong>Adapt Tuning（Adapter）</strong>：在每层 Transformer 中插入小 Adapter 模块（两个前馈子层：先降维 $d \to d/r$ 再还原 $d/r \to d$），冻结主体只训 Adapter。缺陷：引入额外计算，微调后模型推理变慢。LoRA 是改进的 Adapt Tuning 方法，但通过部署时合并权重消除了推理延迟。</p>
+<p><strong>Adapt Tuning（Adapter）</strong>：在每层 Transformer 中插入小 Adapter 模块（两个前馈子层：先降维 <span class="arithmatex">\(d \to d/r\)</span> 再还原 <span class="arithmatex">\(d/r \to d\)</span>），冻结主体只训 Adapter。缺陷：引入额外计算，微调后模型推理变慢。LoRA 是改进的 Adapt Tuning 方法，但通过部署时合并权重消除了推理延迟。</p>
 <p><strong>Prefix Tuning</strong>：固定 LM，在输入前构造可训练的 virtual tokens 前缀，每任务一套前缀。P-tuning 是其改进。缺陷：占用可用序列长度——微调质量越高，可用上下文越短。</p>
 <p><strong>LoRA 的相对优势</strong>：1) 可为不同下游任务构建小型 LoRA 模块，共享基座灵活切换；2) 不需为大多数参数维护优化器状态，硬件门槛低；3) 线性设计，部署时与冻结权重合并，无推理延迟；4) 与其他方法正交可组合。因此成为高效微调主流首选。</p>
 <h3 id="peft">peft 实现要点</h3>
@@ -7944,6 +7915,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7680,15 +7652,14 @@
 
 
 <h1 id="_1">多层感知机</h1>
-<blockquote>
-<p>来源：《动手学深度学习》（d2l）第 4 章"多层感知机"（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：多层感知机（MLP）= 多个全连接层堆叠 + 层间非线性激活函数，是第一个"真正的"深度网络；围绕它引出深度学习训练的核心课题——模型选择、过拟合与正则化（权重衰减、dropout）、数值稳定性与初始化、分布偏移。</p>
 <h2 id="_2">核心原理：为什么需要隐藏层和非线性</h2>
 <p>线性模型隐含<strong>单调假设</strong>：某特征增大必然导致输出增大或减小。它对"收入越高还款概率越高"大体成立，但很快失效：体温与死亡率的关系在 37°C 两侧方向相反；猫狗分类中，单个像素的强度无法线性决定类别——像素的重要性以复杂方式取决于其上下文。</p>
 <p><strong>加入隐藏层</strong>：把前 L−1 层看作"表示学习"，最后一层看作应用于该表示的线性预测器。全连接层堆叠：H = XW⁽¹⁾ + b⁽¹⁾，O = HW⁽²⁾ + b⁽²⁾。</p>
 <p><strong>必须非线性</strong>：仿射函数的仿射函数仍是仿射函数——O = (XW⁽¹⁾+b⁽¹⁾)W⁽²⁾+b⁽²⁾ = X(W⁽¹⁾W⁽²⁾) + (b⁽¹⁾W⁽²⁾+b⁽²⁾)，可合并为等价单层模型，隐藏层毫无意义。所以在仿射变换后必须逐元素应用<strong>激活函数</strong> σ：</p>
-<p>$$H = \sigma(XW^{(1)} + b^{(1)}), \quad O = HW^{(2)} + b^{(2)}$$</p>
+<div class="arithmatex">\[H = \sigma(XW^{(1)} + b^{(1)}), \quad O = HW^{(2)} + b^{(2)}\]</div>
 <p><strong>通用近似定理</strong>：即使只有一个隐藏层，给定足够神经元和正确权重，MLP 也能对任意函数建模——神经网络像 C 语言，能表达任何可计算程序，但"想出符合规范的程序"才是最难的。且单隐藏层能学 ≠ 应该用单隐藏层学：更深（而非更宽）的网络更容易逼近许多函数。</p>
 <h2 id="_3">关键概念：激活函数</h2>
 <table>
@@ -7766,7 +7737,7 @@
 <h2 id="dropout">正则化之二：暂退法（Dropout）</h2>
 <p><strong>动机</strong>：好的预测模型应对输入的微小扰动不敏感（平滑性）。毕晓普 1995 年证明：对输入加噪声的训练等价于 Tikhonov 正则化。斯里瓦斯塔瓦等人 2014 年把这一思想推广到网络内部层——<strong>训练时在计算后续层之前向每层注入噪声</strong>。原始论文的类比：dropout 破坏层间的"共适应性"，如同有性生殖破坏共适应的基因。</p>
 <p><strong>标准做法</strong>（无偏注入）：每个中间活性值 h 以暂退概率 p 被置零，其余除以 (1−p)：</p>
-<p>$$h' = \begin{cases} 0, &amp; \text{概率 } p \ \frac{h}{1-p}, &amp; \text{其他}\end{cases} \qquad E[h'] = h$$</p>
+<div class="arithmatex">\[h' = \begin{cases} 0, &amp; \text{概率 } p \\ \frac{h}{1-p}, &amp; \text{其他}\end{cases} \qquad E[h'] = h\]</div>
 <p>效果：每次迭代相当于训练一个原始网络的随机子网，输出层无法过度依赖任何单个神经元。</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">dropout_layer</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dropout</span><span class="p">):</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">dropout</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
@@ -7791,7 +7762,7 @@
 </ul>
 <p><strong>打破对称性</strong>：若把某层所有参数初始化为同一常数 c，前向时隐藏单元产生相同激活，反向时得到相同梯度，迭代永远无法打破对称——隐藏层的行为如同只有一个单元。（小批量 SGD 打不破这种对称，dropout 可以。）<strong>所以必须随机初始化</strong>。</p>
 <p><strong>Xavier 初始化</strong>（Glorot &amp; Bengio, 2010）：对无非线性层 oᵢ = Σⱼ wᵢⱼxⱼ，前向要保方差需 n_in σ² = 1，反向保梯度方差需 n_out σ² = 1——两者不可兼得，取折中：</p>
-<p>$$\sigma^2 = \frac{2}{n_{\text{in}} + n_{\text{out}}}$$</p>
+<div class="arithmatex">\[\sigma^2 = \frac{2}{n_{\text{in}} + n_{\text{out}}}\]</div>
 <p>高斯版：从 N(0, 2/(n_in+n_out)) 采样；均匀版：U(−√(6/(n_in+n_out)), √(6/(n_in+n_out)))。虽然"无非线性"的假设常被违反，实践中仍然有效。现代框架内置十几种初始化启发式；精心设计的初始化甚至可以不靠架构技巧训练 10000 层网络。</p>
 <h2 id="_8">环境与分布偏移</h2>
 <p>许多部署失败源于没想清楚"数据从哪来、输出到哪去"。最危险的场景：<strong>模型部署本身扰乱数据分布</strong>——贷款模型发现"穿牛津鞋与低违约相关"后开始按鞋放贷，顾客学会穿牛津鞋，模型被自己破坏。更尖锐的例子：预测犯罪的模型把更多警力派往某地区→更多犯罪被发现→模型更确信该地区危险（反馈循环）。</p>
@@ -7834,10 +7805,10 @@
 </ol>
 <h2 id="_9">参见</h2>
 <ul>
-<li><a href="../01-%E7%BA%BF%E6%80%A7%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">01-线性神经网络</a></li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/02-%E6%8A%8A%E7%BD%91%E7%BB%9C%E8%AE%AD%E5%A5%BD%E7%9A%84%E8%89%BA%E6%9C%AF/">../12-模型训练与优化/02-把网络训好的艺术.md</a></li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/05-%E4%BC%98%E5%8C%96%E5%8E%9F%E5%88%99/">../12-模型训练与优化/05-优化原则.md</a></li>
-<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/71-A-B%E6%B5%8B%E8%AF%95%E7%BB%9F%E8%AE%A1%E5%9F%BA%E7%A1%80%E4%B8%8E%E5%AE%9E%E9%AA%8C%E8%AE%BE%E8%AE%A1/">../14-机器学习系统与MLOps/71-A-B测试统计基础与实验设计.md</a></li>
+<li><a href="../01-%E7%BA%BF%E6%80%A7%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">线性神经网络</a></li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/02-%E6%8A%8A%E7%BD%91%E7%BB%9C%E8%AE%AD%E5%A5%BD%E7%9A%84%E8%89%BA%E6%9C%AF/">模型训练与优化 · 把网络训好的艺术</a></li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/05-%E4%BC%98%E5%8C%96%E5%8E%9F%E5%88%99/">模型训练与优化 · 优化原则</a></li>
+<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/71-A-B%E6%B5%8B%E8%AF%95%E7%BB%9F%E8%AE%A1%E5%9F%BA%E7%A1%80%E4%B8%8E%E5%AE%9E%E9%AA%8C%E8%AE%BE%E8%AE%A1/">机器学习系统与MLOps · A-B测试统计基础与实验设计</a></li>
 <li><a href="../../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/03-Transformer%20%E6%9E%B6%E6%9E%84/">../06-注意力机制与Transformer/03-Transformer 架构.md</a></li>
 </ul>
 
@@ -7902,6 +7873,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

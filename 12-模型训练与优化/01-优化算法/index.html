@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7836,9 +7808,8 @@
 
 
 <h1 id="_1">优化算法</h1>
-<blockquote>
-<p>来源：原资料（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：优化算法是训练神经网络时沿负梯度方向迭代更新参数、使损失函数最小化的核心引擎（SGD、动量、AdaGrad、RMSProp、Adadelta、Adam 等），它的效率直接决定训练时长，其超参数（尤其是学习率）直接决定最终模型质量。</p>
 <p>深度学习训练本质是一个优化问题：定义损失函数（目标函数），用数值优化算法迭代最小化它。几乎所有深度学习优化问题都是<strong>非凸</strong>的，但凸优化背景下的设计和分析极具启发性——凸情形下能证明的收敛性质，往往给出非凸情形下有效的直觉和算法设计思路。理解各算法原理与超参数作用，才能有针对性地调参，而不是把优化器当黑盒咒语。</p>
 <p>优化与深度学习的目标并不相同：优化关注<strong>最小化训练误差</strong>（经验风险），深度学习关注<strong>最小化泛化误差</strong>（风险）。训练数据集上最低的经验风险点未必是最低风险点。因此即使优化算法工作完美，仍需警惕过拟合。</p>
@@ -7846,93 +7817,93 @@
 <h3 id="_3">深度学习优化的三大挑战</h3>
 <ul>
 <li><strong>局部最小值</strong>：目标函数常有许多局部最优。梯度趋零后迭代可能停在局部最优。小批量梯度天然的噪声有助于跳出局部极小值——这是小批量 SGD 的有利特性之一。</li>
-<li><strong>鞍点</strong>：所有梯度消失但既非局部最小也非局部最大的位置（如 $f(x)=x^3$ 在 $x=0$，$f(x,y)=x^2-y^2$ 在原点）。用 Hessian 特征值判断：全正 → 局部最小，全负 → 局部最大，有正有负 → 鞍点。<strong>高维问题中鞍点远比局部最小值更常见</strong>（至少部分特征值为负的概率很高）。</li>
-<li><strong>梯度消失</strong>：如 $f(x)=\tanh(x)$，$f'(x)=1-\tanh^2(x)$，从 $x=4$ 出发时 $f'(4)=0.0013$，优化长期停滞。这是 ReLU 普及前深层网络难训练的原因之一。重参数化与良好初始化可缓解。</li>
+<li><strong>鞍点</strong>：所有梯度消失但既非局部最小也非局部最大的位置（如 <span class="arithmatex">\(f(x)=x^3\)</span> 在 <span class="arithmatex">\(x=0\)</span>，<span class="arithmatex">\(f(x,y)=x^2-y^2\)</span> 在原点）。用 Hessian 特征值判断：全正 → 局部最小，全负 → 局部最大，有正有负 → 鞍点。<strong>高维问题中鞍点远比局部最小值更常见</strong>（至少部分特征值为负的概率很高）。</li>
+<li><strong>梯度消失</strong>：如 <span class="arithmatex">\(f(x)=\tanh(x)\)</span>，<span class="arithmatex">\(f'(x)=1-\tanh^2(x)\)</span>，从 <span class="arithmatex">\(x=4\)</span> 出发时 <span class="arithmatex">\(f'(4)=0.0013\)</span>，优化长期停滞。这是 ReLU 普及前深层网络难训练的原因之一。重参数化与良好初始化可缓解。</li>
 </ul>
 <h3 id="_4">凸性（分析工具）</h3>
 <ul>
-<li><strong>凸集</strong>：$\lambda a + (1-\lambda)b \in X$ 对所有 $a,b\in X,\ \lambda\in[0,1]$ 成立。凸集的交集是凸的，并集不一定。</li>
-<li><strong>凸函数</strong>：$\lambda f(x) + (1-\lambda)f(x') \ge f(\lambda x + (1-\lambda)x')$。核心性质：</li>
+<li><strong>凸集</strong>：<span class="arithmatex">\(\lambda a + (1-\lambda)b \in X\)</span> 对所有 <span class="arithmatex">\(a,b\in X,\ \lambda\in[0,1]\)</span> 成立。凸集的交集是凸的，并集不一定。</li>
+<li><strong>凸函数</strong>：<span class="arithmatex">\(\lambda f(x) + (1-\lambda)f(x') \ge f(\lambda x + (1-\lambda)x')\)</span>。核心性质：</li>
 <li>局部极小值即全局极小值（不会"卡住"在假解）；</li>
-<li>下水平集 $S_b = {x \mid f(x)\le b}$ 是凸集；</li>
-<li>二阶可微时，凸 $\iff$ Hessian 半正定（$\nabla^2 f \succeq 0$）。</li>
-<li><strong>詹森不等式</strong>：$\mathbb{E}_X[f(X)] \ge f(\mathbb{E}_X[X])$，即"凸函数的期望 ≥ 期望的凸函数"，常用于用简单表达式约束复杂表达式（如 EM 算法中对数似然的界）。</li>
-<li><strong>约束处理</strong>：拉格朗日函数 $L(x,\alpha_1,\dots,\alpha_n)=f(x)+\sum_i \alpha_i c_i(x),\ \alpha_i\ge 0$；实践中更常用<strong>惩罚法</strong>（把 $\alpha_i c_i$ 加进目标，如权重衰减 $\frac{\lambda}{2}|w|^2$ 等价于约束 $|w|^2\le r^2$）和<strong>投影法</strong>（$\mathrm{Proj}<em>X(x)=\arg\min</em>{x'\in X}|x-x'|$，如梯度截断 $g\leftarrow g\cdot\min(1,\theta/|g|)$）。</li>
+<li>下水平集 <span class="arithmatex">\(S_b = \{x \mid f(x)\le b\}\)</span> 是凸集；</li>
+<li>二阶可微时，凸 <span class="arithmatex">\(\iff\)</span> Hessian 半正定（<span class="arithmatex">\(\nabla^2 f \succeq 0\)</span>）。</li>
+<li><strong>詹森不等式</strong>：<span class="arithmatex">\(\mathbb{E}_X[f(X)] \ge f(\mathbb{E}_X[X])\)</span>，即"凸函数的期望 ≥ 期望的凸函数"，常用于用简单表达式约束复杂表达式（如 EM 算法中对数似然的界）。</li>
+<li><strong>约束处理</strong>：拉格朗日函数 <span class="arithmatex">\(L(x,\alpha_1,\dots,\alpha_n)=f(x)+\sum_i \alpha_i c_i(x),\ \alpha_i\ge 0\)</span>；实践中更常用<strong>惩罚法</strong>（把 <span class="arithmatex">\(\alpha_i c_i\)</span> 加进目标，如权重衰减 <span class="arithmatex">\(\frac{\lambda}{2}|w|^2\)</span> 等价于约束 <span class="arithmatex">\(|w|^2\le r^2\)</span>）和<strong>投影法</strong>（<span class="arithmatex">\(\mathrm{Proj}_X(x)=\arg\min_{x'\in X}\|x-x'\|\)</span>，如梯度截断 <span class="arithmatex">\(g\leftarrow g\cdot\min(1,\theta/\|g\|)\)</span>）。</li>
 </ul>
 <h2 id="sgd-adam">分类/类型：从 SGD 到 Adam 的演进线</h2>
 <h3 id="1-gd">1. 梯度下降（GD）</h3>
-<p>一维情形由泰勒展开 $f(x+\epsilon)=f(x)+\epsilon f'(x)+O(\epsilon^2)$ 出发，沿负梯度走：</p>
-<p>$$x \leftarrow x - \eta \nabla f(x)$$</p>
+<p>一维情形由泰勒展开 <span class="arithmatex">\(f(x+\epsilon)=f(x)+\epsilon f'(x)+O(\epsilon^2)\)</span> 出发，沿负梯度走：</p>
+<div class="arithmatex">\[x \leftarrow x - \eta \nabla f(x)\]</div>
 <ul>
-<li><strong>学习率是命门</strong>：太小 → 进展缓慢（$\eta=0.05$ 时 10 步后仍离最优很远）；太大 → 一阶近似失效、发散（$\eta=1.1$ 时 $f(x)=x^2$ 上震荡发散）。</li>
-<li><strong>牛顿法</strong>（二阶）：由二阶泰勒展开令 $\nabla f(x)+H\epsilon=0$ 得 $\epsilon=-H^{-1}\nabla f(x)$。凸问题中接近极小值时<strong>二次收敛</strong>（$e^{(k+1)}\le c(e^{(k)})^2$），极快；但非凸问题中 Hessian 为负会使目标上升，必须调整（取 $|H|$ 或重引入小学习率）。代价致命：$O(d^2)$ 存储、求逆更贵，深度学习不可行。</li>
-<li><strong>预处理</strong>：只算 Hessian 对角 $x\leftarrow x-\eta\,\mathrm{diag}(H)^{-1}\nabla f(x)$，相当于给每个坐标单独的学习率，消除量纲不匹配——这是后续自适应算法的思想源头。</li>
-<li><strong>线搜索</strong>：沿梯度方向二分搜索最优 $\eta$，收敛快但每步要评估全数据集，深度学习不可行。</li>
+<li><strong>学习率是命门</strong>：太小 → 进展缓慢（<span class="arithmatex">\(\eta=0.05\)</span> 时 10 步后仍离最优很远）；太大 → 一阶近似失效、发散（<span class="arithmatex">\(\eta=1.1\)</span> 时 <span class="arithmatex">\(f(x)=x^2\)</span> 上震荡发散）。</li>
+<li><strong>牛顿法</strong>（二阶）：由二阶泰勒展开令 <span class="arithmatex">\(\nabla f(x)+H\epsilon=0\)</span> 得 <span class="arithmatex">\(\epsilon=-H^{-1}\nabla f(x)\)</span>。凸问题中接近极小值时<strong>二次收敛</strong>（<span class="arithmatex">\(e^{(k+1)}\le c(e^{(k)})^2\)</span>），极快；但非凸问题中 Hessian 为负会使目标上升，必须调整（取 <span class="arithmatex">\(|H|\)</span> 或重引入小学习率）。代价致命：<span class="arithmatex">\(O(d^2)\)</span> 存储、求逆更贵，深度学习不可行。</li>
+<li><strong>预处理</strong>：只算 Hessian 对角 <span class="arithmatex">\(x\leftarrow x-\eta\,\mathrm{diag}(H)^{-1}\nabla f(x)\)</span>，相当于给每个坐标单独的学习率，消除量纲不匹配——这是后续自适应算法的思想源头。</li>
+<li><strong>线搜索</strong>：沿梯度方向二分搜索最优 <span class="arithmatex">\(\eta\)</span>，收敛快但每步要评估全数据集，深度学习不可行。</li>
 </ul>
 <h3 id="2-sgd">2. 随机梯度下降（SGD）</h3>
-<p>目标函数是 $n$ 个样本损失的平均 $f(x)=\frac{1}{n}\sum_i f_i(x)$，全量梯度代价 $O(n)$。SGD 每次均匀随机采样一个 $i$，用 $\nabla f_i(x)$ 更新：</p>
-<p>$$x \leftarrow x - \eta \nabla f_i(x)$$</p>
+<p>目标函数是 <span class="arithmatex">\(n\)</span> 个样本损失的平均 <span class="arithmatex">\(f(x)=\frac{1}{n}\sum_i f_i(x)\)</span>，全量梯度代价 <span class="arithmatex">\(O(n)\)</span>。SGD 每次均匀随机采样一个 <span class="arithmatex">\(i\)</span>，用 <span class="arithmatex">\(\nabla f_i(x)\)</span> 更新：</p>
+<div class="arithmatex">\[x \leftarrow x - \eta \nabla f_i(x)\]</div>
 <ul>
-<li>每步代价降到 $O(1)$；随机梯度是完整梯度的<strong>无偏估计</strong>：$\mathbb{E}_i[\nabla f_i(x)] = \nabla f(x)$。</li>
-<li>代价是轨迹噪声大：即使接近最小值，$\eta\nabla f_i$ 仍注入方差，<strong>必须在优化过程中动态降低学习率</strong>。</li>
-<li>凸目标收敛性（Nesterov &amp; Vial, 2000）：设随机梯度 L2 范数有界于 $L$、初始参数距最优 $r$，取 $\eta = r/(L\sqrt{T})$，则 $E[R(\bar x)] - R^* \le rL/\sqrt{T}$，即按 $O(1/\sqrt T)$ 收敛（$\bar x$ 是优化路径的加权平均）。</li>
-<li><strong>采样方式</strong>：放回采样时每个样本至少被选一次的概率仅 $1-(1-1/n)^n\approx 0.63$，恰好一次仅 $\approx 0.37$，方差大、数据效率低；实践用<strong>无放回的随机排列遍历</strong>（每个 epoch 重新打乱）。</li>
+<li>每步代价降到 <span class="arithmatex">\(O(1)\)</span>；随机梯度是完整梯度的<strong>无偏估计</strong>：<span class="arithmatex">\(\mathbb{E}_i[\nabla f_i(x)] = \nabla f(x)\)</span>。</li>
+<li>代价是轨迹噪声大：即使接近最小值，<span class="arithmatex">\(\eta\nabla f_i\)</span> 仍注入方差，<strong>必须在优化过程中动态降低学习率</strong>。</li>
+<li>凸目标收敛性（Nesterov &amp; Vial, 2000）：设随机梯度 L2 范数有界于 <span class="arithmatex">\(L\)</span>、初始参数距最优 <span class="arithmatex">\(r\)</span>，取 <span class="arithmatex">\(\eta = r/(L\sqrt{T})\)</span>，则 <span class="arithmatex">\(E[R(\bar x)] - R^* \le rL/\sqrt{T}\)</span>，即按 <span class="arithmatex">\(O(1/\sqrt T)\)</span> 收敛（<span class="arithmatex">\(\bar x\)</span> 是优化路径的加权平均）。</li>
+<li><strong>采样方式</strong>：放回采样时每个样本至少被选一次的概率仅 <span class="arithmatex">\(1-(1-1/n)^n\approx 0.63\)</span>，恰好一次仅 <span class="arithmatex">\(\approx 0.37\)</span>，方差大、数据效率低；实践用<strong>无放回的随机排列遍历</strong>（每个 epoch 重新打乱）。</li>
 </ul>
 <h3 id="3-sgd">3. 小批量 SGD（实践默认）</h3>
-<p>每个更新用小批量 $\mathcal{B}<em>t$ 上的平均梯度 $g_t = \frac{1}{|\mathcal{B}_t|}\sum</em>{i\in\mathcal{B}_t}\partial_w f(x_i,w)$：</p>
+<p>每个更新用小批量 <span class="arithmatex">\(\mathcal{B}_t\)</span> 上的平均梯度 <span class="arithmatex">\(g_t = \frac{1}{|\mathcal{B}_t|}\sum_{i\in\mathcal{B}_t}\partial_w f(x_i,w)\)</span>：</p>
 <ul>
-<li><strong>统计效率</strong>：$b$ 个独立梯度平均，标准差降为 $b^{-1/2}$，更新更接近完整梯度；但方差收益随 $b$ 增长边际递减。</li>
-<li><strong>计算效率是主要动机</strong>：硬件是分层的（寄存器/L1/L2/L3/主存，带宽逐级下降）。逐元素算矩阵乘 $A=BC$ 约 1.2 GFlops，按列约 88，整矩阵约 196，按 64 列分块可达 2056——向量化 + 缓存友好 + 减少 Python/框架调度开销。批大小需匹配 GPU 内存并吃满并行度（8 GPU × 16 服务器 → 批 128）。</li>
+<li><strong>统计效率</strong>：<span class="arithmatex">\(b\)</span> 个独立梯度平均，标准差降为 <span class="arithmatex">\(b^{-1/2}\)</span>，更新更接近完整梯度；但方差收益随 <span class="arithmatex">\(b\)</span> 增长边际递减。</li>
+<li><strong>计算效率是主要动机</strong>：硬件是分层的（寄存器/L1/L2/L3/主存，带宽逐级下降）。逐元素算矩阵乘 <span class="arithmatex">\(A=BC\)</span> 约 1.2 GFlops，按列约 88，整矩阵约 196，按 64 列分块可达 2056——向量化 + 缓存友好 + 减少 Python/框架调度开销。批大小需匹配 GPU 内存并吃满并行度（8 GPU × 16 服务器 → 批 128）。</li>
 <li>实验（airfoil 数据集）：批 1500 的 GD 每 epoch 0.055s、批 1 的 SGD 0.102s、批 100 的小批量 0.003s——小批量同时兼顾收敛速度与计算效率。</li>
 </ul>
 <h3 id="4-momentum">4. 动量法（Momentum）</h3>
 <p>用<strong>泄漏平均</strong>替代瞬时梯度：</p>
-<p>$$v_t \leftarrow \beta v_{t-1} + g_{t,t-1}, \qquad x_t \leftarrow x_{t-1} - \eta_t v_t$$</p>
-<p>展开即 $v_t = \sum_{\tau=0}^{t-1}\beta^\tau g_{t-\tau}$，是过去梯度的指数加权平均。</p>
+<div class="arithmatex">\[v_t \leftarrow \beta v_{t-1} + g_{t,t-1}, \qquad x_t \leftarrow x_{t-1} - \eta_t v_t\]</div>
+<p>展开即 <span class="arithmatex">\(v_t = \sum_{\tau=0}^{t-1}\beta^\tau g_{t-\tau}\)</span>，是过去梯度的指数加权平均。</p>
 <ul>
-<li><strong>解决的痛点——病态条件</strong>：$f(x)=0.1x_1^2+2x_2^2$ 这类"峡谷"函数，$x_2$ 方向梯度大且振荡、$x_1$ 方向平坦。GD 两难：学习率小则 $x_1$ 收敛慢，大则 $x_2$ 发散（$\eta$ 从 0.4 升到 0.6 就炸到 $x_2\approx-1673$）。动量在 $x_1$ 方向聚合同向梯度加速前进，在 $x_2$ 方向正负抵消抑制振荡——同样的 $\eta=0.6$、$\beta=0.5$ 即稳定收敛。</li>
-<li><strong>有效样本权重</strong>：$\sum_{\tau=0}^{\infty}\beta^\tau = \frac{1}{1-\beta}$。$\beta=0.9$ 相当于平均约 10 个梯度，$\beta=0.5$ 约 2 个。</li>
-<li><strong>理论</strong>：二次凸目标 $h(x)=\frac{1}{2}x^\top Qx + x^\top c + b$ 经特征分解 $Q=O^\top\Lambda O$ 后逐坐标独立。标量情形 $x_{t+1}=(1-\eta\lambda)x_t$：GD 收敛要求 $0&lt;\eta\lambda&lt;2$，动量的收敛矩阵特征值给出更宽区间 $0&lt;\eta\lambda&lt;2+2\beta$，且 $\beta$ 越大越好。$\eta\lambda=1$ 前收敛逐步加快，超过 2 则发散。</li>
+<li><strong>解决的痛点——病态条件</strong>：<span class="arithmatex">\(f(x)=0.1x_1^2+2x_2^2\)</span> 这类"峡谷"函数，<span class="arithmatex">\(x_2\)</span> 方向梯度大且振荡、<span class="arithmatex">\(x_1\)</span> 方向平坦。GD 两难：学习率小则 <span class="arithmatex">\(x_1\)</span> 收敛慢，大则 <span class="arithmatex">\(x_2\)</span> 发散（<span class="arithmatex">\(\eta\)</span> 从 0.4 升到 0.6 就炸到 <span class="arithmatex">\(x_2\approx-1673\)</span>）。动量在 <span class="arithmatex">\(x_1\)</span> 方向聚合同向梯度加速前进，在 <span class="arithmatex">\(x_2\)</span> 方向正负抵消抑制振荡——同样的 <span class="arithmatex">\(\eta=0.6\)</span>、<span class="arithmatex">\(\beta=0.5\)</span> 即稳定收敛。</li>
+<li><strong>有效样本权重</strong>：<span class="arithmatex">\(\sum_{\tau=0}^{\infty}\beta^\tau = \frac{1}{1-\beta}\)</span>。<span class="arithmatex">\(\beta=0.9\)</span> 相当于平均约 10 个梯度，<span class="arithmatex">\(\beta=0.5\)</span> 约 2 个。</li>
+<li><strong>理论</strong>：二次凸目标 <span class="arithmatex">\(h(x)=\frac{1}{2}x^\top Qx + x^\top c + b\)</span> 经特征分解 <span class="arithmatex">\(Q=O^\top\Lambda O\)</span> 后逐坐标独立。标量情形 <span class="arithmatex">\(x_{t+1}=(1-\eta\lambda)x_t\)</span>：GD 收敛要求 <span class="arithmatex">\(0&lt;\eta\lambda&lt;2\)</span>，动量的收敛矩阵特征值给出更宽区间 <span class="arithmatex">\(0&lt;\eta\lambda&lt;2+2\beta\)</span>，且 <span class="arithmatex">\(\beta\)</span> 越大越好。<span class="arithmatex">\(\eta\lambda=1\)</span> 前收敛逐步加快，超过 2 则发散。</li>
 </ul>
 <h3 id="5-adagrad">5. AdaGrad</h3>
 <p>动机：<strong>稀疏特征</strong>（如罕见词、计算广告）的参数只在特征出现时才得到有意义更新，全局衰减的学习率对它们降得太快。AdaGrad（Duchi et al., 2011）按坐标累加平方梯度：</p>
-<p>$$s_t = s_{t-1} + g_t^2, \qquad w_t = w_{t-1} - \frac{\eta}{\sqrt{s_t + \epsilon}} \cdot g_t$$</p>
-<p>（逐坐标运算，$s_0=0$，$\epsilon$ 防除零。）</p>
+<div class="arithmatex">\[s_t = s_{t-1} + g_t^2, \qquad w_t = w_{t-1} - \frac{\eta}{\sqrt{s_t + \epsilon}} \cdot g_t\]</div>
+<p>（逐坐标运算，<span class="arithmatex">\(s_0=0\)</span>，<span class="arithmatex">\(\epsilon\)</span> 防除零。）</p>
 <ul>
-<li>思想源头是<strong>预处理</strong>：理想做法是按 Hessian 特征值重缩放坐标（条件数 $\kappa=\Lambda_1/\Lambda_d$ 大时优化困难），但深度学习算不起二阶导数；梯度平方累积是 Hessian 对角的廉价代理。</li>
+<li>思想源头是<strong>预处理</strong>：理想做法是按 Hessian 特征值重缩放坐标（条件数 <span class="arithmatex">\(\kappa=\Lambda_1/\Lambda_d\)</span> 大时优化困难），但深度学习算不起二阶导数；梯度平方累积是 Hessian 对角的廉价代理。</li>
 <li>每个坐标有独立的有效学习率：大梯度坐标被显著缩小，小梯度坐标得到平滑处理。</li>
-<li>缺陷：$s_t$ 近似线性增长 → 学习率按 $O(t^{-1/2})$ 被动衰减，对非凸的深度学习问题<strong>衰减过于剧烈</strong>（实验中 $\eta$ 需从 0.4 提到 2 才能收敛到好解）。</li>
+<li>缺陷：<span class="arithmatex">\(s_t\)</span> 近似线性增长 → 学习率按 <span class="arithmatex">\(O(t^{-1/2})\)</span> 被动衰减，对非凸的深度学习问题<strong>衰减过于剧烈</strong>（实验中 <span class="arithmatex">\(\eta\)</span> 需从 0.4 提到 2 才能收敛到好解）。</li>
 </ul>
 <h3 id="6-rmsprop">6. RMSProp</h3>
 <p>Tieleman &amp; Hinton (2012)，把"坐标自适应缩放"与"学习率调度"解耦：用泄漏平均代替无界累加：</p>
-<p>$$s_t \leftarrow \gamma s_{t-1} + (1-\gamma)g_t^2, \qquad x_t \leftarrow x_{t-1} - \frac{\eta}{\sqrt{s_t+\epsilon}}\odot g_t$$</p>
+<div class="arithmatex">\[s_t \leftarrow \gamma s_{t-1} + (1-\gamma)g_t^2, \qquad x_t \leftarrow x_{t-1} - \frac{\eta}{\sqrt{s_t+\epsilon}}\odot g_t\]</div>
 <ul>
-<li>权重和归一化为 1，半衰期 $\gamma^{-1}$；$\gamma=0.9$ 相当于平均最近 10 次平方梯度。</li>
-<li>$\eta$ 由实验者独立调度，不再随时间被动锁死——AdaGrad 的主要缺陷被修复（同一 2D 测试上 $\eta=0.4$ 即良好收敛）。</li>
+<li>权重和归一化为 1，半衰期 <span class="arithmatex">\(\gamma^{-1}\)</span>；<span class="arithmatex">\(\gamma=0.9\)</span> 相当于平均最近 10 次平方梯度。</li>
+<li><span class="arithmatex">\(\eta\)</span> 由实验者独立调度，不再随时间被动锁死——AdaGrad 的主要缺陷被修复（同一 2D 测试上 <span class="arithmatex">\(\eta=0.4\)</span> 即良好收敛）。</li>
 </ul>
 <h3 id="7-adadelta">7. Adadelta</h3>
 <p>Zeiler (2012)，AdaGrad 的另一变体，<strong>不需要学习率</strong>——用参数变化量本身校准未来变化。维护两个状态：</p>
-<p>$$s_t = \rho s_{t-1} + (1-\rho)g_t^2, \qquad g'<em>t = \frac{\sqrt{\Delta x</em>{t-1}+\epsilon}}{\sqrt{s_t+\epsilon}}\odot g_t$$
-$$x_t = x_{t-1} - g'<em>t, \qquad \Delta x_t = \rho \Delta x</em>{t-1} + (1-\rho)g_t'^2$$</p>
-<p>$\rho=0.9$（约 10 个半衰期）是常用值，$\epsilon\approx 10^{-5}$。</p>
+<div class="arithmatex">\[s_t = \rho s_{t-1} + (1-\rho)g_t^2, \qquad g'_t = \frac{\sqrt{\Delta x_{t-1}+\epsilon}}{\sqrt{s_t+\epsilon}}\odot g_t$$
+$$x_t = x_{t-1} - g'_t, \qquad \Delta x_t = \rho \Delta x_{t-1} + (1-\rho)g_t'^2\]</div>
+<p><span class="arithmatex">\(\rho=0.9\)</span>（约 10 个半衰期）是常用值，<span class="arithmatex">\(\epsilon\approx 10^{-5}\)</span>。</p>
 <h3 id="8-adam">8. Adam（事实标准）</h3>
 <p>Kingma &amp; Ba (2014)，把上述技术汇总为一个算法：动量（对梯度）+ RMSProp 式缩放（对平方梯度）+ 偏差校正：</p>
-<p>$$v_t \leftarrow \beta_1 v_{t-1} + (1-\beta_1)g_t, \qquad s_t \leftarrow \beta_2 s_{t-1} + (1-\beta_2)g_t^2$$
+<div class="arithmatex">\[v_t \leftarrow \beta_1 v_{t-1} + (1-\beta_1)g_t, \qquad s_t \leftarrow \beta_2 s_{t-1} + (1-\beta_2)g_t^2$$
 $$\hat v_t = \frac{v_t}{1-\beta_1^t}, \qquad \hat s_t = \frac{s_t}{1-\beta_2^t}$$
-$$g'<em>t = \frac{\eta \hat v_t}{\sqrt{\hat s_t} + \epsilon}, \qquad x_t \leftarrow x</em>{t-1} - g'_t$$</p>
+$$g'_t = \frac{\eta \hat v_t}{\sqrt{\hat s_t} + \epsilon}, \qquad x_t \leftarrow x_{t-1} - g'_t\]</div>
 <ul>
-<li>常用 $\beta_1=0.9,\ \beta_2=0.999,\ \epsilon=10^{-6}$；$\beta_2$ 远大于 $\beta_1$，即方差估计比动量移动更慢。</li>
-<li><strong>偏差校正</strong>：$v_0=s_0=0$ 的初始化使早期估计严重偏向 0，除以 $1-\beta^t$ 修正。</li>
-<li>与 RMSProp 的两个细节差异：更新用动量 $\hat v_t$ 而非原始梯度；分母用 $\sqrt{\hat s_t}+\epsilon$ 而非 $\sqrt{\hat s_t+\epsilon}$（实践略好）。</li>
-<li><strong>已知缺陷与 Yogi 修复</strong>（Reddi et al., 2019；Zaheer et al., 2018）：二次矩估计 $s_t$ 爆炸时 Adam 可能不收敛。Yogi 把更新 $s_t \leftarrow s_{t-1} + (1-\beta_2)(g_t^2 - s_{t-1})$ 改为</li>
+<li>常用 <span class="arithmatex">\(\beta_1=0.9,\ \beta_2=0.999,\ \epsilon=10^{-6}\)</span>；<span class="arithmatex">\(\beta_2\)</span> 远大于 <span class="arithmatex">\(\beta_1\)</span>，即方差估计比动量移动更慢。</li>
+<li><strong>偏差校正</strong>：<span class="arithmatex">\(v_0=s_0=0\)</span> 的初始化使早期估计严重偏向 0，除以 <span class="arithmatex">\(1-\beta^t\)</span> 修正。</li>
+<li>与 RMSProp 的两个细节差异：更新用动量 <span class="arithmatex">\(\hat v_t\)</span> 而非原始梯度；分母用 <span class="arithmatex">\(\sqrt{\hat s_t}+\epsilon\)</span> 而非 <span class="arithmatex">\(\sqrt{\hat s_t+\epsilon}\)</span>（实践略好）。</li>
+<li><strong>已知缺陷与 Yogi 修复</strong>（Reddi et al., 2019；Zaheer et al., 2018）：二次矩估计 <span class="arithmatex">\(s_t\)</span> 爆炸时 Adam 可能不收敛。Yogi 把更新 <span class="arithmatex">\(s_t \leftarrow s_{t-1} + (1-\beta_2)(g_t^2 - s_{t-1})\)</span> 改为</li>
 </ul>
-<p>$$s_t \leftarrow s_{t-1} + (1-\beta_2)\, g_t^2 \odot \mathrm{sgn}(g_t^2 - s_{t-1})$$</p>
+<div class="arithmatex">\[s_t \leftarrow s_{t-1} + (1-\beta_2)\, g_t^2 \odot \mathrm{sgn}(g_t^2 - s_{t-1})\]</div>
 <p>使更新规模不再依赖偏差大小；并建议用较大初始批量初始化动量。</p>
 <h2 id="_5">关键概念：学习率调度器</h2>
 <p>调学习率与选算法同等重要。三个维度：</p>
 <ol>
 <li><strong>大小</strong>：太大发散，太小训练过久或陷于次优。</li>
-<li><strong>衰减速率</strong>：持续过高会在最小值附近弹跳；希望衰减但比 $O(t^{-1/2})$ 慢的策略往往是凸问题的好选择。</li>
+<li><strong>衰减速率</strong>：持续过高会在最小值附近弹跳；希望衰减但比 <span class="arithmatex">\(O(t^{-1/2})\)</span> 慢的策略往往是凸问题的好选择。</li>
 <li><strong>预热（warmup）</strong>：初始参数随机、初始更新方向可能无意义，一开始就大步长有风险。线性预热期把学习率从 0 升到目标值再冷却。预热可应用于任何调度器，且能限制很深网络中参数的发散程度。</li>
 </ol>
 <p>常用策略：</p>
@@ -7947,27 +7918,27 @@ $$g'<em>t = \frac{\eta \hat v_t}{\sqrt{\hat s_t} + \epsilon}, \qquad x_t \leftar
 <tbody>
 <tr>
 <td>分段常数（多因子）</td>
-<td>在里程碑 ${5,10,20}$ 等处 $\eta\leftarrow\eta\cdot\alpha$</td>
+<td>在里程碑 <span class="arithmatex">\(\{5,10,20\}\)</span> 等处 <span class="arithmatex">\(\eta\leftarrow\eta\cdot\alpha\)</span></td>
 <td>训练深网最常用；直觉：进展停滞时才降，以获得更好的局部最优</td>
 </tr>
 <tr>
 <td>指数衰减</td>
-<td>$\eta(t)=\eta_0 e^{-\lambda t}$</td>
+<td><span class="arithmatex">\(\eta(t)=\eta_0 e^{-\lambda t}\)</span></td>
 <td>下降过猛，易过早停止</td>
 </tr>
 <tr>
 <td>多项式衰减</td>
-<td>$\eta(t)=\eta_0(\beta t+1)^{-\alpha}$</td>
-<td>$\alpha=0.5$ 在凸优化中表现好</td>
+<td><span class="arithmatex">\(\eta(t)=\eta_0(\beta t+1)^{-\alpha}\)</span></td>
+<td><span class="arithmatex">\(\alpha=0.5\)</span> 在凸优化中表现好</td>
 </tr>
 <tr>
 <td>单因子（乘法）</td>
-<td>$\eta_{t+1}\leftarrow\max(\eta_{\min}, \eta_t\cdot\alpha)$</td>
+<td><span class="arithmatex">\(\eta_{t+1}\leftarrow\max(\eta_{\min}, \eta_t\cdot\alpha)\)</span></td>
 <td>带下界防衰减过头</td>
 </tr>
 <tr>
 <td>余弦调度</td>
-<td>$\eta_t = \eta_T + \frac{\eta_0-\eta_T}{2}(1+\cos(\pi t/T))$</td>
+<td><span class="arithmatex">\(\eta_t = \eta_T + \frac{\eta_0-\eta_T}{2}(1+\cos(\pi t/T))\)</span></td>
 <td>Loshchilov &amp; Hutter (2016)；前段降得慢、末端极小，CV 任务常用，可叠加 warmup</td>
 </tr>
 </tbody>
@@ -7991,7 +7962,7 @@ $$g'<em>t = \frac{\eta \hat v_t}{\sqrt{\hat s_t} + \epsilon}, \qquad x_t \leftar
 <td>梯度全为零但既非极大也非极小的点；高维下比局部最小值更常见</td>
 </tr>
 <tr>
-<td>条件数 $\kappa$</td>
+<td>条件数 <span class="arithmatex">\(\kappa\)</span></td>
 <td>Hessian 最大/最小特征值之比；越大问题越"峡谷化"，GD 越难调</td>
 </tr>
 <tr>
@@ -7999,20 +7970,20 @@ $$g'<em>t = \frac{\eta \hat v_t}{\sqrt{\hat s_t} + \epsilon}, \qquad x_t \leftar
 <td>用 Hessian 对角（或其代理）给每个坐标单独缩放学习率</td>
 </tr>
 <tr>
-<td>动量 $v_t$</td>
-<td>过去梯度的指数加权平均，$\beta$ 控制记忆长度</td>
+<td>动量 <span class="arithmatex">\(v_t\)</span></td>
+<td>过去梯度的指数加权平均，<span class="arithmatex">\(\beta\)</span> 控制记忆长度</td>
 </tr>
 <tr>
 <td>泄漏平均</td>
-<td>$s_t\leftarrow\gamma s_{t-1}+(1-\gamma)z_t$，有界、归一化、半衰期 $\gamma^{-1}$</td>
+<td><span class="arithmatex">\(s_t\leftarrow\gamma s_{t-1}+(1-\gamma)z_t\)</span>，有界、归一化、半衰期 <span class="arithmatex">\(\gamma^{-1}\)</span></td>
 </tr>
 <tr>
 <td>偏差校正</td>
-<td>Adam 中除以 $1-\beta^t$，修正零初始化导致的早期估计偏小</td>
+<td>Adam 中除以 <span class="arithmatex">\(1-\beta^t\)</span>，修正零初始化导致的早期估计偏小</td>
 </tr>
 <tr>
 <td>有效样本权重</td>
-<td>指数加权平均的等效平均窗口 $\frac{1}{1-\beta}$</td>
+<td>指数加权平均的等效平均窗口 <span class="arithmatex">\(\frac{1}{1-\beta}\)</span></td>
 </tr>
 </tbody>
 </table>
@@ -8021,9 +7992,9 @@ $$g'<em>t = \frac{\eta \hat v_t}{\sqrt{\hat s_t} + \epsilon}, \qquad x_t \leftar
 <li><strong>学习率</strong>：太大发散、太小没进展，通常只能多次实验确定；训练中逐步降低可提精度并减轻过拟合。</li>
 <li><strong>批量大小</strong>：统计效率（小批噪声正则化、方差小）与计算效率（大批向量化）权衡；BN 的噪声注入收益随批增大而减少。</li>
 <li><strong>非凸问题勿裸用牛顿法</strong>：Hessian 为负时目标反而上升；需取绝对值或重引入学习率。</li>
-<li><strong>动量调参</strong>：$\beta$ 大需相应降 $\eta$（等效步长被放大 $\frac{1}{1-\beta}$ 倍，如 $\beta=0.9$ 时 lr 从 0.02 降到 0.005 才稳定）。</li>
+<li><strong>动量调参</strong>：<span class="arithmatex">\(\beta\)</span> 大需相应降 <span class="arithmatex">\(\eta\)</span>（等效步长被放大 <span class="arithmatex">\(\frac{1}{1-\beta}\)</span> 倍，如 <span class="arithmatex">\(\beta=0.9\)</span> 时 lr 从 0.02 降到 0.005 才稳定）。</li>
 <li><strong>AdaGrad 别直接用于深网</strong>：学习率衰减过于剧烈；用 RMSProp/Adam 替代。</li>
-<li><strong>Adam 方差控制不良可能发散</strong>：增大批量或换 Yogi 式更新；收敛后期仍需降 $\eta$。</li>
+<li><strong>Adam 方差控制不良可能发散</strong>：增大批量或换 Yogi 式更新；收敛后期仍需降 <span class="arithmatex">\(\eta\)</span>。</li>
 <li><strong>预热</strong>：很深的网络 + 高级设计，随机初始化的初期更新可能巨大发散，前几个 epoch 线性升温能显著稳住训练。</li>
 </ul>
 <h2 id="_8">⚠️ 时效性说明</h2>
@@ -8101,6 +8072,10 @@ $$g'<em>t = \frac{\eta \hat v_t}{\sqrt{\hat s_t} + \epsilon}, \qquad x_t \leftar
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

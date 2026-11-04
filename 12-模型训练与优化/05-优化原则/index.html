@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7626,9 +7598,8 @@
 
 
 <h1 id="optimization-principles">优化原则（Optimization Principles）</h1>
-<blockquote>
-<p>来源：原资料（ML 系统教材 Part III 开篇，更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：机器学习系统的优化不是单目标问题，而是在精度、延迟、内存、能耗等多个指标之间寻找帕累托前沿的多维权衡，其底层受算术强度、数据搬运能耗、Amdahl 定律等"效率物理学"约束。</p>
 <p>一个能用的模型很少是高效的模型。机器学习系统可以按物理约束搭建起来，但要满足现实世界对时间、内存和能耗的要求，就需要系统的优化。每一次优化本质上都是<strong>算法-机器协同设计</strong>：用数学结构换取物理可行性——量化用数值精度换内存，剪枝用模型容量换体积与速度，蒸馏用训练算力换推理效率。这些原则回答的是"为什么有的模型又快又便宜，有的又慢又贵"。</p>
 <h2 id="_1">核心原理</h2>
@@ -7642,8 +7613,8 @@
 <p><strong>推论</strong>：系统工程师的工作是针对具体部署环境在帕累托前沿上找工作点——<strong>不存在普适最优解</strong>。</p>
 <h3 id="6arithmetic-intensity-law">原理 6：算术强度定律（Arithmetic Intensity Law）</h3>
 <p><strong>不变量</strong>：可达吞吐量受限于计算峰值与内存带宽的较小者（Roofline 模型，Williams et al. 2009）：</p>
-<p>$$R = \min(R_{peak},\ I \times BW)$$</p>
-<p>其中 $I$ 为工作负载的算术强度（FLOP/字节），$BW$ 为内存带宽。</p>
+<div class="arithmatex">\[R = \min(R_{peak},\ I \times BW)\]</div>
+<p>其中 <span class="arithmatex">\(I\)</span> 为工作负载的算术强度（FLOP/字节），<span class="arithmatex">\(BW\)</span> 为内存带宽。</p>
 <p><strong>推论</strong>：给一个访存受限（memory-bound）的模型加更多算力，收益为零。选优化技术前必须先诊断瓶颈在计算还是访存。瓶颈诊断表：</p>
 <table>
 <thead>
@@ -7657,19 +7628,19 @@
 <tbody>
 <tr>
 <td>访存受限</td>
-<td>$D_{vol}/BW$</td>
+<td><span class="arithmatex">\(D_{vol}/BW\)</span></td>
 <td>量化、剪枝、批处理</td>
 <td>换更快 GPU（更多 FLOP/s）</td>
 </tr>
 <tr>
 <td>计算受限</td>
-<td>$O/(R_{peak}\cdot\eta_{hw})$</td>
+<td><span class="arithmatex">\(O/(R_{peak}\cdot\eta_{hw})\)</span></td>
 <td>更优 kernel、Tensor Core、更快 GPU</td>
 <td>单纯加内存带宽</td>
 </tr>
 <tr>
 <td>延迟受限</td>
-<td>$L_{lat}$</td>
+<td><span class="arithmatex">\(L_{lat}\)</span></td>
 <td>kernel 融合、异步派发、约束延迟 SLO 下的微批</td>
 <td>加 FLOP/s 或微批</td>
 </tr>
@@ -7677,12 +7648,12 @@
 </table>
 <p>许多重要算子（embedding 查表、归一化、softmax、深度可分离卷积、小批量推理路径）位于 ridge point 的访存受限一侧；稠密矩阵乘和卷积在高批量、高利用率时才偏计算受限。这一分化源于<strong>内存墙</strong>：三十年来处理器速度增长持续快于内存带宽（Wulf &amp; McKee 1995），神经网络这种权重巨大、时间局部性不均的负载尤其容易撞墙。</p>
 <h3 id="7the-energy-movement-invariant">原理 7：能量搬运不变量（The Energy-Movement Invariant）</h3>
-<p><strong>不变量</strong>：从 DRAM 搬运一个 32 位数值的能耗，约是 32 位算术运算的 100–1000 倍（视操作类型与工艺而定，Horowitz 2014）。即 $E_{move} \gg E_{compute}$。</p>
+<p><strong>不变量</strong>：从 DRAM 搬运一个 32 位数值的能耗，约是 32 位算术运算的 100–1000 倍（视操作类型与工艺而定，Horowitz 2014）。即 <span class="arithmatex">\(E_{move} \gg E_{compute}\)</span>。</p>
 <p><strong>推论</strong>：对访存受限负载，<strong>数据局部性是效率的第一驱动因素</strong>——优先做 kernel 融合（数据留在寄存器）和量化（减小搬运量）；对计算受限负载，则优先减少操作数、改进算术 kernel。</p>
 <h3 id="8amdahl">原理 8：Amdahl 定律</h3>
 <p><strong>不变量</strong>：系统最大加速比受限于不可加速部分所占比例（Amdahl 1967）：</p>
-<p>$$\text{Speedup} = \frac{1}{(1-f_{parallel}) + f_{parallel}/S_{parallel}}$$</p>
-<p>其中 $f_{parallel}$ 是可并行比例，$S_{parallel}$ 是该部分的加速比。</p>
+<div class="arithmatex">\[\text{Speedup} = \frac{1}{(1-f_{parallel}) + f_{parallel}/S_{parallel}}\]</div>
+<p>其中 <span class="arithmatex">\(f_{parallel}\)</span> 是可并行比例，<span class="arithmatex">\(S_{parallel}\)</span> 是该部分的加速比。</p>
 <p><strong>推论</strong>：若模型 95% 的部分在 GPU 上快了 100 倍，整体加速也只到约 16.8 倍。这解释了为什么在高度优化的系统里，<strong>数据加载和预处理往往成为最终瓶颈</strong>。</p>
 <h2 id="_2">经验与常见坑</h2>
 <ul>
@@ -7701,7 +7672,7 @@
 <li><a href="../07-%E6%A8%A1%E5%9E%8B%E5%8E%8B%E7%BC%A9/">模型压缩</a>——量化、剪枝、蒸馏在帕累托前沿上的具体实现</li>
 <li><a href="../32-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96%E4%B8%8E%E8%BD%BB%E9%87%8F%E5%8C%96/">大模型推理优化与轻量化</a>——推理侧瓶颈诊断与优化实践</li>
 <li><a href="../31-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E7%B3%BB%E7%BB%9F-%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%8E%E5%AF%B9%E9%BD%90/">大模型训练系统-分布式与对齐</a>——分布式训练中的吞吐与通信瓶颈</li>
-<li><a href="../06-%E6%95%B0%E6%8D%AE%E9%80%89%E6%8B%A9/">数据选择</a>——在源头削减总操作数 $O$ 的上游优化</li>
+<li><a href="../06-%E6%95%B0%E6%8D%AE%E9%80%89%E6%8B%A9/">数据选择</a>——在源头削减总操作数 <span class="arithmatex">\(O\)</span> 的上游优化</li>
 </ul>
 
 
@@ -7765,6 +7736,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

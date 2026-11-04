@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7858,9 +7830,8 @@
 
 
 <h1 id="_1">安全与隐私</h1>
-<blockquote>
-<p>来源：ML 系统教材第 13 章 "Security &amp; Privacy"（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：ML 系统的安全 = 保护机密性/完整性/可用性免受<strong>主动对抗</strong>（越界访问、投毒、提取、操纵）；隐私 = 限制敏感信息<strong>即使系统正常工作</strong>也可能被泄露或推断的风险。二者共同决定 ML 系统能否部署——不是上线后补的功能，而是决定系统"能不能用"的前提条件。</p>
 <p>传统数据库被攻破，攻击者偷走记录；ML 模型被攻破，攻击者可以从模型里"抽"出记住的训练样本，或在训练数据里埋下只在特定触发器下激活的后门。ML 不只是存储数据——它<strong>压缩、记忆并执行</strong>数据，这让学习到的决策边界本身成为攻击面。信息泄露不变量（原则 17）：模型输出总是携带训练数据的影子，只要模型有用，完美隐私在数学上不可能——<strong>隐私因此不是一堵一次性砌好的墙，而是每次查询都在消耗的预算</strong>。</p>
 <h2 id="vs">安全 vs 隐私：两个问题分开问</h2>
@@ -7919,7 +7890,7 @@
 <li><strong>BERT 提取案例</strong>：200 万条精心构造查询（约 50 美元查询费）训出与受害模型 97%+ 一致的学生模型——置信分数和 logits 是高信息泄漏源。</li>
 <li><strong>LLM 提取</strong>：仅凭公开 API 可恢复 OpenAI ada/babbage 的输出投影矩阵（RMSE ~10⁻⁴、成本 $1–12），并恢复 gpt-3.5 的隐藏维度——看似无害的 top-k logits 返回是显著泄漏向量。</li>
 <li><strong>内部窃取</strong>：Tesla 起诉前员工拷贝 Autopilot 源码库——受保护资产是整个工程栈（训练代码、特征管线、仿真资产），内部访问绕过一切 API 层防御。</li>
-<li><strong>防御经济学</strong>：四杠杆协同——降低每次响应的信息量（置信度舍入到 2 位小数、只返回 top-5 类消除 99.5% 分布条目）、限制查询量（配额阶梯：免费 100/天 → 付费 1 万/天 → 企业认证）、抬高边际成本（定价使 n·p_query &gt; C_train，如训练 $5M、需 1 亿次查询 → 定价 &gt;$0.05/次）、检测测量行为（异常分数 = f(查询量, KL 散度, 查询间隔规律性)，自适应限额 limit_base·exp(−γ·score)）。实测组合可把代理模型保真度从 90% 压到 72%，正常用户 top-5 精度几乎不受影响（99.2% vs 99.3%）。</li>
+<li><strong>防御经济学</strong>：四杠杆协同——降低每次响应的信息量（置信度舍入到 2 位小数、只返回 top-5 类消除 99.5% 分布条目）、限制查询量（配额阶梯：免费 100/天 → 付费 1 万/天 → 企业认证）、抬高边际成本（定价使 n·p_query &gt; C_train，如训练 <span class="arithmatex">\(5M、需 1 亿次查询 → 定价 &gt;\)</span>0.05/次）、检测测量行为（异常分数 = f(查询量, KL 散度, 查询间隔规律性)，自适应限额 limit_base·exp(−γ·score)）。实测组合可把代理模型保真度从 90% 压到 72%，正常用户 top-5 精度几乎不受影响（99.2% vs 99.3%）。</li>
 </ul>
 <h3 id="_5">数据投毒（训练完整性）</h3>
 <p>形式化为双层优化：外层攻击者选 S_poison 最大化模型在目标集上的损失，内层系统在 S∪S_poison 上训练——每评估一个防御都要解完整内层训练，故计算昂贵。分类：可用性攻击（整体降精度）、目标攻击（特定输入出错）、<strong>后门攻击</strong>（平时 99%+ 干净精度、触发输入 99%+ 攻击成功率——精度指标检测不出来）、子群体攻击（危害公平敏感场景）。投毒杠杆极高：污染 0.1% 训练数据可降精度 10–50%；0.01% 即可植入后门且跨重训/迁移存活。防御：管线端到端安全（输入验证、完整性校验、异常检测）+ 鲁棒训练（降权/过滤异常样本）。</p>
@@ -8066,11 +8037,11 @@
 </ul>
 <h2 id="_15">参见</h2>
 <ul>
-<li><a href="../01-%E8%84%86%E5%BC%B1%E7%9A%84%E5%B7%A8%E4%BA%BAAI%E7%9A%84%E9%A3%8E%E9%99%A9%E4%B8%8E%E6%8C%91%E6%88%98/">01-脆弱的巨人AI的风险与挑战</a></li>
-<li><a href="../02-%E8%B4%9F%E8%B4%A3%E4%BB%BB%E7%9A%84%E5%B7%A5%E7%A8%8B/">02-负责任的工程</a></li>
-<li><a href="../03-%E8%B4%9F%E8%B4%A3%E4%BB%BB%E7%9A%84%20Fleet%20%E5%8E%9F%E5%88%99/">03-负责任的 Fleet 原则</a></li>
-<li><a href="../05-%E9%B2%81%E6%A3%92%20AI/">05-鲁棒 AI</a></li>
-<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/02-%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85/">../13-深度学习框架与计算/02-环境安装</a></li>
+<li><a href="../01-%E8%84%86%E5%BC%B1%E7%9A%84%E5%B7%A8%E4%BA%BAAI%E7%9A%84%E9%A3%8E%E9%99%A9%E4%B8%8E%E6%8C%91%E6%88%98/">脆弱的巨人AI的风险与挑战</a></li>
+<li><a href="../02-%E8%B4%9F%E8%B4%A3%E4%BB%BB%E7%9A%84%E5%B7%A5%E7%A8%8B/">负责任的工程</a></li>
+<li><a href="../03-%E8%B4%9F%E8%B4%A3%E4%BB%BB%E7%9A%84%20Fleet%20%E5%8E%9F%E5%88%99/">负责任的 Fleet 原则</a></li>
+<li><a href="../05-%E9%B2%81%E6%A3%92%20AI/">鲁棒 AI</a></li>
+<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/02-%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85/">深度学习框架与计算 · 环境安装</a></li>
 </ul>
 
 
@@ -8134,6 +8105,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

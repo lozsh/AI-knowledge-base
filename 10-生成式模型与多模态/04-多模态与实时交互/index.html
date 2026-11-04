@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7992,9 +7964,8 @@
 
 
 <h1 id="_1">多模态与实时交互</h1>
-<blockquote>
-<p>来源：原资料（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：多模态实时交互研究 Agent 如何在语音对话、GUI 操作、机器人控制等输入持续流动、输出受严格时间预算约束的场景中，同时处理多种模态信息并实时响应——这是 Agent 跳出"对话框"的关键一步。</p>
 <p><strong>多模态</strong>指同时处理文字、语音、图像、视频、动作等多种信息形式。静态的"一次输入、一次理解"类任务（看截图、读图表、解析 PDF）对今天的多模态大模型已相对成熟；本章聚焦的是<strong>实时性把问题变难</strong>的三个场景：语音对话、Computer Use（GUI 操作）、机器人控制。三者卡住的地方高度相似：都要同时处理多种模态、都对延迟极度敏感（语音停顿超两秒让人焦躁，机器人毫秒级抖动可能导致碰撞）。这两个约束把三个场景推向同一个架构方向：<strong>从串行流水线走向端到端模型</strong>。</p>
 <p>边界说明：多模态生成（生图、生视频）在 Agent 框架中只是普通的工具调用，不涉及实时交互难题，不在主线之内。</p>
@@ -8184,11 +8155,11 @@
 </ul>
 <h2 id="_15">参见</h2>
 <ul>
-<li><a href="../02-%E5%A4%9A%E6%A8%A1%E6%80%81AI/">02-多模态AI</a></li>
-<li><a href="../../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/23-%E5%A4%9A%E6%A8%A1%E6%80%81AI%E5%BA%94%E7%94%A8%EF%BC%9A%E8%AF%AD%E9%9F%B3%E3%80%81%E5%9B%BE%E5%83%8F%E7%90%86%E8%A7%A3%E4%B8%8E%E7%94%9F%E6%88%90/">23-多模态AI应用：语音、图像理解与生成</a></li>
-<li><a href="../../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/22-LLM%E5%BA%94%E7%94%A8%E5%B7%A5%E7%A8%8B%EF%BC%9A%E9%93%BE%E5%BC%8F%E8%B0%83%E7%94%A8%E3%80%81%E8%AE%B0%E5%BF%86%E3%80%81Agent%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8/">22-LLM应用工程：链式调用、记忆、Agent与函数调用</a>——Agent 状态栏、ReAct 循环等本章复用的机制</li>
-<li><a href="../../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/02-Agentic-RL/">02-Agentic-RL</a>——RL 训练 VLA、推理时计算扩展的延伸</li>
-<li><a href="../01-%E6%89%A9%E6%95%A3%E6%A8%A1%E5%9E%8B/">01-扩散模型</a>——flow matching 与扩散模型同源</li>
+<li><a href="../02-%E5%A4%9A%E6%A8%A1%E6%80%81AI/">多模态AI</a></li>
+<li><a href="../../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/23-%E5%A4%9A%E6%A8%A1%E6%80%81AI%E5%BA%94%E7%94%A8%EF%BC%9A%E8%AF%AD%E9%9F%B3%E3%80%81%E5%9B%BE%E5%83%8F%E7%90%86%E8%A7%A3%E4%B8%8E%E7%94%9F%E6%88%90/">大语言模型 · 多模态AI应用：语音、图像理解与生成</a></li>
+<li><a href="../../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/22-LLM%E5%BA%94%E7%94%A8%E5%B7%A5%E7%A8%8B%EF%BC%9A%E9%93%BE%E5%BC%8F%E8%B0%83%E7%94%A8%E3%80%81%E8%AE%B0%E5%BF%86%E3%80%81Agent%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8/">大语言模型 · LLM应用工程：链式调用、记忆、Agent与函数调用</a>——Agent 状态栏、ReAct 循环等本章复用的机制</li>
+<li><a href="../../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/02-Agentic-RL/">强化学习 · Agentic-RL</a>——RL 训练 VLA、推理时计算扩展的延伸</li>
+<li><a href="../01-%E6%89%A9%E6%95%A3%E6%A8%A1%E5%9E%8B/">扩散模型</a>——flow matching 与扩散模型同源</li>
 </ul>
 
 
@@ -8252,6 +8223,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

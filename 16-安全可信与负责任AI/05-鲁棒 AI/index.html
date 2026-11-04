@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7770,9 +7742,8 @@
 
 
 <h1 id="ai">鲁棒 AI</h1>
-<blockquote>
-<p>来源：ML 系统教材第 14 章 "Robust AI"（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：鲁棒 AI = 使模型预测在分布偏移、对抗扰动、硬件/软件故障下仍保持有界、可恢复行为的<strong>可测量系统属性</strong>——它对抗的不是代码 bug，而是"输入、数据分布、硬件不再匹配训练条件时系统依然全速输出错误答案"的静默失败。</p>
 <p>传统软件大声失败：异常崩溃进程、类型错误中断编译、断言终止执行——失败可见所以可修复。ML 系统<strong>静默失败</strong>：面对分布外输入仍以满置信度输出；被攻击时输出的错误预测与正常预测难以区分；分布漂移下延迟和可用率稳定、精度悄悄流失。等到业务指标显出问题，伤害已累积数周；等到攻击被发现，可能已影响成千上万个决策。鲁棒工程的目标就是把不可见变成可见：让系统<strong>知道自己何时在能力范围之外</strong>、抵抗操纵、优雅降级，而不是自信地给出错误答案。</p>
 <h2 id="_1">鲁棒性的定义与三支柱</h2>
@@ -7872,11 +7843,11 @@
 </ul>
 <h2 id="_13">参见</h2>
 <ul>
-<li><a href="../04-%E5%AE%89%E5%85%A8%E4%B8%8E%E9%9A%90%E7%A7%81/">04-安全与隐私</a></li>
-<li><a href="../01-%E8%84%86%E5%BC%B1%E7%9A%84%E5%B7%A8%E4%BA%BAAI%E7%9A%84%E9%A3%8E%E9%99%A9%E4%B8%8E%E6%8C%91%E6%88%98/">01-脆弱的巨人AI的风险与挑战</a></li>
-<li><a href="../02-%E8%B4%9F%E8%B4%A3%E4%BB%BB%E7%9A%84%E5%B7%A5%E7%A8%8B/">02-负责任的工程</a></li>
-<li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/09-%E5%AE%B9%E9%94%99/">../15-AI基础设施与硬件/09-容错</a></li>
-<li><a href="../../22-%E6%A3%80%E7%B4%A2%E4%B8%8ERAG/06-RAG%E8%AF%84%E4%BC%B0%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5/">../22-检索与RAG/06-RAG评估与工程实践</a></li>
+<li><a href="../04-%E5%AE%89%E5%85%A8%E4%B8%8E%E9%9A%90%E7%A7%81/">安全与隐私</a></li>
+<li><a href="../01-%E8%84%86%E5%BC%B1%E7%9A%84%E5%B7%A8%E4%BA%BAAI%E7%9A%84%E9%A3%8E%E9%99%A9%E4%B8%8E%E6%8C%91%E6%88%98/">脆弱的巨人AI的风险与挑战</a></li>
+<li><a href="../02-%E8%B4%9F%E8%B4%A3%E4%BB%BB%E7%9A%84%E5%B7%A5%E7%A8%8B/">负责任的工程</a></li>
+<li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/09-%E5%AE%B9%E9%94%99/">AI基础设施与硬件 · 容错</a></li>
+<li><a href="../../22-%E6%A3%80%E7%B4%A2%E4%B8%8ERAG/06-RAG%E8%AF%84%E4%BC%B0%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5/">检索与RAG · RAG评估与工程实践</a></li>
 </ul>
 
 
@@ -7940,6 +7911,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7858,9 +7830,8 @@
 
 
 <h1 id="hardware-acceleration">硬件加速（Hardware Acceleration）</h1>
-<blockquote>
-<p>来源：《机器学习系统》教材第 11 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：硬件加速是用针对张量运算特化的领域专用芯片替代通用处理器逻辑，用可编程性换取计算密度和能效——其本质不是"算得更快"，而是"每个有效运算搬动更少的数据"。</p>
 <p>现代计算的中心意外是：算术近乎免费，而搬运数据昂贵。取一个主存数据的时间里，处理器本可以做上千次计算——这就是"内存墙"，它由光速和电子移动的物理代价决定，不是等待修复的工程缺陷。专用加速器存在的意义正是隐藏、摊销、最小化数据搬运成本。由此推出两个工程结论：(1) 若一个操作本来就是访存受限（memory bound），减少计算量不会变快，因为瓶颈从来不是计算；(2) 选硬件不能只比峰值 FLOP/s，要看工作负载的访存模式是否与硬件设计匹配。</p>
 <h2 id="_1">核心原理</h2>
@@ -8067,7 +8038,7 @@
 <p><strong>TPUv1 vs K80 效率冲击</strong>（2015）：TPUv1 砍掉缓存/分支预测/乱序执行，填满 256×256 脉动阵列做 8 位矩阵乘，推理快 15–30×、每瓦性能好 30–80×。起源是"TPU 容量悬崖"：2013 年 Google 测算语音搜索若被日常使用，推理负载将使其数据中心数量翻倍，无资本方案可吸收——15 个月造出 TPU。教训：单一负载跨过舰队级经济阈值时，专用芯片从可选变为必选。</p>
 <p><strong>Systems Gap</strong>：模型算力需求每年约 6×（Scaling Laws），GPU 供给约 1.7×/年（Huang's Law），缺口每年扩大 3–4×，只能靠并行与协同设计弥合。摩尔定律与 Dennard Scaling（约 2005 年后失效，"暗硅"问题：热约束下只能同时点亮 30–50% 晶体管）双双失效，是专用化的根本推手。</p>
 <p><strong>训练芯片 vs 推断芯片</strong>：训练要双向梯度流+大激活内存，堆 FLOP/s 和带宽；推断只前向、可用 INT8/INT4、优先确定性和单请求延迟。数据中心芯片用带宽（TB/s 级 HBM）对抗内存墙，边缘芯片用贴近（寄存器/scratchpad）对抗内存墙。</p>
-<p><strong>成本参考</strong>（约值，随行情浮动）：V100 ~$10k（125 TFLOP/s），A100 ~$15k（312 TFLOP/s FP16，$48/TFLOP/s），H100 ~$25–30k（TF32 494 TFLOP/s），TPUv4 ~$29/TFLOP/s，Gaudi2 ~$14/TFLOP/s。对访存受限的 Transformer 负载，带宽/美元比峰值 FLOP/s 更可靠。</p>
+<p><strong>成本参考</strong>（约值，随行情浮动）：V100 ~<span class="arithmatex">\(10k（125 TFLOP/s），A100 ~\)</span>15k（312 TFLOP/s FP16，<span class="arithmatex">\(48/TFLOP/s），H100 ~\)</span>25–30k（TF32 494 TFLOP/s），TPUv4 ~<span class="arithmatex">\(29/TFLOP/s，Gaudi2 ~\)</span>14/TFLOP/s。对访存受限的 Transformer 负载，带宽/美元比峰值 FLOP/s 更可靠。</p>
 <h2 id="_7">编译器与运行时</h2>
 <p>ML 编译五阶段（代表系统：XLA、TVM、TensorRT、MLIR）：</p>
 <ol>
@@ -8102,11 +8073,11 @@
 </ul>
 <h2 id="_10">参见</h2>
 <ul>
-<li><a href="../01-%E9%92%A2%E4%B8%8E%E7%A1%85AI%E7%9A%84%E7%89%A9%E7%90%86%E5%BA%95%E5%BA%A7/">01-钢与硅AI的物理底座</a></li>
-<li><a href="../03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">03-计算基础设施</a></li>
-<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/04-%E8%AE%A1%E7%AE%97%E6%80%A7%E8%83%BD/">04-计算性能</a></li>
-<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/06-%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95/">06-基准测试</a></li>
-<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/13-%E6%80%A7%E8%83%BD%E5%B7%A5%E7%A8%8B/">13-性能工程</a></li>
+<li><a href="../01-%E9%92%A2%E4%B8%8E%E7%A1%85AI%E7%9A%84%E7%89%A9%E7%90%86%E5%BA%95%E5%BA%A7/">钢与硅AI的物理底座</a></li>
+<li><a href="../03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">计算基础设施</a></li>
+<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/04-%E8%AE%A1%E7%AE%97%E6%80%A7%E8%83%BD/">深度学习框架与计算 · 计算性能</a></li>
+<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/06-%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95/">深度学习框架与计算 · 基准测试</a></li>
+<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/13-%E6%80%A7%E8%83%BD%E5%B7%A5%E7%A8%8B/">机器学习系统与MLOps · 性能工程</a></li>
 </ul>
 
 
@@ -8170,6 +8141,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

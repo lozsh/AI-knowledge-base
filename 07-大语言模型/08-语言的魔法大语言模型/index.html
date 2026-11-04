@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7936,9 +7908,8 @@
 
 
 <h1 id="_1">语言的魔法：大语言模型</h1>
-<blockquote>
-<p>来源：原资料（《语言的魔法：大语言模型》章节，更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：大语言模型（LLM）是用巨大的 Transformer 在海量词元上反复做"预测下一个词"这一件单调的事，从而学出写作、翻译、编程、推理等通用能力的系统。</p>
 <h2 id="_2">概述</h2>
 <p>2022 年 11 月 30 日 OpenAI 上线 ChatGPT：五天用户破百万，两个月破亿（Instagram 用了两年半、TikTok 九个月），是当时人类历史上增长最快的消费级产品之一。它把对话、写作、编程、翻译、推理等过去分散在不同软件里的能力第一次集中放进同一个对话框——例如 GPT-4 发布时在模拟美国律师资格考试中达到约前 10% 水平。</p>
@@ -8002,7 +7973,7 @@
 <p><strong>分词（Tokenization）</strong>：现代模型普遍用字节对编码（BPE）及变种（WordPiece、SentencePiece），核心是"常见词整切，稀有词切成子词"，如 extraordinary → extra + ordinary。代价是词元数与字数对不上：英文一个词元 ≈ 0.75 个单词，中文一个词元 ≈ 1–1.5 个汉字。许多"数单词里有几个字母答错"的怪错误都源于分词——模型看到的是词元块，不是字母（像隔着磨砂玻璃数葡萄）。</p>
 <h3 id="scaling-law">规模法则（Scaling Law）</h3>
 <p>2020 年 Kaplan 等人的论文把"越大越好"画成了定量规律：参数量 N、数据量 D 的损失函数在对数坐标上几乎是直线下降：</p>
-<p>$$\mathcal{L}(N, D) \approx A + \frac{B}{N^{\alpha}} + \frac{C}{D^{\beta}}$$</p>
+<div class="arithmatex">\[\mathcal{L}(N, D) \approx A + \frac{B}{N^{\alpha}} + \frac{C}{D^{\beta}}\]</div>
 <p>三层启发：
 1. <strong>效果可预测</strong>：花 10 倍算力能得多少改进可事先估算，训练亿级美元模型不再是赌博而是可规划的工程。
 2. <strong>最优配比（Chinchilla）</strong>：固定算力下参数和训练词元要配平，经验约每参数配几十个词元。早期大模型很多是"欠训"的。
@@ -8035,7 +8006,7 @@
 <li><strong>指令微调（SFT）</strong>：用几万到几十万条"指令-回答"对训练，模型从"续写机器"变成"助手"。数据质量远比数量重要：Alpaca 用 5 万级样本得到可用模型，LIMA 用约 1000 条高质量样本展示"少而精"。</li>
 <li><strong>RLHF</strong>（基于人类反馈的强化学习）三步：① 收集偏好数据（人对多个回答排序）；② 训练奖励模型（输入问题+回答，输出分数）；③ 用 PPO 优化语言模型：</li>
 </ul>
-<p>$$\max_{\pi_\theta} \mathbb{E}<em>{(x,y)\sim\pi</em>\theta}[r(x,y)] - \beta\, D_{KL}(\pi_\theta | \pi_{SFT})$$</p>
+<p>$<span class="arithmatex">\(\max_{\pi_\theta} \mathbb{E}_{(x,y)\sim\pi_\theta}[r(x,y)] - \beta\, D_{KL}(\pi_\theta \| \pi_{SFT})\)</span>$</p>
 <p>KL 项是"紧箍咒"，防止模型为骗奖励模型生成奇怪内容。
 - <strong>DPO</strong>（直接偏好优化，2023）：跳过显式奖励模型和 PPO，把带 KL 约束的偏好优化改写成类分类损失，工程上更轻更稳。
 - <strong>宪法 AI</strong>（Anthropic）：给模型一组"宪法"原则，让模型自我批评修改回答，再用 AI 反馈生成偏好数据训练。Claude 系列风格与此路线相关。</p>
@@ -8193,6 +8164,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

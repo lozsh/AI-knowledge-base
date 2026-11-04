@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -2381,10 +2353,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_10" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 智能体发展史
       
     </span>
   </a>
@@ -7732,10 +7704,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_10" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 智能体发展史
       
     </span>
   </a>
@@ -7760,9 +7732,8 @@
 
 
 <h1 id="_1">初识智能体</h1>
-<blockquote>
-<p>来源：Datawhale hello-agents 教程第一章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：智能体（Agent）是任何能够通过传感器感知环境、并通过执行器自主采取行动以达成特定目标的实体；大语言模型（LLM）的出现让"决策核心"从人工编写的规则升级为通用推理引擎。</p>
 <p>智能体是人工智能的核心概念之一。经典定义（Russell &amp; Norvig《人工智能：现代方法》）包含四要素：<strong>环境</strong>（智能体所处的外部世界）、<strong>传感器</strong>（感知输入，如摄像头、API 数据流）、<strong>执行器</strong>（改变环境的手段，如机械臂、代码执行）、<strong>自主性</strong>（基于感知和内部状态独立决策，而非被动执行预设指令）。"感知 → 思考 → 行动 → 观察"的闭环构成一切智能体行为的基础。</p>
 <p>LLM 驱动的新范式改变了智能体的构建方法：传统智能体的能力来自工程师的显式编程，行为确定且有边界；LLM 智能体通过海量数据预训练获得隐式世界模型和涌现能力，可直接处理高层级、模糊的自然语言指令（如"规划一次厦门之旅"），自主完成规划、工具调用与动态修正。核心转变在于：从开发专用自动化工具，转向引导一个通用"大脑"去规划、行动和学习。</p>
@@ -7904,13 +7875,12 @@ Observation: 北京当前天气为晴，气温25摄氏度，微风。
 <li>工具返回的原始 JSON 含大量冗余，直接塞给 LLM 浪费上下文且干扰推理，应封装为简洁自然语言的 Observation。</li>
 <li>Action 解析要容忍格式偏差：解析不到 Action 时应把错误信息作为 Observation 反馈给模型，让其自我修正。</li>
 </ul>
-<h2 id="_10">参见</h2>
+<h2 id="-">参见- <a href="../02-%E6%99%BA%E8%83%BD%E4%BD%93%E5%8F%91%E5%B1%95%E5%8F%B2/">智能体发展史</a></h2>
 <ul>
-<li><a href="../02-%E6%99%BA%E8%83%BD%E4%BD%93%E5%8F%91%E5%B1%95%E5%8F%B2/">02-智能体发展史</a></li>
-<li><a href="../03-%E6%99%BA%E8%83%BD%E4%BD%93%E7%BB%8F%E5%85%B8%E8%8C%83%E5%BC%8F%E6%9E%84%E5%BB%BA/">03-智能体经典范式构建</a></li>
-<li><a href="../04-AI%20Agent%20%E5%85%A5%E9%97%A8/">04-AI Agent 入门</a></li>
-<li><a href="../41-%E5%BA%94%E7%94%A8%E5%9E%8B%E6%99%BA%E8%83%BD%E4%BD%93%E6%9E%B6%E6%9E%84%E4%B8%8E%E8%90%BD%E5%9C%B0%E6%A8%A1%E5%BC%8F/">41-应用型智能体架构与落地模式</a></li>
-<li><a href="../51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">51-自主智能体设计方法论</a></li>
+<li><a href="../03-%E6%99%BA%E8%83%BD%E4%BD%93%E7%BB%8F%E5%85%B8%E8%8C%83%E5%BC%8F%E6%9E%84%E5%BB%BA/">智能体经典范式构建</a></li>
+<li><a href="../04-AI%20Agent%20%E5%85%A5%E9%97%A8/">AI Agent 入门</a></li>
+<li><a href="../41-%E5%BA%94%E7%94%A8%E5%9E%8B%E6%99%BA%E8%83%BD%E4%BD%93%E6%9E%B6%E6%9E%84%E4%B8%8E%E8%90%BD%E5%9C%B0%E6%A8%A1%E5%BC%8F/">应用型智能体架构与落地模式</a></li>
+<li><a href="../51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">自主智能体设计方法论</a></li>
 </ul>
 
 
@@ -7974,6 +7944,10 @@ Observation: 北京当前天气为晴，气温25摄氏度，微风。
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -3057,10 +3029,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_16" class="md-nav__link">
+  <a href="#-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- Agent 的评估
       
     </span>
   </a>
@@ -7964,10 +7936,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_16" class="md-nav__link">
+  <a href="#-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- Agent 的评估
       
     </span>
   </a>
@@ -7992,9 +7964,8 @@
 
 
 <h1 id="_1">智能体性能评估</h1>
-<blockquote>
-<p>来源：HelloAgents 课程第十二章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：智能体性能评估是用标准化基准（Benchmark）、指标和评分方法，客观量化智能体在工具调用、通用任务、数据生成等维度上能力的工程实践。</p>
 <p>构建智能体系统后必须回答三个问题：它是否具备预期能力？在不同任务上表现如何？与其他智能体相比处于什么水平？评估的价值在于：用具体数字量化表现、客观比较不同设计方案（如优化提示词或更换 LLM 后是否真的有改进）、及时发现特定场景弱点、向用户证明可靠性。</p>
 <p>与传统软件测试不同，智能体评估有三大独特挑战：</p>
@@ -8102,7 +8073,7 @@
 <h3 id="quasi-exact-match">准精确匹配（Quasi Exact Match）</h3>
 <p>先归一化、再精确匹配：<code>Quasi_Exact_Match(A_pred, A_true) = 1</code> 当且仅当 <code>N(A_pred) = N(A_true)</code>。归一化规则 <code>N(·)</code> 按答案类型：</p>
 <ul>
-<li><strong>数字</strong>：移除逗号分隔符（1,000→1000）和单位符号（$100→100，50%→50）；如 "$1,234.56" → "1234.56"；</li>
+<li><strong>数字</strong>：移除逗号分隔符（1,000→1000）和单位符号（<span class="arithmatex">\(100→100，50%→50）；如 "\)</span>1,234.56" → "1234.56"；</li>
 <li><strong>字符串</strong>：转小写、移除冠词（the/a/an）、合并多余空格、移除末尾标点；如 "The United States" → "united states"；</li>
 <li><strong>列表</strong>：按逗号分隔，逐元素做字符串归一化，<strong>按字母顺序排序</strong>后重新连接；如 "Paris, London, Berlin" → "berlin,london,paris"。</li>
 </ul>
@@ -8182,12 +8153,11 @@
 <li>AIME 参考数据集 TianHongZXY/aime-1983-2025 与对比集 math-ai/aime25 为第三方上传，可用性取决于维护者；</li>
 <li>原笔记中的表格（表 12.1-12.5）与图（图 12.1-12.7）为 PDF 提取丢失项，其关键信息已压缩为正文文字与表格重述；文中运行输出示例的时间戳与分数为演示值。</li>
 </ul>
-<h2 id="_16">参见</h2>
+<h2 id="-agent">参见- <a href="../25-Agent%20%E7%9A%84%E8%AF%84%E4%BC%B0/">Agent 的评估</a></h2>
 <ul>
-<li><a href="../25-Agent%20%E7%9A%84%E8%AF%84%E4%BC%B0/">25-Agent 的评估</a></li>
-<li><a href="../18-%E8%AE%B0%E5%BF%86%E4%B8%8E%E6%A3%80%E7%B4%A2/">18-记忆与检索</a></li>
-<li><a href="../42-DeepSeek%E6%8E%A8%E7%90%86%E6%A8%A1%E5%9E%8B%E3%80%81%E8%92%B8%E9%A6%8F%E4%B8%8E%E9%83%A8%E7%BD%B2%E9%80%89%E5%9E%8B/">42-DeepSeek推理模型、蒸馏与部署选型</a></li>
-<li><a href="../51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">51-自主智能体设计方法论</a></li>
+<li><a href="../18-%E8%AE%B0%E5%BF%86%E4%B8%8E%E6%A3%80%E7%B4%A2/">记忆与检索</a></li>
+<li><a href="../42-DeepSeek%E6%8E%A8%E7%90%86%E6%A8%A1%E5%9E%8B%E3%80%81%E8%92%B8%E9%A6%8F%E4%B8%8E%E9%83%A8%E7%BD%B2%E9%80%89%E5%9E%8B/">DeepSeek推理模型、蒸馏与部署选型</a></li>
+<li><a href="../51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">自主智能体设计方法论</a></li>
 </ul>
 
 
@@ -8251,6 +8221,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

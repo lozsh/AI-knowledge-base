@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7758,9 +7730,8 @@
 
 
 <h1 id="cnn">现代 CNN 模型演进详解</h1>
-<blockquote>
-<p>来源：《动手学深度学习》第 7 章深化（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：2012–2017 年的现代 CNN 演进不是孤立的模型列表，而是一条因果链——AlexNet 证明"学特征"可行，VGG 把网络抽象成块，NiN 砍掉全连接层，GoogLeNet 用并行多尺度回答"核多大合适"，BN 解决深层可训练性，ResNet 用残差连接让"加深必不劣化"成立，DenseNet 把跨层连接推到极致。</p>
 <p><a href="../02-%E7%8E%B0%E4%BB%A3%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">现代卷积神经网络</a>已给出各模型的概要、动机与实验精度，本条目补充：每个模型的<strong>逐层结构细节、关键设计的量化对比、设计决策背后的"为什么"</strong>。</p>
 <h2 id="_1">核心原理</h2>
@@ -7828,9 +7799,9 @@
 </ul>
 <h3 id="3-vgg33">3. VGG：3×3 小核栈的量化账</h3>
 <p>VGG 块 = n 个 3×3 卷积（padding 1，保分辨率）+ ReLU + 2×2 最大池化（步幅 2，分辨率减半）。VGG-11 配置 <code>conv_arch = ((1,64),(1,128),(2,256),(2,512),(2,512))</code>，原始 VGG-16/VGG-19 把前两块也加深为 2/2 层。</p>
-<p><strong>为什么堆 3×3 而不是一个大核</strong>：两层 3×3 卷积的感受野等于一层 5×5（$2\times3-1=5$），三层 3×3 等效 7×7，但：</p>
+<p><strong>为什么堆 3×3 而不是一个大核</strong>：两层 3×3 卷积的感受野等于一层 5×5（<span class="arithmatex">\(2\times3-1=5\)</span>），三层 3×3 等效 7×7，但：</p>
 <ol>
-<li><strong>参数更少</strong>：两层 3×3 参数 $2\times9C^2=18C^2$，一层 5×5 是 $25C^2$，省约 28%；</li>
+<li><strong>参数更少</strong>：两层 3×3 参数 <span class="arithmatex">\(2\times9C^2=18C^2\)</span>，一层 5×5 是 <span class="arithmatex">\(25C^2\)</span>，省约 28%；</li>
 <li><strong>非线性更多</strong>：多过一次 ReLU，表达能力更强。</li>
 </ol>
 <p>代价是计算与显存开销远超 AlexNet——VGG 是"用算力换通用模板"的设计。</p>
@@ -7844,22 +7815,22 @@
 <h3 id="5-googlenetinception">5. GoogLeNet：Inception 块的通道账</h3>
 <p>Inception 块四条并行路径（输出按通道连结，高宽不变）：</p>
 <ol>
-<li>1×1 卷积 → $c_1$ 通道；</li>
-<li>1×1 降到 $c_2[0]$ → 3×3 卷积 → $c_2[1]$；</li>
-<li>1×1 降到 $c_3[0]$ → 5×5 卷积 → $c_3[1]$；</li>
-<li>3×3 最大池化 → 1×1 卷积 → $c_4$。</li>
+<li>1×1 卷积 → <span class="arithmatex">\(c_1\)</span> 通道；</li>
+<li>1×1 降到 <span class="arithmatex">\(c_2[0]\)</span> → 3×3 卷积 → <span class="arithmatex">\(c_2[1]\)</span>；</li>
+<li>1×1 降到 <span class="arithmatex">\(c_3[0]\)</span> → 5×5 卷积 → <span class="arithmatex">\(c_3[1]\)</span>；</li>
+<li>3×3 最大池化 → 1×1 卷积 → <span class="arithmatex">\(c_4\)</span>。</li>
 </ol>
-<p><strong>1×1 降维是块能算得起的关键</strong>：以第一个 Inception 块（输入 192 通道）为例，路径 2/3 先把通道压到 $96/192=1/2$ 和 $16/192=1/12$，再做 3×3/5×5 卷积。若直接用 192 通道做 5×5 卷积到 32 通道，计算量是先压到 16 再卷的约 12 倍。四路通道分配比 64:128:32:32 等数字来自 ImageNet 上的大量调参实验，本身无理论公式。</p>
+<p><strong>1×1 降维是块能算得起的关键</strong>：以第一个 Inception 块（输入 192 通道）为例，路径 2/3 先把通道压到 <span class="arithmatex">\(96/192=1/2\)</span> 和 <span class="arithmatex">\(16/192=1/12\)</span>，再做 3×3/5×5 卷积。若直接用 192 通道做 5×5 卷积到 32 通道，计算量是先压到 16 再卷的约 12 倍。四路通道分配比 64:128:32:32 等数字来自 ImageNet 上的大量调参实验，本身无理论公式。</p>
 <p>整个网络：7×7 卷积(stride 2) 开头 → 1×1+3×3 两个卷积 → 9 个 Inception 块分 3 个模块（模块间最大池化减半分辨率）→ 全局平均池化。</p>
 <h3 id="6-resnet">6. ResNet：函数类嵌套与残差拟合</h3>
-<p><strong>理论动机</strong>：设架构决定函数类 $\mathcal{F}$，我们找 $\mathcal{F}$ 内最优的 $f^<em><em>\mathcal{F} = \arg\min</em>{f\in\mathcal{F}} L(\mathbf{X},\mathbf{y},f)$。加深得到更大的函数类 $\mathcal{F}'$ 时，若 $\mathcal{F} \not\subseteq \mathcal{F}'$，$f^</em>_{\mathcal{F}'}$ <strong>不保证</strong>更接近真函数 $f^<em>$（可能更差）。只有</em><em>嵌套</em>*关系 $\mathcal{F}_1 \subseteq \cdots \subseteq \mathcal{F}_6$ 才能保证"加深不劣化"。让新加的层容易学成恒等映射 $f(x)=x$，就能构造出嵌套函数类。</p>
-<p><strong>残差块</strong>：两个 3×3 卷积（各接 BN+ReLU），输入跳过卷积直接加在最后 ReLU 之前，网络拟合<strong>残差映射</strong> $f(x)-x$。理想映射接近恒等时，把上层加权运算的权重和偏置学成 0 即可——拟合"恒等的细微波动"远比直接拟合整个映射容易。通道数或分辨率变化时，捷径上加 1×1 卷积（步幅 2）对齐形状。</p>
+<p><strong>理论动机</strong>：设架构决定函数类 <span class="arithmatex">\(\mathcal{F}\)</span>，我们找 <span class="arithmatex">\(\mathcal{F}\)</span> 内最优的 <span class="arithmatex">\(f^*_\mathcal{F} = \arg\min_{f\in\mathcal{F}} L(\mathbf{X},\mathbf{y},f)\)</span>。加深得到更大的函数类 <span class="arithmatex">\(\mathcal{F}'\)</span> 时，若 <span class="arithmatex">\(\mathcal{F} \not\subseteq \mathcal{F}'\)</span>，<span class="arithmatex">\(f^*_{\mathcal{F}'}\)</span> <strong>不保证</strong>更接近真函数 <span class="arithmatex">\(f^*\)</span>（可能更差）。只有<strong>嵌套</strong>关系 <span class="arithmatex">\(\mathcal{F}_1 \subseteq \cdots \subseteq \mathcal{F}_6\)</span> 才能保证"加深不劣化"。让新加的层容易学成恒等映射 <span class="arithmatex">\(f(x)=x\)</span>，就能构造出嵌套函数类。</p>
+<p><strong>残差块</strong>：两个 3×3 卷积（各接 BN+ReLU），输入跳过卷积直接加在最后 ReLU 之前，网络拟合<strong>残差映射</strong> <span class="arithmatex">\(f(x)-x\)</span>。理想映射接近恒等时，把上层加权运算的权重和偏置学成 0 即可——拟合"恒等的细微波动"远比直接拟合整个映射容易。通道数或分辨率变化时，捷径上加 1×1 卷积（步幅 2）对齐形状。</p>
 <p>ResNet-18 逐层：7×7 卷积(stride 2, 64 通道) + 3×3 最大池化 → 4 个模块各 2 个残差块（通道 64→128→256→512，每个模块第一个块步幅 2 降分辨率）→ 全局平均池化 → 全连接。后续变体：更深网络用 bottleneck（1×1 降维 → 3×3 → 1×1 升维）；"卷积-BN-激活"改为 pre-activation（BN-ReLU-卷积），梯度通路更顺。</p>
 <h3 id="7-densenet">7. DenseNet：泰勒展开视角的稠密连结</h3>
-<p>ResNet 把函数分解为 $f(x) = x + g(x)$（线性项 + 非线性项，类比泰勒展开只取到一阶）；DenseNet 保留<strong>所有高阶项</strong>，跨层连接从相加改为<strong>通道连结</strong>：</p>
-<p>$$x \rightarrow [x,\ f_1(x),\ f_2([x, f_1(x)]),\ f_3([x, f_1(x), f_2([x, f_1(x)])]),\ \ldots]$$</p>
+<p>ResNet 把函数分解为 <span class="arithmatex">\(f(x) = x + g(x)\)</span>（线性项 + 非线性项，类比泰勒展开只取到一阶）；DenseNet 保留<strong>所有高阶项</strong>，跨层连接从相加改为<strong>通道连结</strong>：</p>
+<div class="arithmatex">\[x \rightarrow [x,\ f_1(x),\ f_2([x, f_1(x)]),\ f_3([x, f_1(x), f_2([x, f_1(x)])]),\ \ldots]\]</div>
 <ul>
-<li><strong>稠密块</strong>：卷积块采用"BN-ReLU-卷积"顺序，每块输出固定通道数 = <strong>增长率</strong>（growth rate，典型 32），块内通道线性累加（$k$ 个块后通道 = $k \times$ 增长率 + 输入通道）；</li>
+<li><strong>稠密块</strong>：卷积块采用"BN-ReLU-卷积"顺序，每块输出固定通道数 = <strong>增长率</strong>（growth rate，典型 32），块内通道线性累加（<span class="arithmatex">\(k\)</span> 个块后通道 = <span class="arithmatex">\(k \times\)</span> 增长率 + 输入通道）；</li>
 <li><strong>过渡层</strong>：1×1 卷积把通道减半 + 步幅 2 平均池化把分辨率减半，在稠密块之间控制复杂度。</li>
 </ul>
 <p>对比：参数量比 ResNet 小（特征强复用），但连结导致显存占用与计算成本更高，这也是工业界 ResNet 更普及的原因之一。</p>
@@ -7938,11 +7909,11 @@
 <tbody>
 <tr>
 <td>函数类嵌套</td>
-<td>$\mathcal{F}\subseteq\mathcal{F}'$ 时加深才保证不劣化，是 ResNet 的理论出发点</td>
+<td><span class="arithmatex">\(\mathcal{F}\subseteq\mathcal{F}'\)</span> 时加深才保证不劣化，是 ResNet 的理论出发点</td>
 </tr>
 <tr>
 <td>残差映射</td>
-<td>拟合 $f(x)-x$ 而非 $f(x)$，捷径相加使恒等映射可平凡达成</td>
+<td>拟合 <span class="arithmatex">\(f(x)-x\)</span> 而非 <span class="arithmatex">\(f(x)\)</span>，捷径相加使恒等映射可平凡达成</td>
 </tr>
 <tr>
 <td>增长率（growth rate）</td>
@@ -7986,11 +7957,11 @@
 </ul>
 <h2 id="_6">参见</h2>
 <ul>
-<li><a href="../02-%E7%8E%B0%E4%BB%A3%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">02-现代卷积神经网络.md</a> — 各模型的概要版笔记（本条目的基础）</li>
-<li><a href="../01-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">01-卷积神经网络.md</a> — 卷积、填充、步幅、感受野等先修概念</li>
-<li><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">03-计算机视觉.md</a> — 把这些骨干网络用于检测/分割任务</li>
-<li><a href="../13-%E5%9B%BE%E5%83%8F%E5%A2%9E%E5%B9%BF%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E5%AE%9E%E8%B7%B5/">13-图像增广与迁移学习实践.md</a> — AlexNet 成功要素之一的数据侧技术</li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/01-%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95/">../12-模型训练与优化/01-优化算法.md</a> — 与 BN/残差配合的学习率与优化器选择</li>
+<li><a href="../02-%E7%8E%B0%E4%BB%A3%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">现代卷积神经网络</a> — 各模型的概要版笔记（本条目的基础）</li>
+<li><a href="../01-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">卷积神经网络</a> — 卷积、填充、步幅、感受野等先修概念</li>
+<li><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a> — 把这些骨干网络用于检测/分割任务</li>
+<li><a href="../13-%E5%9B%BE%E5%83%8F%E5%A2%9E%E5%B9%BF%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E5%AE%9E%E8%B7%B5/">图像增广与迁移学习实践</a> — AlexNet 成功要素之一的数据侧技术</li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/01-%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95/">模型训练与优化 · 优化算法</a> — 与 BN/残差配合的学习率与优化器选择</li>
 </ul>
 
 
@@ -8054,6 +8025,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

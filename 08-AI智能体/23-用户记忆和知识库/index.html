@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -3058,10 +3030,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_18" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 记忆与检索
       
     </span>
   </a>
@@ -7854,10 +7826,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_18" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 记忆与检索
       
     </span>
   </a>
@@ -7882,9 +7854,8 @@
 
 
 <h1 id="_1">用户记忆和知识库</h1>
-<blockquote>
-<p>来源：原资料（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：用户记忆是 Agent 针对单个用户跨会话积累的个性化知识模型；知识库是面向所有用户共享的集体知识（经 RAG 检索）；两者尺度不同（个体 vs 群体），共用向量检索、分块、知识压缩等同一套底层技术，最终汇合为"双层记忆架构"。</p>
 <p>上下文工程（见 <a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">19-上下文工程</a>）解决的是单次会话内的上下文管理；本章（原课程第 3 章）处理更难的问题：对话结束后如何仍然记住用户、记住知识。用户记忆让 Agent 成为"懂你的助手"——在与每位用户的交互中逐渐提炼其偏好、习惯和需求；知识库让 Agent 成为"领域专家"——承载行业法规、公司流程、专业文档。两者面临同样的麻烦：信息冲突、知识过期、检索不准。</p>
 <h2 id="_2">核心原理</h2>
@@ -8065,13 +8036,12 @@
 <li>OpenViking 的 L0/L1/L2 具体规模（100/2000 token）是该项目的实现参数，非通用标准。</li>
 <li>LoCoMo 基准（2024）之后可能有更强的记忆基准出现。</li>
 </ul>
-<h2 id="_18">参见</h2>
+<h2 id="-">参见- <a href="../18-%E8%AE%B0%E5%BF%86%E4%B8%8E%E6%A3%80%E7%B4%A2/">记忆与检索</a></h2>
 <ul>
-<li><a href="../18-%E8%AE%B0%E5%BF%86%E4%B8%8E%E6%A3%80%E7%B4%A2/">18-记忆与检索</a></li>
-<li><a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">19-上下文工程</a></li>
-<li><a href="../21-%E6%99%BA%E8%83%BD%E4%BD%93%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0/">21-智能体性能评估</a></li>
-<li><a href="../24-%E5%B7%A5%E5%85%B7/">24-工具</a></li>
-<li><a href="../43-MCP%E5%8D%8F%E8%AE%AE%E4%B8%8EAgent%E5%B7%A5%E5%85%B7%E5%8C%96%E5%BC%80%E5%8F%91%E6%A8%A1%E5%BC%8F/">43-MCP协议与Agent工具化开发模式</a></li>
+<li><a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a></li>
+<li><a href="../21-%E6%99%BA%E8%83%BD%E4%BD%93%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0/">智能体性能评估</a></li>
+<li><a href="../24-%E5%B7%A5%E5%85%B7/">工具</a></li>
+<li><a href="../43-MCP%E5%8D%8F%E8%AE%AE%E4%B8%8EAgent%E5%B7%A5%E5%85%B7%E5%8C%96%E5%BC%80%E5%8F%91%E6%A8%A1%E5%BC%8F/">MCP协议与Agent工具化开发模式</a></li>
 </ul>
 
 
@@ -8135,6 +8105,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

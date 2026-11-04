@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7670,9 +7642,8 @@
 
 
 <h1 id="_1">机器人学习范式与仿真到现实</h1>
-<blockquote>
-<p>来源：《深入理解 AI Agent》第 6.11、7.7、9.9 节（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：机器人学习的主战场已从实时控制转向「数据从哪来、模型如何跨任务跨平台泛化」——模仿学习（行为克隆）提供地基，RL 在其上补泛化，仿真环境做练习场，域随机化 + 视觉对齐是迁移到真机的工程桥梁。</p>
 <p>VLA 面临两大结构性挑战：扩展 SFT 需要大规模人工操作轨迹（收集成本极高且多样性受限），而基于有限场景训练的模型遇到未见过的任务、环境或物体时性能显著下降。本篇讲清这条训练流水线的每一环；架构与控制层见<a href="../11-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E6%8A%80%E6%9C%AF%E6%A0%88%E4%B8%8EVLA%E6%A8%A1%E5%9E%8B/">11-具身智能技术栈与VLA模型</a>。</p>
 <h2 id="_2">核心原理</h2>
@@ -7844,11 +7815,11 @@
 <p>SimpleVLA-RL 的 LIBERO 分数与冷启动数字、ManiSkill/LeRobot 流水线的训练效率（单张 4090 约 1 小时）、RoboTwin2 配置均为 2025–2026 年报告值；「RL 训练的 VLA 泛化不足」这一判断也在快速变化——逐任务 RL → 统一模型 RL 是当前明确的演进方向，引用前请核对最新进展。</p>
 <h2 id="_9">参见</h2>
 <ul>
-<li><a href="../01-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E4%B8%8E%E6%9C%BA%E5%99%A8%E4%BA%BA/">01-具身智能与机器人</a> —— 学习范式总览与 Sim-to-Real 技巧的概念版</li>
-<li><a href="../11-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E6%8A%80%E6%9C%AF%E6%A0%88%E4%B8%8EVLA%E6%A8%A1%E5%9E%8B/">11-具身智能技术栈与VLA模型</a> —— 本篇的上游：架构与控制层</li>
-<li><a href="../../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/01-%E5%9C%A8%E8%AF%95%E9%94%99%E4%B8%AD%E6%88%90%E9%95%BF%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/">01-在试错中成长强化学习</a> —— RL 基础范式</li>
-<li><a href="../../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/02-Agentic-RL/">02-Agentic-RL</a> —— GRPO 等算法在智能体训练中的体系</li>
-<li><a href="../../08-AI%E6%99%BA%E8%83%BD%E4%BD%93/25-Agent%20%E7%9A%84%E8%AF%84%E4%BC%B0/">25-Agent 的评估</a> —— 评估环境到仿真环境的演化前传</li>
+<li><a href="../01-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E4%B8%8E%E6%9C%BA%E5%99%A8%E4%BA%BA/">具身智能与机器人</a> —— 学习范式总览与 Sim-to-Real 技巧的概念版</li>
+<li><a href="../11-%E5%85%B7%E8%BA%AB%E6%99%BA%E8%83%BD%E6%8A%80%E6%9C%AF%E6%A0%88%E4%B8%8EVLA%E6%A8%A1%E5%9E%8B/">具身智能技术栈与VLA模型</a> —— 本篇的上游：架构与控制层</li>
+<li><a href="../../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/01-%E5%9C%A8%E8%AF%95%E9%94%99%E4%B8%AD%E6%88%90%E9%95%BF%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/">强化学习 · 在试错中成长强化学习</a> —— RL 基础范式</li>
+<li><a href="../../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/02-Agentic-RL/">强化学习 · Agentic-RL</a> —— GRPO 等算法在智能体训练中的体系</li>
+<li><a href="../../08-AI%E6%99%BA%E8%83%BD%E4%BD%93/25-Agent%20%E7%9A%84%E8%AF%84%E4%BC%B0/">AI智能体 · Agent 的评估</a> —— 评估环境到仿真环境的演化前传</li>
 </ul>
 
 
@@ -7912,6 +7883,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

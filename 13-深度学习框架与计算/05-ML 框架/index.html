@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7858,9 +7830,8 @@
 
 
 <h1 id="ml">ML 框架</h1>
-<blockquote>
-<p>来源：ML 系统教材第 7 章 "ML Frameworks"（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：机器学习框架是位于"数学"与"硬件"之间的编译层——把高层模型定义翻译成硬件优化的执行计划，统一解决三个问题：怎么执行（execution）、怎么求导（differentiation）、怎么跨硬件抽象（abstraction）。</p>
 <p>框架之于 ML，如同编译器之于传统编程：模型架构是"源代码"，框架把它编译成一系列硬件内核调用。选框架不是选 API 封装，而是选编译器——它决定了模型能触达哪些硬件、能做哪些优化、能部署到哪些目标。这套选择同时带来能力和锁定（lock-in）：一旦项目积累了 checkpoint、数据管线、自定义模块和团队专长，框架就成了系统架构的一部分，迁移以"工程师月"计价。</p>
 <h2 id="_1">三个框架问题</h2>
@@ -8055,11 +8026,11 @@
 <p><code>torch.jit.trace/script</code>（TorchScript）是 PyTorch 1.x 时代的部署路径，2.0 起官方主推 <code>torch.compile</code>/<code>torch.export</code>；TF 1.x 静态图已成为历史。数值锚点（A100 312 TFLOP/s、PCIe/NVLink 带宽、编译耗时 15–90s）反映写作时的硬件与软件版本，量级可用、具体值会漂移。</p>
 <h2 id="_14">参见</h2>
 <ul>
-<li><a href="../04-%E8%AE%A1%E7%AE%97%E6%80%A7%E8%83%BD/">04-计算性能</a></li>
-<li><a href="../01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E8%AE%A1%E7%AE%97/">01-深度学习计算</a></li>
-<li><a href="../21-PyTorch%E6%A0%B8%E5%BF%83%E5%BF%83%E6%99%BA%E6%A8%A1%E5%9E%8B-Tensor%E4%B8%8E%E8%87%AA%E5%8A%A8%E6%B1%82%E5%AF%BC/">21-PyTorch核心心智模型-Tensor与自动求导</a></li>
-<li><a href="../06-%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95/">06-基准测试</a></li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/32-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96%E4%B8%8E%E8%BD%BB%E9%87%8F%E5%8C%96/">../12-模型训练与优化/32-大模型推理优化与轻量化</a></li>
+<li><a href="../04-%E8%AE%A1%E7%AE%97%E6%80%A7%E8%83%BD/">计算性能</a></li>
+<li><a href="../01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E8%AE%A1%E7%AE%97/">深度学习计算</a></li>
+<li><a href="../21-PyTorch%E6%A0%B8%E5%BF%83%E5%BF%83%E6%99%BA%E6%A8%A1%E5%9E%8B-Tensor%E4%B8%8E%E8%87%AA%E5%8A%A8%E6%B1%82%E5%AF%BC/">PyTorch核心心智模型-Tensor与自动求导</a></li>
+<li><a href="../06-%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95/">基准测试</a></li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/32-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86%E4%BC%98%E5%8C%96%E4%B8%8E%E8%BD%BB%E9%87%8F%E5%8C%96/">模型训练与优化 · 大模型推理优化与轻量化</a></li>
 </ul>
 
 
@@ -8123,6 +8094,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

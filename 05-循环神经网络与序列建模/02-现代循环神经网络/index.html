@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7692,23 +7664,22 @@
 
 
 <h1 id="_1">现代循环神经网络</h1>
-<blockquote>
-<p>来源：《动手学深度学习》第 9 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：现代循环神经网络是对基础 RNN 的四类扩展——门控单元（GRU/LSTM）、深层堆叠、双向结构和"编码器-解码器"（seq2seq）架构——用来解决梯度不稳定、长程依赖、上下文缺失和"变长输入→变长输出"的序列转换问题。</p>
 <p>基础 RNN（见<a href="../01-%E5%BE%AA%E7%8E%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">循环神经网络</a>）的隐状态每步都被覆写，存在三类结构性缺陷：早期重要信息难以长期保存、无关词元无法跳过、序列的逻辑断点（如章节切换）无法重置记忆。加上梯度消失/爆炸的数值问题，催生了门控机制；而机器翻译这类输入输出都是任意长度序列的任务，则催生了编码器-解码器架构。</p>
 <h2 id="_2">核心原理</h2>
 <h3 id="1-gru">1. 门控循环单元（GRU）</h3>
 <p>GRU（Cho et al., 2014，比 LSTM 晚约 20 年但更简单、计算更快，效果通常相当）用两个可学习的门（取值 0~1 的向量）决定隐状态"何时更新、何时重置"。设输入 <code>X_t ∈ R^{n×d}</code>，上一隐状态 <code>H_{t-1} ∈ R^{n×h}</code>：</p>
 <p><strong>重置门与更新门</strong>（sigmoid 全连接层）：</p>
-<p>$$R_t = \sigma(X_t W_{xr} + H_{t-1} W_{hr} + b_r), \quad Z_t = \sigma(X_t W_{xz} + H_{t-1} W_{hz} + b_z)$$</p>
+<div class="arithmatex">\[R_t = \sigma(X_t W_{xr} + H_{t-1} W_{hr} + b_r), \quad Z_t = \sigma(X_t W_{xz} + H_{t-1} W_{hz} + b_z)\]</div>
 <p><strong>候选隐状态</strong>（tanh，⊙ 为按元素乘）：</p>
-<p>$$\tilde{H}<em>t = \tanh(X_t W</em>{xh} + (R_t \odot H_{t-1}) W_{hh} + b_h)$$</p>
+<div class="arithmatex">\[\tilde{H}_t = \tanh(X_t W_{xh} + (R_t \odot H_{t-1}) W_{hh} + b_h)\]</div>
 <ul>
 <li>R_t 接近 1 → 退化为普通 RNN；R_t 接近 0 → 旧隐状态被重置，候选隐状态只由当前输入决定（处理逻辑断点）。</li>
 </ul>
 <p><strong>隐状态更新</strong>（凸组合）：</p>
-<p>$$H_t = Z_t \odot H_{t-1} + (1 - Z_t) \odot \tilde{H}_t$$</p>
+<div class="arithmatex">\[H_t = Z_t \odot H_{t-1} + (1 - Z_t) \odot \tilde{H}_t\]</div>
 <ul>
 <li>Z_t 接近 1 → 只保留旧状态、跳过当前输入——序列开头的旧信息可以不经覆写一路传到结尾，这是缓解梯度消失、捕获<strong>长期依赖</strong>的关键。</li>
 <li>分工：<strong>重置门管短期依赖，更新门管长期依赖</strong>。</li>
@@ -7717,25 +7688,25 @@
 <h3 id="2-lstm">2. 长短期记忆网络（LSTM）</h3>
 <p>LSTM（Hochreiter &amp; Schmidhuber, 1997）引入独立的<strong>记忆元（memory cell）C_t</strong>，用三个门控制：</p>
 <p><strong>三个门</strong>（均为 sigmoid 全连接层，取值 0~1）：</p>
-<p>$$I_t = \sigma(X_t W_{xi} + H_{t-1} W_{hi} + b_i) \quad \text{（输入门）}$$
+<div class="arithmatex">\[I_t = \sigma(X_t W_{xi} + H_{t-1} W_{hi} + b_i) \quad \text{（输入门）}$$
 $$F_t = \sigma(X_t W_{xf} + H_{t-1} W_{hf} + b_f) \quad \text{（遗忘门）}$$
-$$O_t = \sigma(X_t W_{xo} + H_{t-1} W_{ho} + b_o) \quad \text{（输出门）}$$</p>
+$$O_t = \sigma(X_t W_{xo} + H_{t-1} W_{ho} + b_o) \quad \text{（输出门）}\]</div>
 <p><strong>候选记忆元</strong>（tanh）：<code>C̃_t = tanh(X_t W_xc + H_{t-1} W_hc + b_c)</code></p>
 <p><strong>记忆元更新</strong>：</p>
-<p>$$C_t = F_t \odot C_{t-1} + I_t \odot \tilde{C}_t$$</p>
+<div class="arithmatex">\[C_t = F_t \odot C_{t-1} + I_t \odot \tilde{C}_t\]</div>
 <p>当 F_t≈1 且 I_t≈0 时，旧记忆原样传递——记忆的高速通道，缓解梯度消失。</p>
 <p><strong>隐状态</strong>（记忆元的 tanh 门控版本）：</p>
-<p>$$H_t = O_t \odot \tanh(C_t)$$</p>
+<div class="arithmatex">\[H_t = O_t \odot \tanh(C_t)\]</div>
 <p>要点：隐状态与记忆元形状相同，但<strong>只有隐状态传到输出层，记忆元纯属内部信息</strong>；LSTM 隐状态是 (H, C) 二元组（框架里 nn.LSTM 的 state 是 tuple，nn.GRU 只有一个张量）。从零实现困惑度约 1.3，高级 API 约 1.1。</p>
 <h3 id="3">3. 深层（多层）循环神经网络</h3>
 <p>L 个隐藏层堆叠，每个隐状态同时传给"当前层的下一时间步"和"下一层的当前时间步"：</p>
-<p>$$H_t^{(l)} = \phi_l(H_t^{(l-1)} W_{xh}^{(l)} + H_{t-1}^{(l)} W_{hh}^{(l)} + b_h^{(l)}), \qquad H_t^{(0)} = X_t$$
-$$O_t = H_t^{(L)} W_{hq} + b_q$$</p>
+<div class="arithmatex">\[H_t^{(l)} = \phi_l(H_t^{(l-1)} W_{xh}^{(l)} + H_{t-1}^{(l)} W_{hh}^{(l)} + b_h^{(l)}), \qquad H_t^{(0)} = X_t$$
+$$O_t = H_t^{(L)} W_{hq} + b_q\]</div>
 <p>把基础 RNN 换成 GRU/LSTM 即得深层门控版本；框架里只需指定 <code>num_layers</code>。两层 LSTM 训练后困惑度可达约 1.0。经验：深层 RNN <strong>更依赖调参</strong>（学习率、裁剪）且训练更慢，初始化需谨慎。</p>
 <h3 id="4-birnn">4. 双向循环神经网络（BiRNN）</h3>
 <p>填空任务（"我___饿了，我可以吃半头猪"）说明<strong>下文</strong>也携带关键信息。BiRNN（Schuster &amp; Paliwal, 1997）加一条反向 RNN，思想对应隐马尔可夫模型的前向-后向递归（动态规划可在 O(kT) 内对隐变量求和）：</p>
-<p>$$\overrightarrow{H}<em>t = \phi(X_t W</em>{xh}^{(f)} + \overrightarrow{H}<em>{t-1} W</em>{hh}^{(f)} + b_h^{(f)})$$
-$$\overleftarrow{H}<em>t = \phi(X_t W</em>{xh}^{(b)} + \overleftarrow{H}<em>{t+1} W</em>{hh}^{(b)} + b_h^{(b)})$$</p>
+<div class="arithmatex">\[\overrightarrow{H}_t = \phi(X_t W_{xh}^{(f)} + \overrightarrow{H}_{t-1} W_{hh}^{(f)} + b_h^{(f)})$$
+$$\overleftarrow{H}_t = \phi(X_t W_{xh}^{(b)} + \overleftarrow{H}_{t+1} W_{hh}^{(b)} + b_h^{(b)})\]</div>
 <p>两个方向的隐状态<strong>拼接</strong>后 <code>H_t ∈ R^{n×2h}</code> 送入输出层（<code>O_t = H_t W_{hq} + b_q</code>，输出层输入维度为 2h）。</p>
 <p><strong>两个硬约束</strong>：
 - 它同时使用过去和未来的观测来估计当前输出，因此<strong>不能用于预测下一个词元</strong>——训练时有未来数据、测试时只有过去，精度会崩。把双向 LSTM 当语言模型训练，困惑度看着正常（约 1.1），生成文本却是 <code>travellererererere...</code> 的复读，是典型的错误用法反面教材。
@@ -7757,7 +7728,7 @@ $$\overleftarrow{H}<em>t = \phi(X_t W</em>{xh}^{(b)} + \overleftarrow{H}<em>{t+1
 <li>预测：逐词元生成，遇到 <code>&lt;eos&gt;</code> 停止；每步用上一时间步 argmax 的词元作输入。</li>
 </ul>
 <p><strong>BLEU 评估</strong>（Papineni et al., 2002）：</p>
-<p>$$\mathrm{BLEU} = \exp\left(\min\left(0, 1 - \frac{\mathrm{len}<em>{label}}{\mathrm{len}</em>{pred}}\right)\right) \prod_{n=1}^{k} p_n^{1/2^n}$$</p>
+<div class="arithmatex">\[\mathrm{BLEU} = \exp\left(\min\left(0, 1 - \frac{\mathrm{len}_{label}}{\mathrm{len}_{pred}}\right)\right) \prod_{n=1}^{k} p_n^{1/2^n}\]</div>
 <p>p_n 是 n 元语法精确率（预测中匹配标签的数量 / 预测中 n 元语法总数）。例：标签 A,B,C,D,E,F、预测 A,B,B,C,D → p1=4/5, p2=3/4, p3=1/3, p4=0。指数项惩罚过短的预测（如标签 6 词、预测 2 词时惩罚因子约 0.14）；指数 1/2^n 让长 n 元匹配权重更高。完全一致时 BLEU=1。小型 seq2seq 模型在短句上可达 BLEU≈1，稍长句则明显退化（0.4~0.7）。</p>
 <h3 id="6-beam-search">6. 束搜索（beam search）</h3>
 <p>逐词元生成序列时从 <code>O(|Y|^{T'})</code> 个候选序列里选最优：</p>
@@ -7766,7 +7737,7 @@ $$\overleftarrow{H}<em>t = \phi(X_t W</em>{xh}^{(b)} + \overleftarrow{H}<em>{t+1
 <li><strong>穷举搜索</strong>：保证最优，但 <code>|Y|=10000、T'=10</code> 时要评估 10^40 个序列，不可行；</li>
 <li><strong>束搜索</strong>：超参数<strong>束宽 k</strong>，每步从 <code>k·|Y|</code> 个候选里保留概率最高的 k 个序列，计算量 <code>O(k·|Y|·T')</code>，介于两者之间。最终在候选中按<strong>长度惩罚</strong>的对数概率选优：</li>
 </ul>
-<p>$$\frac{1}{L^\alpha}\sum_{t'=1}^{L} \log P(y_{t'} \mid y_1,\ldots,y_{t'-1}, c), \qquad \alpha \text{ 通常取 } 0.75$$</p>
+<div class="arithmatex">\[\frac{1}{L^\alpha}\sum_{t'=1}^{L} \log P(y_{t'} \mid y_1,\ldots,y_{t'-1}, c), \qquad \alpha \text{ 通常取 } 0.75\]</div>
 <p>贪心搜索 = 束宽为 1 的束搜索；调 k 即可在精度与算力间权衡。</p>
 <h2 id="_3">术语表</h2>
 <table>
@@ -7839,11 +7810,11 @@ $$\overleftarrow{H}<em>t = \phi(X_t W</em>{xh}^{(b)} + \overleftarrow{H}<em>{t+1
 </ul>
 <h2 id="_6">参见</h2>
 <ul>
-<li><a href="../01-%E5%BE%AA%E7%8E%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">01-循环神经网络.md</a> —— 基础 RNN、BPTT、梯度裁剪（本文的先修条目）</li>
-<li><a href="../../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/01-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/">../06-注意力机制与Transformer/01-注意力机制.md</a> —— 取代 RNN 的注意力机制</li>
+<li><a href="../01-%E5%BE%AA%E7%8E%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">循环神经网络</a> —— 基础 RNN、BPTT、梯度裁剪（本文的先修条目）</li>
+<li><a href="../../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/01-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/">注意力机制与Transformer · 注意力机制</a> —— 取代 RNN 的注意力机制</li>
 <li><a href="../../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/03-Transformer%20%E6%9E%B6%E6%9E%84/">../06-注意力机制与Transformer/03-Transformer 架构.md</a> —— 纯注意力的序列转换架构</li>
 <li><a href="../../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/01-NLP%20%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5/">../07-大语言模型/01-NLP 基础概念.md</a> —— 词元化、语言模型评估的现代形态</li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/01-%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95/">../12-模型训练与优化/01-优化算法.md</a> —— Xavier 初始化、梯度裁剪、Adam</li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/01-%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95/">模型训练与优化 · 优化算法</a> —— Xavier 初始化、梯度裁剪、Adam</li>
 </ul>
 
 
@@ -7907,6 +7878,10 @@ $$\overleftarrow{H}<em>t = \phi(X_t W</em>{xh}^{(b)} + \overleftarrow{H}<em>{t+1
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

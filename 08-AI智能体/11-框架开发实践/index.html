@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -2622,10 +2594,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_7" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 构建你的智能体框架
       
     </span>
   </a>
@@ -7654,10 +7626,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_7" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 构建你的智能体框架
       
     </span>
   </a>
@@ -7682,9 +7654,8 @@
 
 
 <h1 id="_1">框架开发实践</h1>
-<blockquote>
-<p>来源：Datawhale hello-agents 教程第六章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：智能体框架的本质是提供一套经过验证的"规范"——把所有智能体共有的重复性工作（主循环、状态管理、工具调用、日志记录）抽象封装，让开发者专注业务逻辑；四大代表框架（AutoGen、AgentScope、CAMEL、LangGraph）分别代表"对话驱动协作、工程化平台、角色扮演、状态图控制"四条技术路径。</p>
 <p>从手写一次性脚本到使用框架，是软件工程式的思维跃迁。框架的核心价值：<strong>代码复用与效率</strong>（通用 Agent 基类封装核心循环）、<strong>核心组件解耦</strong>（模型层/工具层/记忆层分离，可独立替换升级）、<strong>标准化状态管理</strong>（上下文窗口限制、历史持久化、多轮状态跟踪）、<strong>可观测性</strong>（事件回调 on_llm_start / on_tool_end / on_agent_finish 自动记录轨迹，胜过手动 print）。</p>
 <h2 id="_2">分类/类型</h2>
@@ -7788,13 +7759,12 @@
 <li>CAMEL 已从双智能体框架扩展出多模态、工具集成、workforce 多智能体模块，与 LangChain/CrewAI/AutoGen 有互操作。</li>
 <li>文中模型配置示例（deepseek、Qwen 百炼平台）为编写时点的接入方式。</li>
 </ul>
-<h2 id="_7">参见</h2>
+<h2 id="-">参见- <a href="../12-%E6%9E%84%E5%BB%BA%E4%BD%A0%E7%9A%84%E6%99%BA%E8%83%BD%E4%BD%93%E6%A1%86%E6%9E%B6/">构建你的智能体框架</a></h2>
 <ul>
-<li><a href="../12-%E6%9E%84%E5%BB%BA%E4%BD%A0%E7%9A%84%E6%99%BA%E8%83%BD%E4%BD%93%E6%A1%86%E6%9E%B6/">12-构建你的智能体框架</a></li>
-<li><a href="../03-%E6%99%BA%E8%83%BD%E4%BD%93%E7%BB%8F%E5%85%B8%E8%8C%83%E5%BC%8F%E6%9E%84%E5%BB%BA/">03-智能体经典范式构建</a></li>
-<li><a href="../06-%E5%A4%9A%20Agent%20%E5%8D%8F%E4%BD%9C/">06-多 Agent 协作</a></li>
-<li><a href="../53-LangChain%E6%A0%B8%E5%BF%83%E6%8A%BD%E8%B1%A1%E8%AE%BE%E8%AE%A1%E6%80%9D%E6%83%B3/">53-LangChain核心抽象设计思想</a></li>
-<li><a href="../52-%E6%97%A9%E6%9C%9FAgent%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E5%90%AF%E7%A4%BA/">52-早期Agent框架的架构启示</a></li>
+<li><a href="../03-%E6%99%BA%E8%83%BD%E4%BD%93%E7%BB%8F%E5%85%B8%E8%8C%83%E5%BC%8F%E6%9E%84%E5%BB%BA/">智能体经典范式构建</a></li>
+<li><a href="../06-%E5%A4%9A%20Agent%20%E5%8D%8F%E4%BD%9C/">多 Agent 协作</a></li>
+<li><a href="../53-LangChain%E6%A0%B8%E5%BF%83%E6%8A%BD%E8%B1%A1%E8%AE%BE%E8%AE%A1%E6%80%9D%E6%83%B3/">LangChain核心抽象设计思想</a></li>
+<li><a href="../52-%E6%97%A9%E6%9C%9FAgent%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E5%90%AF%E7%A4%BA/">早期Agent框架的架构启示</a></li>
 </ul>
 
 
@@ -7858,6 +7828,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7680,9 +7652,8 @@
 
 
 <h1 id="_1">基准测试</h1>
-<blockquote>
-<p>来源：ML 系统教材第 12 章 "Benchmarking"（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：机器学习基准测试 = 用标准化的工作量、度量与运行规则，实测系统在真实负载下的<strong>持续性能</strong>（而非厂商峰值指标），并沿"系统（硬件）—模型（压缩质量）—数据（代表性）"三个维度验证优化承诺是否兑现。</p>
 <p>每个优化都带着一个承诺：数据选择承诺更省的训练、压缩承诺更小更快、加速承诺更高吞吐。基准测试就是让这些承诺面对经验现实的"说真话"环节。峰值与持续性能的差距是<strong>结构性的</strong>：A100 峰值 312 TFLOP/s（BF16），实际 Transformer 训练典型只持续 30–50% MFU——内存停顿、流水线气泡、内核启动开销所致。基准测试量化这个差距，规格书不会。</p>
 <h2 id="_2">三个核心心法</h2>
@@ -7861,11 +7832,11 @@
 <p>数值锚点（A100 312 TFLOP/s、H100 ~989 TFLOP/s FP16、GPT-3 训练 ~1287 MWh、各代 MLPerf 榜单）反映写作时点；MLPerf 版本间结果不可跨版本比较（工作量与硬件都在演进）。榜单结构（Training/Inference/Mobile/Client/Tiny/Power）与测量方法论稳定，具体数字请查当期 MLCommons 结果。</p>
 <h2 id="_10">参见</h2>
 <ul>
-<li><a href="../05-ML%20%E6%A1%86%E6%9E%B6/">05-ML 框架</a></li>
-<li><a href="../04-%E8%AE%A1%E7%AE%97%E6%80%A7%E8%83%BD/">04-计算性能</a></li>
-<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/13-%E6%80%A7%E8%83%BD%E5%B7%A5%E7%A8%8B/">../14-机器学习系统与MLOps/13-性能工程</a></li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/07-%E6%A8%A1%E5%9E%8B%E5%8E%8B%E7%BC%A9/">../12-模型训练与优化/07-模型压缩</a></li>
-<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/71-A-B%E6%B5%8B%E8%AF%95%E7%BB%9F%E8%AE%A1%E5%9F%BA%E7%A1%80%E4%B8%8E%E5%AE%9E%E9%AA%8C%E8%AE%BE%E8%AE%A1/">../14-机器学习系统与MLOps/71-A-B测试统计基础与实验设计</a></li>
+<li><a href="../05-ML%20%E6%A1%86%E6%9E%B6/">ML 框架</a></li>
+<li><a href="../04-%E8%AE%A1%E7%AE%97%E6%80%A7%E8%83%BD/">计算性能</a></li>
+<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/13-%E6%80%A7%E8%83%BD%E5%B7%A5%E7%A8%8B/">机器学习系统与MLOps · 性能工程</a></li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/07-%E6%A8%A1%E5%9E%8B%E5%8E%8B%E7%BC%A9/">模型训练与优化 · 模型压缩</a></li>
+<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/71-A-B%E6%B5%8B%E8%AF%95%E7%BB%9F%E8%AE%A1%E5%9F%BA%E7%A1%80%E4%B8%8E%E5%AE%9E%E9%AA%8C%E8%AE%BE%E8%AE%A1/">机器学习系统与MLOps · A-B测试统计基础与实验设计</a></li>
 </ul>
 
 
@@ -7929,6 +7900,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

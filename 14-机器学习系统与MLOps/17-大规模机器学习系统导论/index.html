@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7814,11 +7786,10 @@
 
 
 <h1 id="_1">大规模机器学习系统导论</h1>
-<blockquote>
-<p>来源：原资料（教材导论章 PDF 提取，更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：大规模机器学习系统研究当模型从单机原型走向数千加速器机群时，工程约束如何发生质变——绑定约束从内存墙转移到网络墙与能量墙，硬件故障从例外变成常态，且治理成为一阶工程要求；其核心分析框架是 C3（计算、通信、协调）。</p>
-<p>在生产规模下，单机上有效的工程原则会失效：数据必须穿越机架间网络，最慢的共享交叉点限制整个作业；一万个节点中的一个故障可能瘫痪整个训练。这不是"同类问题的简单放大"，而是一个需要不同原则、不同架构的工程领域。2012–2020 年代中期，训练计算从 AlexNet 的约 $10^{18}$ FLOPs 增长到 GPT-4 级的约 $10^{25}$ FLOPs（约七个数量级），集群规模十年增长近四个数量级（约每年 2 倍，快于摩尔定律），使系统工程成为 AI 进步的核心：一个无法扩展的复杂算法，实用价值低于跨可扩展基础设施有效部署的简单算法。</p>
+<p>在生产规模下，单机上有效的工程原则会失效：数据必须穿越机架间网络，最慢的共享交叉点限制整个作业；一万个节点中的一个故障可能瘫痪整个训练。这不是"同类问题的简单放大"，而是一个需要不同原则、不同架构的工程领域。2012–2020 年代中期，训练计算从 AlexNet 的约 <span class="arithmatex">\(10^{18}\)</span> FLOPs 增长到 GPT-4 级的约 <span class="arithmatex">\(10^{25}\)</span> FLOPs（约七个数量级），集群规模十年增长近四个数量级（约每年 2 倍，快于摩尔定律），使系统工程成为 AI 进步的核心：一个无法扩展的复杂算法，实用价值低于跨可扩展基础设施有效部署的简单算法。</p>
 <h2 id="_2">核心原理</h2>
 <h3 id="_3">规模时刻：三面墙</h3>
 <p>规模时刻是模型穿越三面基本墙时的物理与运营转型：</p>
@@ -7829,7 +7800,7 @@
 </ul>
 <p>穿越三面墙会打开旁边的<strong>可靠性缺口</strong>：硬件故障从罕见异常变成常规事件。</p>
 <h3 id="_4">机群可靠性算术</h3>
-<p>系统 MTBF = 组件 MTBF ÷ 组件数。故障概率 $\Pr(\text{failure before } t) = 1 - e^{-t/\text{MTBF}<em>\text{system}}$，系统可靠度 $R</em>\text{system}(t) = (R_c(t))^N = e^{-N\lambda t}$——每加一个组件都乘上故障机会，可靠性按指数衰减。</p>
+<p>系统 MTBF = 组件 MTBF ÷ 组件数。故障概率 <span class="arithmatex">\(\Pr(\text{failure before } t) = 1 - e^{-t/\text{MTBF}_\text{system}}\)</span>，系统可靠度 <span class="arithmatex">\(R_\text{system}(t) = (R_c(t))^N = e^{-N\lambda t}\)</span>——每加一个组件都乘上故障机会，可靠性按指数衰减。</p>
 <p>草算（说明性 GPT-4 级场景）：25,000 个 GPU、单卡 MTBF 50,000 小时 → 系统 MTBF ≈ 2 小时 → 约每天 12 次故障、每年约 4,380 次。系统始终处于部分故障状态，必须把容错作为一等公民设计：硬件是"需要持续自动状态保存（检查点）的概率资源"，而非可靠抽象。</p>
 <p><strong>实战锚点（Llama 3，2024）</strong>：Meta 在 16,384 个 H100 上预训练 Llama 3 405B 共 54 天，经历 419 次意外中断（约每 3 小时一次），GPU 与 HBM3 故障占一半以上；自动检查点、诊断与重启工作流维持了超过 90% 的有效训练时间。机群规模的模型由恢复机制"训练"，正如由优化器训练一样。</p>
 <h3 id="ml-vs">ML 机群 vs 传统集群</h3>
@@ -7873,9 +7844,9 @@
 </table>
 <h3 id="_5">机群栈（四层架构）</h3>
 <ol>
-<li><strong>基础设施</strong>（硬件）：每节点峰值算力 $R_\text{peak}$ 与带宽，InfiniBand RDMA 结构互连。锚点硬件：H100；Meta RSC 16,000×A100 + 200 Gb/s IB；谷歌 TPU v4 pod 4,096 芯片、1.1 EFLOP/s；芯片间互连 ICI 4,800 Gb/s；NVLink 900 GB/s；IB HDR 约 25 GB/s、NDR 约 50 GB/s（RDMA 绕过内核、微秒级延迟）。</li>
+<li><strong>基础设施</strong>（硬件）：每节点峰值算力 <span class="arithmatex">\(R_\text{peak}\)</span> 与带宽，InfiniBand RDMA 结构互连。锚点硬件：H100；Meta RSC 16,000×A100 + 200 Gb/s IB；谷歌 TPU v4 pod 4,096 芯片、1.1 EFLOP/s；芯片间互连 ICI 4,800 Gb/s；NVLink 900 GB/s；IB HDR 约 25 GB/s、NDR 约 50 GB/s（RDMA 绕过内核、微秒级延迟）。</li>
 <li><strong>分布</strong>（通信基底）：NCCL 集合通信、RDMA、对分带宽、PUE（能源开销）、MTBF。</li>
-<li><strong>服务/运营</strong>（编排）：调度分布式作业、部署管道与 CI/CD；关键量有操作数 $O$、数据量 $D_\text{vol}$、通信强度 CI。</li>
+<li><strong>服务/运营</strong>（编排）：调度分布式作业、部署管道与 CI/CD；关键量有操作数 <span class="arithmatex">\(O\)</span>、数据量 <span class="arithmatex">\(D_\text{vol}\)</span>、通信强度 CI。</li>
 <li><strong>治理</strong>（任务上下文）：负责任 AI 策略、安全审计、多租户访问控制。</li>
 </ol>
 <p>底层决策限制顶层可能性。</p>
@@ -7887,10 +7858,10 @@
 <li><strong>协调 C3</strong>：跨数千节点同步状态——集合算法、容错、分布式共识。</li>
 </ul>
 <p><strong>机群定律</strong>（分布式步骤时间）：</p>
-<p>$$T_\text{step}(N) = \frac{T_\text{compute}}{N} + T_\text{comm}(N) + T_\text{sync}(N) - T_\text{overlap}$$</p>
-<p><strong>计算时间分数</strong> $f_\text{compute} = \dfrac{T_\text{compute}/N}{T_\text{step}(N)}$：降到 0.5 以下即一半以上昂贵算力闲置。诊断：$T_\text{comm}$ 主导 → 升级互连或通信隐藏；$T_\text{sync}$ 主导 → 异步化或减少屏障；$T_\text{compute}/N$ 主导 → 机群在正常工作。<strong>开销位移原理</strong>：开销不能被消除，只能在三个 C 之间转移（异步消除屏障但引入梯度过时；流水线并行减通信量但增气泡）——分布式系统没有免费午餐。生产实例化是谷歌的 <strong>Goodput</strong> 三因子：$\eta_\text{program}$（代码用硬件的效率）× $\eta_\text{runtime}$（通信停顿与故障损失）× $\eta_\text{调度}$（抢占与重配置浪费）。</p>
-<p><strong>通信强度</strong> $\text{CI} = \dfrac{\text{网络传输字节数}}{\text{本地执行 FLOPs}}$：CI &lt; 0.1 计算受限、易扩展；CI &gt; 0.1 网络受限，加 GPU 可能反而变慢。梯度稀疏化、3D 并行等优化本质上都是降低暴露的 CI。</p>
-<p><strong>能效</strong>：$\rho_\text{energy} = \dfrac{O_\text{useful}}{E_\text{compute}+E_\text{cooling}+E_\text{网络}}$（FLOP/J）；扩展效率 $\eta_\text{scaling} = \dfrac{T_1}{N \times T_N}$。机群定律是 Amdahl 定律的分布式特化：20% 时间等网络，则再快的 GPU 也无法加速超过 5 倍。</p>
+<div class="arithmatex">\[T_\text{step}(N) = \frac{T_\text{compute}}{N} + T_\text{comm}(N) + T_\text{sync}(N) - T_\text{overlap}\]</div>
+<p><strong>计算时间分数</strong> <span class="arithmatex">\(f_\text{compute} = \dfrac{T_\text{compute}/N}{T_\text{step}(N)}\)</span>：降到 0.5 以下即一半以上昂贵算力闲置。诊断：<span class="arithmatex">\(T_\text{comm}\)</span> 主导 → 升级互连或通信隐藏；<span class="arithmatex">\(T_\text{sync}\)</span> 主导 → 异步化或减少屏障；<span class="arithmatex">\(T_\text{compute}/N\)</span> 主导 → 机群在正常工作。<strong>开销位移原理</strong>：开销不能被消除，只能在三个 C 之间转移（异步消除屏障但引入梯度过时；流水线并行减通信量但增气泡）——分布式系统没有免费午餐。生产实例化是谷歌的 <strong>Goodput</strong> 三因子：<span class="arithmatex">\(\eta_\text{program}\)</span>（代码用硬件的效率）× <span class="arithmatex">\(\eta_\text{runtime}\)</span>（通信停顿与故障损失）× <span class="arithmatex">\(\eta_\text{调度}\)</span>（抢占与重配置浪费）。</p>
+<p><strong>通信强度</strong> <span class="arithmatex">\(\text{CI} = \dfrac{\text{网络传输字节数}}{\text{本地执行 FLOPs}}\)</span>：CI &lt; 0.1 计算受限、易扩展；CI &gt; 0.1 网络受限，加 GPU 可能反而变慢。梯度稀疏化、3D 并行等优化本质上都是降低暴露的 CI。</p>
+<p><strong>能效</strong>：<span class="arithmatex">\(\rho_\text{energy} = \dfrac{O_\text{useful}}{E_\text{compute}+E_\text{cooling}+E_\text{网络}}\)</span>（FLOP/J）；扩展效率 <span class="arithmatex">\(\eta_\text{scaling} = \dfrac{T_1}{N \times T_N}\)</span>。机群定律是 Amdahl 定律的分布式特化：20% 时间等网络，则再快的 GPU 也无法加速超过 5 倍。</p>
 <p>草算（GPT-3 级 175B、FP16 梯度约 700 GB/步）：200 Gb/s InfiniBand 下扩展效率仅约 4.1%（每 100 秒只算 4.1 秒）；100 Gb/s 以太网降到约 2.1%。每端点每次同步经网络耗能约 84 J（15 pJ/bit），百万步训练仅端点网络就烧约 84 MJ（还要乘加速器数）。</p>
 <h3 id="_6">规模的三类约束</h3>
 <ul>
@@ -7901,8 +7872,8 @@
 <h2 id="_7">关键概念</h2>
 <h3 id="ai">AI 扩展定律</h3>
 <p>幂律形式：</p>
-<p>$$\mathcal{L}(X) = A_\mathcal{L} X^{-\alpha_\text{scale}} + C_\mathcal{L}$$</p>
-<p>损失随资源量 $X$（参数/tokens/计算）按幂律下降，加不可约基线 $C_\mathcal{L}$。理论根基是 Sutton 的"苦涩教训"：性能主要由在海量规模上应用通用方法驱动，而非编码人类知识。GPT-1（1.17 亿）→ GPT-2（15 亿）→ GPT-3（1750 亿）的能力跃升即来自规模外推——OpenAI 选定 GPT-3 尺寸时没有做架构搜索，而是从小实验外推缩放曲线。</p>
+<div class="arithmatex">\[\mathcal{L}(X) = A_\mathcal{L} X^{-\alpha_\text{scale}} + C_\mathcal{L}\]</div>
+<p>损失随资源量 <span class="arithmatex">\(X\)</span>（参数/tokens/计算）按幂律下降，加不可约基线 <span class="arithmatex">\(C_\mathcal{L}\)</span>。理论根基是 Sutton 的"苦涩教训"：性能主要由在海量规模上应用通用方法驱动，而非编码人类知识。GPT-1（1.17 亿）→ GPT-2（15 亿）→ GPT-3（1750 亿）的能力跃升即来自规模外推——OpenAI 选定 GPT-3 尺寸时没有做架构搜索，而是从小实验外推缩放曲线。</p>
 <p><strong>三种资源机制</strong>（诊断哪个资源先卡住平衡增长）：</p>
 <ul>
 <li>计算受限：数据丰富、算力稀缺 → 小模型多步训练（学术界、初创常见）。</li>
@@ -7967,7 +7938,7 @@
 <tr>
 <td>B：DLRM 规模</td>
 <td>协调</td>
-<td>10 TB+ 嵌入表跨数百节点分片；百万级 QPS、P99 &lt; 100 ms，管理 $\mathcal{O}(N^2)$ 稀疏全对全通信争用</td>
+<td>10 TB+ 嵌入表跨数百节点分片；百万级 QPS、P99 &lt; 100 ms，管理 <span class="arithmatex">\(\mathcal{O}(N^2)\)</span> 稀疏全对全通信争用</td>
 </tr>
 <tr>
 <td>C：联邦 MobileNet</td>
@@ -8123,11 +8094,11 @@
 </ul>
 <h2 id="_14">参见</h2>
 <ul>
-<li><a href="../01-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E5%AF%BC%E8%AE%BA/">01-机器学习系统导论</a>——单机 ML 系统全景，本文是其机群规模延伸。</li>
-<li><a href="../10-Fleet%20%E5%8E%9F%E5%88%99/">10-Fleet 原则</a>——机群层原则的逐条展开。</li>
-<li><a href="../16-%E5%A4%A7%E8%A7%84%E6%A8%A1%20ML%20Operations/">16-大规模 ML Operations</a>——治理与运营控制平面的落地。</li>
-<li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">03-计算基础设施</a>——机群栈底层的硅、电力与设施。</li>
-<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/23-PyTorch%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83-DP%E4%B8%8EDDP%E5%8E%9F%E7%90%86/">23-PyTorch分布式训练-DP与DDP原理</a>——数据并行与 AllReduce 的具体实现。</li>
+<li><a href="../01-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E5%AF%BC%E8%AE%BA/">机器学习系统导论</a>——单机 ML 系统全景，本文是其机群规模延伸。</li>
+<li><a href="../10-Fleet%20%E5%8E%9F%E5%88%99/">Fleet 原则</a>——机群层原则的逐条展开。</li>
+<li><a href="../16-%E5%A4%A7%E8%A7%84%E6%A8%A1%20ML%20Operations/">大规模 ML Operations</a>——治理与运营控制平面的落地。</li>
+<li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">AI基础设施与硬件 · 计算基础设施</a>——机群栈底层的硅、电力与设施。</li>
+<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/23-PyTorch%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83-DP%E4%B8%8EDDP%E5%8E%9F%E7%90%86/">深度学习框架与计算 · PyTorch分布式训练-DP与DDP原理</a>——数据并行与 AllReduce 的具体实现。</li>
 </ul>
 
 
@@ -8191,6 +8162,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

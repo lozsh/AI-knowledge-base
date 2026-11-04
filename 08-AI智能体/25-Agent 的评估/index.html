@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -3075,10 +3047,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_13" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 智能体性能评估
       
     </span>
   </a>
@@ -7776,10 +7748,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_13" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 智能体性能评估
       
     </span>
   </a>
@@ -7804,9 +7776,8 @@
 
 
 <h1 id="agent">Agent 的评估</h1>
-<blockquote>
-<p>来源：原资料（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：Agent 评估是通过可复现的自动化环境、经得起推敲的数据集和自动化评判方法，为模型选型、架构优化与持续迭代提供数据驱动决策依据的工程体系——评估的首要价值不是给当前系统打分，而是让你能快速、可靠地跟上模型演进。</p>
 <p>构建 Agent 时面对大量没有显而易见正确答案的设计选择（用什么模型、开放哪些工具、知识库存什么、记忆怎么做、提示词如何组织、Harness 加什么约束）。评估靠<strong>对比实验</strong>（改变一个变量观察效果）和<strong>消融实验</strong>（逐一关闭组件判断真实贡献）区分真正的能力提升与表面波动。关键认识：<strong>评估对象是模型与 Harness 的组合体</strong>——同一模型在不同 Harness 中表现可能差异悬殊；区分两类问题的手段是<strong>模型替换实验</strong>（固定 Harness 只换模型：换强模型分数不涨→瓶颈在 Harness；分数随模型能力大幅波动→瓶颈在模型）。消融定位 Harness 内部哪个部件重要，模型替换区分瓶颈在模型还是在 Harness。</p>
 <p>评估体系的价值在模型快速演进时代尤其凸显：新模型在公开基准上更好，不代表在你的任务上更好（可能出现 regression）；只有在自己的评估集上完整测试才能做数据驱动的升级决策。完善的评估体系还使"为未来的模型开发产品"成为可行策略——持续追踪新模型表现，一旦达到门槛立即上线。</p>
@@ -7949,13 +7920,12 @@
 <li>Elo 排行榜数字、缓存定价折扣比例（如 Anthropic 缓存写 1.25 倍/读 0.1 倍）会随厂商调整变化。</li>
 <li>多重比较、McNemar 检验等方法本身稳定有效，不受模型演进影响。</li>
 </ul>
-<h2 id="_13">参见</h2>
+<h2 id="-">参见- <a href="../21-%E6%99%BA%E8%83%BD%E4%BD%93%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0/">智能体性能评估</a></h2>
 <ul>
-<li><a href="../21-%E6%99%BA%E8%83%BD%E4%BD%93%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0/">21-智能体性能评估</a></li>
-<li><a href="../23-%E7%94%A8%E6%88%B7%E8%AE%B0%E5%BF%86%E5%92%8C%E7%9F%A5%E8%AF%86%E5%BA%93/">23-用户记忆和知识库</a></li>
-<li><a href="../24-%E5%B7%A5%E5%85%B7/">24-工具</a></li>
-<li><a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">19-上下文工程</a></li>
-<li><a href="../51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">51-自主智能体设计方法论</a></li>
+<li><a href="../23-%E7%94%A8%E6%88%B7%E8%AE%B0%E5%BF%86%E5%92%8C%E7%9F%A5%E8%AF%86%E5%BA%93/">用户记忆和知识库</a></li>
+<li><a href="../24-%E5%B7%A5%E5%85%B7/">工具</a></li>
+<li><a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a></li>
+<li><a href="../51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">自主智能体设计方法论</a></li>
 </ul>
 
 
@@ -8019,6 +7989,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

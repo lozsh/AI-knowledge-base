@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -2840,10 +2812,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_9" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 上下文工程
       
     </span>
   </a>
@@ -7698,10 +7670,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_9" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 上下文工程
       
     </span>
   </a>
@@ -7726,9 +7698,8 @@
 
 
 <h1 id="_1">记忆与检索</h1>
-<blockquote>
-<p>来源：原资料（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：记忆系统让智能体跨会话存储、检索、整合和遗忘信息；RAG（检索增强生成）在生成前从外部知识库检索相关内容注入上下文——两者分别解决 LLM 的"对话状态遗忘"和"内置知识局限"两大根本缺陷。</p>
 <p>基于 LLM 的智能体面临两个根本性局限。<strong>局限一：无状态导致的对话遗忘</strong>——每次 API 调用都是独立计算，模型不自动记住上次对话，导致上下文丢失、个性化缺失、学习能力受限、多轮对话前后矛盾。（注意区分：框架内 SimpleAgent 同一实例的 <code>_history</code> 只暂存当前对话，不跨会话持久化，也不能长期检索、遗忘和整合。）<strong>局限二：内置知识静态有限</strong>——训练数据有时间截止点、专业领域深度不足、易幻觉、缺信息来源，RAG 为此而生：生成前先从外部知识库检索最相关的信息作为上下文。</p>
 <p>设计上借鉴认知科学的人类记忆层次：感觉记忆（0.5-3 秒，容量大）、工作记忆（15-30 秒，7±2 项）、长期记忆（近乎无限，分程序性记忆/陈述性记忆，后者又分语义记忆——一般知识与概念、情景记忆——个人经历事件）。</p>
@@ -7837,9 +7808,8 @@
 <li>Qdrant、Neo4j、DashScope 为教学选型，生产可替换；嵌入模型迭代快，文中模型名（all-MiniLM-L6-v2 等）仅作参考。</li>
 <li>RAG 三阶段划分为 2020 年代的历史归纳，模块化 RAG 之后的演进（如 Agentic RAG、GraphRAG 深化）不在原资料范围内。</li>
 </ul>
-<h2 id="_9">参见</h2>
+<h2 id="-">参见- <a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a></h2>
 <ul>
-<li><a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a></li>
 <li><a href="../22-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B%E6%B7%B1%E5%85%A5/">上下文工程深入</a></li>
 <li><a href="../23-%E7%94%A8%E6%88%B7%E8%AE%B0%E5%BF%86%E5%92%8C%E7%9F%A5%E8%AF%86%E5%BA%93/">用户记忆和知识库</a></li>
 <li><a href="../24-%E5%B7%A5%E5%85%B7/">工具</a></li>
@@ -7907,6 +7877,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

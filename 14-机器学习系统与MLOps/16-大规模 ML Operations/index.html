@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -8612,9 +8584,8 @@
 
 
 <h1 id="ml-operations">大规模 ML Operations</h1>
-<blockquote>
-<p>来源：原资料（教材《ML Operations at Scale》第 12 章，更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：大规模 ML Operations 研究当一个组织从运维 1 个模型变为运维数百个模型时，为什么单模型实践会失效，以及如何用共享平台（注册表、CI/CD/CT、分级监控、特征存储、FinOps、平台团队）把逐模型的固定运维税转化为边际成本。</p>
 <p>管理一个模型是一个项目；管理一百个模型是一个"系统之系统"——数据管道变更会级联影响多个团队的模型，部署故障需要跨服务协调回滚，仪表盘泛滥直到警报疲劳使监控失效。让单团队管单模型的实践（手动部署、临时监控、电子表格跟踪）在规模化后变成组织负债。大规模 MLOps 的核心主张是：<strong>模型管理必须成为基础设施</strong>——具有一致 API 的共享平台、强制质量门禁的自动化管道、跨集群聚合信号的监控，以及追踪工件依赖的治理框架。用 C³ 术语说，它把人类协调转化为自动化计算。</p>
 <h2 id="n">核心原理：N 模型问题与平台经济学</h2>
@@ -8669,10 +8640,10 @@
 </table>
 <h3 id="roi">平台 ROI 与盈亏平衡</h3>
 <p>平台投资回报率公式：</p>
-<p>$$ROI_{platform} = \frac{N_{models} \times T_{saved} \times C_{engineer}}{C_{platform}}$$</p>
+<div class="arithmatex">\[ROI_{platform} = \frac{N_{models} \times T_{saved} \times C_{engineer}}{C_{platform}}\]</div>
 <ul>
 <li>分子随模型数<strong>线性</strong>增长，分母（平台成本）近似固定，所以盈亏平衡后 ROI 线性上升。</li>
-<li>经验盈亏平衡点：<strong>$2M/年平台约 20 个模型回本；$5M/年企业平台约 50 个模型回本</strong>。</li>
+<li>经验盈亏平衡点：<strong><span class="arithmatex">\(2M/年平台约 20 个模型回本；\)</span>5M/年企业平台约 50 个模型回本</strong>。</li>
 <li>实例：50 个模型、平台团队 $120K/月、每模型省 20 小时/月 × $150/h → 月省 $150K，ROI = 1.25；若只有 20 个模型则亏损 50%。</li>
 <li>结论：建平台的时机是"全集群的手工繁琐税 &gt; 平台维护税"。拖到 100+ 模型再建，迁移成本是当初建平台的 3–5 倍。</li>
 </ul>
@@ -8711,7 +8682,7 @@
 </table>
 <p>运维健康基线：部署速度（推理变更 &lt;1 天，训练 &lt;1 周，&gt;2 周告警）；事件率（每千次部署 &lt;5 次，&gt;20 告警）；繁琐工时 &lt;20%（&gt;50% 告警）；过期依赖 &lt;10%（&gt;30% 告警）。</p>
 <p>偿债优先级公式：</p>
-<p>$$Paydown\ Priority = \frac{Impact \times Frequency \times Benefit}{Resolution\ Cost}$$</p>
+<div class="arithmatex">\[Paydown\ Priority = \frac{Impact \times Frequency \times Benefit}{Resolution\ Cost}\]</div>
 <p>决策规则不对称：比例超过功能开发的期望价值就还债；债务只影响单团队、频率低（月度以下）、系统 12 个月内退役、或修复成本超 6 个月工程量时推迟。建议把 20–30% 的冲刺容量划为"债务预算"（&lt;10% 的团队债务通常越滚越大）。自动化是最高的偿债杠杆：例——CI/CD 投入 120 小时，把每次部署 10 小时手工降到 0.5 小时，3 部署/周，约 <strong>4.2 周回本</strong>。主动维护（重构管道）在 3 年模型生命周期内把总成本降 <strong>3.2 倍</strong>。</p>
 <h3 id="_2">共享红利与多租户</h3>
 <p>100 块 GPU：团队专属配额下平均闲置 70%，多租户平台共享后降至 30% → 同样负载所需硬件减少 1 − (0.30/0.70) ≈ <strong>57%</strong>。统计复用（不同团队的峰值需求很少重合）是共享平台在经济上可持续的机制；平台团队的核心角色就是收割这份红利并再投资于容量增长。</p>
@@ -8945,7 +8916,7 @@
 <p>自服务部署 API 的不变量：模型工件与版本（只加载注册表中验证过的那个）、资源包络（配额内）、流量策略（金丝雀/影子/回滚先于全量）、质量门禁（错误/延迟/漂移/任务质量阈值阻塞不安全晋升）、遥测汇（运维指标与模型质量信号分流入不同的监控）、审批边界（敏感数据、预算超支、高风险窗口需评审）。</p>
 <h3 id="_22">资源管理与效率指标</h3>
 <p>训练（批处理、可抢占、可用检查点换时间）与服务（延迟 SLO 绑定、不能抢占活请求）须用<strong>不同的调度策略</strong>；单一策略无法同时优化两者。平台效率 = Σ(Uᵢ × Capᵢ) / Σ Capᵢ（按容量加权）。更进一步用 <strong>ML 生产力 Goodput（MPG）</strong>，"舰队效率铁律"：</p>
-<p>$$MPG = Scheduling\ Eff \times Runtime\ Eff \times Program\ Eff$$</p>
+<div class="arithmatex">\[MPG = Scheduling\ Eff \times Runtime\ Eff \times Program\ Eff\]</div>
 <p>调度效率惩罚排队与碎片；运行时效率惩罚重启开销、数据加载瓶颈、掉队者；程序效率惩罚劣化 kernel、过度精度（FP32 够用却用 BF16 可省则不用）、冗余计算。高利用率集群可能 MPG 很低（频繁失败或低效代码）——这把优化指向真正的瓶颈。</p>
 <p>多租户三重隔离（性能/安全/成本）+ 四项控制（请求资源上限、租户限速、优先级、突发预算）。GPU 显存不能超卖，物理隔离是唯一可靠预防——noisy neighbor 在 RDMA 集群尤其靠静态 rail 对齐或交换机级拥塞控制缓解。</p>
 <h3 id="finops-for-ml">FinOps for ML</h3>
@@ -8957,10 +8928,10 @@
 <li>成熟平台两者兼用：微调教"怎么用工具和文风"，RAG 供"必须新鲜的事实"。</li>
 </ul>
 <h3 id="ml-tco">ML 系统 TCO 框架</h3>
-<p>$$TCO_{ML} = C_{train} + C_{infer} + C_{data} + C_{iter}$$</p>
+<div class="arithmatex">\[TCO_{ML} = C_{train} + C_{infer} + C_{data} + C_{iter}\]</div>
 <p>"TCO 冰山"：GPU 计算（约 40%）与存储（10%）是水面上的可见成本，工程人力（20%）、管道维护、重训、监控、事件响应、合规合计约占一半。主导成本随成熟度迁移：早期 𝐶_iter（实验）主导 → 成长期 𝐶_train → 生产规模 𝐶_infer。关键公式：</p>
 <ul>
-<li>训练：C_train = N_GPU × T_hours × (R_GPU/hr + P_GPU × R_$/kWh × PUE) × (1 + F_fail)。例：256×H100×14 天、$3.56 有效时率、15% 失败开销 → ≈$352K；季度重训则年 $1.4M。</li>
+<li>训练：C_train = N_GPU × T_hours × (R_GPU/hr + P_GPU × R_<span class="arithmatex">\(/kWh × PUE) × (1 + F_fail)。例：256×H100×14 天、\)</span>3.56 有效时率、15% 失败开销 → ≈$352K；季度重训则年 $1.4M。</li>
 <li>推理：C_infer = (Q_daily × T_infer,avg) / (U_GPU × B_eff) × R_GPU/hr × 365。利用率 40%→80% 减半需求；有效批处理进一步降单查成本。<strong>推理 TCO 随用户线性增长，常达开发成本的 5–10 倍</strong>（3 年期）。</li>
 <li>数据：C_data = C_storage + C_egress + C_process（egress $0.08–0.12/GB；10TB/日特征管道 × $0.02/GB = 年 $73K）。</li>
 <li>迭代：C_iter = N_exp × T_exp × (C_engineer + C_compute)；90% 实验失败 → 单个成功实验有效成本 10 倍。</li>
@@ -9056,11 +9027,11 @@
 </ul>
 <h2 id="_33">参见</h2>
 <ul>
-<li><a href="../09-ML%20Operations/">09-ML Operations</a> —— 单模型/小规模 ML 运维基础（本章是其规模化的续篇）</li>
-<li><a href="../14-%E5%A4%A7%E8%A7%84%E6%A8%A1%E6%8E%A8%E7%90%86/">14-大规模推理</a> —— 推理服务规模化机制，本章 TCO 中 𝐶_infer 的技术底层</li>
-<li><a href="../15-%E8%BE%B9%E7%BC%98%E6%99%BA%E8%83%BD/">15-边缘智能</a> —— 边缘与联邦学习，对应本章"边缘舰队管理"约束</li>
-<li><a href="../61-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5%E4%B8%8E%E5%9B%A2%E9%98%9F%E6%96%B9%E6%B3%95%E8%AE%BA/">61-机器学习工程实践与团队方法论</a> —— 团队组织与工程实践方法</li>
-<li><a href="../71-A-B%E6%B5%8B%E8%AF%95%E7%BB%9F%E8%AE%A1%E5%9F%BA%E7%A1%80%E4%B8%8E%E5%AE%9E%E9%AA%8C%E8%AE%BE%E8%AE%A1/">71-A-B测试统计基础与实验设计</a> —— 本章样本量/多重校正/SUTVA 的统计细节展开</li>
+<li><a href="../09-ML%20Operations/">ML Operations</a> —— 单模型/小规模 ML 运维基础（本章是其规模化的续篇）</li>
+<li><a href="../14-%E5%A4%A7%E8%A7%84%E6%A8%A1%E6%8E%A8%E7%90%86/">大规模推理</a> —— 推理服务规模化机制，本章 TCO 中 𝐶_infer 的技术底层</li>
+<li><a href="../15-%E8%BE%B9%E7%BC%98%E6%99%BA%E8%83%BD/">边缘智能</a> —— 边缘与联邦学习，对应本章"边缘舰队管理"约束</li>
+<li><a href="../61-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5%E4%B8%8E%E5%9B%A2%E9%98%9F%E6%96%B9%E6%B3%95%E8%AE%BA/">机器学习工程实践与团队方法论</a> —— 团队组织与工程实践方法</li>
+<li><a href="../71-A-B%E6%B5%8B%E8%AF%95%E7%BB%9F%E8%AE%A1%E5%9F%BA%E7%A1%80%E4%B8%8E%E5%AE%9E%E9%AA%8C%E8%AE%BE%E8%AE%A1/">A-B测试统计基础与实验设计</a> —— 本章样本量/多重校正/SUTVA 的统计细节展开</li>
 </ul>
 
 
@@ -9124,6 +9095,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7670,9 +7642,8 @@
 
 
 <h1 id="data-storage">数据存储：加速器的燃料线（Data Storage）</h1>
-<blockquote>
-<p>来源：《机器学习系统》教材第 4 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：ML 存储不是被动仓库，而是主动的多层燃料线——唯一目标是让最昂贵的 HBM 在加速器需要时永远不空；系统多快取决于喂它的那一层。</p>
 <p>高端加速器内部以 TB/s 消费数据，单个 NVMe 盘只有 GB/s 到十几 GB/s，分布式存储再加延迟——这个错配在孤立测加速器的 benchmark 里看不见，在真实负载里却主导一切。没有规划数据路径的团队会发现昂贵硬件只跑出几分之一的容量。以 175B 模型为例：1.5 万亿 token 训练数据压缩后 3TB、token 化后 6TB，每 epoch 全量顺序读一遍；每 10 分钟要存一次约 1.75TB 的 checkpoint——30 天 256 节点的训练要吸收约 7.6PB 的 checkpoint 写入。<strong>大模型训练中，checkpoint I/O 以千倍以上压倒训练数据读取</strong>。</p>
 <h2 id="ml">核心原理：ML 工作负载如何颠覆存储假设</h2>
@@ -7869,11 +7840,11 @@
 <p><strong>合成燃料线</strong>：高质量人类数据见顶（Data Wall）后转向合成数据，但合成数据必须自带溯源链（哪个模型生成、哪些过滤器/评判模型打分、哪个下游任务消费），否则有模型自食其果导致 model collapse 的风险。存储放大账：1TB 原始载荷 + 40% 溯源开销 + 3 个独立 judge 模型验证 = 4.2TB——<strong>合成数据即被验证的数据，验证有 4.2 倍存储税</strong>。存储从比特桶变成溯源引擎。</p>
 <h2 id="_7">参见</h2>
 <ul>
-<li><a href="../03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">03-计算基础设施</a></li>
-<li><a href="../09-%E5%AE%B9%E9%94%99/">09-容错</a></li>
-<li><a href="../../22-%E6%A3%80%E7%B4%A2%E4%B8%8ERAG/02-%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E4%B8%8E%E5%B5%8C%E5%85%A5%EF%BC%9A%E4%BB%8EANN%E5%88%B0%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/">02-向量检索与嵌入：从ANN到向量数据库</a></li>
-<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/05-%E6%95%B0%E6%8D%AE%E5%B7%A5%E7%A8%8B/">05-数据工程</a></li>
-<li><a href="../../24-%E5%A4%A7%E6%95%B0%E6%8D%AE%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%B7%A5%E7%A8%8B/02-%E5%88%86%E5%B8%83%E5%BC%8F%E5%AD%98%E5%82%A8%E5%8E%9F%E7%90%86/">02-分布式存储原理</a></li>
+<li><a href="../03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">计算基础设施</a></li>
+<li><a href="../09-%E5%AE%B9%E9%94%99/">容错</a></li>
+<li><a href="../../22-%E6%A3%80%E7%B4%A2%E4%B8%8ERAG/02-%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E4%B8%8E%E5%B5%8C%E5%85%A5%EF%BC%9A%E4%BB%8EANN%E5%88%B0%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/">检索与RAG · 向量检索与嵌入：从ANN到向量数据库</a></li>
+<li><a href="../../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/05-%E6%95%B0%E6%8D%AE%E5%B7%A5%E7%A8%8B/">机器学习系统与MLOps · 数据工程</a></li>
+<li><a href="../../24-%E5%A4%A7%E6%95%B0%E6%8D%AE%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%B7%A5%E7%A8%8B/02-%E5%88%86%E5%B8%83%E5%BC%8F%E5%AD%98%E5%82%A8%E5%8E%9F%E7%90%86/">大数据与数据工程 · 分布式存储原理</a></li>
 </ul>
 
 
@@ -7937,6 +7908,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

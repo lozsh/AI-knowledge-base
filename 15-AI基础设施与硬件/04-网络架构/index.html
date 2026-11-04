@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7758,9 +7730,8 @@
 
 
 <h1 id="ml-network-fabrics">网络架构：ML 集群的同步骨架（Network Fabrics）</h1>
-<blockquote>
-<p>来源：《机器学习系统》教材第 3 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：ML 集群的网络 fabric 不是辅助设施，而是"梯度总线"——决定千卡集群是一台同步机器还是一队互相等待的闲置硅片；决定有用算力的不是端口速率，而是对分带宽。</p>
 <p>设想 175B 模型分布在 1024 张 GPU 上：每步训练要做 350GB 梯度的 AllReduce，fabric 中任何一条慢链路都会让其余 1023 张卡干等。节点内 NVLink（450GB/s 单向）到节点间 InfiniBand（50GB/s）之间约 9 倍的带宽悬崖，是网络设计的中心挑战。ML 流量与传统数据中心流量完全相反（见下），因此传统网络假设几乎全部失效。</p>
 <table>
@@ -7812,7 +7783,7 @@
 <h2 id="l1">L1：线缆与链路物理</h2>
 <ul>
 <li><strong>PAM4 调制</strong>：4 电平编码 2 bit/符号，让 400G/800G 成为可能；代价是电压间隙缩为 NRZ 的 1/3，必须配前向纠错（FEC，RS(544,514) 系）——每链路约 100ns 处理延迟。三跳 fat-tree 单向累积 300–600ns FEC"物理税"，构成集合通信的硬延迟下限（α 项）。⚠️ 常见误区：加倍每符号位数不是免费提速，PAM4 链路本质比 NRZ 延迟更高。</li>
-<li><strong>介质选择</strong>：DAC 无源铜缆（~3m、~$50、延迟最低，机柜内）；AOC 有源光缆（3–30m、~$500，机架间）；可插拔光模块（&gt;30m、最贵，网络核心）。距离就是钱：万卡集群仅 spine 层约 2 万条光链路，$500/条 + 20W/条 = $1000 万线缆 + 400kW 持续功耗。这解释了为什么机柜要塞到 70–100kW——尽量用便宜铜缆。</li>
+<li><strong>介质选择</strong>：DAC 无源铜缆（~3m、~<span class="arithmatex">\(50、延迟最低，机柜内）；AOC 有源光缆（3–30m、~\)</span>500，机架间）；可插拔光模块（&gt;30m、最贵，网络核心）。距离就是钱：万卡集群仅 spine 层约 2 万条光链路，$500/条 + 20W/条 = $1000 万线缆 + 400kW 持续功耗。这解释了为什么机柜要塞到 70–100kW——尽量用便宜铜缆。</li>
 <li><strong>SerDes 与链路预算</strong>：SerDes 是 fabric 最大功耗者。1024 卡集群维持全对分带宽约需 3000 条高速链路，每 400G 端口约 25W，仅互联就 75kW——约 10.5% 的电力用于"搬比特"而非计算。链路预算（dB）决定可达距离：800G 铜缆只剩 1–2 米，机柜直径和出柜光化都是物理强制。</li>
 </ul>
 <h2 id="l2">L2：传输层与性能模型</h2>
@@ -7934,11 +7905,11 @@
 <p>NDR/XDR IB 规格、UEC 标准进展、CPO 产品化状态、Meta/Google 具体部署数据均为 2024–2025 年快照；本领域的持久变量是每比特功耗、可达距离与计算/内存/网络容量配比，而非具体产品名。</p>
 <h2 id="_6">参见</h2>
 <ul>
-<li><a href="../03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">03-计算基础设施</a></li>
-<li><a href="../08-%E9%9B%86%E5%90%88%E9%80%9A%E4%BF%A1/">08-集合通信</a></li>
-<li><a href="../07-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">07-分布式训练</a></li>
-<li><a href="../05-%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/">05-数据存储</a></li>
-<li><a href="../09-%E5%AE%B9%E9%94%99/">09-容错</a></li>
+<li><a href="../03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">计算基础设施</a></li>
+<li><a href="../08-%E9%9B%86%E5%90%88%E9%80%9A%E4%BF%A1/">集合通信</a></li>
+<li><a href="../07-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a></li>
+<li><a href="../05-%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/">数据存储</a></li>
+<li><a href="../09-%E5%AE%B9%E9%94%99/">容错</a></li>
 </ul>
 
 
@@ -8002,6 +7973,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

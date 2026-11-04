@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7660,9 +7632,8 @@
 
 
 <h1 id="ml-operations-mlops">ML Operations (MLOps)</h1>
-<blockquote>
-<p>来源：《机器学习系统》第 14 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：MLOps 是通过自动化重训练、验证和部署，响应可测量的生产漂移，从而闭合"模型行为 ↔ 数据现实"反馈回路的工程学科（Kreuzberger et al. 2023）。</p>
 <h2 id="_1">概述</h2>
 <p>传统软件会"大声失败"：空指针让服务崩溃、监控变红、工程师被呼叫。ML 系统则会"悄然失败"：经历数据漂移的模型继续以满置信度提供服务，延迟、吞吐量、正常运行时间全部绿灯，而准确率从 94% 一路跌到 81% 却无人察觉。更关键的是，模型不像代码——代码只在被修改时才劣化，模型<strong>仅仅因为世界在变化就会劣化</strong>：用户行为转变、新产品类目出现、季节模式演变。静默降级不是偶发故障，而是每个已部署模型的默认轨迹。</p>
@@ -7832,7 +7803,7 @@
 <p>把准确率衰减类比为放射性半衰期：Accuracy(t) = Accuracy₀·e^(−γt)，最优重训练间隔：</p>
 <div class="highlight"><pre><span></span><code>T* ≈ √( 2·C / (Q·V·Accuracy₀·γ) )
 </code></pre></div>
-<p>其中 Q = 日查询量、V = 单位准确率变化的每查询价值、C = 重训练固定成本（计算+验证+部署+风险）、γ = 日衰减率。示例：欺诈检测（Q=100 万/天，V=$0.50，C=$5,000，γ=2%/天）→ T<em> ≈ 1 天，每日重训练经济最优。</em><em>敏感性</em><em>：T</em> 与参数呈平方根关系，成本/流量/漂移率任一 4× 变化只使间隔 2× 变化——重训练频率对单参数不确定性稳健。局限：假设漂移渐进可预测（突发概念漂移不适用）、价值函数已知线性、各周期独立、成本固定。</p>
+<p>其中 Q = 日查询量、V = 单位准确率变化的每查询价值、C = 重训练固定成本（计算+验证+部署+风险）、γ = 日衰减率。示例：欺诈检测（Q=100 万/天，V=<span class="arithmatex">\(0.50，C=\)</span>5,000，γ=2%/天）→ T<em> ≈ 1 天，每日重训练经济最优。</em><em>敏感性</em><em>：T</em> 与参数呈平方根关系，成本/流量/漂移率任一 4× 变化只使间隔 2× 变化——重训练频率对单参数不确定性稳健。局限：假设漂移渐进可预测（突发概念漂移不适用）、价值函数已知线性、各周期独立、成本固定。</p>
 <h2 id="_6">经验与常见坑</h2>
 <ul>
 <li><strong>部署是系统工程问题而非文件传输</strong>：开发环境 99.2% 精确率的欺诈模型，因生产服务器特征提取库版本不同，把每笔交易都判为合法。</li>
@@ -7853,11 +7824,11 @@
 </ul>
 <h2 id="_8">参见</h2>
 <ul>
-<li><a href="../02-%E5%9F%BA%E7%A1%80%E5%8E%9F%E5%88%99/">02-基础原则</a></li>
-<li><a href="../07-%E9%83%A8%E7%BD%B2%E5%8E%9F%E5%88%99/">07-部署原则</a></li>
-<li><a href="../08-%E6%A8%A1%E5%9E%8B%E6%9C%8D%E5%8A%A1/">08-模型服务</a></li>
-<li><a href="../16-%E5%A4%A7%E8%A7%84%E6%A8%A1%20ML%20Operations/">16-大规模 ML Operations</a></li>
-<li><a href="../61-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5%E4%B8%8E%E5%9B%A2%E9%98%9F%E6%96%B9%E6%B3%95%E8%AE%BA/">61-机器学习工程实践与团队方法论</a></li>
+<li><a href="../02-%E5%9F%BA%E7%A1%80%E5%8E%9F%E5%88%99/">基础原则</a></li>
+<li><a href="../07-%E9%83%A8%E7%BD%B2%E5%8E%9F%E5%88%99/">部署原则</a></li>
+<li><a href="../08-%E6%A8%A1%E5%9E%8B%E6%9C%8D%E5%8A%A1/">模型服务</a></li>
+<li><a href="../16-%E5%A4%A7%E8%A7%84%E6%A8%A1%20ML%20Operations/">大规模 ML Operations</a></li>
+<li><a href="../61-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5%E4%B8%8E%E5%9B%A2%E9%98%9F%E6%96%B9%E6%B3%95%E8%AE%BA/">机器学习工程实践与团队方法论</a></li>
 </ul>
 
 
@@ -7921,6 +7892,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

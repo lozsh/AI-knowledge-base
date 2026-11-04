@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7670,9 +7642,8 @@
 
 
 <h1 id="_1">图像增广与迁移学习实践</h1>
-<blockquote>
-<p>来源：《动手学深度学习》第 13 章（13.1–13.2 节）深化（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：图像增广用随机变换"凭空"扩充训练样本的多样性，微调把 ImageNet 级预训练学到的通用视觉特征迁移到小数据集——两者是小数据视觉项目的第一组合拳，通常比换模型结构收益更大。</p>
 <p><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a>已给出两种技术的概要与实验数字，本条目深化：每种增广手段的适用边界与失效场景、增广的"训练/预测不对称"原则、微调生效的特征层级解释、学习率分组与冻结的工程细节、以及一套可执行的实践清单。</p>
 <h2 id="_2">核心原理</h2>
@@ -7732,7 +7703,7 @@
 <p>因此微调的默认策略是：<strong>复制源模型全部设计与参数（输出层除外），新输出层随机初始化从头学，其余层以小学习率微调</strong>。目标数据集越小，这个策略相对从头训练的优势越大（从头训练还会因数据不足而过拟合）。</p>
 <h3 id="4">4. 微调的工程细节</h3>
 <ul>
-<li><strong>学习率分组</strong>：微调层用小学习率 $\eta$（如 5e-5），新输出层用 $10\eta$——预训练参数已在好的解附近，大学习率反而把它推离；新层是随机初始化，需要大步快走。</li>
+<li><strong>学习率分组</strong>：微调层用小学习率 <span class="arithmatex">\(\eta\)</span>（如 5e-5），新输出层用 <span class="arithmatex">\(10\eta\)</span>——预训练参数已在好的解附近，大学习率反而把它推离；新层是随机初始化，需要大步快走。</li>
 <li><strong>冻结变体</strong>：特征层 <code>requires_grad=False</code> 只训输出头。更省时间显存、防止小数据把通用特征带偏，是数据极小或算力紧张时的首选（也是"线性探测"评估预训练质量的方法）。</li>
 <li><strong>预处理必须与预训练一致</strong>：ImageNet 预训练模型的标配是 RGB 各通道减均值 (0.485, 0.456, 0.406)、除标准差 (0.229, 0.224, 0.225)——这是 ImageNet 训练集统计量，换了自己的均值方差通常掉点。</li>
 <li><strong>输入尺寸</strong>：训练时随机裁剪到 224×224（随机面积与宽高比再缩放）；测试时缩放到 256 再中心裁 224（测试侧确定性）。</li>
@@ -7803,11 +7774,11 @@
 </ul>
 <h2 id="_6">参见</h2>
 <ul>
-<li><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">03-计算机视觉.md</a> — 微调与增广的概览与实验数字</li>
-<li><a href="../11-%E7%8E%B0%E4%BB%A3CNN%E6%A8%A1%E5%9E%8B%E6%BC%94%E8%BF%9B%E8%AF%A6%E8%A7%A3/">11-现代CNN模型演进详解.md</a> — 特征层级（边缘→部件→物体）与骨干选择</li>
-<li><a href="../12-%E7%9B%AE%E6%A0%87%E6%A3%80%E6%B5%8B%E4%B8%8E%E8%AF%AD%E4%B9%89%E5%88%86%E5%89%B2/">12-目标检测与语义分割.md</a> — 检测/分割同样依赖增广与预训练骨干</li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/08-%E6%A8%A1%E5%9E%8B%E5%90%8E%E8%AE%AD%E7%BB%83/">../12-模型训练与优化/08-模型后训练.md</a> — 迁移学习思想的现代形态（参数高效微调）</li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/06-%E6%95%B0%E6%8D%AE%E9%80%89%E6%8B%A9/">../12-模型训练与优化/06-数据选择.md</a> — 数据侧技术的系统展开</li>
+<li><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a> — 微调与增广的概览与实验数字</li>
+<li><a href="../11-%E7%8E%B0%E4%BB%A3CNN%E6%A8%A1%E5%9E%8B%E6%BC%94%E8%BF%9B%E8%AF%A6%E8%A7%A3/">现代CNN模型演进详解</a> — 特征层级（边缘→部件→物体）与骨干选择</li>
+<li><a href="../12-%E7%9B%AE%E6%A0%87%E6%A3%80%E6%B5%8B%E4%B8%8E%E8%AF%AD%E4%B9%89%E5%88%86%E5%89%B2/">目标检测与语义分割</a> — 检测/分割同样依赖增广与预训练骨干</li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/08-%E6%A8%A1%E5%9E%8B%E5%90%8E%E8%AE%AD%E7%BB%83/">模型训练与优化 · 模型后训练</a> — 迁移学习思想的现代形态（参数高效微调）</li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/06-%E6%95%B0%E6%8D%AE%E9%80%89%E6%8B%A9/">模型训练与优化 · 数据选择</a> — 数据侧技术的系统展开</li>
 </ul>
 
 
@@ -7871,6 +7842,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

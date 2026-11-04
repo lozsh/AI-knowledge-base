@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -3240,10 +3212,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_21" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 上下文工程
       
     </span>
   </a>
@@ -8274,10 +8246,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_21" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 上下文工程
       
     </span>
   </a>
@@ -8302,9 +8274,8 @@
 
 
 <h1 id="_1">上下文工程深入</h1>
-<blockquote>
-<p>来源：《从零构建 AI Agent》课程第 2 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：上下文工程（Context Engineering）是系统性设计、组织和提供 AI 完成任务所需全部背景知识的技术——决定 Agent 在每个决策点看到什么信息、以什么结构看到，其质量才是 Agent 能力的真正上限。</p>
 <p>模型能力是通用的，但执行具体任务需要背景信息（产品架构、业务规则、内部约定），模型根本不知道这些。类比：天才工程师加入团队，却对产品架构、技术债务、团队规范一无所知，也难发挥价值——这恰是 AI Agent 的困境。以 Coding Agent 为例，"帮我修复这个 bug"的效果取决于三类上下文：<strong>实时代码上下文</strong>（目录结构、模块职责、代码规范——否则代码风格格格不入甚至架构冲突）、<strong>流程规范</strong>（Git 策略、提交规范、CI/CD——否则直接往主分支提交未测试代码）、<strong>环境信息</strong>（测试库、staging 部署、密钥管理——否则本地能跑的修复到测试环境就崩）。中等能力模型配精心组织的上下文，往往胜过顶级模型在信息匮乏下的摸索。</p>
 <p>上下文工程首先是技术问题，更根本是<strong>组织问题</strong>：多数团队关键知识是隐性的（架构决策只有老员工记得），团队本身若是信息黑洞，再好的 Agent 也无计可施。文档驱动的团队（如 Linux 内核）天然对 AI 友好。AI Agent 就像永远的新员工：给足背景它能干得很好，什么都不告诉它再聪明也白搭。翁家翌（OpenAI）："人和模型一样，最重要的是 Context"；团队合作最大的问题也是 context 不一致。</p>
@@ -8515,11 +8486,10 @@
 <li>历史思维链（CoT）回传策略正处行业演变中（DeepSeek R1 剥离 → V4 强制回传），各模型家族差异大；工具定义"渐进式披露"（tool_search / defer_loading / tool_reference）为仅较新模型支持的 API 能力；"KV Cache 可编辑可组合""上下文蒸馏""时间感三轴"为研究前沿（arXiv 预印本），尚未成为生产默认；</li>
 <li>原笔记中的图 2-1 至 2-17 与表 2-1 为 PDF 提取丢失项，关键信息已压缩为正文与表格重述；文中实验数据为原文实验条件下的实测值，换模型/任务不可直接照搬。</li>
 </ul>
-<h2 id="_21">参见</h2>
+<h2 id="-">参见- <a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a></h2>
 <ul>
-<li><a href="../19-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">19-上下文工程</a></li>
-<li><a href="../24-%E5%B7%A5%E5%85%B7/">24-工具</a></li>
-<li><a href="../23-%E7%94%A8%E6%88%B7%E8%AE%B0%E5%BF%86%E5%92%8C%E7%9F%A5%E8%AF%86%E5%BA%93/">23-用户记忆和知识库</a></li>
+<li><a href="../24-%E5%B7%A5%E5%85%B7/">工具</a></li>
+<li><a href="../23-%E7%94%A8%E6%88%B7%E8%AE%B0%E5%BF%86%E5%92%8C%E7%9F%A5%E8%AF%86%E5%BA%93/">用户记忆和知识库</a></li>
 </ul>
 
 
@@ -8583,6 +8553,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

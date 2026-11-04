@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7614,9 +7586,8 @@
 
 
 <h1 id="distributed-training">分布式训练（Distributed Training）</h1>
-<blockquote>
-<p>来源：《机器学习系统》教材第 5 章（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：分布式训练是把一个优化循环切分到数千加速器上并保持数学等价的约束满足问题——三种并行（数据/张量/流水线）各解一个约束（吞吐/单层内存/深度），组合成 3D 并行以匹配集群的带宽层级。</p>
 <p>前置的硬件层级、网络 fabric 和存储管线就绪后，剩下的挑战是算法性的：切分训练作业而不破坏"一次连贯优化"的语义。触发分布式的三个信号：(1) 内存耗尽——混合精度 Adam 下 80GB 卡在约 5B 参数（不含激活）就到顶；(2) 训练时长不可接受——GPT-3 即便装得下也要数月，日历本身就是系统约束；(3) 数据集达 TB 级——单机不再是大吞吐的自然单位。</p>
 <h2 id="_1">核心原理：舰队定律与扩展效率</h2>
@@ -7743,7 +7714,7 @@
 <li><strong>线性加速不可求</strong>：梯度同步本质串行，1000 卡达到 500× 已是 exceptional，通信重的负载 100–200× 才是常态。按线性扩展做预算必然延期超支。</li>
 <li><strong>MFU 与扩展效率是相乘的</strong>：单机 50% MFU × 1024 卡 50% 扩展效率 = 25% 有效吞吐（256 卡当量）。容量规划要同时报两者，追踪乘积（goodput）。</li>
 <li><strong>小集群超参不能直接迁移</strong>：8 卡调好的学习率乘上 GPU 数跳到大 batch，可能掉精度。warmup、LARS/LAMB、逐项实验不可省。</li>
-<li><strong>加卡前先建模通信</strong>：超过临界 batch 后加倍 GPU 只加倍成本、几乎不加速收敛。1024 卡 18h/$45k 可能不如 512 卡 19h/$22k。</li>
+<li><strong>加卡前先建模通信</strong>：超过临界 batch 后加倍 GPU 只加倍成本、几乎不加速收敛。1024 卡 18h/<span class="arithmatex">\(45k 可能不如 512 卡 19h/\)</span>22k。</li>
 <li><strong>并行策略不能用小模型外推</strong>：1B 模型通信占 33% 步时，70B 模型只占 7%——小模型上"流水线气泡让 PP 永远更慢"的结论在大模型上会反转。要么目标规模实测，要么用解析模型（计算 O(n²)–O(n³) vs 通信 O(n)）。</li>
 <li><strong>扩展效率不是硬件常数</strong>：它是负载通信比、并行策略、网络拓扑、软件栈四者的联合属性。用厂商 hero benchmark 做容量规划是错的。</li>
 <li><strong>梯度累积不是免费的</strong>：驻留梯度缓冲（7B FP16 仍 14GB）、优化器延迟放大 K 倍、FP16 累加数百步可能溢出发散（实战案例：16 步累积在 step 1200 loss spike，改 4 步恢复）。累积是拿通信频率换更新延迟、内存驻留与数值风险。</li>
@@ -7752,11 +7723,11 @@
 </ul>
 <h2 id="_5">参见</h2>
 <ul>
-<li><a href="../06-%E5%88%86%E5%B8%83%E5%BC%8F%20ML%20%E5%8E%9F%E5%88%99/">06-分布式 ML 原则</a></li>
-<li><a href="../08-%E9%9B%86%E5%90%88%E9%80%9A%E4%BF%A1/">08-集合通信</a></li>
-<li><a href="../09-%E5%AE%B9%E9%94%99/">09-容错</a></li>
-<li><a href="../04-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/">04-网络架构</a></li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/31-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E7%B3%BB%E7%BB%9F-%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%8E%E5%AF%B9%E9%BD%90/">31-大模型训练系统-分布式与对齐</a></li>
+<li><a href="../06-%E5%88%86%E5%B8%83%E5%BC%8F%20ML%20%E5%8E%9F%E5%88%99/">分布式 ML 原则</a></li>
+<li><a href="../08-%E9%9B%86%E5%90%88%E9%80%9A%E4%BF%A1/">集合通信</a></li>
+<li><a href="../09-%E5%AE%B9%E9%94%99/">容错</a></li>
+<li><a href="../04-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/">网络架构</a></li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/31-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E7%B3%BB%E7%BB%9F-%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%8E%E5%AF%B9%E9%BD%90/">模型训练与优化 · 大模型训练系统-分布式与对齐</a></li>
 </ul>
 
 
@@ -7820,6 +7791,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

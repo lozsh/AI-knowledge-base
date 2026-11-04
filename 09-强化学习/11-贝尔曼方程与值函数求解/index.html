@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7770,35 +7742,34 @@
 
 
 <h1 id="_1">贝尔曼方程与值函数求解</h1>
-<blockquote>
-<p>更新于 2026-11-03</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：贝尔曼方程把"一个状态的长期价值"写成"即时奖励加上后继状态价值的折扣和"的递推关系，它是几乎所有强化学习算法（动态规划、蒙特卡罗、时序差分、Q-Learning、DQN、Actor-Critic）共同的数学地基。</p>
 <h2 id="_2">概述</h2>
-<p><a href="../01-%E5%9C%A8%E8%AF%95%E9%94%99%E4%B8%AD%E6%88%90%E9%95%BF%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/">强化学习概览</a>已经介绍了 MDP 五元组 $(s, a, r, p, \pi)$、回报与折扣因子的直觉。本篇往下挖一层：<strong>有了 MDP 之后，怎么把"试错"变成可解的数学问题</strong>。整条故事线是：</p>
-<p>$$\text{贝尔曼方程（递推关系）} \rightarrow \text{动态规划（已知模型时求解）} \rightarrow \text{无模型方法（模型未知时估计）} \rightarrow \text{TD 学习与 Q-Learning}$$</p>
+<p><a href="../01-%E5%9C%A8%E8%AF%95%E9%94%99%E4%B8%AD%E6%88%90%E9%95%BF%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/">强化学习概览</a>已经介绍了 MDP 五元组 <span class="arithmatex">\((s, a, r, p, \pi)\)</span>、回报与折扣因子的直觉。本篇往下挖一层：<strong>有了 MDP 之后，怎么把"试错"变成可解的数学问题</strong>。整条故事线是：</p>
+<div class="arithmatex">\[\text{贝尔曼方程（递推关系）} \rightarrow \text{动态规划（已知模型时求解）} \rightarrow \text{无模型方法（模型未知时估计）} \rightarrow \text{TD 学习与 Q-Learning}\]</div>
 <p>贝尔曼方程的价值在于<strong>把全局问题局部化</strong>：不需要看完整条轨迹才知道一个状态值多少钱，只需要知道"走一步得到什么 + 下一状态值多少钱"。这一步分解，是强化学习区别于穷举搜索的核心。</p>
 <h2 id="_3">核心原理</h2>
 <h3 id="_4">两个价值函数（承接概览篇）</h3>
 <ul>
 <li><strong>状态价值函数</strong>：按策略 π 从状态 s 出发的期望回报
-  $$V^\pi(s) = \mathbb{E}_\pi[G_t \mid s_t = s]$$</li>
+  $<span class="arithmatex">\(V^\pi(s) = \mathbb{E}_\pi[G_t \mid s_t = s]\)</span>$</li>
 <li><strong>动作价值函数</strong>：在 s 下先做动作 a、再按 π 行事的期望回报
-  $$Q^\pi(s,a) = \mathbb{E}_\pi[G_t \mid s_t = s,\ a_t = a]$$</li>
+  $<span class="arithmatex">\(Q^\pi(s,a) = \mathbb{E}_\pi[G_t \mid s_t = s,\ a_t = a]\)</span>$</li>
 </ul>
-<p>两者关系：$V^\pi(s) = \sum_a \pi(a|s)\, Q^\pi(s,a)$。Q 比 V 细化一步——V 回答"这个局面怎么样"，Q 回答"这个局面下每步棋各值多少"，所以学会 Q 就能直接决策：<strong>选 Q 最大的动作</strong>。</p>
+<p>两者关系：<span class="arithmatex">\(V^\pi(s) = \sum_a \pi(a|s)\, Q^\pi(s,a)\)</span>。Q 比 V 细化一步——V 回答"这个局面怎么样"，Q 回答"这个局面下每步棋各值多少"，所以学会 Q 就能直接决策：<strong>选 Q 最大的动作</strong>。</p>
 <h3 id="_5">贝尔曼期望方程</h3>
-<p>把回报定义 $G_t = r_t + \gamma G_{t+1}$ 代入期望，就得到递推：</p>
-<p>$$V^\pi(s) = \sum_a \pi(a|s) \sum_{s'} p(s'|s,a)\Big[r(s,a,s') + \gamma V^\pi(s')\Big]$$</p>
-<p>$$Q^\pi(s,a) = \sum_{s'} p(s'|s,a)\Big[r(s,a,s') + \gamma\, \mathbb{E}_{a'\sim\pi} Q^\pi(s',a')\Big]$$</p>
+<p>把回报定义 <span class="arithmatex">\(G_t = r_t + \gamma G_{t+1}\)</span> 代入期望，就得到递推：</p>
+<div class="arithmatex">\[V^\pi(s) = \sum_a \pi(a|s) \sum_{s'} p(s'|s,a)\Big[r(s,a,s') + \gamma V^\pi(s')\Big]\]</div>
+<div class="arithmatex">\[Q^\pi(s,a) = \sum_{s'} p(s'|s,a)\Big[r(s,a,s') + \gamma\, \mathbb{E}_{a'\sim\pi} Q^\pi(s',a')\Big]\]</div>
 <p>直觉读法：<strong>"我在这里值多少 = 我这一步能拿多少 + 我去到的地方值多少（打折扣）"</strong>。这是"期望"版本——描述的是"按策略 π 行事能拿多少"，策略本身不动。</p>
 <h3 id="_6">贝尔曼最优方程</h3>
-<p>我们真正想要的是最优策略对应的价值。定义 $V^*(s) = \max_\pi V^\pi(s)$，则：</p>
-<p>$$V^<em>(s) = \max_a \sum_{s'} p(s'|s,a)\Big[r(s,a,s') + \gamma V^</em>(s')\Big]$$</p>
-<p>$$Q^<em>(s,a) = \sum_{s'} p(s'|s,a)\Big[r(s,a,s') + \gamma \max_{a'} Q^</em>(s',a')\Big]$$</p>
-<p>与期望版的唯一区别是 $\max_a$ 替代了 $\sum_a \pi(a|s)$：<strong>最优策略下，每一步都走当前最好的动作</strong>。最优方程的妙处：它只关于 V 和 Q 自身，不含策略——解出 $Q^*$ 就同时解出了最优策略（argmax 即可）。在折扣因子 $\gamma &lt; 1$ 的条件下，最优方程存在唯一解，这是整个 RL 收敛性的理论基石。</p>
+<p>我们真正想要的是最优策略对应的价值。定义 <span class="arithmatex">\(V^*(s) = \max_\pi V^\pi(s)\)</span>，则：</p>
+<div class="arithmatex">\[V^*(s) = \max_a \sum_{s'} p(s'|s,a)\Big[r(s,a,s') + \gamma V^*(s')\Big]\]</div>
+<div class="arithmatex">\[Q^*(s,a) = \sum_{s'} p(s'|s,a)\Big[r(s,a,s') + \gamma \max_{a'} Q^*(s',a')\Big]\]</div>
+<p>与期望版的唯一区别是 <span class="arithmatex">\(\max_a\)</span> 替代了 <span class="arithmatex">\(\sum_a \pi(a|s)\)</span>：<strong>最优策略下，每一步都走当前最好的动作</strong>。最优方程的妙处：它只关于 V 和 Q 自身，不含策略——解出 <span class="arithmatex">\(Q^*\)</span> 就同时解出了最优策略（argmax 即可）。在折扣因子 <span class="arithmatex">\(\gamma &lt; 1\)</span> 的条件下，最优方程存在唯一解，这是整个 RL 收敛性的理论基石。</p>
 <h3 id="_7">已知模型：动态规划求解</h3>
-<p>如果转移概率 $p$ 和奖励 $r$ 都已知（如棋类规则、仿真环境），贝尔曼方程就是一组可迭代的方程组，两大经典解法：</p>
+<p>如果转移概率 <span class="arithmatex">\(p\)</span> 和奖励 <span class="arithmatex">\(r\)</span> 都已知（如棋类规则、仿真环境），贝尔曼方程就是一组可迭代的方程组，两大经典解法：</p>
 <table>
 <thead>
 <tr>
@@ -7825,29 +7796,29 @@
 </tr>
 </tbody>
 </table>
-<p>两者殊途同归：都收敛到 $V^<em>, \pi^</em>$。动态规划的局限也很明显——<strong>现实中 $p(s'|s,a)$ 通常未知</strong>（你知道围棋规则，但不知道"用户会怎么回复"），且对大状态空间做全量扫描不现实。这把舞台让给了无模型方法。</p>
+<p>两者殊途同归：都收敛到 <span class="arithmatex">\(V^*, \pi^*\)</span>。动态规划的局限也很明显——<strong>现实中 <span class="arithmatex">\(p(s'|s,a)\)</span> 通常未知</strong>（你知道围棋规则，但不知道"用户会怎么回复"），且对大状态空间做全量扫描不现实。这把舞台让给了无模型方法。</p>
 <h2 id="_8">关键概念</h2>
 <h3 id="mctdq-learning">无模型三兄弟：MC、TD、Q-Learning</h3>
 <p>模型未知时，只能从采样数据估计价值。三种估计思路构成一条递进链：</p>
-<p><strong>蒙特卡罗（MC）</strong>：跑完整条轨迹，用实际回报 $\hat{G}_t$ 作为 $V(s_t)$ 的估计。无偏，但要等一整局结束才能学——下棋赢了才知道前面每步的"存款余额"，方差极大。</p>
+<p><strong>蒙特卡罗（MC）</strong>：跑完整条轨迹，用实际回报 <span class="arithmatex">\(\hat{G}_t\)</span> 作为 <span class="arithmatex">\(V(s_t)\)</span> 的估计。无偏，但要等一整局结束才能学——下棋赢了才知道前面每步的"存款余额"，方差极大。</p>
 <p><strong>时序差分（TD）</strong>：核心洞察是不用等结局，<strong>用"下一步的估计"bootstrapping 自己</strong>。TD 误差：</p>
-<p>$$\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$$</p>
-<p>更新：$V(s_t) \leftarrow V(s_t) + \alpha\, \delta_t$，其中 α 是学习率。直觉：$\delta_t$ 就是"预期与现实（往前看一步）的差"，用它修正当前估计。TD 有偏（依赖尚不准的 $V(s_{t+1})$）但方差小、可在线更新、无需等终止——它是 RL 的" SGD 时刻"。</p>
-<p><strong>Q-Learning</strong>：把 TD 思想搬到 Q 函数上，并用 $\max$ 替换对下一动作的期望，直接估计 $Q^*$：</p>
-<p>$$Q(s_t,a_t) \leftarrow Q(s_t,a_t) + \alpha\Big[\underbrace{r_t + \gamma \max_{a'} Q(s_{t+1},a')}_{\text{TD 目标}} - Q(s_t,a_t)\Big]$$</p>
-<p>在表格型问题、满足采样充分等条件时，Q-Learning 保证收敛到 $Q^*$（Watkins, 1989；收敛证明是 RL 理论的经典结果）。</p>
+<div class="arithmatex">\[\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)\]</div>
+<p>更新：<span class="arithmatex">\(V(s_t) \leftarrow V(s_t) + \alpha\, \delta_t\)</span>，其中 α 是学习率。直觉：<span class="arithmatex">\(\delta_t\)</span> 就是"预期与现实（往前看一步）的差"，用它修正当前估计。TD 有偏（依赖尚不准的 <span class="arithmatex">\(V(s_{t+1})\)</span>）但方差小、可在线更新、无需等终止——它是 RL 的" SGD 时刻"。</p>
+<p><strong>Q-Learning</strong>：把 TD 思想搬到 Q 函数上，并用 <span class="arithmatex">\(\max\)</span> 替换对下一动作的期望，直接估计 <span class="arithmatex">\(Q^*\)</span>：</p>
+<div class="arithmatex">\[Q(s_t,a_t) \leftarrow Q(s_t,a_t) + \alpha\Big[\underbrace{r_t + \gamma \max_{a'} Q(s_{t+1},a')}_{\text{TD 目标}} - Q(s_t,a_t)\Big]\]</div>
+<p>在表格型问题、满足采样充分等条件时，Q-Learning 保证收敛到 <span class="arithmatex">\(Q^*\)</span>（Watkins, 1989；收敛证明是 RL 理论的经典结果）。</p>
 <h3 id="on-policy-off-policy">同策略与异策略（on-policy / off-policy）</h3>
-<p>Q-Learning 更新里的 $\max_{a'}$ 用的是"<strong>未来可能的最好动作</strong>"，而智能体实际探索时可能走的是别的动作——<strong>学习的东西 ≠ 行为的东西</strong>，这叫异策略（off-policy）。SARSA 则用"<strong>实际采取的下一个动作</strong>" $Q(s_{t+1}, a_{t+1})$，学什么就做什么，同策略（on-policy）。</p>
+<p>Q-Learning 更新里的 <span class="arithmatex">\(\max_{a'}\)</span> 用的是"<strong>未来可能的最好动作</strong>"，而智能体实际探索时可能走的是别的动作——<strong>学习的东西 ≠ 行为的东西</strong>，这叫异策略（off-policy）。SARSA 则用"<strong>实际采取的下一个动作</strong>" <span class="arithmatex">\(Q(s_{t+1}, a_{t+1})\)</span>，学什么就做什么，同策略（on-policy）。</p>
 <p>后果在<a href="../01-%E5%9C%A8%E8%AF%95%E9%94%99%E4%B8%AD%E6%88%90%E9%95%BF%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/">悬崖行走</a>例子中最直观：Q-Learning 学出贴悬崖的最短激进路径（它学的是"理想化最优"，不含探索噪声）；SARSA 把 ε-贪心探索的失足风险算进了 Q 值，学出绕远路的保守策略。两者都"对"，取决于你要理想最优还是鲁棒最优。</p>
 <h3 id="-">探索与利用：ε-贪心及其变体</h3>
 <p>再好的求解框架，也要回答"采样时去哪"：</p>
 <ul>
-<li><strong>ε-贪心</strong>：以概率 ε 随机选动作，以 $1-\epsilon$ 选当前 Q 最大动作。ε 常从高（如 1.0）衰减到低（如 0.01），先多探索后多利用。简单、常用，但探索是"瞎探索"（不区分动作好坏）。</li>
-<li><strong>Softmax / Boltzmann</strong>：按 $Q$ 值的 softmax 分布采样，好动作概率大但都保留机会，避免硬切换。</li>
+<li><strong>ε-贪心</strong>：以概率 ε 随机选动作，以 <span class="arithmatex">\(1-\epsilon\)</span> 选当前 Q 最大动作。ε 常从高（如 1.0）衰减到低（如 0.01），先多探索后多利用。简单、常用，但探索是"瞎探索"（不区分动作好坏）。</li>
+<li><strong>Softmax / Boltzmann</strong>：按 <span class="arithmatex">\(Q\)</span> 值的 softmax 分布采样，好动作概率大但都保留机会，避免硬切换。</li>
 <li><strong>乐观初始化</strong>：把所有 Q 初值设偏高，逼着智能体先把每个动作试一遍（"没试过的大概很好"）。</li>
 <li><strong>内在动机 / 好奇心</strong>：给"访问未见状态"发额外奖励，解决极稀疏奖励下"永远撞不到正反馈"的探索死局。</li>
 </ul>
-<p>ε-贪心 + Q-Learning 的组合有一个优雅性质：只要每个 (s,a) 对被无限次访问且学习率满足 Robbins-Monro 条件，就收敛到 $Q^<em>$——</em><em>探索保证了数据覆盖，TD 更新保证了收敛</em>*。</p>
+<p>ε-贪心 + Q-Learning 的组合有一个优雅性质：只要每个 (s,a) 对被无限次访问且学习率满足 Robbins-Monro 条件，就收敛到 <span class="arithmatex">\(Q^*\)</span>——<strong>探索保证了数据覆盖，TD 更新保证了收敛</strong>。</p>
 <h2 id="_9">术语表</h2>
 <table>
 <thead>
@@ -7881,12 +7852,12 @@
 <tr>
 <td>自举</td>
 <td>Bootstrapping</td>
-<td>用自己的估计值（如 $V(s_{t+1})$）更新另一个估计，TD 的核心特征</td>
+<td>用自己的估计值（如 <span class="arithmatex">\(V(s_{t+1})\)</span>）更新另一个估计，TD 的核心特征</td>
 </tr>
 <tr>
 <td>TD 误差</td>
 <td>TD error</td>
-<td>$\delta_t = r + \gamma V(s') - V(s)$，预期与一步现实之差</td>
+<td><span class="arithmatex">\(\delta_t = r + \gamma V(s') - V(s)\)</span>，预期与一步现实之差</td>
 </tr>
 <tr>
 <td>同策略</td>
@@ -7901,14 +7872,14 @@
 <tr>
 <td>Robbins-Monro 条件</td>
 <td>—</td>
-<td>学习率序列满足 $\sum \alpha_t = \infty, \sum \alpha_t^2 &lt; \infty$，保证随机逼近收敛</td>
+<td>学习率序列满足 <span class="arithmatex">\(\sum \alpha_t = \infty, \sum \alpha_t^2 &lt; \infty\)</span>，保证随机逼近收敛</td>
 </tr>
 </tbody>
 </table>
 <h2 id="_10">经验与常见坑</h2>
 <ul>
 <li><strong>γ = 1 的陷阱</strong>：无折扣只在任务保证终止时可用；环形状态 + γ=1 会让贝尔曼方程无界，迭代直接发散。有截断式终止（如时间上限）时另说。</li>
-<li><strong>TD 目标别求梯度</strong>：深度 RL 中 $r + \gamma \max Q(s',a';\theta)$ 是"回归目标"而不是损失的一部分，对它停止梯度是 DQN 及其后继的通用纪律——把目标也放进梯度会让训练追逐自己的影子。</li>
+<li><strong>TD 目标别求梯度</strong>：深度 RL 中 <span class="arithmatex">\(r + \gamma \max Q(s',a';\theta)\)</span> 是"回归目标"而不是损失的一部分，对它停止梯度是 DQN 及其后继的通用纪律——把目标也放进梯度会让训练追逐自己的影子。</li>
 <li><strong>自举 vs 无自举的取舍</strong>：MC 无偏高方差，TD 有偏低方差。n-step 返回和 TD(λ) 是两者之间的滑杆；实践中 TD 类（自举）通常赢在样本效率，但在值函数不准时会传播偏差。</li>
 <li><strong>off-policy ≠ 免费</strong>：Q-Learning/DQN 可以重用旧数据，但数据分布与当前策略差太远时，max 外推会把 Q 值越估越高（overestimation），这正是 Double Q-Learning / Double DQN 要治的病。</li>
 <li><strong>DP 仍有用武之地</strong>：规则已知的博弈、仿真控制里，值迭代/策略迭代至今是基线；AlphaZero 的 MCTS 本质上也是"在已知规则模型里做规划"的近亲。</li>
@@ -7984,6 +7955,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

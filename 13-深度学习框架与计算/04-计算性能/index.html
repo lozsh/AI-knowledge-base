@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -7714,9 +7686,8 @@
 
 
 <h1 id="_1">计算性能</h1>
-<blockquote>
-<p>来源：《动手学深度学习》第 12 章（PyTorch 版）（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：深度学习计算性能工程 = 围绕"数据集大、模型大、计算量大"这一现实，从编程模型（命令式/符号式/混合式）、异步与自动并行、硬件瓶颈认知（延迟数字、内存/存储/CPU/GPU/总线），到多 GPU 并行训练与参数服务器架构的完整优化路径。</p>
 <p>好的系统设计可以让训练时间差出数量级——"一周训完"和"三个月训完错过截止日期"的差别往往就在这里。本章主线：先懂执行模型（编译器、异步、并行），再懂硬件（瓶颈在哪条总线上），最后落到多 GPU 训练的具体实现。</p>
 <h2 id="_2">编译器与解释器</h2>
@@ -7836,11 +7807,11 @@
 <p>素材来自 D2L（约 2022 年）：<code>torch.jit.script</code>/TorchScript 是当时的部署方案，现在 PyTorch 官方主推 <code>torch.compile</code> 与更现代的导出路径；<code>nn.DataParallel</code> 已被官方标记为不建议新代码使用，多卡训练事实标准是 <strong>DDP（DistributedDataParallel）</strong>；V100/T4/Turing、DDR4、PCIe 4.0 等硬件均为上一代。原理（异步、allreduce、环同步、参数服务器、数据并行）仍是当前系统的基石，具体 API 请以最新文档为准。参见同目录 23 号笔记的 DDP 现代实践。</p>
 <h2 id="_11">参见</h2>
 <ul>
-<li><a href="../05-ML%20%E6%A1%86%E6%9E%B6/">05-ML 框架</a></li>
-<li><a href="../01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E8%AE%A1%E7%AE%97/">01-深度学习计算</a></li>
-<li><a href="../23-PyTorch%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83-DP%E4%B8%8EDDP%E5%8E%9F%E7%90%86/">23-PyTorch分布式训练-DP与DDP原理</a></li>
-<li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/02-%E7%A1%AC%E4%BB%B6%E5%8A%A0%E9%80%9F/">../15-AI基础设施与硬件/02-硬件加速</a></li>
-<li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/08-%E9%9B%86%E5%90%88%E9%80%9A%E4%BF%A1/">../15-AI基础设施与硬件/08-集合通信</a></li>
+<li><a href="../05-ML%20%E6%A1%86%E6%9E%B6/">ML 框架</a></li>
+<li><a href="../01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E8%AE%A1%E7%AE%97/">深度学习计算</a></li>
+<li><a href="../23-PyTorch%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83-DP%E4%B8%8EDDP%E5%8E%9F%E7%90%86/">PyTorch分布式训练-DP与DDP原理</a></li>
+<li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/02-%E7%A1%AC%E4%BB%B6%E5%8A%A0%E9%80%9F/">AI基础设施与硬件 · 硬件加速</a></li>
+<li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/08-%E9%9B%86%E5%90%88%E9%80%9A%E4%BF%A1/">AI基础设施与硬件 · 集合通信</a></li>
 </ul>
 
 
@@ -7904,6 +7875,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -8002,9 +7974,8 @@
 
 
 <h1 id="the-art-of-training-networks-well">把网络训好的艺术（The Art of Training Networks Well）</h1>
-<blockquote>
-<p>来源：原资料（教材第 4 章，更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：把一个神经网络从"能写出来"推进到"能训好"，需要一整套覆盖优化器、学习率、初始化、规范化、残差连接、正则化与损失设计的工程与数学实践——本质是让梯度下降在高维、非凸、带噪声的地形里走得动、走得稳、走得对。</p>
 <p>2012 年 9 月 AlexNet 把 ImageNet Top-5 错误率从 26.2% 降到 15.3%，常被总结为"更深的网络加 GPU"。但真正起作用的是一整套工程选择同时到位：ReLU、Dropout、数据增强、重叠汇聚、带动量 SGD、权重衰减、调好的学习率——缺一个都可能训不起来。相同的结构、数据和算力，有人训出最好结果，有人训出 NaN。训得好不好，往往不取决于"会不会写"，而取决于"会不会调"。本章串起这些看似零散的选择，其主线是同一个问题：怎样让优化在复杂地形中稳定收敛，并把抽象的优化问题落成可复现的工程实践。</p>
 <blockquote>
@@ -8035,7 +8006,7 @@
 <p><strong>批量大小</strong>是门小学问：大批量吞吐高但梯度噪声过少、泛化有时变差；小批量抖动剧烈，且让依赖批量统计的 BN 失准。常见区间 32–1024，大模型可上万但需配套技巧。批量放大后学习率通常相应调大；但一开场就用大批量+大学习率容易把刚初始化的网络推到坏区域，因此配<strong>学习率预热</strong>（前几百到几千步从很小的学习率慢慢升上去）。</p>
 <h3 id="_8">动量：让更新带惯性</h3>
 <p>狭长谷底里朴素 SGD 会来回震荡：垂直谷底方向梯度大、左右乱摆，该走的方向步子却慢。动量引入速度向量：</p>
-<p>$$\boldsymbol{v}<em>t = \beta \boldsymbol{v}</em>{t-1} + \nabla_\theta \mathcal{L}(\theta_t), \qquad \theta_{t+1} = \theta_t - \eta \boldsymbol{v}_t$$</p>
+<div class="arithmatex">\[\boldsymbol{v}_t = \beta \boldsymbol{v}_{t-1} + \nabla_\theta \mathcal{L}(\theta_t), \qquad \theta_{t+1} = \theta_t - \eta \boldsymbol{v}_t\]</div>
 <p>β 常取 0.9。震荡方向的历史更新相互抵消，长期一致的方向速度累加——路径更平滑、收敛更快。后续许多优化器底层都保留了"累积历史一阶动量"这件事。</p>
 <h3 id="adagrad-rmsprop-adam-adamw">自适应学习率：AdaGrad → RMSProp → Adam → AdamW</h3>
 <p>不同参数的梯度尺度差异巨大，统一学习率会导致"有的方向跳、有的方向不动"：</p>
@@ -8044,7 +8015,7 @@
 <li><strong>RMSProp</strong>（Hinton 在 Coursera 讲义提出，从未发论文）：把累积改成指数加权平均，只看近期梯度幅度，解决后期停滞。</li>
 <li><strong>Adam（2014）</strong>：结合动量与 RMSProp，同时估计一阶矩（方向）与二阶矩（幅度）：</li>
 </ul>
-<p>$$m_t = \beta_1 m_{t-1} + (1-\beta_1)\nabla\mathcal{L}, \qquad v_t = \beta_2 v_{t-1} + (1-\beta_2)(\nabla\mathcal{L})^2, \qquad \theta_{t+1} = \theta_t - \eta\,\frac{m_t}{\sqrt{v_t} + \epsilon}$$</p>
+<div class="arithmatex">\[m_t = \beta_1 m_{t-1} + (1-\beta_1)\nabla\mathcal{L}, \qquad v_t = \beta_2 v_{t-1} + (1-\beta_2)(\nabla\mathcal{L})^2, \qquad \theta_{t+1} = \theta_t - \eta\,\frac{m_t}{\sqrt{v_t} + \epsilon}\]</div>
 <p>（实际实现还带偏置校正项。）大多数任务上好用，是"不知道用什么就用它"的默认选项。
 - <strong>AdamW</strong>：AdamW 名字里的 W 指权重衰减。关键差别朴素：普通 Adam 把 ℓ2 惩罚塞进梯度，自适应学习率会顺手把惩罚按参数重新缩放，"让权重变小"不再干净；AdamW 把"沿梯度下降"和"把权重轻轻往零拉"解耦，调权重衰减更可预期，因而成为大模型训练默认选择。</p>
 <p>但 Adam 并非永远最优：CNN 时代视觉训练里带动量 SGD 泛化常更强，LLM 训练里 AdamW 几乎是默认。<strong>优化器没有抽象的绝对优劣，只有与任务、架构、数据规模是否匹配。</strong></p>
@@ -8058,7 +8029,7 @@
 <p>两个常见误区：全零初始化（同层神经元输入、梯度相同，永远一模一样，学不出多样特征）；初值过大或过小（逐层放大至爆炸，或衰减至归零）。现代方法的核心思想是<strong>让每层输出方差大致守恒</strong>：Xavier 初始化（Glorot 2010）适合 tanh/sigmoid 等饱和激活；He 初始化（何恺明 2015）专为 ReLU 设计——ReLU 把一半输入截成零、等效方差减半，故用更大初始尺度补偿。框架通常默认做好，但训练不稳定时初始化永远是首批排查对象。</p>
 <h3 id="_12">数据预处理</h3>
 <p>特征量纲差异会扭曲优化路径（范围 [0,1000] 的特征让优化器迈大步，[0,1] 的几乎不动）。基础做法是标准化为均值 0、方差 1：</p>
-<p>$$\tilde{x} = \frac{x - \mu}{\sigma}$$</p>
+<div class="arithmatex">\[\tilde{x} = \frac{x - \mu}{\sigma}\]</div>
 <p>图像任务还会把像素从 [0,255] 映射到 [0,1] 或 [-1,1] 并按通道减均值除标准差。<strong>易忽略的坑</strong>：均值、标准差只能用训练集估计再应用到验证/测试集——拿测试集一起算均值是数据泄漏的常见版本。</p>
 <h3 id="bnln">批量规范化（BN）与层规范化（LN）</h3>
 <p>训练中前面层参数一更新，后面层接收的激活分布就变了，每层都在追移动目标。BN（Ioffe &amp; Szegedy 2015）对全连接层按同一隐藏维度、对卷积层按同一通道在小批量内做规范化，再引入可学习的缩放与偏移参数。效果立竿见影：原本训 20 层掉点的网络能稳推到 50 层，学习率有时能从 10⁻⁴ 提到 10⁻²；还附带轻微正则化（归一化参考了同批其他样本，引入噪声）。ResNet 能训到 100 多层，BN 是幕后功臣之一。</p>
@@ -8225,6 +8196,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

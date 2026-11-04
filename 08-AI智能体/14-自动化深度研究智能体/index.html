@@ -307,14 +307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/01-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    01-深度学习引言
+    01-深度学习概述
   
 
     
@@ -363,14 +363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E5%BC%95%E8%A8%80/" class="md-nav__link">
+      <a href="../../01-AI%E6%A6%82%E8%BF%B0%E4%B8%8E%E5%8F%91%E5%B1%95/03-AI%20Agent%20%E6%A6%82%E8%BF%B0/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-AI Agent 引言
+    03-AI Agent 概述
   
 
     
@@ -565,34 +565,6 @@
     
   
     04-符号约定
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/05-%E7%AC%A6%E5%8F%B7%E7%BA%A6%E5%AE%9A%EF%BC%88%E5%A4%A7%E8%A7%84%E6%A8%A1%EF%BC%89/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    05-符号约定（大规模）
   
 
     
@@ -2700,10 +2672,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_8" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 智能旅行助手
       
     </span>
   </a>
@@ -7642,10 +7614,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_8" class="md-nav__link">
+  <a href="#-" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见
+        参见- 智能旅行助手
       
     </span>
   </a>
@@ -7670,9 +7642,8 @@
 
 
 <h1 id="_1">自动化深度研究智能体</h1>
-<blockquote>
-<p>来源：HelloAgents 课程第十四章原笔记（更新于 2026-11-03）</p>
-</blockquote>
+<p class="note-date">更新于 2026-11-03</p>
+
 <p><strong>一句话定义</strong>：一个基于 HelloAgents 框架的深度研究助手——用「TODO 驱动的研究范式」把开放的研究主题自动拆解为子任务，多轮搜索、总结并生成带引用的结构化研究报告。</p>
 <p>深度研究是典型的「知识密集型」智能体应用，难点在于信息不断发散、事实快速更新、用户对引用来源要求高。与单轮问答的搜索引擎不同，它需要三种核心能力：<strong>问题剖析</strong>（把开放主题拆成可检索的查询）、<strong>多轮信息采集</strong>（多搜索 API 挖掘资料并去重整合）、<strong>反思与总结</strong>（识别知识空白、决定是否继续检索、生成结构化总结）。</p>
 <p>它解决的是传统研究方式的三大痛点：信息过载（逐个点开搜索结果）、缺少结构（信息碎片化）、重复劳动（每次新主题都重复"搜索→阅读→总结"流程）。核心价值：把 1-2 小时的研究压缩到 5-10 分钟，流程系统化不遗漏，所有来源可追溯，且可通过配置扩展新搜索引擎与数据源。</p>
@@ -7820,13 +7791,12 @@
 <li>原文（课程语境）以"前后端分离 + SSE + 多 Agent 顺序流水线"为实现范式；如今部分深度研究能力（如内置 Web Search 的推理模型、Deep Research 类产品）可由模型侧直接提供，自建系统的价值更多在于流程可控与来源可审计。</li>
 <li>图 14.1-14.10 为课程 PDF 中的架构/流程插图，本页以文字与表格转述，不含原图。</li>
 </ul>
-<h2 id="_8">参见</h2>
+<h2 id="-">参见- <a href="../13-%E6%99%BA%E8%83%BD%E6%97%85%E8%A1%8C%E5%8A%A9%E6%89%8B/">智能旅行助手</a></h2>
 <ul>
-<li><a href="../13-%E6%99%BA%E8%83%BD%E6%97%85%E8%A1%8C%E5%8A%A9%E6%89%8B/">13-智能旅行助手</a></li>
-<li><a href="../41-%E5%BA%94%E7%94%A8%E5%9E%8B%E6%99%BA%E8%83%BD%E4%BD%93%E6%9E%B6%E6%9E%84%E4%B8%8E%E8%90%BD%E5%9C%B0%E6%A8%A1%E5%BC%8F/">41-应用型智能体架构与落地模式</a></li>
-<li><a href="../51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">51-自主智能体设计方法论</a></li>
-<li><a href="../20-%E6%99%BA%E8%83%BD%E4%BD%93%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/">20-智能体通信协议</a></li>
-<li><a href="../42-DeepSeek%E6%8E%A8%E7%90%86%E6%A8%A1%E5%9E%8B%E3%80%81%E8%92%B8%E9%A6%8F%E4%B8%8E%E9%83%A8%E7%BD%B2%E9%80%89%E5%9E%8B/">42-DeepSeek推理模型、蒸馏与部署选型</a></li>
+<li><a href="../41-%E5%BA%94%E7%94%A8%E5%9E%8B%E6%99%BA%E8%83%BD%E4%BD%93%E6%9E%B6%E6%9E%84%E4%B8%8E%E8%90%BD%E5%9C%B0%E6%A8%A1%E5%BC%8F/">应用型智能体架构与落地模式</a></li>
+<li><a href="../51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">自主智能体设计方法论</a></li>
+<li><a href="../20-%E6%99%BA%E8%83%BD%E4%BD%93%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/">智能体通信协议</a></li>
+<li><a href="../42-DeepSeek%E6%8E%A8%E7%90%86%E6%A8%A1%E5%9E%8B%E3%80%81%E8%92%B8%E9%A6%8F%E4%B8%8E%E9%83%A8%E7%BD%B2%E9%80%89%E5%9E%8B/">DeepSeek推理模型、蒸馏与部署选型</a></li>
 </ul>
 
 
@@ -7890,6 +7860,10 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>
