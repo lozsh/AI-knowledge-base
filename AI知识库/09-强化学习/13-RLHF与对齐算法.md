@@ -1,6 +1,6 @@
 # RLHF 与对齐算法：奖励建模、PPO 微调与 DPO
 
-> 更新于 2026-11-03
+<p class="note-date">更新于 2026-11-03</p>
 
 **一句话定义**：RLHF（Reinforcement Learning from Human Feedback，人类反馈强化学习）通过"人类排序偏好 → 训练奖励模型 → 用 PPO 微调语言模型"三步，把主观模糊的人类价值观变成可优化的奖励信号，是 ChatGPT 区别于 GPT-3 的最核心突破；DPO 则用一次数学变换把这条流水线简化成监督学习。
 
@@ -106,7 +106,6 @@ $$\mathcal{L}_{\text{DPO}} = -\mathbb{E}\Big[\log \sigma\Big(\beta \log \tfrac{\
 RLHF 三步框架（InstructGPT, 2022）与 DPO（2023）已是工业稳定实践，原理部分无过时风险。但该领域演进极快：GRPO 之后已有 DAPO、GSPO 等新变体；RLVR（可验证奖励）在推理模型训练中的占比迅速上升；RM 训练与偏好数据的最佳实践（如过程奖励模型 PRM）仍在快速迭代。选型时以当年主流开源配方为准。
 
 ## 参见
-
 - [强化学习：在试错中成长](01-在试错中成长强化学习.md) —— RL 框架与 RLHF 的入门叙述
 - [经典强化学习算法谱系](12-经典强化学习算法谱系.md) —— PPO 的剪切机制与数据漂移根源
 - [Agentic-RL](02-Agentic-RL.md) —— GRPO 细节、PBRFT 对比与推理模型训练

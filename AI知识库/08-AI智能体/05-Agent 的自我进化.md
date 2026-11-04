@@ -1,6 +1,6 @@
 # Agent 的自我进化
 
-> 来源：bojieli《AI Agent 入门课》第 8 章（更新于 2026-11-03）
+<p class="note-date">更新于 2026-11-03</p>
 
 **一句话定义**：Agent 的自我进化（Self-Evolution）即外部化学习——不改模型参数，把经验从临时上下文中提炼、压缩、结构化，沉淀为可持久化、可检索、可复用的外部资源（知识库、Skill、工具），包含"从经验中沉淀知识"与"主动发现和创造工具"两个维度。
 
@@ -120,10 +120,8 @@ NVIDIA 的 Minecraft Agent，三大要素：
 - Claude Code 记忆整合机制"基于公开版本行为与社区分析整理，并非官方正式定义"；Hermes、Skill Creator、GEPA、PreAct 等均为 2025-2026 年工作，演进快。
 - 文中模型/框架版本与性能数字（如 Voyager 3.3 倍、8.5–13 倍加速）为论文报告值，复现结果可能不同。
 
-## 参见
-
-- [04-AI Agent 入门](04-AI%20Agent%20入门.md)
-- [06-多 Agent 协作](06-多%20Agent%20协作.md)
-- [43-MCP协议与Agent工具化开发模式](43-MCP协议与Agent工具化开发模式.md)
-- [51-自主智能体设计方法论](51-自主智能体设计方法论.md)
-- [52-早期Agent框架的架构启示](52-早期Agent框架的架构启示.md)
+## 参见- [AI Agent 入门](04-AI%20Agent%20%E5%85%A5%E9%97%A8.md)
+- [多 Agent 协作](06-%E5%A4%9A%20Agent%20%E5%8D%8F%E4%BD%9C.md)
+- [MCP协议与Agent工具化开发模式](43-MCP%E5%8D%8F%E8%AE%AE%E4%B8%8EAgent%E5%B7%A5%E5%85%B7%E5%8C%96%E5%BC%80%E5%8F%91%E6%A8%A1%E5%BC%8F.md)
+- [自主智能体设计方法论](51-%E8%87%AA%E4%B8%BB%E6%99%BA%E8%83%BD%E4%BD%93%E8%AE%BE%E8%AE%A1%E6%96%B9%E6%B3%95%E8%AE%BA.md)
+- [早期Agent框架的架构启示](52-%E6%97%A9%E6%9C%9FAgent%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E5%90%AF%E7%A4%BA.md)

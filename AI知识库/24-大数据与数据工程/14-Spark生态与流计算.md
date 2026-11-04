@@ -1,6 +1,6 @@
 # Spark 生态与流计算：Spark SQL 实践模式与 Structured Streaming
 
-/> 来源：公开课程资料自学整理（更新于 2026-11-03）
+<p class="note-date">更新于 2026-11-03</p>
 > 一句话概括：Spark SQL 让批处理复用 Catalyst/Tungsten 引擎（数据格式、分区设计与查询模式决定性能上限）；Structured Streaming 用"无界表 + 微批"把流计算统一到 DataFrame/SQL 之上，Window 与 Watermark 是其两大核心机制。
 
 ## 核心概念

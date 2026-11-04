@@ -20,6 +20,10 @@ theme:
 extra_css:
   - assets/site.css
 
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
 hooks:
   - hooks.py
 
@@ -36,3 +40,5 @@ markdown_extensions:
   - pymdownx.highlight
   - pymdownx.superfences
   - pymdownx.inlinehilite
+  - pymdownx.arithmatex:
+      generic: true

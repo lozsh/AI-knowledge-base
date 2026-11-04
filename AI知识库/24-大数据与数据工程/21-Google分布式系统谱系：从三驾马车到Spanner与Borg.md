@@ -1,6 +1,6 @@
 # Google 分布式系统谱系：从三驾马车到 Spanner 与 Borg
 
-/> 来源：公开课程资料自学整理（更新于 2026-11-03）
+<p class="note-date">更新于 2026-11-03</p>
 > GFS/MapReduce/Bigtable 三驾马车定下"廉价比特机跑海量数据"的范式，其后 Megastore→Spanner 补齐事务与全球一致性，Borg→Omega→Kubernetes 补齐资源编排——每一代系统都是为了解决上一代的明确短板。
 
 ## 核心概念
