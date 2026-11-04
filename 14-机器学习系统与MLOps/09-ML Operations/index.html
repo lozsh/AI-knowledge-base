@@ -7801,8 +7801,7 @@
 <h3 id="_5">重训练经济学</h3>
 <p>三种重训练策略：<strong>定时</strong>（固定节奏，简单但可能浪费/滞后）、<strong>触发</strong>（漂移/性能阈值触发，省钱但依赖可靠遥测）、<strong>连续</strong>（在线学习/微更新，最新但验证负担重）。选择取决于四个约束：重训练成本、验证基础设施、回滚能力、标签可用性。</p>
 <p>把准确率衰减类比为放射性半衰期：Accuracy(t) = Accuracy₀·e^(−γt)，最优重训练间隔：</p>
-<div class="highlight"><pre><span></span><code>T* ≈ √( 2·C / (Q·V·Accuracy₀·γ) )
-</code></pre></div>
+<div class="arithmatex">\[T^{*} \approx \sqrt{\dfrac{2C}{Q \cdot V \cdot \mathrm{Accuracy}_0 \cdot \gamma}}\]</div>
 <p>其中 Q = 日查询量、V = 单位准确率变化的每查询价值、C = 重训练固定成本（计算+验证+部署+风险）、γ = 日衰减率。示例：欺诈检测（Q=100 万/天，V=<span class="arithmatex">\(0.50，C=\)</span>5,000，γ=2%/天）→ T<em> ≈ 1 天，每日重训练经济最优。</em><em>敏感性</em><em>：T</em> 与参数呈平方根关系，成本/流量/漂移率任一 4× 变化只使间隔 2× 变化——重训练频率对单参数不确定性稳健。局限：假设漂移渐进可预测（突发概念漂移不适用）、价值函数已知线性、各周期独立、成本固定。</p>
 <h2 id="_6">经验与常见坑</h2>
 <ul>

@@ -7619,8 +7619,7 @@
 <p>小消息（如 MoE 路由元数据）延迟主导，大消息（梯度）带宽主导。优化须对症：<strong>延迟主导区</strong>合并小消息摊销 α，<strong>带宽主导区</strong>压缩大消息改善 β。</p>
 <h3 id="4-young-daly">4. Young-Daly 检查点定律</h3>
 <p>最优 checkpoint 间隔平衡写入成本与故障重做损失：</p>
-<div class="highlight"><pre><span></span><code>τ_opt = √(2 · T_write · MTBF_system)
-</code></pre></div>
+<div class="arithmatex">\[\tau_{\text{opt}} = \sqrt{2 \cdot T_{\text{write}} \cdot \text{MTBF}_{\text{system}}}\]</div>
 <p>checkpoint 不是免费的：集群越大 MTBF 越低，检查点必须越频繁，因此需要高带宽存储（burst buffer）防止 I/O 反噬训练时间。</p>
 <h3 id="5-displacement-of-overhead">5. 开销位移定律（Displacement of Overhead）</h3>
 <p>分布式系统的开销无法消灭，只能在计算、通信、协调（C3 三分法）之间<strong>转移</strong>：消掉一个必然抬高另一个。</p>

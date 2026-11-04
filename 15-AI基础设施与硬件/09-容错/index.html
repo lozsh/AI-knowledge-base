@@ -7642,8 +7642,7 @@
 <p>实测验证（不是纸面定律）：Meta RSC 研究投影 16,384 卡作业 MTTF 1.8 小时；Llama 3 训练实测 54 天 419 次故障 ≈ 3.1 小时 MTTF。<strong>16K 卡规模的故障节奏就是 2–3 小时一次。</strong></p>
 <p>"9 个 9"的乘法陷阱：单卡 99.99% 可用性，万卡集群全健康的概率 = 0.9999^10000 ≈ <strong>37%</strong>。可靠性按乘法复合，不按平均。</p>
 <p><strong>Young-Daly 定律</strong>（最优 checkpoint 间隔）：</p>
-<div class="highlight"><pre><span></span><code>τ_opt = √(2 · T_write · MTBF_system)
-</code></pre></div>
+<div class="arithmatex">\[\tau_{\text{opt}} = \sqrt{2 \cdot T_{\text{write}} \cdot \text{MTBF}_{\text{system}}}\]</div>
 <p>平衡两类浪费：写开销（T_write/τ，随间隔变长而降）与重做损失（τ/2·MTBF，随间隔变长而升），总和最小处即最优。本章集群实例：MTBF 3.69h、3.7TB checkpoint @100GB/s 写 37 秒 → <strong>τ_opt ≈ 16.5 分钟，总浪费约 7.5%</strong>；每小时存一次浪费 14.6%。平方根关系是好消息：MTBF 减半只让最优间隔缩 √2≈1.4 倍——集群翻倍不需要翻倍 checkpoint 带宽。</p>
 <p>⚠️ 公式假设的失效模式：故障非指数（浴盆曲线）、T_write 非常数（波动 2–3 倍）、恢复时间常是写入的 3–5 倍（调度+加载+预热）、相关故障违反独立假设、短训练不适用。重启时间应计入总浪费与恢复 SLO 预算，但不能不加推导地塞进 T_write。</p>
 <p><strong>可用性架构</strong>：串联系统率相加；并联冗余（活跃副本）可靠度 = 1−∏(1−Rᵢ)。<strong>ECC 是前提不是选项</strong>：1024 卡×80GB HBM 按 ~250 FIT/Mbit，无保护时约每 20 秒一次未纠正损坏——ECC 把软错误率砍两个数量级，残余多 bit 逃逸就是 SDC 问题。</p>

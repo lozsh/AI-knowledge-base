@@ -7708,8 +7708,7 @@
 <p>优点：参数比 ResNet 小；缺点：显存消耗大、计算成本高。Fashion-MNIST test acc 0.885。</p>
 <h2 id="batch-normalization">关键概念：批量规范化（Batch Normalization）</h2>
 <p>Google 研究员 Ioffe &amp; Szegedy 于 2015 年提出（随 GoogLeNet 工作），使训练 100 层以上网络成为可能。动机：输入特征标准化（均值 0 方差 1）对训练至关重要，但中间层输出的分布随训练漂移、量级不稳。做法是在<strong>每次训练迭代中用当前小批量统计量标准化</strong>，再做可学习的缩放与偏移：</p>
-<div class="highlight"><pre><span></span><code>BN(x) = γ ⊙ (x − µ̂_B) / √(σ̂_B² + ε) + β
-</code></pre></div>
+<div class="arithmatex">\[\mathrm{BN}(x) = \gamma \odot \frac{x - \hat{\mu}_B}{\sqrt{\hat{\sigma}_B^2 + \epsilon}} + \beta\]</div>
 <ul>
 <li>µ̂_B、σ̂_B 为小批量均值/标准差；γ（拉伸）、β（偏移）为可学习参数，初始化为 1 和 0。</li>
 <li>全连接层：置于仿射变换与激活之间，<code>h = φ(BN(Wx+b))</code>；卷积层：置于卷积后、激活前，<strong>每个通道独立</strong>做 BN（在 m·p·q 个元素上统计）。</li>
