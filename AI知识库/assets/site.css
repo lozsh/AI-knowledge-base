@@ -251,6 +251,57 @@ body,
   break-inside: avoid;
 }
 
+/* ---------- 全貌页 · 全域地图（SVG） ---------- */
+.md-typeset .aikb-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 1rem 0;
+}
+.md-typeset .aikb-map text {
+  font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+}
+.md-typeset .aikb-band-title {
+  font-family: "Songti SC", "Noto Serif SC", "STSong", serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  fill: var(--ink-2);
+}
+.md-typeset .aikb-node rect {
+  fill: var(--paper-2);
+  stroke: var(--hairline);
+  stroke-width: 1;
+  transition: stroke 0.15s ease;
+}
+.md-typeset .aikb-node:hover rect {
+  stroke: var(--accent);
+}
+.md-typeset .aikb-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.md-typeset .aikb-num {
+  font-family: "Songti SC", "Noto Serif SC", serif;
+  font-weight: 700;
+  font-size: 13px;
+  fill: var(--accent);
+  letter-spacing: 0.05em;
+}
+.md-typeset .aikb-count {
+  font-size: 11px;
+  fill: var(--ink-3);
+}
+.md-typeset .aikb-core-bg {
+  fill: #f6efe7;
+}
+.md-typeset .aikb-axis {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  fill: var(--ink-3);
+}
+
 /* ---------- 页脚与浮动件 ---------- */
 .md-footer {
   background: var(--paper);
