@@ -58,10 +58,35 @@ body,
   font-weight: 400;
   margin-top: 0.15em;
 }
+/* 一级域标题：衬线大字 */
 .md-sidebar--primary .md-nav__item--nested > .md-nav__link {
-  font-family: "Songti SC", "Noto Serif SC", serif;
+  font-family: "Songti SC", "Noto Serif SC", "STSong", serif;
   font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
   color: var(--ink);
+  margin-top: 0.6em;
+}
+/* 文章条目：小一号、收进域内 */
+.md-sidebar--primary .md-nav__item--nested .md-nav .md-nav__link {
+  font-size: 0.72rem;
+  line-height: 1.7;
+  color: var(--ink-2);
+  opacity: 0.85;
+}
+.md-sidebar--primary .md-nav__item--nested .md-nav .md-nav__link:hover {
+  color: var(--ink);
+  opacity: 1;
+}
+/* 当前打开的文章仍保持强调样式（优先级压过上面的收进规则） */
+.md-sidebar--primary .md-nav__item--nested .md-nav .md-nav__link--active {
+  color: var(--ink);
+  font-weight: 700;
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--accent);
 }
 .md-sidebar--primary .md-nav__link:hover {
   color: var(--ink);
