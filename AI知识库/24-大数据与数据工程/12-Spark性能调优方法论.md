@@ -89,4 +89,4 @@
 
 - `spark.yarn.executor.memoryOverhead` 在 Spark 3.x 更名为 `spark.executor.memoryOverhead`（且不再需要把 offHeap.size 加进去，3.0+ 由 Yarn 自动计入）。
 - Dynamic Allocation、AQE 开启后 `spark.sql.shuffle.partitions` 的影响被削弱（AQE 会自动合并分区），但初始值仍决定 Map 端输出分区数。
-- 课程以 YARN 部署为背景；Kubernetes 部署下 overhead/本地性细节略有差异。
+- 本文以 YARN 部署为背景；Kubernetes 部署下 overhead/本地性细节略有差异。

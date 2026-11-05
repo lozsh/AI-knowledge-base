@@ -70,5 +70,5 @@
 
 ## ⚠️ 时效性说明
 
-- 课程基于 OpenAI 2023 年前后的 Completions/Chat API 写成；Completions 接口已废弃，新代码一律用 Chat Completions。
+- 本篇基于 OpenAI 2023 年前后的 API 生态写成；Completions 接口已废弃，新代码一律用 Chat Completions。
 - 文中的模型名（gpt-3.5-turbo、ChatGLM-6B 等）与具体价格倍数是快照事实，仅用于理解取舍逻辑。

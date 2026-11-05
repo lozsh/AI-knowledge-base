@@ -73,4 +73,4 @@
 
 - Hive 默认执行引擎早已不是 MapReduce（Hive on Tez/Spark）；Spark 成为事实上的批处理标准后自身也在持续演进（结构化流、自适应执行）。
 - Dremel 论文中的 2010 版架构（多层固定执行树）已被 2020 回顾论文描述的自适应系统大幅修订；开源对应物是 Presto/Trino、ClickHouse、Apache Doris 等。
-- 课程基于 2021 年认知；Metastore 已演化为独立的 Hive Metastore Service，被 Spark/Trino/Flink 等广泛复用。
+- 本文基于 2021 年认知；Metastore 已演化为独立的 Hive Metastore Service，被 Spark/Trino/Flink 等广泛复用。

@@ -83,6 +83,6 @@
 
 ## ⚠️ 时效性说明
 
-- 课程基于 Spark 3.0（2020 年前后）。RDD 仍是底层模型，但日常开发以 DataFrame/SQL 为主；RDD 算子（groupByKey 等）在新代码中已少用，原理性内容不受影响。
+- 本文基于 Spark 3.0（2020 年前后）。RDD 仍是底层模型，但日常开发以 DataFrame/SQL 为主；RDD 算子（groupByKey 等）在新代码中已少用，原理性内容不受影响。
 - Sort Shuffle Manager 的 bypass 机制（`spark.shuffle.sort.bypassMergeThreshold`，默认 200）在后续版本仍在；Shuffle 细节若读源码需以所用版本为准。
 - 统一内存管理的区域公式自 1.6 起稳定；Reserved Memory 300MB 在 Spark 3.x 中仍保留。

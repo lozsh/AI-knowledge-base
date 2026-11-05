@@ -79,5 +79,5 @@ SD 的技术源头是**潜在扩散模型（LDM）**论文，解决原始扩散�
 - LoRA 微调通常不动 VAE 权重，但 VAE 依然决定重建上限。
 
 ## ⚠️ 时效性说明
-- 整理基于 SD1.x 时代课程（2023）：SDXL 改用了更大分辨率与双 CLIP 等新结构；此后 SD3/Flux 采用 DiT（Transformer 替代 UNet）路线，"UNet 是唯一选择"已不成立，但 VAE+扩散+文本交叉注入的心智模型仍通用。
+- 本篇基于 SD1.x（2023 年）技术状态整理：SDXL 改用了更大分辨率与双 CLIP 等新结构；此后 SD3/Flux 采用 DiT（Transformer 替代 UNet）路线，"UNet 是唯一选择"已不成立，但 VAE+扩散+文本交叉注入的心智模型仍通用。
 - 采样器推荐结论对应 WebUI（A1111）1.x 时代，新推理器（ComfyUI、新采样器如 DPM++ 3M、LCM/TCD 加速）出现后选择更多。

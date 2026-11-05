@@ -97,7 +97,7 @@ Manager 把每个专门 Agent 建模为**可调用的工具**——"调用 Agent
 
 **产品化实例——灵台（Lingtai）**：主器灵（常驻中枢，Manager 位置）、分神（短时并行工作者，完成后只带结论回——"子 Agent 返回结构化摘要"的产品化）、分身（有自己记忆与职责的持久专门队友）。知识私有、技能共享（Markdown 手册），上下文将满时"凝蜕"（写总结带记忆在干净上下文继续），"器灵即其文件"——身份、记忆、能力皆普通文件，底层模型可替换。
 
-**双 Agent 并行的典型场景**：边打电话边用电脑（Phone Agent：ASR+LLM+TTS 实时对话收集信息；Computer Agent：截屏+Vision LLM 操作表单；各自独立 ReAct 循环、WebSocket/消息总线双向通信，消息带 [FROM_XXX_AGENT] 来源标记）。进阶形态是**自主编排**：Computer Agent 发现需要收集大量结构化信息时自主调用 initiate_phone_call_agent——协作决策不是预编程的。
+**双 Agent 并行的典型场景**：边打电话边用电脑（Phone Agent：ASR+LLM+TTS 实时对话收集信息；Computer Agent：截屏+Vision LLM 操作表单；各自独立 ReAct 循环、WebSocket/消息总线双向通信，消息带 [FROM_<角色>_AGENT] 来源标记）。进阶形态是**自主编排**：Computer Agent 发现需要收集大量结构化信息时自主调用 initiate_phone_call_agent——协作决策不是预编程的。
 
 ### 去中心化模式：对等移交
 
@@ -145,7 +145,8 @@ Manager 把每个专门 Agent 建模为**可调用的工具**——"调用 Agent
 - Moltbook 用户数、WebGen-Agent 提升幅度等为报道/论文报告值。
 - OpenAI Swarm 已被 Agents SDK 接替；AutoGen 已演进为 AG2 等形态。
 
-## 参见- [Agent 的自我进化](05-Agent%20%E7%9A%84%E8%87%AA%E6%88%91%E8%BF%9B%E5%8C%96.md)
+## 参见
+- [Agent 的自我进化](05-Agent%20%E7%9A%84%E8%87%AA%E6%88%91%E8%BF%9B%E5%8C%96.md)
 - [构建赛博小镇](15-%E6%9E%84%E5%BB%BA%E8%B5%9B%E5%8D%9A%E5%B0%8F%E9%95%87.md)
 - [MCP协议与Agent工具化开发模式](43-MCP%E5%8D%8F%E8%AE%AE%E4%B8%8EAgent%E5%B7%A5%E5%85%B7%E5%8C%96%E5%BC%80%E5%8F%91%E6%A8%A1%E5%BC%8F.md)
 - [应用型智能体架构与落地模式](41-%E5%BA%94%E7%94%A8%E5%9E%8B%E6%99%BA%E8%83%BD%E4%BD%93%E6%9E%B6%E6%9E%84%E4%B8%8E%E8%90%BD%E5%9C%B0%E6%A8%A1%E5%BC%8F.md)

@@ -65,4 +65,4 @@
 
 ## ⚠️ 时效性说明
 
-任务拆解与指令集思维长期有效，但课程的具体载体大量过时：⚠️ ChatGPT 插件体系（WebPilot/AskYourPDF/Noteable 等）整套已废弃；GPT-3.5/4 付费墙、newBing 风格档位、Google Bard、poe/ChatHub 等第三方客户端均已换代；Midjourney V5.2/Stable Diffusion+ControlNet 部署细节过时（但 8 维度环境描述 + 降噪逻辑可迁移到新绘图模型）；"4000 汉字上下文限制"已被长上下文模型推翻，摘要套娃和分块技巧的使用场景大幅缩减。2026 年这些场景多由 AI Agent、代码解释器（数据分析）、原生多模态直接完成——但背后"人定标准、AI 执行、内置校对"的分工模式不变。
+任务拆解与指令集思维长期有效，但文中提到的具体产品载体大量过时：⚠️ ChatGPT 插件体系（WebPilot/AskYourPDF/Noteable 等）整套已废弃；GPT-3.5/4 付费墙、newBing 风格档位、Google Bard、poe/ChatHub 等第三方客户端均已换代；Midjourney V5.2/Stable Diffusion+ControlNet 部署细节过时（但 8 维度环境描述 + 降噪逻辑可迁移到新绘图模型）；"4000 汉字上下文限制"已被长上下文模型推翻，摘要套娃和分块技巧的使用场景大幅缩减。2026 年这些场景多由 AI Agent、代码解释器（数据分析）、原生多模态直接完成——但背后"人定标准、AI 执行、内置校对"的分工模式不变。

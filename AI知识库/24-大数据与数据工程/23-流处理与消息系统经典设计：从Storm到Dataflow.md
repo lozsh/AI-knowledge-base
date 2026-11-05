@@ -83,5 +83,5 @@
 
 - Storm/S4 已基本退出主流（S4 于 2014 年从 Apache 退役），现实中的流式引擎是 **Flink** 与 Kafka Streams；本文价值在于设计思想的演化脉络而非选型指南。
 - Kafka：早期 Offset/所有权存 ZooKeeper，新版已由内部协议（KRaft）管理；Exactly-Once 已由事务 + 幂等 Producer 原生支持，不再只靠消费端幂等。
-- "累积并撤回"在 Flink 中已原生支持（Retraction/Changelog 语义）；课程写作时（2021）Beam 仍未支持，现状已变化。
+- "累积并撤回"在 Flink 中已原生支持（Retraction/Changelog 语义）；2021 年时 Beam 仍未支持，现状已变化。
 - Dataflow 论文的窗口/触发器/水位线模型本身是稳定耐用的抽象；MillWheel 是 Google 内部系统，无开源对应物。

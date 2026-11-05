@@ -69,4 +69,4 @@
 ## ⚠️ 时效性说明
 
 - Alpaca/Vicuna 等 2023 年模型数字（$500、52K 指令）是方法佐证而非当前最优；
-- DeepSeek V3 的负载均衡 bias 与 GRPO 描述基于课程解读，论文细节（如 MTP、MLA 注意力机制）原课程未展开，以 DeepSeek 官方论文为准。
+- DeepSeek V3 的负载均衡 bias 与 GRPO 为本节概要解读，论文细节（如 MTP、MLA 注意力机制）以 DeepSeek 官方论文为准。

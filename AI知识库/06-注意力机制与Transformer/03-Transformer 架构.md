@@ -91,7 +91,7 @@ x = x + self.pe[:, :x.size(1)]   # 加到词向量上
 ## ⚠️ 时效性说明
 
 - 原始 Transformer 的 Post-LN（层归一化放在子层之后）在深层网络中训练不稳定，现代大模型（GPT、Llama 系列）普遍改用 Pre-LN；原始架构中 Encoder/Decoder 各 6 层、正余弦位置编码，也分别被更深层数和 RoPE 等方案取代。
-- 本条目的实现是教学用"手搓"版本；生产环境中应使用框架实现（如 PyTorch 官方 `nn.MultiheadAttention`、FlashAttention 等），并注意 KV 缓存等推理优化。
+- 本篇的实现是教学用"手搓"版本；生产环境中应使用框架实现（如 PyTorch 官方 `nn.MultiheadAttention`、FlashAttention 等），并注意 KV 缓存等推理优化。
 
 ## 参见
 - [注意力机制](01-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6.md)：注意力评分函数、Bahdanau 注意力等基础机制

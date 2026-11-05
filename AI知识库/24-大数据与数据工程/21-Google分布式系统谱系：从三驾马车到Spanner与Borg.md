@@ -1,7 +1,7 @@
 # Google 分布式系统谱系：从三驾马车到 Spanner 与 Borg
 
 <p class="note-date">更新于 2026-11-03</p>
-> GFS/MapReduce/Bigtable 三驾马车定下"廉价比特机跑海量数据"的范式，其后 Megastore→Spanner 补齐事务与全球一致性，Borg→Omega→Kubernetes 补齐资源编排——每一代系统都是为了解决上一代的明确短板。
+> GFS/MapReduce/Bigtable 三驾马车定下"廉价 PC 集群跑海量数据"的范式，其后 Megastore→Spanner 补齐事务与全球一致性，Borg→Omega→Kubernetes 补齐资源编排——每一代系统都是为了解决上一代的明确短板。
 
 ## 核心概念
 
@@ -98,5 +98,5 @@
 ## ⚠️ 时效性说明
 
 - GFS 后继 Colossus、以及 MapReduce 在 Google 内部已被 FlumeJava/Dataflow 取代，均无公开论文细节；MapReduce 作为引擎在工业界也已被 Spark 等替代，但其编程模型与容错设计仍是理解一切批处理系统的地基。
-- Kafka 早期版本依赖 ZooKeeper 存 Offset/所有权注册表，新版（KRaft 之后）已去 ZooKeeper；课程所述为 2011 论文时期的机制。
-- 课程基于 2021 年技术认知；Spanner 论文中"论文当年用 TT.now().latest 做跨组读时间戳"属于实现细节，现实现或有变化。Chubby 在 Google 内部仍服务，但开源世界的对应物是 ZooKeeper/etcd。
+- Kafka 早期版本依赖 ZooKeeper 存 Offset/所有权注册表，新版（KRaft 之后）已去 ZooKeeper；ZooKeeper 方案为 2011 论文时期的机制。
+- 本文基于 2021 年技术认知；Spanner 论文中"论文当年用 TT.now().latest 做跨组读时间戳"属于实现细节，现实现或有变化。Chubby 在 Google 内部仍服务，但开源世界的对应物是 ZooKeeper/etcd。

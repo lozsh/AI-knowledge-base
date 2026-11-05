@@ -110,7 +110,8 @@ OpenAI Agents SDK（轻量原型）、Claude Agent SDK（生产级自主任务�
 - 文中模型与产品（Kimi K3、GPT-5.6 各规格、豆包、Manus 等）为原书成文时点信息，迭代极快，选型前查最新。
 - 框架对比表反映撰写时点格局；"工具定义必须作静态前缀"的基础模式已在生产框架中演进为可按需动态加载 schema。
 
-## 参见- [智能体经典范式构建](03-%E6%99%BA%E8%83%BD%E4%BD%93%E7%BB%8F%E5%85%B8%E8%8C%83%E5%BC%8F%E6%9E%84%E5%BB%BA.md)
+## 参见
+- [智能体经典范式构建](03-%E6%99%BA%E8%83%BD%E4%BD%93%E7%BB%8F%E5%85%B8%E8%8C%83%E5%BC%8F%E6%9E%84%E5%BB%BA.md)
 - [Agent 的自我进化](05-Agent%20%E7%9A%84%E8%87%AA%E6%88%91%E8%BF%9B%E5%8C%96.md)
 - [应用型智能体架构与落地模式](41-%E5%BA%94%E7%94%A8%E5%9E%8B%E6%99%BA%E8%83%BD%E4%BD%93%E6%9E%B6%E6%9E%84%E4%B8%8E%E8%90%BD%E5%9C%B0%E6%A8%A1%E5%BC%8F.md)
 - [MCP协议与Agent工具化开发模式](43-MCP%E5%8D%8F%E8%AE%AE%E4%B8%8EAgent%E5%B7%A5%E5%85%B7%E5%8C%96%E5%BC%80%E5%8F%91%E6%A8%A1%E5%BC%8F.md)

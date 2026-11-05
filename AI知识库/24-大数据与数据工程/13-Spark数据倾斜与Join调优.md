@@ -93,6 +93,6 @@
 
 ## ⚠️ 时效性说明
 
-- AQE/DPP 为 Spark 3.0 特性（课程中 AQE 默认关闭，`spark.sql.adaptive.enabled=true` 开启；**Spark 3.2+ AQE 默认开启**）；2.x 用户只能用广播阈值 + Join Hints + 手工加盐。
-- 广播 8GB 上限、阈值默认 10MB 等数值为课程当时的版本行为，具体以所用版本官方文档为准。
+- AQE/DPP 为 Spark 3.0 特性（Spark 3.0/3.1 中 AQE 默认关闭，`spark.sql.adaptive.enabled=true` 开启；**Spark 3.2+ AQE 默认开启**）；2.x 用户只能用广播阈值 + Join Hints + 手工加盐。
+- 广播 8GB 上限、阈值默认 10MB 等数值为 Spark 3.0 当时的版本行为，具体以所用版本官方文档为准。
 - Spark 3.x 后续版本新增了多种 Join Hints 变体与 AQE 配置项，工具箱思路不变、参数名需核对。

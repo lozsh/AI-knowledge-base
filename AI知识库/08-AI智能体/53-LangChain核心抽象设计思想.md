@@ -1,11 +1,11 @@
 # LangChain 核心抽象的设计思想
 
 <p class="note-date">更新于 2026-11-03</p>
-> 一句话概括：LangChain 沉淀的六个组件抽象——Model I/O、Retrieval、Chain、Memory、Agent、Callback——及其分界逻辑（链 = 硬编码序列，代理 = LLM 决策序列），比任何版本的具体 API 都耐用。
+**一句话定义**：LangChain 沉淀的六个组件抽象——Model I/O、Retrieval、Chain、Memory、Agent、Callback——及其分界逻辑（链 = 硬编码序列，代理 = LLM 决策序列），比任何版本的具体 API 都耐用。
 
 ## 核心概念
 
-**大模型应用开发的新范式（全课最重要的一句话）**：操作的序列不再硬编码在代码中，而是**使用语言模型来选择执行的操作序列**。这是理解 Chain 与 Agent 分界、乃至整个 Agent 时代的钥匙。
+**大模型应用开发的新范式（本文最重要的一个判断）**：操作的序列不再硬编码在代码中，而是**使用语言模型来选择执行的操作序列**。这是理解 Chain 与 Agent 分界、乃至整个 Agent 时代的钥匙。
 
 **六大组件**（记忆框架，API 早已改版但分层思想未变）：
 1. Model I/O：提示 → 模型 → 解析
@@ -112,6 +112,6 @@ Plan-and-Execute 的代价：计划时无环境反馈，一步错步步错，对
 
 ## ⚠️ 时效性说明
 
-- 本专栏基于 2023 年 LangChain（0.0.x~0.1.x），文中所有 API（`initialize_agent`、`LLMChain`、`ConversationChain`、各 Memory 类）**均已废弃**：现已被 LCEL 表达式（`prompt | model | parser`）、LangGraph（AgentExecutor 的继任者）和 `langchain_core.messages` 体系取代。
-- 本文只收设计思想与模式；复现任何功能请查当前官方文档，不要照抄课程代码。
+- 本文基于 2023 年的 LangChain（0.0.x~0.1.x），文中所有 API（`initialize_agent`、`LLMChain`、`ConversationChain`、各 Memory 类）**均已废弃**：现已被 LCEL 表达式（`prompt | model | parser`）、LangGraph（AgentExecutor 的继任者）和 `langchain_core.messages` 体系取代。
+- 本文只收设计思想与模式；复现任何功能请查当前官方文档，不要照抄文中基于旧版 API 的示例。
 - Zero-shot ReAct 文本模板已被原生 function calling / tool use 接口大幅替代，但"工具描述 + 格式契约 + 轨迹累积 + 终止信号"的骨架在新接口下依然成立。
