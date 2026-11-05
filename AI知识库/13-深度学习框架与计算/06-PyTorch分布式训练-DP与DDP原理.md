@@ -1,6 +1,6 @@
 # PyTorch 分布式训练：从单卡到 DDP
 
-<p class="note-date">更新于 2026-11-03</p>
+<p class="note-date">更新于 2026-11-05</p>
 > 一句话概括：分布式训练 = "谁分布"（数据/模型）× "怎么分布"（单机多卡/多机多卡）；DP 简单但有主卡瓶颈，DDP 是官方推荐的正解。
 
 ## 核心概念
@@ -80,3 +80,7 @@ DDP 训练四步：
 | backend（nccl/gloo） | 分布式通信后端：NCCL 用于 GPU，Gloo 用于 CPU |
 | 迁移（to(device)） | 把 Tensor/Module 从 CPU 搬到 GPU 的动作 |
 | mp.spawn | torch.multiprocessing 的进程启动函数，每卡一进程 |
+
+
+## 参见
+- [AI基础设施与硬件 · 分布式训练](../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/07-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83.md)——从单机数据并行递进到集群级并行与通信硬件

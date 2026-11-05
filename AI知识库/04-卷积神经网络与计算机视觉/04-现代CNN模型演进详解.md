@@ -1,6 +1,6 @@
 # 现代 CNN 模型演进详解
 
-<p class="note-date">更新于 2026-11-03</p>
+<p class="note-date">更新于 2026-11-05</p>
 
 **一句话定义**：2012–2017 年的现代 CNN 演进不是孤立的模型列表，而是一条因果链——AlexNet 证明"学特征"可行，VGG 把网络抽象成块，NiN 砍掉全连接层，GoogLeNet 用并行多尺度回答"核多大合适"，BN 解决深层可训练性，ResNet 用残差连接让"加深必不劣化"成立，DenseNet 把跨层连接推到极致。
 
@@ -98,7 +98,7 @@ BN 的定义、公式与训练/预测行为差异已在[现代卷积神经网络
 | ResNet-18 | 残差块 + 捷径 | 1 个输出层 | 中 | 恒等映射易学、加深不劣化 |
 | DenseNet | 稠密块 + 过渡层 | 1 个输出层 | 小 | 特征复用、显存换参数 |
 
-（教材 Fashion-MNIST 10 epoch 精度对照：VGG-11 0.920 > ResNet-18 0.893 > GoogLeNet 0.886 > DenseNet 0.885 > AlexNet 0.883 > NiN 0.790，NiN 偏低与其对学习率敏感、简化设置有关。）
+（入门教学常用的 Fashion-MNIST 10 epoch 快速对照：VGG-11 0.920 > ResNet-18 0.893 > GoogLeNet 0.886 > DenseNet 0.885 > AlexNet 0.883 > NiN 0.790，NiN 偏低与其对学习率敏感、简化设置有关。）
 
 ## 术语表
 
@@ -123,7 +123,7 @@ BN 的定义、公式与训练/预测行为差异已在[现代卷积神经网络
 
 ## ⚠️ 时效性说明
 
-- 本篇为 2012–2017 年经典架构的教材内容深化；EfficientNet、ConvNeXt 及 Vision Transformer 等后续演进不在原书范围（Transformer 见 [注意力机制与Transformer · Transformer 架构](../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/02-Transformer%20%E6%9E%B6%E6%9E%84.md)）。
+- 本篇聚焦 2012–2017 年的经典架构；EfficientNet、ConvNeXt 及 Vision Transformer 等后续演进不在本篇范围（Transformer 见 [注意力机制与Transformer · Transformer 架构](../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/02-Transformer%20%E6%9E%B6%E6%9E%84.md)）。
 - "内部协变量偏移"作为 BN 有效原因的解释已不被学界接受；现行解释偏向损失面平滑与训练噪声正则化。
 - Fashion-MNIST 上的精度数字只用于教学对照，不代表 ImageNet 级任务上的真实排序。
 
