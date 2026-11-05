@@ -7930,9 +7930,9 @@
 
 
 <h1 id="damc3">大规模机器学习系统附录：D·A·M、C³ 与集群基础</h1>
-<p class="note-date">更新于 2026-11-03</p>
+<p class="note-date">更新于 2026-11-05</p>
 
-<p>本页是《大规模机器学习系统》三个附录的提炼速查：附录 A 复习单节点 D·A·M 诊断，附录 B 定义集群级 C³（计算·通信·协调）诊断框架，附录 C 汇集集群工程应随身携带的参考数字与物理定律。<strong>注意：原文档在 C.3.3"通信-计算比"公式处截断，其后内容缺失；完整内容见原书。</strong></p>
+<p>本页是《大规模机器学习系统》三个附录的提炼速查：附录 A 复习单节点 D·A·M 诊断，附录 B 定义集群级 C³（计算·通信·协调）诊断框架，附录 C 汇集集群工程应随身携带的参考数字与物理定律。</p>
 <h2 id="adam">附录 A：D·A·M 基础（单节点诊断基线）</h2>
 <p>D·A·M = 数据（Data）·算法（Algorithm）·机器（Machine），单节点性能诊断框架。C³ 是它向集群的扩展，但必须建立在坚实的单节点基础之上。</p>
 <h3 id="a1">A.1 维度参考</h3>
@@ -8380,10 +8380,44 @@
 <p>规模坐标：DGX H100 SuperPOD = 256 卡；Meta 两个 24,576 H100 集群；TPU v5p Pod 8,960 芯片；2025 年已宣布的最大集群超过 100,000 加速器。这些数字约每 2–3 年改进 2×，<strong>记住比例和缩放趋势，把具体数字当合理性检查</strong>。</p>
 <h3 id="c8">C.8 缩放物理</h3>
 <ul>
-<li><strong>单加速器屋顶线</strong>：𝐼 = FLOPs/移动字节数；𝑅_attain = min(𝑅peak, 𝐼×BW)；脊点 𝐼_ridge = 𝑅peak/BW（H100 BF16 约 295.2 FLOP/byte）。自回归解码强度约 1 FLOP/byte，单流吞吐 ≈ 208.6 tokens/s——纯粹受带宽限制，批处理正是为了提高强度把解码推回计算屋顶。</li>
-<li><strong>集群阿姆达尔</strong>：串行分数含 AllReduce 同步、流水线气泡、检查点写入、Python 级单线程操作。</li>
-<li><strong>通信-计算比</strong>：ρ = 𝑇comm(N)/(𝑇compute/N)，决定通信能否隐藏在计算后面。<strong>（原文自此公式处截断，后续内容缺失。）</strong></li>
+<li><strong>单加速器屋顶线</strong>：<span class="arithmatex">\(I = \text{FLOPs}/\text{移动字节数}\)</span>；<span class="arithmatex">\(R_{\text{attain}} = \min(R_{\text{peak}}, I \times BW)\)</span>；脊点 <span class="arithmatex">\(I_{\text{ridge}} = R_{\text{peak}}/BW\)</span>（H100 BF16 约 295.2 FLOP/byte）。自回归解码强度约 1 FLOP/byte，单流吞吐 ≈ 208.6 tokens/s——纯粹受带宽限制，批处理正是为了提高强度把解码推回计算屋顶。</li>
+<li><strong>集群阿姆达尔</strong>：串行分数含 AllReduce 同步、流水线气泡、检查点写入、Python 级单线程操作；10% 串行分数把固定工作负载的加速上限钉在 10×。实践中串行开销还会复合叠加：流水线气泡 ~5% + 检查点 ~3% + 故障恢复 ~10% + 维护 ~5%，各项虽非严格串行，但小幅开销叠加足以显著侵蚀吞吐。出路是弱缩放（放大问题规模保持串行分数占比小）。</li>
+<li><strong>弱缩放与古斯塔夫森定律</strong>：弱缩放不是数学便利，是现实——工程师用 8,192 卡不是为更快训 7B，而是训 70B/700B。稠密 Transformer 计算量约 6× 参数量 × token 数，而梯度通信只随参数字节数扩展，所以 ρ 取决于批大小、序列长度、梯度累积与并行布局，而非参数量本身。</li>
+<li><strong>通信-计算比</strong>：<span class="arithmatex">\(\rho = T_{\text{comm}}(N)/(T_{\text{compute}}/N)\)</span>。ρ&lt;1 计算主导可重叠；ρ&gt;1 通信受限，GPU 空等数据。三个实测场景（256 卡 IB NDR 集群 + 单节点 NVLink）：</li>
 </ul>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>T_comm(N)</th>
+<th>T_compute/N</th>
+<th>ρ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据并行，7B，256 卡</td>
+<td>560.4 ms（IB NDR AllReduce）</td>
+<td>~5 s（前向+反向）</td>
+<td>0.11</td>
+</tr>
+<tr>
+<td>数据并行，350M，256 卡</td>
+<td>29.6 ms（IB NDR AllReduce）</td>
+<td>~10 ms（前向+反向）</td>
+<td>3</td>
+</tr>
+<tr>
+<td>张量并行，8 卡（NVLink）</td>
+<td>~0.04 ms（层激活传输）</td>
+<td>~1 ms（单层）</td>
+<td>0.036</td>
+</tr>
+</tbody>
+</table>
+<p>7B 配置 ρ=0.11，通信约当计算时长的 11%，可部分重叠；同集群换 350M 小模型 ρ=3 通信反超——解法是减少卡数或加大每步计算（更大批次/梯度累积）。节点内张量并行 ρ=0.036，量化解释了为什么张量并行 confinement 在节点内、数据并行跨节点：NVLink 带宽足以让节点内保持计算受限。
+- <strong>复合损失的账</strong>：<span class="arithmatex">\(R_{\text{eff}} = N R_{\text{peak}} \times \text{MFU} \times \eta_{\text{scaling}} \times \eta_{\text{goodput}}\)</span>。1,024 卡 H100 集群峰值 1,012,736 TFLOP/s × 0.50 × 0.50 × 0.77 ≈ 194,952 TFLOP/s——交付 19.2% 峰值作为有用训练工作。这不是工程失败而是集群计算的物理：目标不是 100% 利用率，而是比任何更小配置更快交付模型。
+- <strong>热与功率物理</strong>：算力最终变热，热必须带走。10,000 块 H100（700 W）= 7 MW IT 负载，PUE 1.40 时设施负载 9.8 MW——一座小镇的用电量。AI 机架功耗是传统机架的约 5.8×（12 kW → 70-100 kW），风冷物理上限约 30 kW/机架，因此新建 AI 数据中心以液冷为基线；为 12 kW 机架建的旧机房无法简单改造（配电、冷却、承重都要重做）。PUE 全表（每 MW IT 负载的非 IT 开销）：液冷 1.06（60 kW）、最佳风冷 1.12（120 kW）、行业平均 1.40（400 kW）、传统企业机房 1.58（580 kW）。10 MW IT 负载在传统机房要 15.8 MW 总供电，液冷只要 10.6 MW——省 5.2 MW，按商业电价折合每年数百万美元。</p>
 <h2 id="_1">参见</h2>
 <ul>
 <li><a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/01-%E9%92%A2%E4%B8%8E%E7%A1%85AI%E7%9A%84%E7%89%A9%E7%90%86%E5%BA%95%E5%BA%A7/">AI基础设施与硬件 · 钢与硅AI的物理底座</a></li>
