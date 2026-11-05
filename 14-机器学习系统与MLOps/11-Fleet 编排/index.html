@@ -8500,7 +8500,7 @@
 <ul>
 <li><strong>分区</strong>按加速器/互连切分（如 dgx-a100：8×A100 NVLink+IB NDR 跑大模型训练；infer：2×A10G 跑服务；debug 隔离开发负载）。</li>
 <li><strong>公平份额</strong>：Priority_eff = Priority_base × F_target/(F_actual + ε)——多用者优先级自动折半，闲置者回归时快速拿回资源。历史用半衰期衰减（生产常见 3–14 天：太短振荡、太长惩罚刚完成大项目的合法重用户）。</li>
-<li><strong>抢占</strong>：SIGTERM + GraceTime（60–300 秒做 checkpoint）再 SIGKILL；PreemptMode=REQUEUE。抢占可行性的前提是第 7 章的可靠 checkpoint 基础设施。</li>
+<li><strong>抢占</strong>：SIGTERM + GraceTime（60–300 秒做 checkpoint）再 SIGKILL；PreemptMode=REQUEUE。抢占可行性的前提是可靠的 checkpoint 基础设施（参见容错一篇）。</li>
 <li><strong>ML 高级配置</strong>：作业数组（<code>--array=0-99</code> 把超参 sweep 变成一个可调度对象）；异构作业（GPU 节点 + 纯 CPU 数据标注节点分 het-group 提交）；prolog/epilog 脚本作为"免疫系统"（作业前验 NVLink 拓扑、ECC 计数器、IB 链路宽度，失败则排出节点；作业后杀孤儿进程、清共享内存、记录利用率）；TRES 计费权重（按加速器经济价值而非裸核数算公平份额——100 个旧 GPU 不该和 100 个 H100 等价）。</li>
 </ul>
 <h3 id="kubernetes">Kubernetes（云原生，声明式）</h3>
@@ -8586,7 +8586,7 @@
 <p>Rail 优化拓扑中每节点 GPU i 接 rail i 交换机；调度器把数据并行 rank r 放到各节点 GPU <span class="arithmatex">\(r \bmod 8\)</span>，使每组 AllReduce 只走单一 rail 树、消除跨 rail 争用。三个目标（NVLink 局部性、机架局部性、rail 对齐）部分冲突，生产调度器用加权评分消解：3D 并行大作业权重 TP 局部性 &gt; rail 对齐 &gt; 机架局部性；纯 DP 作业 rail 优先；单节点作业只管装箱效率。</p>
 <p>静态配置（Slurm topology.conf、K8s node label）描述"意图拓扑"，NCCL 类库运行时解析 /sys/class/infiniband 才得到"有效拓扑"——验证过的链路图。交换机可能"活着但瘸了"：高 CRC 错误、丢包、重传，二元健康检查全绿而集合通信性能全红；需要性能感知监控 + 动态隔离（K8s taints / Slurm drain），把降级机架对通信密集作业标记为不合格。若选择迁移而非带伤硬跑：协调 checkpoint + 重调度 + 预热约 5–15 分钟；20% 吞吐损失下 10 分钟迁移的盈亏平衡点不到一小时训练，多周训练通常值得迁。</p>
 <h2 id="_14">弹性调度</h2>
-<p>刚性分配下调度器只有二元动作 {继续，整体抢占}；弹性训练（依托第 7 章的恢复机制）把它变成<strong>连续资源谱</strong>：128 GPU 起步、有货扩到 256、高优先级到来缩回 192，训练进度不断。</p>
+<p>刚性分配下调度器只有二元动作 {继续，整体抢占}；弹性训练（依托检查点恢复机制，参见容错一篇）把它变成<strong>连续资源谱</strong>：128 GPU 起步、有货扩到 256、高优先级到来缩回 192，训练进度不断。</p>
 <h3 id="-">调度器-框架契约</h3>
 <p>三参数：弹性范围 <span class="arithmatex">\([N_{\min}, N_{\max}]\)</span>；转换成本（rendezvous 周期 10–60 秒，限定重定规模频率）；扩展效率曲线（决定新增 worker 值不值）。有效 batch 随 worker 数变化 <span class="arithmatex">\(B_{\mathrm{effective}}=B_{\mathrm{per\text{-}worker}}\times N\)</span>，恒定全局 batch 保收敛但低 worker 数可能爆显存，自适应学习率好管理但在快速伸缩期有收敛风险。TorchElastic 的 <code>--nnodes=4:16</code> 即在声明此范围。硬约束：<strong>弹性本质是数据并行操作</strong>——175B 用 8 路张量并行时只能整节点伸缩（改 DP 度）；从 TP 组抽走一个 GPU 等于重切分权重 = 完整 checkpoint-restart。</p>
 <h3 id="_15">三项调度优化与算账</h3>

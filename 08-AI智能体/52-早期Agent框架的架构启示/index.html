@@ -7665,9 +7665,7 @@
 
 <h1 id="agent-metagpt-autogpt-swarm-dspy-babyagi">早期 Agent 框架的架构启示（MetaGPT / AutoGPT / Swarm / DSPy / BabyAGI）</h1>
 <p class="note-date">更新于 2026-11-03</p>
-<blockquote>
-<p>一句话概括：第一代 Agent 框架各有截然不同的核心抽象——SOP 角色扮演（MetaGPT）、服务化工作流（AutoGPT）、移交原语（Swarm）、提示词编译（DSPy）、任务三代理循环（BabyAGI）——这些抽象本身比框架更耐用。</p>
-</blockquote>
+<p><strong>一句话定义</strong>：第一代 Agent 框架各有截然不同的核心抽象——SOP 角色扮演（MetaGPT）、服务化工作流（AutoGPT）、移交原语（Swarm）、提示词编译（DSPy）、任务三代理循环（BabyAGI）——这些抽象本身比框架更耐用。</p>
 <h2 id="_1">核心概念</h2>
 <p><strong>MetaGPT 的两个公式</strong>（可作为理解所有多智能体系统的基座）：
 - 智能体 = LLM + 观察 + 思考 + 行动 + 记忆
@@ -7735,7 +7733,7 @@
 </tr>
 <tr>
 <td>Inception Prompting</td>
-<td>CAMEL 的引导性提示（见已有笔记 11-框架开发实践）</td>
+<td>CAMEL 的引导性提示（参见框架开发实践一篇）</td>
 </tr>
 <tr>
 <td>Handoff</td>
@@ -7760,7 +7758,7 @@
 <li>中文教程/翻译文档普遍滞后于快速演进的框架（AutoGPT 新旧版本完全不兼容），<strong>学新框架直接读英文官方文档</strong>，用翻译插件辅助。</li>
 <li>独立部署型框架（AutoGPT Platform 类）依赖链很长（数据库、缓存、Docker），评估框架时要把<strong>部署成本</strong>算进选型。</li>
 <li>轻量级框架 ≠ 玩具：Swarm 几百行代码固化了一组多 Agent 编排最佳实践；资深工程师应警惕 Design by Buzzwords、以复杂为荣的倾向，围绕解决业务痛点选型。</li>
-<li>自主循环系统（AutoGPT/BabyAGI 类）的已知顽疾：<strong>分心、陷入循环、成本失控、缺长期记忆</strong>——任何"目标驱动无限循环"的设计都要配终止条件、预算上限和记忆机制（这一课在上下文工程笔记 19 中有系统解法）。</li>
+<li>自主循环系统（AutoGPT/BabyAGI 类）的已知顽疾：<strong>分心、陷入循环、成本失控、缺长期记忆</strong>——任何"目标驱动无限循环"的设计都要配终止条件、预算上限和记忆机制（上下文工程一篇有系统解法）。</li>
 <li>MetaGPT 的 Role watch 机制提示：多智能体协作可以用"发布/订阅 + 事件"实现，不必点对点硬编码调用关系——解耦且易扩展。</li>
 </ul>
 <h2 id="_5">⚠️ 时效性说明</h2>

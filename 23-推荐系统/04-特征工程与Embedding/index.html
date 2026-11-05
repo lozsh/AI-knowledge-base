@@ -7719,7 +7719,7 @@
 <h3 id="_4">训练样本处理的关键原则</h3>
 <ul>
 <li><strong>标签转换</strong>：拿不到评分时把行为转 CTR 二分类（如 MovieLens 中评分 ≥3.5 标 1、&lt;3.5 标 0），把推荐问题转为 CTR 预估。</li>
-<li><strong>警惕"未来信息"（特征穿越/泄漏）</strong>：t 时刻样本的特征不能包含 t+1 的信息。例：用户 11/1 评 3 分、11/2 评 4 分、11/3 评 5 分，则 11/2 样本的"用户历史平均评分"只能是 3 分（B 自身的评分是预测目标也不能加进去）。工程解法：Spark window 函数 <code>over(partitionBy(userId).orderBy(timestamp).rowsBetween(-100,-1))</code>，只对当前样本之前的滑动窗口聚合。</li>
+<li><strong>警惕"未来信息"（特征穿越/泄漏）</strong>：t 时刻样本的特征不能包含 t+1 的信息。例：用户 11/1 评 3 分、11/2 评 4 分、11/3 评 5 分，则 11/2 样本的"用户历史平均评分"只能是 3 分（该用户自身当次的评分是预测目标也不能加进去）。工程解法：Spark window 函数 <code>over(partitionBy(userId).orderBy(timestamp).rowsBetween(-100,-1))</code>，只对当前样本之前的滑动窗口聚合。</li>
 <li><strong>平台分工原则</strong>：让合适的平台做合适的事——Spark 管海量数据的清洗/特征/样本，Flink 管流处理，TensorFlow 管模型；TF 不擅长分布式并行数据处理。</li>
 <li>特征取舍：不人为预设特征有用与否，先加进去让模型判断，无效再剔除。</li>
 <li>线上特征存储：用户/物品特征分别以 hash（hset）形式存 Redis，key 为 userId/itemId，线上拼接成特征向量供模型推断，保证线上线下特征一致性。</li>

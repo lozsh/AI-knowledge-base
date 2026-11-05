@@ -2587,10 +2587,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#-agent" class="md-nav__link">
+  <a href="#_13" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见- Agent 的自我进化
+        参见
       
     </span>
   </a>
@@ -7892,10 +7892,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#-agent" class="md-nav__link">
+  <a href="#_13" class="md-nav__link">
     <span class="md-ellipsis">
       
-        参见- Agent 的自我进化
+        参见
       
     </span>
   </a>
@@ -8075,7 +8075,7 @@
 <p><strong>书籍翻译案例</strong>（上下文隔离的典范）：Glossary Agent（生成术语表 glossary.json 后销毁）→ Translation Agent ×N（只看当前章节 + 术语表，可并行）→ Proofreading Agent（全文一致性检查）→ Manager 只维护文件索引、不装翻译内容。单 Agent 做全书翻译会因上下文过长而"迷失"——忘记术语约定、重复检查、甚至幻觉出不存在的术语规则。</p>
 <p><strong>并行协调</strong>：多 Agent 同时工作需消息总线。Manager 动态创建实例（传 URL、任务参数、任务标识符）、实时监控状态表、<strong>级联终止</strong>（一者命中目标即广播 terminate，其余优雅停止），并处理竞态（锁/幂等）与失败隔离（单 Agent 超时判失败、不影响他人；全部失败才报告）。典型加速比约 15 倍（10 站点并行搜索）。</p>
 <p><strong>产品化实例——灵台（Lingtai）</strong>：主器灵（常驻中枢，Manager 位置）、分神（短时并行工作者，完成后只带结论回——"子 Agent 返回结构化摘要"的产品化）、分身（有自己记忆与职责的持久专门队友）。知识私有、技能共享（Markdown 手册），上下文将满时"凝蜕"（写总结带记忆在干净上下文继续），"器灵即其文件"——身份、记忆、能力皆普通文件，底层模型可替换。</p>
-<p><strong>双 Agent 并行的典型场景</strong>：边打电话边用电脑（Phone Agent：ASR+LLM+TTS 实时对话收集信息；Computer Agent：截屏+Vision LLM 操作表单；各自独立 ReAct 循环、WebSocket/消息总线双向通信，消息带 [FROM_XXX_AGENT] 来源标记）。进阶形态是<strong>自主编排</strong>：Computer Agent 发现需要收集大量结构化信息时自主调用 initiate_phone_call_agent——协作决策不是预编程的。</p>
+<p><strong>双 Agent 并行的典型场景</strong>：边打电话边用电脑（Phone Agent：ASR+LLM+TTS 实时对话收集信息；Computer Agent：截屏+Vision LLM 操作表单；各自独立 ReAct 循环、WebSocket/消息总线双向通信，消息带 [FROM_&lt;角色&gt;_AGENT] 来源标记）。进阶形态是<strong>自主编排</strong>：Computer Agent 发现需要收集大量结构化信息时自主调用 initiate_phone_call_agent——协作决策不是预编程的。</p>
 <h3 id="_8">去中心化模式：对等移交</h3>
 <p>无中心调度者，Agent 按专业判断自主移交/请求反馈/报告问题。<strong>移交包</strong>三部分：任务描述（做什么、验收标准）、已确认事实与约束、结构化产物引用（文件路径而非内容）；刻意不传全量轨迹（试错过程对接收方是噪声）。本质是契约式设计——每个 Agent 只需理解移交包和产出物的格式语义。</p>
 <p>三个案例构成"由伪到真"的递进：
@@ -8109,8 +8109,9 @@
 <li>Moltbook 用户数、WebGen-Agent 提升幅度等为报道/论文报告值。</li>
 <li>OpenAI Swarm 已被 Agents SDK 接替；AutoGen 已演进为 AG2 等形态。</li>
 </ul>
-<h2 id="-agent">参见- <a href="../05-Agent%20%E7%9A%84%E8%87%AA%E6%88%91%E8%BF%9B%E5%8C%96/">Agent 的自我进化</a></h2>
+<h2 id="_13">参见</h2>
 <ul>
+<li><a href="../05-Agent%20%E7%9A%84%E8%87%AA%E6%88%91%E8%BF%9B%E5%8C%96/">Agent 的自我进化</a></li>
 <li><a href="../15-%E6%9E%84%E5%BB%BA%E8%B5%9B%E5%8D%9A%E5%B0%8F%E9%95%87/">构建赛博小镇</a></li>
 <li><a href="../43-MCP%E5%8D%8F%E8%AE%AE%E4%B8%8EAgent%E5%B7%A5%E5%85%B7%E5%8C%96%E5%BC%80%E5%8F%91%E6%A8%A1%E5%BC%8F/">MCP协议与Agent工具化开发模式</a></li>
 <li><a href="../41-%E5%BA%94%E7%94%A8%E5%9E%8B%E6%99%BA%E8%83%BD%E4%BD%93%E6%9E%B6%E6%9E%84%E4%B8%8E%E8%90%BD%E5%9C%B0%E6%A8%A1%E5%BC%8F/">应用型智能体架构与落地模式</a></li>

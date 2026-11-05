@@ -5225,10 +5225,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-principle-9" class="md-nav__link">
+  <a href="#1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. 普适扩展律（Principle 9）
+        1. 普适扩展律
       
     </span>
   </a>
@@ -7499,10 +7499,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-principle-9" class="md-nav__link">
+  <a href="#1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. 普适扩展律（Principle 9）
+        1. 普适扩展律
       
     </span>
   </a>
@@ -7601,9 +7601,9 @@
 <p class="note-date">更新于 2026-11-03</p>
 
 <p><strong>一句话定义</strong>：分布式机器学习的物理法则——五条不变量解释了为什么加 GPU 不总是线性提速、为什么通信而非计算常是隐藏瓶颈、为什么容错在大规模下是必需品而非奢侈品。</p>
-<p>单机协调不需要解决的问题，在集群里全部出现：把模型切分到多设备能减轻内存压力，但必然增加同步权重的通信量；扩展到千节点能缩短训练时间，但 MTBF 同步下降，容错从运营奢侈品变成强制组件。工程本质是<strong>并行化与协调的取舍</strong>：硬件层（第一部分）拆解了"通信税"，本篇再叠加"规模可靠性税"。</p>
+<p>单机协调不需要解决的问题，在集群里全部出现：把模型切分到多设备能减轻内存压力，但必然增加同步权重的通信量；扩展到千节点能缩短训练时间，但 MTBF 同步下降，容错从运营奢侈品变成强制组件。工程本质是<strong>并行化与协调的取舍</strong>：硬件层拆解了"通信税"，本篇再叠加"规模可靠性税"。</p>
 <h2 id="_1">核心原理：五条不变量</h2>
-<h3 id="1-principle-9">1. 普适扩展律（Principle 9）</h3>
+<h3 id="1">1. 普适扩展律</h3>
 <p>前沿模型的损失随算力、数据、参数按幂律改善：</p>
 <div class="highlight"><pre><span></span><code>L(C) ∝ C^(−γ)
 </code></pre></div>

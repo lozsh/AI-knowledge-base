@@ -3945,12 +3945,12 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        关键训练配方（课程口径 + 公开技术报告）
+        关键训练配方（据公开技术报告）
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="关键训练配方（课程口径 + 公开技术报告）">
+    <nav class="md-nav" aria-label="关键训练配方（据公开技术报告）">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -7512,12 +7512,12 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        关键训练配方（课程口径 + 公开技术报告）
+        关键训练配方（据公开技术报告）
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="关键训练配方（课程口径 + 公开技术报告）">
+    <nav class="md-nav" aria-label="关键训练配方（据公开技术报告）">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -7632,7 +7632,7 @@
 <li><strong>指令微调（Instruction Tuning）</strong>：用人类对话数据 + 工具使用数据训练，让模型学会分解指令并调用工具。零样本能力来自微调数据中大量"仅指令、无示例"的样本。</li>
 <li><strong>结构化输出能力</strong>：模型能稳定输出 JSON 后，才可能嵌入现有系统的任意模块——这是 LLaMA 3 后训练重点投入的方向，也是它能直接当 ReAct 智能体用的原因。</li>
 </ul>
-<h2 id="_2">关键训练配方（课程口径 + 公开技术报告）</h2>
+<h2 id="_2">关键训练配方（据公开技术报告）</h2>
 <h3 id="_3">数据配方</h3>
 <ul>
 <li>预训练语料以 <strong>15T+ token</strong> 计，规模是 LLaMA 2 的数倍；数据质量（去重、清洗、配比）与数量同等重要。</li>
@@ -7727,14 +7727,14 @@
 <ul>
 <li><strong>Base 版 ≠ Instruct 版</strong>：文本续写用 base；指令/对话/工具调用用 Instruct。用错版本会得出"模型很笨"的错误结论。</li>
 <li>生成必须设 max tokens 等停止条件，否则可能停不下来。</li>
-<li>课程口径的上下文长度与版本规格是快照事实，实际以各版本技术报告为准（见下方时效性说明）。</li>
+<li>正文中的版本规格是快照事实，实际以各版本技术报告为准（见下方时效性说明）。</li>
 <li>判断一个开源模型"能不能做智能体"，看它的后训练是否含工具调用数据，而不是只看参数量。</li>
 <li>语言数据枯竭、token 边际收益递减是行业共识：下一步的增量在多模态、空间与动作智能（VLA 方向），而非单纯堆语言 token。</li>
 </ul>
 <h2 id="_9">⚠️ 时效性说明</h2>
-<p>以下为课程写作时点（2024 年）的事实快照，使用前需核实最新版本：
+<p>以下为 2024 年的事实快照，使用前需核实最新版本：
 - 规格数字：LLaMA 3（8B/70B，8K 上下文，15T token 预训练）→ 3.1（405B，128K 上下文）→ 3.2（1B/3B 文本 + 11B/90B Vision）→ 3.3（70B）。版本迭代极快。
-- 课程示例工具链：Ollama（llama3:text）、graphrag==0.1.1（API 已大改）、nomic-embed-text、Python 3.11——具体 API 用法不要照搬。
+- 文中示例工具链：Ollama（llama3:text）、graphrag==0.1.1（API 已大改）、nomic-embed-text、Python 3.11——具体 API 用法不要照搬。
 - OpenVLA（7B，基于 LLaMA 2 微调）为当时具身智能开源代表。</p>
 
 

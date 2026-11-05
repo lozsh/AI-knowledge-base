@@ -7733,7 +7733,7 @@
 <p class="note-date">更新于 2026-11-03</p>
 
 <p><strong>一句话定义</strong>：2012–2017 年的现代 CNN 演进不是孤立的模型列表，而是一条因果链——AlexNet 证明"学特征"可行，VGG 把网络抽象成块，NiN 砍掉全连接层，GoogLeNet 用并行多尺度回答"核多大合适"，BN 解决深层可训练性，ResNet 用残差连接让"加深必不劣化"成立，DenseNet 把跨层连接推到极致。</p>
-<p><a href="../02-%E7%8E%B0%E4%BB%A3%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">现代卷积神经网络</a>已给出各模型的概要、动机与实验精度，本条目补充：每个模型的<strong>逐层结构细节、关键设计的量化对比、设计决策背后的"为什么"</strong>。</p>
+<p><a href="../02-%E7%8E%B0%E4%BB%A3%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">现代卷积神经网络</a>已给出各模型的概要、动机与实验精度，本篇补充：每个模型的<strong>逐层结构细节、关键设计的量化对比、设计决策背后的"为什么"</strong>。</p>
 <h2 id="_1">核心原理</h2>
 <h3 id="1">1. 演进的因果逻辑（先记这条主线）</h3>
 <table>
@@ -7951,13 +7951,13 @@
 </ul>
 <h2 id="_5">⚠️ 时效性说明</h2>
 <ul>
-<li>本条目为 2012–2017 年经典架构的教材内容深化；EfficientNet、ConvNeXt 及 Vision Transformer 等后续演进不在原书范围（Transformer 见 <a href="../../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/03-Transformer%20%E6%9E%B6%E6%9E%84/">../06-注意力机制与Transformer/03-Transformer 架构.md</a>）。</li>
+<li>本篇为 2012–2017 年经典架构的教材内容深化；EfficientNet、ConvNeXt 及 Vision Transformer 等后续演进不在原书范围（Transformer 见 <a href="../../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/03-Transformer%20%E6%9E%B6%E6%9E%84/">注意力机制与Transformer · Transformer 架构</a>）。</li>
 <li>"内部协变量偏移"作为 BN 有效原因的解释已不被学界接受；现行解释偏向损失面平滑与训练噪声正则化。</li>
 <li>Fashion-MNIST 上的精度数字只用于教学对照，不代表 ImageNet 级任务上的真实排序。</li>
 </ul>
 <h2 id="_6">参见</h2>
 <ul>
-<li><a href="../02-%E7%8E%B0%E4%BB%A3%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">现代卷积神经网络</a> — 各模型的概要版笔记（本条目的基础）</li>
+<li><a href="../02-%E7%8E%B0%E4%BB%A3%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">现代卷积神经网络</a> — 各模型的概要版笔记（本篇的基础）</li>
 <li><a href="../01-%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">卷积神经网络</a> — 卷积、填充、步幅、感受野等先修概念</li>
 <li><a href="../03-%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a> — 把这些骨干网络用于检测/分割任务</li>
 <li><a href="../13-%E5%9B%BE%E5%83%8F%E5%A2%9E%E5%B9%BF%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E5%AE%9E%E8%B7%B5/">图像增广与迁移学习实践</a> — AlexNet 成功要素之一的数据侧技术</li>

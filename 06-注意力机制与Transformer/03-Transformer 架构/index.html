@@ -7761,7 +7761,7 @@
 <h2 id="_8">⚠️ 时效性说明</h2>
 <ul>
 <li>原始 Transformer 的 Post-LN（层归一化放在子层之后）在深层网络中训练不稳定，现代大模型（GPT、Llama 系列）普遍改用 Pre-LN；原始架构中 Encoder/Decoder 各 6 层、正余弦位置编码，也分别被更深层数和 RoPE 等方案取代。</li>
-<li>本条目的实现是教学用"手搓"版本；生产环境中应使用框架实现（如 PyTorch 官方 <code>nn.MultiheadAttention</code>、FlashAttention 等），并注意 KV 缓存等推理优化。</li>
+<li>本篇的实现是教学用"手搓"版本；生产环境中应使用框架实现（如 PyTorch 官方 <code>nn.MultiheadAttention</code>、FlashAttention 等），并注意 KV 缓存等推理优化。</li>
 </ul>
 <h2 id="_9">参见</h2>
 <ul>

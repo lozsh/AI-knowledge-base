@@ -7833,7 +7833,7 @@
 <li>Continuous mode 不支持聚合——"流动的 Word Count"这类最基本需求在 Continuous 下跑不了，选型前先确认操作类型。</li>
 <li>双流关联漏设 Watermark 或时间范围约束 → 状态无限堆积 → OOM，是最常见的流计算事故。</li>
 <li>迟到数据被 Watermark 丢弃是"静默丢数"：对准确性敏感的业务要把 watermark 延迟设为业务可容忍的上限，并监控丢弃量。</li>
-<li>流批关联的批侧若需定时刷新，常见做法是把"批侧"改为周期性 union 新快照或用 foreachBatch 自己控制，课程未覆盖此处需查最新文档。</li>
+<li>流批关联的批侧若需定时刷新，常见做法是把"批侧"改为周期性 union 新快照或用 foreachBatch 自己控制，此用法演进快，需查最新文档。</li>
 </ul>
 <h2 id="_6">⚠️ 时效性说明</h2>
 <ul>

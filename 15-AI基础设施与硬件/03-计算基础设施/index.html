@@ -8142,7 +8142,7 @@
 <li>设施等级：Tier III（可并发维护）vs Tier IV（容错）。ML 训练是长批处理，常选 Tier III + 强应用级容错（checkpoint/restart），把省下的设施冗余预算投给算力。</li>
 </ul>
 <h2 id="pod-wsc">关键概念：Pod 与仓储级计算机（WSC）</h2>
-<p>Pod = 数百机柜在一套高速 fabric/供电/冷却下作为一台机器。1,024 节点 = 8192 GPU + 4096 NVSwitch + 数百 IB 交换机 + 数万线缆，7–10MW，250 机柜，总重 300+ 吨（地板承重要求 1500–2500kg/m²，普通机房 500–1000—— retrofit 的隐藏阻塞项）。</p>
+<p>Pod = 数百机柜在一套高速 fabric/供电/冷却下作为一台机器。1,024 节点 = 8192 GPU + 4096 NVSwitch + 数百 IB 交换机 + 数万线缆，7–10MW，250 机柜，总重 300+ 吨（地板承重要求 1500–2500kg/m²，普通机房 500–1000——改造翻新的隐藏阻塞项）。</p>
 <p><strong>训练时间物理账</strong>（175B、300B tokens、8192 H100、45% MFU）：总 FLOPs 3.15×10²³，持续吞吐 ~7.3 EFLOP/s，物理极限约 12 小时；叠加通信（÷0.85）、流水线气泡（×1.05）、checkpoint（×1.03）、故障重启（×1.10）、维护（×1.05）≈ 17.6 小时系统下限——生产排期再乘队列/调试/重跑，以天或周计。<strong>Pod 规模上，基础设施的不完美主导一切。</strong></p>
 <p><strong>拓扑</strong>：InfiniBand fat-tree（DGX SuperPOD，全对分带宽、任意流量模式）vs 2D Torus（Google TPU pod，对分带宽 ∝√N，更便宜但奖励局部性负载）vs RoCE rail（Meta，推荐负载）。</p>
 <p><strong>WSC 三原则</strong>（Barroso/Hölzle/Ranganathan）：(1) 网络而非计算定天花板——4:1 收敛比会把训练吞吐砍 30–60%；(2) 故障是统计必然——单卡 MTBF 5 万小时，万卡集群约每 5 小时一坏，设计必须让组件故障"降级而非停机"；(3) 楼就是计算机——机柜摆放、供电链、拓扑必须联合设计，一层错误传播所有层。</p>

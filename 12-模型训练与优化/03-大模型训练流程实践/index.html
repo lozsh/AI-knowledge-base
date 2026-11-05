@@ -7735,7 +7735,7 @@
 <p class="note-date">更新于 2026-11-03</p>
 
 <p><strong>一句话定义</strong>：基于 Hugging Face Transformers（配合 DeepSpeed、peft、datasets 等框架）完成大语言模型预训练（Pretrain）、有监督微调（SFT）与 LoRA 高效微调的工程全流程。</p>
-<p>现代 LLM 训练很少从零手写模型结构：手写实现工作量大、难以跟进最新架构创新、无法方便地做多卡分布式训练，也无法复用预训练权重。业界主流做法是以 Transformers 框架为基础，加载开源模型结构或权重，在自己的数据上做 Pretrain / SFT / 高效微调。本条目梳理这条工程路线的核心环节：模型与 tokenizer 初始化、预训练数据处理、Trainer 训练、DeepSpeed 分布式启动、SFT 数据构造与 Chat Template、以及 LoRA 微调原理与实践。</p>
+<p>现代 LLM 训练很少从零手写模型结构：手写实现工作量大、难以跟进最新架构创新、无法方便地做多卡分布式训练，也无法复用预训练权重。业界主流做法是以 Transformers 框架为基础，加载开源模型结构或权重，在自己的数据上做 Pretrain / SFT / 高效微调。本文梳理这条工程路线的核心环节：模型与 tokenizer 初始化、预训练数据处理、Trainer 训练、DeepSpeed 分布式启动、SFT 数据构造与 Chat Template、以及 LoRA 微调原理与实践。</p>
 <h2 id="_2">核心原理</h2>
 <h3 id="pretrain-sft">Pretrain 与 SFT 的本质差异</h3>
 <p>两者都用 CLM（下一个 token 预测）建模，差异在数据与 loss 计算范围：</p>
@@ -7817,7 +7817,7 @@
 <span class="w">  </span>--block_size<span class="w"> </span><span class="m">2048</span><span class="w"> </span>--bf16<span class="w"> </span>--gradient_checkpointing<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--deepspeed<span class="w"> </span>./ds_config_zero2.json<span class="w"> </span>--report_to<span class="w"> </span>wandb
 </code></pre></div>
-<p><code>ds_config_zero2.json</code> 关键项：<code>zero_optimization.stage: 2</code>、优化器 AdamW（参数设 "auto" 从 TrainingArguments 继承）、<code>overlap_comm: true</code>、bf16/fp16 "auto"。⚠️ 该课程示例基于早期版本 API（如 <code>evaluation_strategy</code>、<code>tokenizer=</code> 参数在新版 Transformers 中已改名/弃用），照抄需按所用版本调整。</p>
+<p><code>ds_config_zero2.json</code> 关键项：<code>zero_optimization.stage: 2</code>、优化器 AdamW（参数设 "auto" 从 TrainingArguments 继承）、<code>overlap_comm: true</code>、bf16/fp16 "auto"。⚠️ 上述示例基于早期版本 API（如 <code>evaluation_strategy</code>、<code>tokenizer=</code> 参数在新版 Transformers 中已改名/弃用），照抄需按所用版本调整。</p>
 <h2 id="_6">分类/类型：高效微调方案</h2>
 <p>全量微调参数量大、资源压力高，资源有限时主要有两条路线：</p>
 <p><strong>Adapt Tuning（Adapter）</strong>：在每层 Transformer 中插入小 Adapter 模块（两个前馈子层：先降维 <span class="arithmatex">\(d \to d/r\)</span> 再还原 <span class="arithmatex">\(d/r \to d\)</span>），冻结主体只训 Adapter。缺陷：引入额外计算，微调后模型推理变慢。LoRA 是改进的 Adapt Tuning 方法，但通过部署时合并权重消除了推理延迟。</p>
@@ -7842,7 +7842,7 @@
 </ul>
 <h2 id="_8">⚠️ 时效性说明</h2>
 <ul>
-<li>原文基于 Qwen-2.5-1.5B、BelleGroup/序列猴子数据集与 2024-2025 年课程版本；Transformers API 迭代快（<code>evaluation_strategy</code> → <code>eval_strategy</code>、Trainer 的 <code>tokenizer</code> 参数改为 <code>processing_class</code> 等），具体参数以所用版本文档为准。</li>
+<li>原文基于 Qwen-2.5-1.5B、BelleGroup/序列猴子数据集与 2024-2025 年的教程版本；Transformers API 迭代快（<code>evaluation_strategy</code> → <code>eval_strategy</code>、Trainer 的 <code>tokenizer</code> 参数改为 <code>processing_class</code> 等），具体参数以所用版本文档为准。</li>
 <li>MoE、长上下文、FP8 训练等新技术未覆盖，可参见 <a href="../21-LLaMA3%E6%A8%A1%E5%9E%8B%E8%AE%BE%E8%AE%A1%E8%AE%AD%E7%BB%83%E9%85%8D%E6%96%B9%E4%B8%8E%E5%BC%80%E6%BA%90%E7%94%9F%E6%80%81/">LLaMA3 模型设计训练配方与开源生态</a>。</li>
 </ul>
 <h2 id="_9">参见</h2>
