@@ -119,12 +119,12 @@ ELMo 首次把**预训练思想**引入词向量生成，能捕捉词汇的多�
 
 ## ⚠️ 时效性说明
 
-- 本文回顾的 N-gram、Word2Vec、ELMo 属于历史演进脉络；当前主流文本表示由基于 Transformer 的预训练模型（BERT、GPT 系列）的上下文相关表示主导，见 [预训练语言模型](02-预训练语言模型.md)。
+- 本文回顾的 N-gram、Word2Vec、ELMo 属于历史演进脉络；当前主流文本表示由基于 Transformer 的预训练模型（BERT、GPT 系列）的上下文相关表示主导，见 [预训练语言模型](04-%E9%A2%84%E8%AE%AD%E7%BB%83%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B.md)。
 - 传统分词、词性标注等流水线任务在现代 LLM 时代多被端到端建模吸收，独立研究热度下降。
 
 ## 参见
-- [预训练语言模型](02-预训练语言模型.md)——BERT/GPT/T5 等如何接棒 Word2Vec 与 ELMo
+- [预训练语言模型](04-%E9%A2%84%E8%AE%AD%E7%BB%83%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B.md)——BERT/GPT/T5 等如何接棒 Word2Vec 与 ELMo
 - [注意力机制](../06-注意力机制与Transformer/01-注意力机制.md)
-- [Transformer 架构](../06-注意力机制与Transformer/03-Transformer 架构.md)
+- [Transformer 架构](../06-%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6%E4%B8%8ETransformer/02-Transformer%20%E6%9E%B6%E6%9E%84.md)
 - [检索技术基础：倒排索引与打分排序](../22-检索与RAG/01-检索技术基础：倒排索引与打分排序.md)——VSM/TF-IDF 思想的检索侧延伸
 - [向量检索与嵌入：从ANN到向量数据库](../22-检索与RAG/02-向量检索与嵌入：从ANN到向量数据库.md)
