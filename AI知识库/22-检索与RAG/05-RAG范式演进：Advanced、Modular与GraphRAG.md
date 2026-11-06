@@ -1,3 +1,10 @@
+---
+tags:
+  - RAG
+  - 检索
+  - 大模型
+---
+
 # RAG 范式演进：Advanced、Modular 与 GraphRAG 等新范式
 
 <p class="note-date">更新于 2026-11-05</p>

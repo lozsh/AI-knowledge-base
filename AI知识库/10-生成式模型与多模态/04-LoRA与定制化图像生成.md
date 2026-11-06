@@ -1,3 +1,10 @@
+---
+tags:
+  - 微调
+  - 生成模型
+  - 扩散模型
+---
+
 # 定制化图像生成：Textual Inversion、DreamBooth 与 LoRA
 
 <p class="note-date">更新于 2026-11-03</p>

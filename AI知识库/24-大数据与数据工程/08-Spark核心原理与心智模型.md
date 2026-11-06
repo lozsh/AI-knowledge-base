@@ -1,3 +1,10 @@
+---
+tags:
+  - Spark
+  - 大数据
+  - 数据工程
+---
+
 # Spark 核心原理与心智模型：RDD、DAG、Shuffle 与内存
 
 <p class="note-date">更新于 2026-11-03</p>

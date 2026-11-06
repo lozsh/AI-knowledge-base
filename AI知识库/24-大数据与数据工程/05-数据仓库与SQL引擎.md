@@ -1,3 +1,11 @@
+---
+tags:
+  - 数据仓库
+  - 大数据
+  - Spark
+  - 数据分析
+---
+
 # 数据仓库与 SQL 引擎：Hive、Spark SQL 与流式 SQL
 
 <p class="note-date">更新于 2026-11-03</p>

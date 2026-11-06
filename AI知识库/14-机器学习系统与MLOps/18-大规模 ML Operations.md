@@ -1,3 +1,10 @@
+---
+tags:
+  - MLOps
+  - 机器学习系统
+  - 基础设施
+---
+
 # 大规模 ML Operations
 
 <p class="note-date">更新于 2026-11-05</p>

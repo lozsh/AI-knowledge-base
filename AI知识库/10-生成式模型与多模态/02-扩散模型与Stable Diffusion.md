@@ -1,3 +1,10 @@
+---
+tags:
+  - 扩散模型
+  - 生成模型
+  - 深度学习
+---
+
 # 扩散模型与 Stable Diffusion
 
 <p class="note-date">更新于 2026-11-05</p>

@@ -1,3 +1,10 @@
+---
+tags:
+  - MLOps
+  - 机器学习系统
+  - 机器学习
+---
+
 # ML Operations (MLOps)
 
 <p class="note-date">更新于 2026-11-05</p>

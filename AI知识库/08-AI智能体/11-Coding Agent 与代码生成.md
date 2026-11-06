@@ -1,3 +1,10 @@
+---
+tags:
+  - 智能体
+  - 大模型
+  - AI应用
+---
+
 # Coding Agent 与代码生成
 
 <p class="note-date">更新于 2026-11-03</p>

@@ -1,3 +1,11 @@
+---
+tags:
+  - Transformer
+  - 注意力机制
+  - 大模型
+  - 深度学习
+---
+
 # Transformer 架构
 
 <p class="note-date">更新于 2026-11-03</p>

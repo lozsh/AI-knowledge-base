@@ -1,3 +1,10 @@
+---
+tags:
+  - Spark
+  - 流计算
+  - 数据仓库
+---
+
 # Spark 生态与流计算：Spark SQL 实践模式与 Structured Streaming
 
 <p class="note-date">更新于 2026-11-03</p>
