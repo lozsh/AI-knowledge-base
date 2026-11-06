@@ -1,0 +1,29 @@
+# 知识库防坏闸门：每次 push / PR 自动做严格构建 + 全站坏链检查
+# 这是什么：GitHub Actions CI，构建失败或发现坏链即标红
+# 更新日期：2026-11-06 · 对应模块：mkdocs.yml / tools/check_links.py
+name: kb-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: 安装 MkDocs Material
+        run: pip install mkdocs-material pymdown-extensions
+
+      - name: 全站坏链检查
+        run: python3 tools/check_links.py AI知识库
+
+      - name: 严格构建
+        run: python3 -m mkdocs build --strict
