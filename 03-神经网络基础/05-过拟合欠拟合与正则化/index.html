@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://lozsh.github.io/AI-knowledge-base/03-%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E5%9F%BA%E7%A1%80/02-%E7%BA%BF%E6%80%A7%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">
+        <link rel="canonical" href="https://lozsh.github.io/AI-knowledge-base/03-%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E5%9F%BA%E7%A1%80/05-%E8%BF%87%E6%8B%9F%E5%90%88%E6%AC%A0%E6%8B%9F%E5%90%88%E4%B8%8E%E6%AD%A3%E5%88%99%E5%8C%96/">
       
       
-        <link rel="prev" href="../01-%E4%BB%8E%E7%A5%9E%E7%BB%8F%E5%85%83%E5%88%B0%E6%B7%B1%E5%BA%A6%E7%BD%91%E7%BB%9C/">
+        <link rel="prev" href="../04-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA/">
       
       
-        <link rel="next" href="../03-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA/">
+        <link rel="next" href="../06-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A0%B8%E5%BF%83%E6%80%9D%E6%83%B3%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E6%AD%A3%E5%88%99%E5%8C%96%E3%80%81%E4%BC%98%E5%8C%96%E4%B8%8E%E4%BB%A3%E8%A1%A8%E7%BD%91%E7%BB%9C/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>02-线性神经网络 - AI 知识库</title>
+        <title>05-过拟合欠拟合与正则化 - AI 知识库</title>
       
     
     
@@ -108,7 +108,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              02-线性神经网络
+              05-过拟合欠拟合与正则化
             
           </span>
         </div>
@@ -1087,6 +1087,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1161,6 +1165,90 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../02-%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    02-线性回归
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-softmax%E5%9B%9E%E5%BD%92%E4%B8%8E%E5%9B%BE%E5%83%8F%E5%88%86%E7%B1%BB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    03-softmax回归与图像分类
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    04-多层感知机
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1180,7 +1268,7 @@
   <span class="md-ellipsis">
     
   
-    02-线性神经网络
+    05-过拟合欠拟合与正则化
   
 
     
@@ -1198,7 +1286,7 @@
   <span class="md-ellipsis">
     
   
-    02-线性神经网络
+    05-过拟合欠拟合与正则化
   
 
     
@@ -1224,184 +1312,84 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#vs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        训练误差 vs 泛化误差
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        核心原理：线性回归
+        模型复杂度、模型选择与交叉验证
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="核心原理：线性回归">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        模型
+        欠拟合与过拟合的诊断
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
+  <a href="#l2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        正则化之一：权重衰减（L2）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dropout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        正则化之二：暂退法（Dropout）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        损失函数：平方误差
+        环境与分布偏移
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
+  <a href="#kaggle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        经验与常见坑（Kaggle 房价实战）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        两种解法
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_6" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        高斯噪声假设 ⇒ 平方损失的正当性
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_7" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        线性回归 = 单层神经网络
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        矢量化
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_9" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        代码模式：训练循环（最重要的骨架）
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#softmax" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        核心原理：softmax 回归
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="核心原理：softmax 回归">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#_10" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        分类问题的表示
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#softmax_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        模型：单层网络 + softmax
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_11" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        损失：交叉熵（最大似然）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_12" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        信息论解释
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_13" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        经验与常见坑
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fashion-mnist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        代码模式：Fashion-MNIST 分类全流程
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_14" class="md-nav__link">
     <span class="md-ellipsis">
       
         ⚠️ 时效性说明
@@ -1412,7 +1400,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_15" class="md-nav__link">
+  <a href="#_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         参见
@@ -1438,14 +1426,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../03-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA/" class="md-nav__link">
+      <a href="../06-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A0%B8%E5%BF%83%E6%80%9D%E6%83%B3%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E6%AD%A3%E5%88%99%E5%8C%96%E3%80%81%E4%BC%98%E5%8C%96%E4%B8%8E%E4%BB%A3%E8%A1%A8%E7%BD%91%E7%BB%9C/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-多层感知机
+    06-深度学习核心思想：架构、正则化、优化与代表网络
   
 
     
@@ -1466,14 +1454,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../04-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A0%B8%E5%BF%83%E6%80%9D%E6%83%B3%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E6%AD%A3%E5%88%99%E5%8C%96%E3%80%81%E4%BC%98%E5%8C%96%E4%B8%8E%E4%BB%A3%E8%A1%A8%E7%BD%91%E7%BB%9C/" class="md-nav__link">
+      <a href="../07-%E7%A5%9E%E7%BB%8F%E8%AE%A1%E7%AE%97/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    04-深度学习核心思想：架构、正则化、优化与代表网络
+    07-神经计算
   
 
     
@@ -1494,42 +1482,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../05-%E7%A5%9E%E7%BB%8F%E8%AE%A1%E7%AE%97/" class="md-nav__link">
+      <a href="../08-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    05-神经计算
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../06-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    06-网络架构
+    08-网络架构
   
 
     
@@ -6188,6 +6148,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -6293,14 +6257,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/03-%E8%AE%A1%E7%AE%97%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/" class="md-nav__link">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/03-%E7%AE%97%E5%8A%9B%E7%93%B6%E9%A2%88%E4%B8%8E%E7%A1%AC%E4%BB%B6%E6%BC%94%E8%BF%9B/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    03-计算基础设施
+    03-算力瓶颈与硬件演进
   
 
     
@@ -6321,14 +6285,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/04-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/" class="md-nav__link">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/04-%E6%95%B0%E6%8D%AE%E4%B8%AD%E5%BF%83%E8%A7%84%E6%A8%A1%E5%B1%82%E7%BA%A7/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    04-网络架构
+    04-数据中心规模层级
   
 
     
@@ -6349,14 +6313,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/05-%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/" class="md-nav__link">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/05-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    05-数据存储
+    05-网络架构
   
 
     
@@ -6377,14 +6341,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/06-%E5%88%86%E5%B8%83%E5%BC%8F%20ML%20%E5%8E%9F%E5%88%99/" class="md-nav__link">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/06-%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    06-分布式 ML 原则
+    06-数据存储
   
 
     
@@ -6405,14 +6369,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/07-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/" class="md-nav__link">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/07-%E5%88%86%E5%B8%83%E5%BC%8F%20ML%20%E5%8E%9F%E5%88%99/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    07-分布式训练
+    07-分布式 ML 原则
   
 
     
@@ -6433,14 +6397,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/08-%E9%9B%86%E5%90%88%E9%80%9A%E4%BF%A1/" class="md-nav__link">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/08-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    08-集合通信
+    08-分布式训练
   
 
     
@@ -6461,14 +6425,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/09-%E5%AE%B9%E9%94%99/" class="md-nav__link">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/09-%E6%B7%B7%E5%90%88%E7%B2%BE%E5%BA%A6%E4%B8%8E%E5%A4%9A%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    09-容错
+    09-混合精度与多模型训练
   
 
     
@@ -6489,14 +6453,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/10-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%AE%97%E5%8A%9B%E7%8E%B0%E7%8A%B6%E7%BB%BC%E8%BF%B0/" class="md-nav__link">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/10-%E9%9B%86%E5%90%88%E9%80%9A%E4%BF%A1/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    10-AI基础设施与算力现状综述
+    10-集合通信
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/11-%E5%AE%B9%E9%94%99/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    11-容错
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/12-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%AE%97%E5%8A%9B%E7%8E%B0%E7%8A%B6%E7%BB%BC%E8%BF%B0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    12-AI基础设施与算力现状综述
   
 
     
@@ -7875,184 +7895,84 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#vs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        训练误差 vs 泛化误差
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        核心原理：线性回归
+        模型复杂度、模型选择与交叉验证
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="核心原理：线性回归">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        模型
+        欠拟合与过拟合的诊断
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
+  <a href="#l2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        正则化之一：权重衰减（L2）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dropout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        正则化之二：暂退法（Dropout）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        损失函数：平方误差
+        环境与分布偏移
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
+  <a href="#kaggle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        经验与常见坑（Kaggle 房价实战）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        两种解法
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_6" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        高斯噪声假设 ⇒ 平方损失的正当性
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_7" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        线性回归 = 单层神经网络
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        矢量化
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_9" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        代码模式：训练循环（最重要的骨架）
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#softmax" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        核心原理：softmax 回归
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="核心原理：softmax 回归">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#_10" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        分类问题的表示
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#softmax_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        模型：单层网络 + softmax
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_11" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        损失：交叉熵（最大似然）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_12" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        信息论解释
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_13" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        经验与常见坑
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fashion-mnist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        代码模式：Fashion-MNIST 分类全流程
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_14" class="md-nav__link">
     <span class="md-ellipsis">
       
         ⚠️ 时效性说明
@@ -8063,7 +7983,7 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_15" class="md-nav__link">
+  <a href="#_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         参见
@@ -8115,142 +8035,87 @@
 
 
 
-<h1 id="_1">线性神经网络</h1>
-<p class="note-date">更新于 2026-11-05</p>
+<h1 id="_1">过拟合、欠拟合与正则化</h1>
+<p class="note-date">更新于 2026-11-06</p>
 
-<p><strong>一句话定义</strong>：线性回归和 softmax 回归都可以看作单层神经网络——它们是理解神经网络训练全流程（数据 → 模型 → 损失 → 优化）的最小完整样例，也是一切深度模型的出发点。</p>
-<p>本篇覆盖：线性回归的数学原理与两种解法（解析解/梯度下降）、从零实现与框架简洁实现的完整训练代码骨架、softmax 回归与交叉熵损失（含信息论解释与数值稳定性技巧）、Fashion-MNIST 数据集。</p>
-<h2 id="_2">核心原理：线性回归</h2>
-<h3 id="_3">模型</h3>
-<p>回归（regression）是为输入-输出关系建模的方法，回答"多少"的问题（房价、住院天数、销量）。线性回归基于两个假设：① 目标是特征的加权和（线性关系）；② 噪声比较"正常"（服从正态分布）。</p>
-<div class="arithmatex">\[\hat{y} = \mathbf{w}^\top \mathbf{x} + b\]</div>
+<p><strong>一句话定义</strong>：过拟合 = 模型把训练数据里的噪声当模式记住（训练误差远低于泛化误差），欠拟合 = 模型容量不足连训练数据都拟合不好；应对手段包括模型选择与交叉验证、权重衰减（L2 正则）、暂退法（Dropout），以及识别部署阶段的分布偏移。</p>
+<h2 id="vs">训练误差 vs 泛化误差</h2>
+<p>泛化误差是模型在"同分布无限多新样本"上的期望误差——永远无法精确计算，只能用独立测试集估计。三个思维实验说明差距：① 学生背往年考题 vs 理解原理；② 查表法可完美记住训练集，但 <span class="arithmatex">\(28 \times 28\)</span> 灰度图（每像素 256 种取值）有 <span class="arithmatex">\(256^{784}\)</span> 种可能——比宇宙原子还多，不可能存全表；③ 公平硬币分类器泛化误差恒为 <span class="arithmatex">\(1/2\)</span>，但在小样本上"总猜多数类"的训练误差可以更低（数据增加后两者才趋同）。理论基础：格里文科-坎特利定理（训练误差收敛到泛化误差的速率）与 VC 维理论。</p>
+<p><strong>独立同分布（i.i.d.）假设</strong>：训练/测试数据从同一分布独立抽取。现实中几乎所有应用都存在轻度违背（跨医院、时间相关性），通常仍能工作；但严重违背（用大学生人脸数据训练、用于疗养院）注定失效。<strong>深度网络为何能泛化仍是未解的理论难题</strong>。</p>
+<h2 id="_2">模型复杂度、模型选择与交叉验证</h2>
+<p><strong>模型复杂度的经验因素</strong>：可调整参数数量（自由度）、参数取值范围、训练样本数量。经验法则：能轻松解释任意事实的模型是复杂的，表达能力有限但解释良好的模型更可能有用（与波普尔可证伪性标准相关）。</p>
+<p><strong>模型选择与交叉验证</strong>：验证集用于模型选择/调参，测试集只许用一次。数据稀缺时用 <strong><span class="arithmatex">\(K\)</span> 折交叉验证</strong>（把数据分成 <span class="arithmatex">\(K\)</span> 份轮流做验证）：取 <span class="arithmatex">\(K\)</span> 次验证误差的平均（需训练 <span class="arithmatex">\(K\)</span> 个模型，误差估计对数据划分的依赖更小）。</p>
+<h2 id="_3">欠拟合与过拟合的诊断</h2>
+<p>训练/验证误差都高 → <strong>欠拟合</strong>（加数据也难救，需更大模型）；训练误差远低于验证误差 → <strong>过拟合</strong>（更多数据是首选解）。多项式拟合的直观例子：一阶多项式欠拟合、高阶多项式过拟合、恰当阶数刚好。</p>
+<h2 id="l2">正则化之一：权重衰减（L2）</h2>
+<p>在损失上加 <span class="arithmatex">\(\frac{\lambda}{2}\lVert w \rVert^2\)</span>（<span class="arithmatex">\(\lambda\)</span> 为正则强度、<span class="arithmatex">\(w\)</span> 为权重向量；通常不罚偏置 <span class="arithmatex">\(b\)</span>——<span class="arithmatex">\(b\)</span> 只控制偏移不带来方差性）。直觉：<strong>权重小 → 函数更平滑</strong>，输入变化不会引起输出剧烈波动，不易把噪声当模式。</p>
 <ul>
-<li><strong>权重 w</strong>：决定每个特征对预测的影响；</li>
-<li><strong>偏置 b</strong>：所有特征为零时的预测值（截距），没有它模型表达能力受限；</li>
-<li>严格说这是<strong>仿射变换</strong>：线性变换（加权和）+ 平移（偏置）；</li>
-<li>全数据集的矩阵形式：ŷ = Xw + b，X ∈ ℝ^(n×d) 每行一个样本（b 靠广播机制相加）。</li>
+<li>贝叶斯解释：L2 正则等价于对权重施加高斯先验的最大后验估计（L1 则对应拉普拉斯先验）；</li>
+<li><span class="arithmatex">\(\lambda=0\)</span> 退化为原损失；<span class="arithmatex">\(\lambda\)</span> 过大会把权重压得过小导致欠拟合；用验证集选；</li>
+<li>简洁实现：<code>trainer = torch.optim.SGD(net.parameters(), lr=lr, weight_decay=wd)</code>，同一训练器可对不同参数组设不同 <code>weight_decay</code>（权重衰减系数，代码里的参数名，例如只罚权重不罚偏置）。</li>
 </ul>
-<h3 id="_4">损失函数：平方误差</h3>
-<div class="arithmatex">\[\mathcal{L}(\mathbf{w}, b) = \frac{1}{n}\sum_{i=1}^{n} \frac{1}{2}\left(\mathbf{w}^\top \mathbf{x}^{(i)} + b - y^{(i)}\right)^2\]</div>
-<p>1/2 常数只为求导后系数为 1。训练目标 argmin L(w,b)。</p>
-<h3 id="_5">两种解法</h3>
+<h2 id="dropout">正则化之二：暂退法（Dropout）</h2>
+<p><strong>动机</strong>：好的预测模型应对输入的微小扰动不敏感（平滑性）。毕晓普 1995 年证明：对输入加噪声的训练等价于 Tikhonov 正则化。斯里瓦斯塔瓦等人 2014 年把这一思想推广到网络内部层——<strong>训练时在计算后续层之前向每层注入噪声</strong>。原始论文的类比：dropout 破坏层间的"共适应性"，如同有性生殖破坏共适应的基因。</p>
+<p><strong>标准做法</strong>（无偏注入）：每个中间活性值 <span class="arithmatex">\(h\)</span> 以暂退概率 <span class="arithmatex">\(p\)</span> 被置零，其余除以 <span class="arithmatex">\((1-p)\)</span>：</p>
+<div class="arithmatex">\[h' = \begin{cases} 0, &amp; \text{概率 } p \\ \frac{h}{1-p}, &amp; \text{其他}\end{cases} \qquad E[h'] = h\]</div>
+<p>效果：每次迭代相当于训练一个原始网络的随机子网，输出层无法过度依赖任何单个神经元。</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">dropout_layer</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dropout</span><span class="p">):</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">dropout</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">mask</span> <span class="o">*</span> <span class="n">X</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">dropout</span><span class="p">)</span>
+
+<span class="c1"># 简洁实现：每个 nn.Dropout 层可指定不同概率</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Flatten</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">784</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout1</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</code></pre></div>
+<p>要点：<strong>测试时不用 dropout</strong>（不丢弃也不缩放）；例外是有研究者测试时启用 dropout 来估计预测不确定性——多次遮罩预测一致则说明网络稳定。dropout 通常只用在隐藏层之间。经验：全连接网络中 dropout 是防止过拟合的常用手段，与权重衰减、控制模型容量配合使用。</p>
+<h2 id="_4">环境与分布偏移</h2>
+<p>许多部署失败源于没想清楚"数据从哪来、输出到哪去"。最危险的场景：<strong>模型部署本身扰乱数据分布</strong>——贷款模型发现"穿牛津鞋与低违约相关"后开始按鞋放贷，顾客学会穿牛津鞋，模型被自己破坏。更尖锐的例子：预测犯罪的模型把更多警力派往某地区→更多犯罪被发现→模型更确信该地区危险（反馈循环）。</p>
+<p>三种分布偏移（若无 <span class="arithmatex">\(p_S\)</span>（源域/训练数据分布）与 <span class="arithmatex">\(p_T\)</span>（目标域/测试数据分布）关系的假设，恢复性能在理论上不可能）：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>假设</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>协变量偏移（covariate shift）</td>
+<td><span class="arithmatex">\(P(y \mid x)\)</span> 不变，<span class="arithmatex">\(P(x)\)</span> 变</td>
+<td><span class="arithmatex">\(x\)</span> 导致 <span class="arithmatex">\(y\)</span> 时自然成立（真实照片训练、卡通图片测试）</td>
+</tr>
+<tr>
+<td>标签偏移（label shift）</td>
+<td><span class="arithmatex">\(P(x \mid y)\)</span> 不变，<span class="arithmatex">\(P(y)\)</span> 变</td>
+<td><span class="arithmatex">\(y\)</span> 导致 <span class="arithmatex">\(x\)</span> 时成立（疾病流行率变化，症状由疾病引起）；基于标签的方法倾向处理低维对象，常更有利</td>
+</tr>
+<tr>
+<td>概念偏移（concept shift）</td>
+<td>标签定义本身变了</td>
+<td>时髦语、诊断标准、职位名称的地域/时代变化（美国"软饮"称呼的地域分布）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>经验风险最小化的暗坑</strong>：训练目标（经验风险）与真实风险之间隔着分布偏移。应对手段从简单的（要求"正确"的数据）到困难的（强化学习、因果建模、算法公平性）不等。批归一化等技术与修正测试期统计量（correcting test-time statistics）相关；检测协变量偏移可用判别器区分训练/测试样本。</p>
+<h2 id="kaggle">经验与常见坑（Kaggle 房价实战）</h2>
+<p>真实数据比合成数据脏得多，完整流程值得记录：</p>
 <ol>
-<li><strong>解析解</strong>：把 b 并入 w（X 加一列全 1），损失 ∥y − Xw∥² 只有一个临界点，令梯度为零得 w* = (X⊤X)⁻¹X⊤y。线性回归是深度学习里罕见的特例——解析解对问题限制太严，无法推广。</li>
-<li><strong>小批量随机梯度下降（minibatch SGD）</strong>：每次迭代随机抽一个小批量 B，沿负梯度方向更新：</li>
+<li><strong>下载与缓存</strong>：数据集下载逻辑做成带缓存目录的函数，避免重复下载；</li>
+<li><strong>预处理</strong>：数值特征用均值填补缺失（有时按 neighborhood 分组填中位数更准）、标准化（<span class="arithmatex">\(\mu = 0\)</span>，<span class="arithmatex">\(\sigma = 1\)</span>，即均值 0、标准差 1——否则优化会因不同特征尺度差异而低效）；离散特征 <code>pd.get_dummies</code> 独热化（对训练集+测试集联合处理保证类别对齐）；训练集/测试集特征按列对齐（<code>features = pd.concat((train.iloc[:, 1:-1], test.iloc[:, 1:]))</code>）；</li>
+<li><strong>损失用 log MSE</strong>：预测房价的对数与真实价格的对数之差——因为我们更关心<strong>相对误差</strong>（30 万估成 40 万 与 300 万估成 400 万 应同等惩罚，而平方误差会偏爱高价位房子）；</li>
+<li><strong><span class="arithmatex">\(K\)</span> 折交叉验证选超参</strong>：数据只有千余条样本，<span class="arithmatex">\(K\)</span> 折平均比分一次更稳；</li>
+<li><strong>流程</strong>：先建基线（线性/MLP），在验证曲线上看是否过拟合，再迭代调超参（学习率、epoch、隐藏层宽度、正则强度）。</li>
 </ol>
-<div class="arithmatex">\[(w, b) \leftarrow (w, b) - \eta \cdot \frac{1}{|\mathcal{B}|} \sum_{i \in \mathcal{B}} \nabla_{(w,b)}\, l^{(i)}\]</div>
-<p><strong>批量大小 |B| 和学习率 η 是超参数</strong>——手动预先指定、不在训练中更新，靠验证集上调参。即使函数真的线性且无噪声，有限步数也只能逼近最小值而非精确达到。深度网络损失面有多个最小值，实践者很少追求训练集上的全局最优——更难的是<strong>泛化</strong>（在未见数据上低损失）。</p>
-<blockquote>
-<p>术语提醒：d2l 坚持"预测（prediction）"而非"推断（inference）"——统计学里 inference 指基于数据集估计参数，深度学习的用法是术语误用，与统计学家交谈时易误解。</p>
-</blockquote>
-<h3 id="_6">高斯噪声假设 ⇒ 平方损失的正当性</h3>
-<p>设 y = w⊤x + b + ε，ε ∼ N(0, σ²)。似然 P(y|x) 是正态密度；最大化对数似然、去掉与 w,b 无关的项后，剩余部分<strong>正是均方误差</strong>（解不依赖 σ）。结论：<strong>高斯噪声假设下，最小化均方误差等价于极大似然估计</strong>。</p>
-<h3 id="_7">线性回归 = 单层神经网络</h3>
-<p>输入层 d 个特征 → 一个计算神经元 → 1 个输出。层数计算不计输入层，故是"单层神经网络"；每个输入连接每个输出的变换叫<strong>全连接层</strong>（fully-connected / dense layer）。生物学对应：树突（输入）→ 突触权重（加权）→ 细胞核（求和）→ 轴突（输出+非线性）。但注意：飞机受鸟类启发，鸟类学却不是航空创新的主要驱动力——当今深度学习灵感更多来自数学、统计与计算机科学。</p>
-<h3 id="_8">矢量化</h3>
-<p>用 Python for 循环逐元素相加 10000 维向量约 0.17 秒，用张量运算符约 0.0004 秒——<strong>矢量化带来数量级加速</strong>，还减少出错可能。能放进线性代数库的计算就不要手写循环。</p>
-<h2 id="_9">代码模式：训练循环（最重要的骨架）</h2>
-<p>从零实现五件套（现代框架已自动化这些组件，但理解原理才能自定义模型/层/损失）：</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># 1. 数据：合成 y = Xw + b + ε</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">synthetic_data</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">):</span>
-    <span class="n">X</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">num_examples</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">w</span><span class="p">)))</span>
-    <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span> <span class="o">+</span> <span class="n">b</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="p">(</span><span class="n">num_examples</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span>
-
-<span class="c1"># 2. 小批量迭代器：打乱 + 切片</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">data_iter</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">features</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
-    <span class="n">indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">)))</span>
-    <span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">),</span> <span class="n">batch_size</span><span class="p">):</span>
-        <span class="n">sel</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">batch_size</span><span class="p">])</span>
-        <span class="k">yield</span> <span class="n">features</span><span class="p">[</span><span class="n">sel</span><span class="p">],</span> <span class="n">labels</span><span class="p">[</span><span class="n">sel</span><span class="p">]</span>
-
-<span class="c1"># 3. 模型 / 损失</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">linreg</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span> <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span> <span class="o">+</span> <span class="n">b</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">squared_loss</span><span class="p">(</span><span class="n">y_hat</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span> <span class="k">return</span> <span class="p">(</span><span class="n">y_hat</span> <span class="o">-</span> <span class="n">y</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">y_hat</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span>
-
-<span class="c1"># 4. 优化器（除以 batch_size 使步长与批量大小无关；记得清零梯度）</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">sgd</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">lr</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
-    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
-            <span class="n">p</span> <span class="o">-=</span> <span class="n">lr</span> <span class="o">*</span> <span class="n">p</span><span class="o">.</span><span class="n">grad</span> <span class="o">/</span> <span class="n">batch_size</span>
-            <span class="n">p</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
-
-<span class="c1"># 5. 训练循环：前向 → 损失求和 → 反向 → 更新</span>
-<span class="n">w</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># 随机初始化</span>
-<span class="n">b</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
-    <span class="k">for</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">data_iter</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">features</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
-        <span class="n">l</span> <span class="o">=</span> <span class="n">loss</span><span class="p">(</span><span class="n">linreg</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="n">y</span><span class="p">)</span>   <span class="c1"># l 形状是 (batch_size,1)</span>
-        <span class="n">l</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>             <span class="c1"># 求和成标量再反向</span>
-        <span class="n">sgd</span><span class="p">([</span><span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">],</span> <span class="n">lr</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
-</code></pre></div>
-<p>框架简洁实现（组件各就各位，<code>nn.Linear(2, 1)</code> 就是全连接层）：</p>
-<div class="highlight"><pre><span></span><code><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="n">net</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">);</span> <span class="n">net</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bias</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">loss</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MSELoss</span><span class="p">()</span>
-<span class="n">trainer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.03</span><span class="p">)</span>
-<span class="c1"># 训练循环同上：net(X) 前向 → loss 反向 → trainer.step() 更新 → trainer.zero_grad()</span>
-</code></pre></div>
-<p>数据读取换用 <code>data.TensorDataset</code> + <code>data.DataLoader(..., shuffle=True)</code>，比手写迭代器高效得多（可处理存于文件/流的数据）。注意经验：ML 中通常不关心恢复"真参数"，只关心预测准；深度网络里能实现高精度预测的参数组合很多，SGD 通常能找到其中一个。</p>
-<h2 id="softmax">核心原理：softmax 回归</h2>
-<h3 id="_10">分类问题的表示</h3>
-<p>分类回答"哪一个"。类别无自然顺序时（猫/鸡/狗）用<strong>独热编码</strong>：y ∈ {(1,0,0), (0,1,0), (0,0,1)}。有自然顺序时（年龄分组）转回归保留整数格式才有意义。</p>
-<h3 id="softmax_1">模型：单层网络 + softmax</h3>
-<p>每类一个仿射函数输出未规范化的预测（logit）：<strong>o = Wx + b</strong>（W ∈ ℝ^(q×d)），再用 softmax 把 o 变成概率：</p>
-<div class="arithmatex">\[\hat{y}_j = \frac{\exp(o_j)}{\sum_k \exp(o_k)}\]</div>
-<p>为什么要 softmax 而不直接把 o 当概率：o 的总和不为 1、且可能为负，违反概率公理。softmax 求幂保证非负、除以总和保证归一、保持可导。它不改变 o 的大小次序（argmax ŷ = argmax o），且<strong>虽然 softmax 是非线性函数，softmax 回归的输出仍由仿射变换决定——它仍是线性模型</strong>。</p>
-<p>小批量矢量化：O = XW + b（O ∈ ℝ^(n×q)），softmax 按行执行。</p>
-<blockquote>
-<p><strong>全连接层的参数开销</strong>：d 输入 q 输出的全连接层参数量为 O(dq)，实践中可能高得惊人；可用超参数 n 将开销降到 O(dqn)（分流方法）。</p>
-</blockquote>
-<h3 id="_11">损失：交叉熵（最大似然）</h3>
-<p>对独热标签，负对数似然化为 l(y, ŷ) = −Σⱼ yⱼ log ŷⱼ——只留下正确类那一项。代入 softmax 定义可推出<strong>漂亮的梯度</strong>：</p>
-<div class="arithmatex">\[\partial_{o_j} l = \text{softmax}(\mathbf{o})_j - y_j\]</div>
-<p>即梯度 = 预测概率 − 真实标签，与线性回归中"梯度 = ŷ − y"完全同构（这不是巧合：任何指数族分布的对数似然梯度都是这个形式）。</p>
-<h3 id="_12">信息论解释</h3>
+<h2 id="_5">⚠️ 时效性说明</h2>
 <ul>
-<li><strong>熵</strong> H[P] = −Σⱼ P(j) log P(j)：编码从分布 P 抽取的数据所需的最少"纳特"数（1 纳特 = 1/log 2 ≈ 1.44 比特，纳特用自然对数底）；</li>
-<li><strong>信息量</strong> = −log P(j)：事件概率越低，发生时"惊异"越大；熵是概率匹配真实数据生成过程时信息量的期望；</li>
-<li><strong>交叉熵</strong> H(P,Q)：主观概率为 Q 的观察者看到按 P 生成的数据时的预期惊异；P = Q 时最小，等于 H(P)。交叉熵分类目标的两面：① 最大化观测数据似然；② 最小化传达标签所需的惊异。</li>
+<li>代码基于 PyTorch（<code>torch.nn</code> / <code>torch.optim</code>），API 长期稳定；主流框架的 dropout 默认行为已是"测试时不丢弃也不缩放"，早期框架的"训练时缩放"实现语义等价；</li>
+<li>Kaggle 房价（House Prices）竞赛页面与数据集下载地址可能随时间变动，本地复现时以 Kaggle 官方页面为准。</li>
 </ul>
-<h2 id="_13">经验与常见坑</h2>
+<h2 id="_6">参见</h2>
 <ul>
-<li><strong>softmax 数值稳定性（最重要的实现细节）</strong>：oₖ 很大时 exp(oₖ) 会<strong>上溢</strong>（inf），oⱼ − max 后大负值会<strong>下溢</strong>（0），log(0) = −inf，反向传播几步后满屏 nan。技巧：softmax 前先对所有 oₖ 减去 max(oₖ)——减常数不改变 softmax 结果；更好的做法是<strong>把未规范化的预测直接传入交叉熵损失</strong>（PyTorch 的 <code>nn.CrossEntropyLoss</code>），在损失内部合并计算 softmax 与 log（LogSumExp 技巧），log(exp(·)) 相互抵消，彻底避开数值问题。</li>
-<li><strong>交叉熵取标签概率的实现</strong>：<code>y_hat[range(len(y_hat)), y]</code> 用 y 做花式索引一行取正确类概率，避免低效 for 循环。</li>
-<li><strong>sum 沿轴与 keepdim</strong>：<code>X.sum(0, keepdim=True)</code> 保持轴数（形状 (1,3)），便于后续广播。</li>
-<li><strong>训练-评估分离</strong>：测试集只用于评估精度（accuracy = 正确预测数/预测总数），绝不参与训练。</li>
-<li><strong>softmax 之名是误称</strong>：真正的 soft-softmax 是 RealSoftMax(a,b) = log(eᵃ + eᵇ)，当 λ→∞ 时 λ⁻¹RealSoftMax(λa, λb) → max(a, b)。</li>
-</ul>
-<h2 id="fashion-mnist">代码模式：Fashion-MNIST 分类全流程</h2>
-<p><strong>数据集</strong>：Fashion-MNIST（10 类服饰灰度图，28×28×1，训练 60000 / 测试 10000），比 MNIST 复杂、比 ImageNet 轻量，是分类入门标准基准。10 类：t-shirt、trouser、pullover、dress、coat、sandal、shirt、sneaker、bag、ankle boot。</p>
-<div class="highlight"><pre><span></span><code><span class="n">trans</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">()</span>  <span class="c1"># PIL → 32位浮点，除以 255 归一到 [0,1]</span>
-<span class="n">mnist_train</span> <span class="o">=</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">FashionMNIST</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="s2">&quot;../data&quot;</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                                                <span class="n">transform</span><span class="o">=</span><span class="n">trans</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">train_iter</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">mnist_train</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-<span class="c1"># 从零版模型：图像先 reshape 展平为向量，再仿射 + softmax</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">net</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">softmax</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">W</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])),</span> <span class="n">W</span><span class="p">)</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span>
-
-<span class="c1"># 简洁版：直接用框架层，CrossEntropyLoss 内含 softmax + log（数值稳定）</span>
-<span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Flatten</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">784</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
-<span class="n">loss</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">(</span><span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">)</span>
-<span class="n">trainer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
-
-<span class="c1"># 预测：取概率最大的类别</span>
-<span class="n">preds</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</code></pre></div>
-<p>训练超参数：学习率 0.1、10 个 epoch 左右即可在 Fashion-MNIST 上达到 80%+ 精度。训练循环与线性回归完全一致——<strong>读取数据 → 定义模型与损失 → 优化算法训练</strong>，几乎所有深度学习模型都复用这一流程。</p>
-<h2 id="_14">⚠️ 时效性说明</h2>
-<p>本篇 API 以 PyTorch 当前长期稳定用法为准（<code>torchvision.datasets.FashionMNIST</code> 等）；MNIST 作为基准已过于简单，新研究不再使用；"全连接层参数开销可用 O(dqn) 降维"是分流式设计的早期表述，现代大模型中这一思想演化为 MoE、低秩分解等技术。</p>
-<h2 id="_15">参见</h2>
-<ul>
-<li><a href="../03-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA/">多层感知机</a></li>
-<li><a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/02-%E9%A2%84%E5%A4%87%E7%9F%A5%E8%AF%86/">数学与机器学习基础 · 预备知识</a></li>
-<li><a href="../../02-%E6%95%B0%E5%AD%A6%E4%B8%8E%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%9F%BA%E7%A1%80/04-%E7%BB%8F%E5%85%B8%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E6%A8%A1%E5%9E%8B%EF%BC%9A%E4%BB%8E%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92%E5%88%B0%E9%9B%86%E6%88%90%E5%AD%A6%E4%B9%A0/">数学与机器学习基础 · 机器如何自己学习</a></li>
-<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/02-%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95/">模型训练与优化 · 优化算法</a></li>
-<li><a href="../../13-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6%E4%B8%8E%E8%AE%A1%E7%AE%97/03-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E8%AE%A1%E7%AE%97/">深度学习框架与计算 · PyTorch模型构建与训练全流程</a></li>
+<li><a href="../04-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA/">多层感知机</a> —— 同域前置：MLP 本体</li>
+<li><a href="../../12-%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E4%BC%98%E5%8C%96/01-%E6%8A%8A%E7%BD%91%E7%BB%9C%E8%AE%AD%E5%A5%BD%E7%9A%84%E8%89%BA%E6%9C%AF/">模型训练与优化 · 把网络训好的艺术</a></li>
 </ul>
 
 
@@ -8290,7 +8155,7 @@
       <nav class="md-footer__inner md-grid" aria-label="页脚" >
         
           
-          <a href="../01-%E4%BB%8E%E7%A5%9E%E7%BB%8F%E5%85%83%E5%88%B0%E6%B7%B1%E5%BA%A6%E7%BD%91%E7%BB%9C/" class="md-footer__link md-footer__link--prev" aria-label="上一页: 01-从神经元到深度网络">
+          <a href="../04-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA/" class="md-footer__link md-footer__link--prev" aria-label="上一页: 04-多层感知机">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -8300,20 +8165,20 @@
                 上一页
               </span>
               <div class="md-ellipsis">
-                01-从神经元到深度网络
+                04-多层感知机
               </div>
             </div>
           </a>
         
         
           
-          <a href="../03-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA/" class="md-footer__link md-footer__link--next" aria-label="下一页: 03-多层感知机">
+          <a href="../06-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A0%B8%E5%BF%83%E6%80%9D%E6%83%B3%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E6%AD%A3%E5%88%99%E5%8C%96%E3%80%81%E4%BC%98%E5%8C%96%E4%B8%8E%E4%BB%A3%E8%A1%A8%E7%BD%91%E7%BB%9C/" class="md-footer__link md-footer__link--next" aria-label="下一页: 06-深度学习核心思想：架构、正则化、优化与代表网络">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 下一页
               </span>
               <div class="md-ellipsis">
-                03-多层感知机
+                06-深度学习核心思想：架构、正则化、优化与代表网络
               </div>
             </div>
             <div class="md-footer__button md-icon">
