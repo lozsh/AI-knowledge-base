@@ -37,7 +37,6 @@ def main(docs_dir: str) -> None:
     print('nav:')
     print('  - 首页: index.md')
     print('  - 全貌: 00-全貌.md')
-    print('  - 标签: tags.md')
     for band, nums in BANDS:
         print(f'  - {band}:')
         for n in nums:
