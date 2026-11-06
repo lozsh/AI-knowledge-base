@@ -119,3 +119,9 @@ tags:
 - GFS 后继 Colossus、以及 MapReduce 在 Google 内部已被 FlumeJava/Dataflow 取代，均无公开论文细节；MapReduce 作为引擎在工业界也已被 Spark 等替代，但其编程模型与容错设计仍是理解一切批处理系统的地基。
 - Kafka 早期版本依赖 ZooKeeper 存 Offset/所有权注册表，新版（KRaft 之后）已去 ZooKeeper；ZooKeeper 方案为 2011 论文时期的机制。
 - 本文基于 2021 年技术认知；Spanner 论文中"论文当年用 TT.now().latest 做跨组读时间戳"属于实现细节，现实现或有变化。Chubby 在 Google 内部仍服务，但开源世界的对应物是 ZooKeeper/etcd。
+
+## 参见
+- [01-大数据体系与架构演进](01-%E5%A4%A7%E6%95%B0%E6%8D%AE%E4%BD%93%E7%B3%BB%E4%B8%8E%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B.md) —— 本文谱系在开源生态的落地全景：Hadoop→Spark→批流统一的架构演进史。
+- [03-分布式存储原理](03-%E5%88%86%E5%B8%83%E5%BC%8F%E5%AD%98%E5%82%A8%E5%8E%9F%E7%90%86.md) —— GFS/Bigtable 的开源化身 HDFS/HBase 的存储原理与容错机制。
+- [04-分布式计算范式](04-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%A1%E7%AE%97%E8%8C%83%E5%BC%8F.md) —— MapReduce 的计算模型细节及其被 DAG/内存计算取代的原因。
+- [04-数据中心规模层级](../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/04-%E6%95%B0%E6%8D%AE%E4%B8%AD%E5%BF%83%E8%A7%84%E6%A8%A1%E5%B1%82%E7%BA%A7.md) —— Borg 编排的硬件载体：数据中心级规模层级与网络拓扑。

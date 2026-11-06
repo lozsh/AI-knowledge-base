@@ -26,7 +26,7 @@ tags:
 2. `device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")` 获取设备实例；
 3. **迁移**：Tensor 和 Module 都用 `.to(device)` 推上 GPU。
 
-## 关键方法/原理
+## 核心原理
 
 ### DP（nn.DataParallel）：单进程多卡
 ```python
@@ -91,4 +91,4 @@ DDP 训练四步：
 
 
 ## 参见
-- [AI基础设施与硬件 · 分布式训练](../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/07-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83.md)——从单机数据并行递进到集群级并行与通信硬件
+- [AI基础设施与硬件 · 分布式训练](../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/08-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83.md)——从单机数据并行递进到集群级并行与通信硬件

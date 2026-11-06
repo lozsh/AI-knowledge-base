@@ -20,7 +20,7 @@ tags:
 - **Function Calling**：把"AI 选函数"内置为 API 能力——传 `tools` 定义，模型返回 `tool_calls`（函数名 + JSON 参数），程序执行后把结果以 `role=tool` 消息回传，再拿最终回答。
 - **数据飞轮**：用户使用行为即标注数据——好产品 → 更多数据 → 更好模型 → 更好产品的正循环。
 
-## 关键方法/原理
+## 核心原理
 
 ### 1. Agent 的本质是提示工程
 MRKL 模板要求模型输出固定格式（Thought/Action/Action Input/Observation），程序解析后执行工具、把 Observation 拼回 Prompt 再调模型，循环至 Final Answer。所谓"智能"，一半在模型，一半在解析与回填的确定性代码。
@@ -95,3 +95,9 @@ MRKL 模板要求模型输出固定格式（Thought/Action/Action Input/Observat
 
 - LangChain 早期 LLMChain/Agent API 已被大幅重构（现为 LangChain 1.x / LangGraph 体系）；OpenAI Completions 接口已废弃。文中模式（ReAct 循环、tools 定义、role=tool 回传）机制层面仍通用。
 - 微调价格倍数、模型名为 2023 年快照。
+
+## 参见
+- [13-推理增强与多智能体：思维链谱系与Agent设计](13-%E6%8E%A8%E7%90%86%E5%A2%9E%E5%BC%BA%E4%B8%8E%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93%EF%BC%9A%E6%80%9D%E7%BB%B4%E9%93%BE%E8%B0%B1%E7%B3%BB%E4%B8%8EAgent%E8%AE%BE%E8%AE%A1.md) —— 同一条工程化主线的下一篇：推理增强与多智能体
+- [01-智能体总览](../08-AI%E6%99%BA%E8%83%BD%E4%BD%93/01-%E6%99%BA%E8%83%BD%E4%BD%93%E6%80%BB%E8%A7%88.md) —— Agent 概念在智能体域的系统展开
+- [09-记忆与检索](../08-AI%E6%99%BA%E8%83%BD%E4%BD%93/09-%E8%AE%B0%E5%BF%86%E4%B8%8E%E6%A3%80%E7%B4%A2.md) —— Memory 抽象在智能体域的深入设计
+- [18-LangChain核心抽象设计思想](../08-AI%E6%99%BA%E8%83%BD%E4%BD%93/18-LangChain%E6%A0%B8%E5%BF%83%E6%8A%BD%E8%B1%A1%E8%AE%BE%E8%AE%A1%E6%80%9D%E6%83%B3.md) —— 链式调用背后的 LangChain 抽象设计思想

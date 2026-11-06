@@ -57,7 +57,7 @@ $$\mathcal{L}_{pretrain} = -\sum_{t=1}^{T} \log P(x_t \mid x_1, \dots, x_{t-1}; 
 5. **自我改进（Self-Improvement）**：自我反思、识别错误、分析失败原因并调整策略。
 6. **感知（Perception）**：多模态理解与视觉推理、视觉工具使用。
 
-## 关键概念
+## 核心概念
 
 ### GSM8K：数学推理训练的标准任务
 

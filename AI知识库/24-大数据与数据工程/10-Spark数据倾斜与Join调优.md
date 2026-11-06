@@ -32,7 +32,7 @@ tags:
 3. API：`broadcast(df)` 函数包裹小表
 - 原则：**以广播阈值配置为主、强制广播为辅**。广播不是银弹：小表再大也不能超 8GB；广播还吃 Driver 与网络（全量数据经 Driver 分发到每个 Executor）。
 
-## 关键方法/原理
+## 核心原理
 
 ### AQE（自适应查询执行，Spark 3.0）
 - **触发时机：每当 Shuffle Map 阶段执行完毕**，依据中间文件统计信息（data 文件大小、空文件占比、分区大小）动态修正尚未执行的计划。**没有 Shuffle 的查询 AQE 完全无效**。
@@ -103,3 +103,8 @@ tags:
 - AQE/DPP 为 Spark 3.0 特性（Spark 3.0/3.1 中 AQE 默认关闭，`spark.sql.adaptive.enabled=true` 开启；**Spark 3.2+ AQE 默认开启**）；2.x 用户只能用广播阈值 + Join Hints + 手工加盐。
 - 广播 8GB 上限、阈值默认 10MB 等数值为 Spark 3.0 当时的版本行为，具体以所用版本官方文档为准。
 - Spark 3.x 后续版本新增了多种 Join Hints 变体与 AQE 配置项，工具箱思路不变、参数名需核对。
+
+## 参见
+- [09-Spark性能调优方法论](09-Spark%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%96%B9%E6%B3%95%E8%AE%BA.md) —— 倾斜与 Join 是调优方法论中最常踩的短板，治理手法需嵌入整体流程。
+- [08-Spark核心原理与心智模型](08-Spark%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E4%B8%8E%E5%BF%83%E6%99%BA%E6%A8%A1%E5%9E%8B.md) —— Join 策略与倾斜的机制根源：宽依赖、Shuffle 与 Stage 划分。
+- [15-性能工程](../14-%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%B3%BB%E7%BB%9F%E4%B8%8EMLOps/15-%E6%80%A7%E8%83%BD%E5%B7%A5%E7%A8%8B.md) —— 定位-测量-优化的性能工程方法论在 ML 系统中的同构应用。

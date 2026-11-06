@@ -27,7 +27,7 @@ tags:
 - **后验的运行时诊断**：Spark UI（Stage 耗时分布、Task 倾斜、GC 时间、缓存占用、Shuffle 读写量）+ 系统级监控（top/vmstat/iostat/iftop、Prometheus+Grafana）+ GC 日志分析（西医仪器）。
 - 切入维度：先判断负载类型（计算密集/内存密集/IO 密集）缩小范围；再盯典型场景——**Shuffle 和数据关联对四类资源要求都高，是天然的瓶颈高发区**。
 
-## 关键方法/原理
+## 核心原理
 
 ### 调优的两个层面
 - **应用代码层面**：捕捉和移除性能 BUG——遵循"能省则省（避免 Shuffle）、能拖则拖（先过滤/预聚合再 Shuffle）"、避免单机思维、用内置函数替代 UDF（但先确认瓶颈）。
@@ -97,3 +97,8 @@ tags:
 - `spark.yarn.executor.memoryOverhead` 在 Spark 3.x 更名为 `spark.executor.memoryOverhead`（且不再需要把 offHeap.size 加进去，3.0+ 由 Yarn 自动计入）。
 - Dynamic Allocation、AQE 开启后 `spark.sql.shuffle.partitions` 的影响被削弱（AQE 会自动合并分区），但初始值仍决定 Map 端输出分区数。
 - 本文以 YARN 部署为背景；Kubernetes 部署下 overhead/本地性细节略有差异。
+
+## 参见
+- [08-Spark核心原理与心智模型](08-Spark%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E4%B8%8E%E5%BF%83%E6%99%BA%E6%A8%A1%E5%9E%8B.md) —— 调优方法背后的心智模型：RDD/DAG/Shuffle/内存四模型是定位瓶颈的透镜。
+- [10-Spark数据倾斜与Join调优](10-Spark%E6%95%B0%E6%8D%AE%E5%80%BE%E6%96%9C%E4%B8%8EJoin%E8%B0%83%E4%BC%98.md) —— 最常见瓶颈的具体治理：Join 策略选择与数据倾斜工具箱。
+- [03-算力瓶颈与硬件演进](../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/03-%E7%AE%97%E5%8A%9B%E7%93%B6%E9%A2%88%E4%B8%8E%E7%A1%AC%E4%BB%B6%E6%BC%94%E8%BF%9B.md) —— 木桶理论收敛于 CPU/内存/磁盘/网络均衡——正是硬件层的算力瓶颈视角。

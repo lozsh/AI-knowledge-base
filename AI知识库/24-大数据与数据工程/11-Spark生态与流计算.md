@@ -26,7 +26,7 @@ tags:
 - **三种输出模式**：Complete（输出至今全量结果）、Update（仅输出本批次有更新的行）、Append（仅输出已定稿的新增行）。
 - **容错**：Checkpoint（WAL 预写日志）保障 exactly-once 语义（配合可重放 Source 与幂等/事务 Sink）。
 
-## 关键方法/原理
+## 核心原理
 
 ### Batch mode vs Continuous mode
 | 维度 | Batch mode（微批，默认） | Continuous mode（连续处理） |
@@ -84,3 +84,8 @@ tags:
 - Spark 3.x 后续版本流计算生态大量转向 **Kafka Source v2 / Cloud Files / 流式 Delta Lake**，File Source 监听目录的用法仍有效但已非首选。
 - Flink 在"真流式 + 事件时间语义"上后来居上，毫秒级延迟 + 复杂事件时间的生产选型需对比 Flink；Spark 的强项仍是"批流统一在一个引擎里、复用 SQL 生态"。
 - Hive on Spark / Spark on Hive 的具体形态随发行版（CDH/COD 等）差异较大，以平台文档为准。
+
+## 参见
+- [06-流计算与消息队列](06-%E6%B5%81%E8%AE%A1%E7%AE%97%E4%B8%8E%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97.md) —— Window 与 Watermark 背后的理论：事件时间、水位线与 Exactly-Once 模型。
+- [05-数据仓库与SQL引擎](05-%E6%95%B0%E6%8D%AE%E4%BB%93%E5%BA%93%E4%B8%8ESQL%E5%BC%95%E6%93%8E.md) —— Spark SQL 的血统来源：从 Hive 到 Shark 到自研 Catalyst 的谱系。
+- [06-用户画像与召回重排策略](../23-%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/06-%E7%94%A8%E6%88%B7%E7%94%BB%E5%83%8F%E4%B8%8E%E5%8F%AC%E5%9B%9E%E9%87%8D%E6%8E%92%E7%AD%96%E7%95%A5.md) —— Spark SQL/Streaming 加工的画像表与特征宽表是推荐召回重排的原料。

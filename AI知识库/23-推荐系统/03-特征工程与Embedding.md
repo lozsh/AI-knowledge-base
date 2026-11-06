@@ -24,7 +24,7 @@ tags:
 - **Embedding**：用一个数值向量"表示"一个对象，向量间距离反映对象相似性，向量运算甚至能揭示对象间关系（king−man+woman≈queen）。
 - Embedding 重要的两个原因：① 处理稀疏特征的利器——One-hot 高维稀疏向量不利于深度网络，Embedding 层将其转为稠密低维向量，几乎所有深度推荐模型标配；② 本身就是融合大量信息的特征向量——尤其是 Graph Embedding 之后，几乎可引入任何信息编码。
 
-## 关键方法/原理
+## 核心原理
 
 ### 类别/ID 型特征处理
 - **One-hot 编码**：类别对应维度置 1 其余置 0。适用单个类别特征和 ID 特征。
@@ -114,3 +114,10 @@ tags:
 - Spark MLlib 的 `OneHotEncoderEstimator` 已更名为 `OneHotEncoder`，API 以所用 Spark 版本为准；处理思路不变。
 - 向量检索生态已远超 LSH：FAISS 的 IVF/PQ/HNSW、各厂 ANN 服务（ScaNN、HNSW 库）在精度-速度权衡上普遍优于纯 LSH，但"分桶保留距离信息"的思想一脉相承。
 - Embedding 预训练→拼接的玩法在 LLM 时代延伸为语义向量（Sentence-BERT 等）做内容召回，原理同源，Item2vec 的"序列即语料"思想依然适用。
+
+## 参见
+
+- [协同过滤与矩阵分解](02-%E5%8D%8F%E5%90%8C%E8%BF%87%E6%BB%A4%E4%B8%8E%E7%9F%A9%E9%98%B5%E5%88%86%E8%A7%A3.md) —— MF 隐向量是最早的 Embedding 思想源头，本文是其方法论的正统后代。
+- [深度学习推荐模型演化谱系](04-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%8E%A8%E8%8D%90%E6%A8%A1%E5%9E%8B%E6%BC%94%E5%8C%96.md) —— Embedding 特征是深度推荐模型（Wide&Deep、DIN 等）的输入前提，两篇互为上下游。
+- [向量检索与嵌入：从 ANN 算法到向量数据库](../22-%E6%A3%80%E7%B4%A2%E4%B8%8ERAG/02-%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E4%B8%8E%E5%B5%8C%E5%85%A5%EF%BC%9A%E4%BB%8EANN%E5%88%B0%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93.md) —— 学到的 Embedding 向量要在线服务，靠的是 ANN 索引与向量数据库，本文的召回向量与检索向量原理同源。
+- [多模态 AI](../10-%E7%94%9F%E6%88%90%E5%BC%8F%E6%A8%A1%E5%9E%8B%E4%B8%8E%E5%A4%9A%E6%A8%A1%E6%80%81/01-%E5%A4%9A%E6%A8%A1%E6%80%81AI.md) —— 多模态场景把 Embedding 从 ID/序列扩展到图文音统一向量空间，是特征表达的高阶形态。

@@ -82,3 +82,8 @@ tags:
 - **Streaming SQL 事实载体已收敛**：Flink SQL 是国内实时数仓主力；Siddhi 生态萎缩，KSQL（现 ksqlDB）社区趋冷。模式检测实用入口是 Flink CEP。
 - "Flink Table API/SQL 与 Spark SQL 差距明显"的判断已过期：Flink SQL 1.11 后飞速成熟，与 Spark SQL 的对比结论需反转理解。
 - 阿里 Panthera 是 2010 年代内部项目，方法论（等价变换消除嵌套子查询）仍耐用，工程载体已换代（Calcite）。
+
+## 参见
+- [11-Spark生态与流计算](11-Spark%E7%94%9F%E6%80%81%E4%B8%8E%E6%B5%81%E8%AE%A1%E7%AE%97.md) —— Spark SQL 的实践模式与 Catalyst 引擎细节，本文血统谱系的现役主力。
+- [14-数据工程流程：采集、清洗、变换与挖掘](14-%E6%95%B0%E6%8D%AE%E5%B7%A5%E7%A8%8B%E6%B5%81%E7%A8%8B%EF%BC%9A%E9%87%87%E9%9B%86%E3%80%81%E6%B8%85%E6%B4%97%E3%80%81%E5%8F%98%E6%8D%A2%E4%B8%8E%E6%8C%96%E6%8E%98.md) —— 数据仓库在完整数据流程中的位置：DW 是地基，分析与挖掘是其上的产出。
+- [03-特征工程与Embedding](../23-%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/03-%E7%89%B9%E5%BE%81%E5%B7%A5%E7%A8%8B%E4%B8%8EEmbedding.md) —— 数仓分层产出的干净表是推荐特征工程的上游供给。

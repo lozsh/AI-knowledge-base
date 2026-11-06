@@ -24,7 +24,7 @@ tags:
 5. Agents：LLM 驱动的自主决策与工具调用
 6. Callbacks：生命周期钩子/可观测性
 
-## 关键方法/模式
+## 核心原理
 
 ### 1. Model I/O = Format + Predict + Parse
 
@@ -124,3 +124,8 @@ Plan-and-Execute 的代价：计划时无环境反馈，一步错步步错，对
 - 本文基于 2023 年的 LangChain（0.0.x~0.1.x），文中所有 API（`initialize_agent`、`LLMChain`、`ConversationChain`、各 Memory 类）**均已废弃**：现已被 LCEL 表达式（`prompt | model | parser`）、LangGraph（AgentExecutor 的继任者）和 `langchain_core.messages` 体系取代。
 - 本文只收设计思想与模式；复现任何功能请查当前官方文档，不要照抄文中基于旧版 API 的示例。
 - Zero-shot ReAct 文本模板已被原生 function calling / tool use 接口大幅替代，但"工具描述 + 格式契约 + 轨迹累积 + 终止信号"的骨架在新接口下依然成立。
+
+## 参见
+- [17-智能体框架演进与选型](17-%E6%99%BA%E8%83%BD%E4%BD%93%E6%A1%86%E6%9E%B6%E6%BC%94%E8%BF%9B%E4%B8%8E%E9%80%89%E5%9E%8B.md) —— LangChain 在框架谱系中的位置与同类对比
+- [22-构建你的智能体框架](22-%E6%9E%84%E5%BB%BA%E4%BD%A0%E7%9A%84%E6%99%BA%E8%83%BD%E4%BD%93%E6%A1%86%E6%9E%B6.md) —— 理解抽象之后亲手造一个框架
+- [12-LLM应用工程：链式调用、记忆、Agent与函数调用](../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/12-LLM%E5%BA%94%E7%94%A8%E5%B7%A5%E7%A8%8B%EF%BC%9A%E9%93%BE%E5%BC%8F%E8%B0%83%E7%94%A8%E3%80%81%E8%AE%B0%E5%BF%86%E3%80%81Agent%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8.md) —— LangChain 各抽象对应的 LLM 应用工程原语

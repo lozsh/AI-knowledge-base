@@ -74,3 +74,9 @@ tags:
 - 规格数字：LLaMA 3（8B/70B，8K 上下文，15T token 预训练）→ 3.1（405B，128K 上下文）→ 3.2（1B/3B 文本 + 11B/90B Vision）→ 3.3（70B）。版本迭代极快。
 - 文中示例工具链：Ollama（llama3:text）、graphrag==0.1.1（API 已大改）、nomic-embed-text、Python 3.11——具体 API 用法不要照搬。
 - OpenVLA（7B，基于 LLaMA 2 微调）为当时具身智能开源代表。
+
+## 参见
+- [03-大模型训练流程实践](03-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E6%B5%81%E7%A8%8B%E5%AE%9E%E8%B7%B5.md) —— LLaMA 3 配方背后的通用训练流程
+- [05-大模型训练系统-分布式与对齐](05-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E7%B3%BB%E7%BB%9F-%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%8E%E5%AF%B9%E9%BD%90.md) —— 配方落地所需的分布式系统与对齐训练
+- [07-大模型架构原理与演进](../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/07-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%9E%B6%E6%9E%84%E5%8E%9F%E7%90%86%E4%B8%8E%E6%BC%94%E8%BF%9B.md) —— Decoder-Only 等设计选择的架构原理背景
+- [04-RLHF与对齐算法](../09-%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/04-RLHF%E4%B8%8E%E5%AF%B9%E9%BD%90%E7%AE%97%E6%B3%95.md) —— PPO/DPO 后训练三段中的强化学习算法细节

@@ -36,7 +36,7 @@ tags:
 - 调度系统核心职责：把 DAG 转化为分布式任务，按资源可用性与调度规则依序分发给 Executors。
 - **核心原则：数据呆在原地不动，把计算代码分发到离数据最近的执行器**（计算本地性：`PROCESS_LOCAL` > `NODE_LOCAL` > `RACK_LOCAL` > `ANY`，越靠前数据离计算越近），最大限度降低网络开销。
 
-## 关键方法/原理
+## 核心原理
 
 ### Shuffle 工作机制（性能问题的总根源）
 - **定义：集群范围内跨节点、跨进程的数据分发**。2.0 之后统一由 Sort Shuffle Manager 管理。
@@ -93,3 +93,8 @@ tags:
 - 本文基于 Spark 3.0（2020 年前后）。RDD 仍是底层模型，但日常开发以 DataFrame/SQL 为主；RDD 算子（groupByKey 等）在新代码中已少用，原理性内容不受影响。
 - Sort Shuffle Manager 的 bypass 机制（`spark.shuffle.sort.bypassMergeThreshold`，默认 200）在后续版本仍在；Shuffle 细节若读源码需以所用版本为准。
 - 统一内存管理的区域公式自 1.6 起稳定；Reserved Memory 300MB 在 Spark 3.x 中仍保留。
+
+## 参见
+- [09-Spark性能调优方法论](09-Spark%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E6%96%B9%E6%B3%95%E8%AE%BA.md) —— 心智模型的应用层：用四模型定位瓶颈的调优方法论。
+- [10-Spark数据倾斜与Join调优](10-Spark%E6%95%B0%E6%8D%AE%E5%80%BE%E6%96%9C%E4%B8%8EJoin%E8%B0%83%E4%BC%98.md) —— Shuffle 边界心智模型最重的应用场景：Join 策略与倾斜治理。
+- [05-网络架构](../15-AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%B8%8E%E7%A1%AC%E4%BB%B6/05-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84.md) —— Shuffle 本质是跨节点网络数据交换，其成本由网络架构决定。

@@ -51,7 +51,7 @@ scores = F.softmax(scores.float(), dim=-1)
 
 **多头注意力（multi-head attention）**：一次注意力只能拟合一种相关关系。多头对同一语料并行做多次注意力计算，各自拟合不同层次的信息（论文实验显示不同头确实关注不同模式），结果拼接后经线性层输出。工程实现的关键技巧：用三个 `n_embd × n_embd` 的组合矩阵代替 n 组小参数矩阵（矩阵内积再拼接等价于拼接矩阵再内积），前向时 reshape + transpose 拆成 n 个头并行计算，输出再 transpose + contiguous + view 合并头、经 $W_o$（输出投影矩阵）投影回残差流。
 
-## 关键概念
+## 核心概念
 
 ### Encoder-Decoder 结构
 
@@ -108,4 +108,4 @@ x = x + self.pe[:, :x.size(1)]   # 加到词向量上
 - [注意力引爆大模型的引擎](03-%E6%B3%A8%E6%84%8F%E5%8A%9B%E5%BC%95%E7%88%86%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%9A%84%E5%BC%95%E6%93%8E.md)：注意力如何演化为大模型引擎的宏观视角
 - [大语言模型 · 大模型架构原理与演进](../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/07-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%9E%B6%E6%9E%84%E5%8E%9F%E7%90%86%E4%B8%8E%E6%BC%94%E8%BF%9B.md)：从 Transformer 到现代大模型架构的演进
 - [大语言模型 · 预训练语言模型](../07-%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/04-%E9%A2%84%E8%AE%AD%E7%BB%83%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B.md)：基于 Transformer 的 BERT/GPT 等预训练模型
-- [神经网络基础 · 网络架构](../03-%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E5%9F%BA%E7%A1%80/06-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84.md)：FNN/CNN/RNN 等基础网络架构
+- [神经网络基础 · 网络架构](../03-%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E5%9F%BA%E7%A1%80/08-%E7%BD%91%E7%BB%9C%E6%9E%B6%E6%9E%84.md)：FNN/CNN/RNN 等基础网络架构
