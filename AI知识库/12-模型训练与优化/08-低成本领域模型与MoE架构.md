@@ -39,7 +39,7 @@ tags:
 LoRA 的核心假设是预训练模型适应下游任务只需较低的**内在维度**：冻结原权重 W₀，侧通道增量 ΔW = **BA**（r ≪ 维度），训练量与显存大幅下降（175B 模型 checkpoint 从 350GB 压到 35MB 级）。本领域小团队的典型用法：对 Self-attention 四矩阵做 LoRA、冻结 MLP，PEFT 库加载，单张消费级显卡即可在数小时内完成 Alpaca 级复现——低秩假设推导、初始化细节与超参配置详见[大模型训练流程实践](03-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E6%B5%81%E7%A8%8B%E5%AE%9E%E8%B7%B5.md)。
 
 ### 全量微调基准配置（可复算）
-4×A100 80G，FSDP full_shard，3 epochs，lr 2e-5，cosine 调度，bf16/tf32——7B 级模型的通用起点。
+4×A100 80G，FSDP `full_shard`，3 epochs，lr 2e-5，cosine 调度，bf16/tf32——7B 级模型的通用起点。
 
 ### 后训练闭环：把提示语的偶然收益固化为技能
 预训练"偶然捡到"的有效提示语（如 "Let's think step by step"）有随机性；**后训练目标 = 把它固化成任何场景稳定触发的技能**：

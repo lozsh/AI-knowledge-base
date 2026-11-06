@@ -59,7 +59,7 @@ tags:
 |---|---|
 | Tensor / 张量 | PyTorch 统一的多维数组结构，可上 GPU |
 | Rank（秩） | Tensor 的维度阶数，标量 0 阶、向量 1 阶、矩阵 2 阶 |
-| requires_grad | 标记 Tensor 是否需要在计算中保留梯度 |
+| `requires_grad` | 标记 Tensor 是否需要在计算中保留梯度 |
 | autograd | PyTorch 的自动微分机制，自动完成反向传播 |
 | 梯度（gradient） | 函数所有偏导数构成的向量，方向指向函数值增长最快处 |
 | 链式法则 | 复合函数求导规则，反向传播的数学基础 |

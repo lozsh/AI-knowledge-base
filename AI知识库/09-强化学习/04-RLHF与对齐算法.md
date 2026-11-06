@@ -71,11 +71,11 @@ $$J(\theta) = \mathbb{E}_{x,\,y\sim\pi_\theta}\big[r_\phi(x,y)\big] - \beta\, D_
 
 $$r(x,y) = \beta \log \frac{\pi_\theta(y|x)}{\pi_{\text{ref}}(y|x)} + \text{const}$$
 
-把这个等价关系代回 Bradley-Terry 目标，奖励模型被**消元**，得到直接关于 π_θ 的分类式损失：
+把这个等价关系代回 Bradley-Terry 目标，奖励模型被**消元**，得到直接关于 $\pi_\theta$（被训练策略）的分类式损失：
 
 $$\mathcal{L}_{\text{DPO}} = -\mathbb{E}\Big[\log \sigma\Big(\beta \log \tfrac{\pi_\theta(y_c|x)}{\pi_{\text{ref}}(y_c|x)} - \beta \log \tfrac{\pi_\theta(y_r|x)}{\pi_{\text{ref}}(y_r|x)}\Big)\Big]$$
 
-效果：**不需要训练 RM，不需要 PPO 采样循环**，只需两个 LLM（训练的 π_θ + 冻结的 π_ref，Ref 还可离线预计算），训练形式接近加权交叉熵，简单稳定得多，因此成为开源社区做偏好对齐的常用工具。
+效果：**不需要训练 RM，不需要 PPO 采样循环**，只需两个 LLM（训练的 $\pi_\theta$ + 冻结的 $\pi_{\text{ref}}$（参考策略，还可离线预计算），训练形式接近加权交叉熵，简单稳定得多，因此成为开源社区做偏好对齐的常用工具。
 
 **定位要摆正**：DPO 不是"RLHF 已过时"的证据。需要复杂交互、工具使用、长程任务时，显式 RL（在线采样、试错、多步信用分配）仍不可替代；DPO 更像一把轻便的瑞士军刀，不是万能施工队。
 

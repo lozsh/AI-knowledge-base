@@ -30,7 +30,7 @@ tags:
 
 - **提示模板（Format）**：带占位符变量的模板对象，价值在于——一次定义多处复用、自动提取和校验变量、换模型不改提示代码、与输出解析器组合。类似 ML 框架里"模型可换、训练框架复用"的关系。
 - **模型通用接口（Predict）**：文本模型（text→text）、聊天模型（消息列表→消息）、嵌入模型（text→向量）三类统一抽象，换后端零成本。
-- **输出解析器（Parse）**：定义 ResponseSchema（字段+描述）→ 生成 format_instructions 注入提示 → 解析模型输出为结构化数据（字典/Pydantic）。
+- **输出解析器（Parse）**：定义 ResponseSchema（字段+描述）→ 生成 `format_instructions` 注入提示 → 解析模型输出为结构化数据（字典/Pydantic）。
   - 关键设计：**把"预期输出格式"作为 prompt 的一部分注入，让生成端和解析端共享同一份契约**。
 
 ### 2. Chain：硬编码的操作序列
@@ -47,7 +47,7 @@ tags:
 | Buffer | 全量保存 | 信息最全 | token 线性增长，撞上下文上限 |
 | Buffer Window | 只留最近 k 轮 | token 恒定 | 完全遗忘 k 轮之前 |
 | Summary | LLM 滚动汇总 | 长对话省 token | 早期多花 token；细节丢失；依赖汇总模型能力 |
-| Summary Buffer | 超过 max_token_limit 的旧内容做摘要，近期保留原文 | 兼顾远近（对应记忆的长期+短期） | 实现最复杂；短对话反而更贵 |
+| Summary Buffer | 超过 `max_token_limit` 的旧内容做摘要，近期保留原文 | 兼顾远近（对应记忆的长期+短期） | 实现最复杂；短对话反而更贵 |
 
 经验：单模型回答 + 另一个模型做汇总可以分离；客服类场景可叠加 RAG（短期全量 + 长期摘要 + 向量库辅助）。多用户并发时记忆必须按用户/会话隔离。
 
@@ -103,7 +103,7 @@ Plan-and-Execute 的代价：计划时无环境反馈，一步错步步错，对
 | 术语 | 含义 |
 |---|---|
 | Model I/O | 输入提示(FORMAT)、调用模型(PREDICT)、解析输出(PARSE)三环节统称 |
-| format_instructions | 输出解析器生成的格式说明，注入 prompt 供模型遵循 |
+| `format_instructions` | 输出解析器生成的格式说明，注入 prompt 供模型遵循 |
 | RouterChain | 用 LLM 判断意图并分发到子链的路由链 |
 | AgentExecutor | Agent 的运行环境/引擎，驱动"计划→工具→观察"循环 |
 | AgentFinish | 代理输出类型之一，表示任务完成、循环终止 |
@@ -112,7 +112,7 @@ Plan-and-Execute 的代价：计划时无环境反馈，一步错步步错，对
 
 ## 经验与常见坑
 
-- **输出格式无保证**：即便注入了 format_instructions，模型也可能输出"看起来像 JSON 但少个逗号"的内容，或包一层代码围栏——解析器只是"尽力而为"，业务层必须做容错重试（可用 OutputFixingParser 思路：解析失败让 LLM 修复）。
+- **输出格式无保证**：即便注入了 `format_instructions`，模型也可能输出"看起来像 JSON 但少个逗号"的内容，或包一层代码围栏——解析器只是"尽力而为"，业务层必须做容错重试（可用 OutputFixingParser 思路：解析失败让 LLM 修复）。
 - **Agent 输出同时包含最终答案和可解析动作**时解析器会抛异常——换不同厂商模型时常见，本质是模型对 ReAct 格式的遵循度不同；选模型要验证其工具调用稳定性。
 - **温度与稳定性**：复杂多工具任务上 temperature 高会导致结果不稳定，"多跑几次才对"不是工程方案——调低温度或换模型。
 - **token 复利**：ReAct 每轮都重发全部历史轨迹，长任务 token 消耗是平方级增长；Plan-and-Execute / REWOO 类模式部分是为省 token 而生。

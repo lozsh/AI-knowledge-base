@@ -22,9 +22,11 @@ tags:
 
 注意力机制的核心思想：关注一张图片或一段文本时，无需看清全部内容，只需把注意力集中在重点部分。它有三个核心变量——**Query（查询）、Key（键）、Value（真值）**。例如在新闻报道中找时间，Query 是"时间/日期"类的稠密向量，Key 和 Value 是整个文本；Query 与 Key 运算得到权重（每个 token 应分到的注意力大小），再与 Value 加权求和得到结果。
 
-用字典查询理解公式的推导：普通字典只支持精确匹配（Query="apple" 直接命中 Key）；但 Query="fruit" 时应同时匹配 apple 和 banana、不匹配 chair——需要给各 Key 分配权重 {apple:0.6, banana:0.4, chair:0} 再组合 Value。权重怎么算？利用词向量的性质：语义相近的词向量点积大于 0，不相似则小于 0，于是用**点积**度量 Query 与各 Key 的相似度，经 softmax 归一化为和为 1 的注意力分数，再对 Value 加权求和。当维度 d 较大时，QK 的点积会很大，softmax 后差异悬殊、影响梯度稳定，因此做缩放，得到核心公式：
+用字典查询理解公式的推导：普通字典只支持精确匹配（Query="apple" 直接命中 Key）；但 Query="fruit" 时应同时匹配 apple 和 banana、不匹配 chair——需要给各 Key 分配权重 {apple:0.6, banana:0.4, chair:0} 再组合 Value。权重怎么算？利用词向量的性质：语义相近的词向量点积大于 0，不相似则小于 0，于是用**点积**度量 Query 与各 Key 的相似度，经 softmax 归一化为和为 1 的注意力分数，再对 Value 加权求和。当维度 $d$ 较大时，QK 的点积会很大，softmax 后差异悬殊、影响梯度稳定，因此做缩放，得到核心公式：
 
-Attention(Q, K, V) = softmax(QKᵀ/√d_k)·V
+$$\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V$$
+
+其中 $Q$、$K$、$V$ 分别为查询、键、值矩阵，$d_k$ 为 Key/Query 的向量维度（每头维度）。
 
 核心代码只有几行：
 
@@ -47,7 +49,7 @@ scores = scores + mask[:, :seqlen, :seqlen]  # 遮蔽未来位置
 scores = F.softmax(scores.float(), dim=-1)
 ```
 
-**多头注意力（multi-head attention）**：一次注意力只能拟合一种相关关系。多头对同一语料并行做多次注意力计算，各自拟合不同层次的信息（论文实验显示不同头确实关注不同模式），结果拼接后经线性层输出。工程实现的关键技巧：用三个 `n_embd × n_embd` 的组合矩阵代替 n 组小参数矩阵（矩阵内积再拼接等价于拼接矩阵再内积），前向时 reshape + transpose 拆成 n 个头并行计算，输出再 transpose + contiguous + view 合并头、经 W_o 投影回残差流。
+**多头注意力（multi-head attention）**：一次注意力只能拟合一种相关关系。多头对同一语料并行做多次注意力计算，各自拟合不同层次的信息（论文实验显示不同头确实关注不同模式），结果拼接后经线性层输出。工程实现的关键技巧：用三个 `n_embd × n_embd` 的组合矩阵代替 n 组小参数矩阵（矩阵内积再拼接等价于拼接矩阵再内积），前向时 reshape + transpose 拆成 n 个头并行计算，输出再 transpose + contiguous + view 合并头、经 $W_o$（输出投影矩阵）投影回残差流。
 
 ## 关键概念
 
@@ -64,7 +66,7 @@ Transformer 针对的是 **Seq2Seq** 任务：输入一个自然语言序列、�
 | 前馈网络 FFN | 两个线性层夹一个 ReLU 激活，外加 Dropout 防过拟合；对每个位置独立变换 |
 | 层归一化 LayerNorm | 把每层输入归一化到稳定分布。BatchNorm 按 mini-batch 统计均值方差，在 batch 小、变长序列（RNN 时间维度展开）场景下失效；LayerNorm 改为在**每个样本的所有维度**上统计，统计维度不同、公式相同，深度网络中更常用 |
 | 残差连接 | 每个子层输出与输入相加（x + Attention(x) 后再归一化），允许最底层信息直达最高层，让高层专注学残差，避免深层模型退化 |
-| Embedding 层 | 可训练的 (vocab_size, embedding_dim) 权重矩阵，本质是词表到向量的查找表；tokenizer 把文本切成 token 并转为 index，Embedding 查出 (batch_size, seq_len, embedding_dim) 的表示 |
+| Embedding 层 | 可训练的 `(vocab_size, embedding_dim)` 权重矩阵，本质是词表到向量的查找表；tokenizer 把文本切成 token 并转为 index，Embedding 查出 `(batch_size, seq_len, embedding_dim)` 的表示 |
 | 位置编码 | 注意力对每个位置一视同仁，"我喜欢你"和"你喜欢我"完全相同；必须显式注入位置信息 |
 
 ### 位置编码（正余弦 / Sinusoidal）
@@ -74,7 +76,7 @@ Transformer 针对的是 **Seq2Seq** 任务：输入一个自然语言序列、�
 1. **可外推**：公式可以算出训练集未见过的更长位置的编码；
 2. **可表达相对位置**：PE(pos+k) 可由 PE(pos) 线性表示（sin(A+B)=sinA·cosB+cosA·sinB），固定间距 k 的相对关系易于学习。
 
-数学上可严格推导：在两个位置 m、n 上对编码函数做泰勒展开，希望交叉项表达相对位置；将二维向量视为复数、用复数指数形式求解，得到二维解后按线性叠加性组合成偶数维编码；取频率底数为 10000（实验结果）使内积 ⟨p_m, p_n⟩ 随 |m−n| 增大有趋于零的趋势。
+数学上可严格推导：在两个位置 $m$、$n$ 上对编码函数做泰勒展开，希望交叉项表达相对位置；将二维向量视为复数、用复数指数形式求解，得到二维解后按线性叠加性组合成偶数维编码；取频率底数为 10000（实验结果）使内积 $\langle p_m, p_n \rangle$ 随 $|m-n|$ 增大有趋于零的趋势。
 
 ```python
 pe = torch.zeros(block_size, n_embd)
@@ -86,15 +88,15 @@ x = x + self.pe[:, :x.size(1)]   # 加到词向量上
 
 ### 完整模型
 
-数据流：输入 idx → Embedding → 位置编码 → Dropout → Encoder（N 层）→ Decoder（N 层，接收 enc_out）→ 线性层 lm_head（映射到词表大小）→ 训练时经 softmax 与 targets 算交叉熵，推理时只取序列最后一个位置的 logits。工程上还需参数量统计（get_num_params）与权重初始化（线性层/Embedding 用 std=0.02 的正态分布）。
+数据流：输入 idx → Embedding → 位置编码 → Dropout → Encoder（N 层）→ Decoder（N 层，接收 `enc_out`）→ 线性层 `lm_head`（映射到词表大小）→ 训练时经 softmax 与 targets 算交叉熵，推理时只取序列最后一个位置的 logits。工程上还需参数量统计（`get_num_params`）与权重初始化（线性层/Embedding 用 std=0.02 的正态分布）。
 
 ## 经验与常见坑
 
-- **多头维度必须整除**：n_embd 必须是头数的整数倍，否则无法均匀拆分；每头维度 = dim / n_heads，缩放时除的也是 head_dim 而非总维度。
+- **多头维度必须整除**：`n_embd` 必须是头数的整数倍，否则无法均匀拆分；每头维度 = `dim / n_heads`，缩放时除的也是 `head_dim` 而非总维度。
 - **transpose 后不能直接 view**：PyTorch 的 view 基于底层连续存储，transpose 不改变存储，需要先 `.contiguous()` 再 view，否则报错。
-- **掩码维度**：多头注意力的 mask 比单头多一个维度，形状为 (1, 1, seq_len, seq_len)，通过广播作用于所有 batch 和头；计算时按实际 seqlen 截取（序列可能短于 max_seq_len）。
+- **掩码维度**：多头注意力的 mask 比单头多一个维度，形状为 `(1, 1, seq_len, seq_len)`，通过广播作用于所有 batch 和头；计算时按实际 seqlen 截取（序列可能短于 `max_seq_len`）。
 - **softmax 前先转 float**：混合精度训练下 `scores.float()` 再 softmax 更稳定。
-- **不要省略缩放 √d_k**：维度大时点积值差异悬殊，softmax 饱和导致梯度不稳定。
+- **不要省略缩放 $\sqrt{d_k}$**：维度大时点积值差异悬殊，softmax 饱和导致梯度不稳定。
 
 ## ⚠️ 时效性说明
 

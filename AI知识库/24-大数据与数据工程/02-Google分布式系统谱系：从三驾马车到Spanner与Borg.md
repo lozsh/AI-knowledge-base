@@ -80,7 +80,7 @@ tags:
 - Megastore 首次在 Bigtable 上补关系型特性：**实体组（Entity Group）**按 Key 预 Join 物理连续存储，利用数据局部性；组内一阶段事务 + MVCC 乐观并发（Bigtable 多版本天然支持）；组间要么两阶段事务要么异步消息。
 - 每个实体组一个 Paxos 组跨数据中心同步复制：组内顺序、组间并发。**快速读**靠 Coordinator 记录"本地哪些数据最新"（代价：写要通知全部副本而非多数派）；**快速写**用无租期的 Leader-based Paxos（Leader 故障立即重选，通常选出离用户最近的 DC）。实测写延迟 100-400ms——示范意义大于性能。
 - Spanner"重写"了一切：放弃 Bigtable，Spanserver 的 Tablet 自身兼任 Paxos Group 节点、副本承担锁表与事务管理；**Pipelined Paxos**（有租期 Leader，后续提议在 Leader 排队，一阶段完成）替代 Megastore 频繁退回两阶段。
-- **TrueTime 是点睛之笔**：任何服务器本地时钟都不准（石英振荡器日误差约 1 秒），分布式事务无论取谁的本地时间做提交时间戳都有"后事务读不到前事务数据"的悖论。Spanner 的解法是 ① 用原子钟+GPS 把全集群时钟误差压缩到一个已知区间 [earliest, latest]；② 提交前**等待误差区间完全过去**（commit wait）。由此获得全局单调递增的提交时间戳，实现**外部一致性**（可串行化 + 可线性化：前事务写入，后事务立即可见）。读侧用 t_safe = min(t_paxos_safe, t_TM_safe) 判断副本能否安全响应指定时间戳的读。
+- **TrueTime 是点睛之笔**：任何服务器本地时钟都不准（石英振荡器日误差约 1 秒），分布式事务无论取谁的本地时间做提交时间戳都有"后事务读不到前事务数据"的悖论。Spanner 的解法是 ① 用原子钟+GPS 把全集群时钟误差压缩到一个已知区间 [earliest, latest]；② 提交前**等待误差区间完全过去**（commit wait）。由此获得全局单调递增的提交时间戳，实现**外部一致性**（可串行化 + 可线性化：前事务写入，后事务立即可见）。读侧用 $t_{safe} = \min(t_{paxos\_safe},\ t_{TM\_safe})$ 判断副本能否安全响应指定时间戳的读（$t_{safe}$ 为副本的安全读时间戳，$t_{paxos\_safe}$ 为 Paxos 组已达成一致的安全时间，$t_{TM\_safe}$ 为事务管理器认可的安全时间）。
 
 ### Borg → Omega → Kubernetes（资源编排层）
 

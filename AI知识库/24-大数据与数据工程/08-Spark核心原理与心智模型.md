@@ -34,7 +34,7 @@ tags:
 
 ### 调度系统："数据不动代码动"
 - 调度系统核心职责：把 DAG 转化为分布式任务，按资源可用性与调度规则依序分发给 Executors。
-- **核心原则：数据呆在原地不动，把计算代码分发到离数据最近的执行器**（计算本地性：PROCESS_LOCAL > NODE_LOCAL > RACK_LOCAL > ANY），最大限度降低网络开销。
+- **核心原则：数据呆在原地不动，把计算代码分发到离数据最近的执行器**（计算本地性：`PROCESS_LOCAL` > `NODE_LOCAL` > `RACK_LOCAL` > `ANY`，越靠前数据离计算越近），最大限度降低网络开销。
 
 ## 关键方法/原理
 
@@ -75,14 +75,14 @@ tags:
 | data / index 文件 | Shuffle 中间文件的数据部分 / 各分区偏移量索引 |
 | Execution / Storage / User Memory | 执行、缓存、用户自定义结构三类内存区域 |
 | 堆内 / 堆外内存 | JVM 托管（有 GC、估算不精确）/ Unsafe 直管（精确、无 GC） |
-| 本地性级别 | PROCESS_LOCAL > NODE_LOCAL > RACK_LOCAL > ANY，越靠后网络开销越大 |
+| 本地性级别 | `PROCESS_LOCAL` > `NODE_LOCAL` > `RACK_LOCAL` > `ANY`，越靠后网络开销越大 |
 | WSCG | Whole-Stage Code Generation，全阶段代码生成 |
 | 谓词下推 / 列剪枝 | 过滤条件尽量贴近数据源执行 / 只扫描需要的列 |
 
 ## 经验与常见坑
 
 - **逢 RDD 便 cache 是大忌**：cache 的收益前提是"引用次数 > 1 且重算成本高"；滥用后性能反而比不缓存差（见 12 篇调优方法论）。
-- **聚合需求禁用收集类算子**：需要计数/求和时用 reduceByKey/aggregateByKey（Map 端预聚合），不要用 groupByKey/collect_list——前者溢写少、中间文件小，后者把原始数据全量分发，是调优大忌。
+- **聚合需求禁用收集类算子**：需要计数/求和时用 `reduceByKey`/`aggregateByKey`（Map 端预聚合），不要用 `groupByKey`/`collect_list`——前者溢写少、中间文件小，后者把原始数据全量分发，是调优大忌。
 - 消除 Shuffle 的收益是双份的：既省四类硬件资源，又保住 Stage 内的算子融合。所以"把 Shuffle 往后拖"（先 map 端聚合/过滤再 Shuffle）有实际性能含义。
 - 堆内内存的 OOM 常常不是"真的没有内存"，而是 Spark 高估了可用量；对稳定性敏感的场景可开启堆外内存。
 - 理解内存区域归属才能定位问题：dict 这类 Driver 分发的自定义结构在 User Memory；cache 在 Storage；Shuffle 的 Buffer/HashMap 在 Execution。

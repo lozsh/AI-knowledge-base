@@ -52,7 +52,7 @@ tags:
 - 缓存侧：`spark.rdd.compress` 开启压缩可大幅提升缓存存储效率（默认不压缩）。
 
 ### Cache 的正确用法
-- 默认存储级别：RDD → MEMORY_ONLY；DataFrame → MEMORY_AND_DISK。
+- 默认存储级别：RDD → `MEMORY_ONLY`；DataFrame → `MEMORY_AND_DISK`。
 - 缓存 3 步：Unroll（Iterator 物化为对象）→ Transfer（封装 MemoryEntry）→ 注册（BlockId-MemoryEntry 进 LinkedHashMap）。
 - 空间不足时的清除原则：**LRU**（最近最少访问优先逐出）+ **兔子不吃窝边草**（同一 RDD 的其他块有"赦免权"）。
 - 使用 3 原则：
@@ -68,7 +68,7 @@ tags:
 
 ### 磁盘与网络的视角
 - 磁盘三大功能：溢写临时文件、缓存数据集、存 Shuffle 中间文件——是稳定性的底盘。**磁盘复用**（Shuffle 中间文件被重复利用）两用途：失败重试缩短重算路径；**ReuseExchange**——相同分区规则 + 相同字段的多个查询共享同一份 Shuffle 结果，只扫一次文件、只 Shuffle 一次。
-- 网络三大削减点：读取阶段争取 NODE_LOCAL 本地性（计算与存储物理耦合）；处理阶段用 Broadcast Join 消 Shuffle、用 Map 端聚合减少分发量；分发前用 **Kryo 序列化**（需注册自定义类型，否则可能适得其反）。
+- 网络三大削减点：读取阶段争取 `NODE_LOCAL` 本地性（计算与存储物理耦合）；处理阶段用 Broadcast Join 消 Shuffle、用 Map 端聚合减少分发量；分发前用 **Kryo 序列化**（需注册自定义类型，否则可能适得其反）。
 
 ## 术语表
 

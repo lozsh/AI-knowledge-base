@@ -35,7 +35,7 @@ net = nn.DataParallel(net)   # 一行包住即可
 运行逻辑：
 - 每个 batch 切成 n 份（n = GPU 数），分发到各卡；
 - **模型在每个 GPU 上各复制一份**（前向时从主卡复制）；
-- 反向传播时**所有卡的梯度汇总到主卡（output_device，默认 0 号）**，主卡求梯度均值、更新参数后再复制回其他卡。
+- 反向传播时**所有卡的梯度汇总到主卡（`output_device`，默认 0 号）**，主卡求梯度均值、更新参数后再复制回其他卡。
 
 DP 的结构性缺陷：
 - 主卡既要汇总梯度、更新模型，又要下发任务，**负载远高于其他卡**（用 nvidia-smi 能看到 0 号卡显存明显更大）；
@@ -50,12 +50,12 @@ DP 的结构性缺陷：
 DDP 三要素（进程组概念）：
 | 概念 | 含义 |
 |---|---|
-| group | 进程组，默认只有一个组（一个 world） |
-| world_size | 全局进程总数 |
-| rank | 进程序号（优先级），rank=0 为主节点 |
+| `group` | 进程组，默认只有一个组（一个 world） |
+| `world_size` | 全局进程总数 |
+| `rank` | 进程序号（优先级），`rank=0` 为主节点 |
 
 DDP 训练四步：
-1. **初始化进程组**：`torch.distributed.init_process_group(backend="nccl")`；backend 选 **NCCL（GPU 训练）/ Gloo（CPU 训练）**，init_method 默认 `env://` 从环境变量读配置；
+1. **初始化进程组**：`torch.distributed.init_process_group(backend="nccl")`；backend 选 **NCCL（GPU 训练）/ Gloo（CPU 训练）**，`init_method` 默认 `env://` 从环境变量读配置；
 2. **模型并行化**：`net = torch.nn.parallel.DistributedDataParallel(net)`；
 3. **分布式数据采样**：
    ```python
@@ -63,17 +63,17 @@ DDP 训练四步：
    loader = DataLoader(train_dataset, batch_size=bs, sampler=train_sampler)
    ```
    **注意：sampler 不为 None 时不要设 shuffle**；
-4. **启动进程**：`torch.multiprocessing.spawn(main_worker, nprocs=ngpus_per_node, ...)` 为每个节点的每张卡启动一个进程；batch_size 需手动按卡数均分。
+4. **启动进程**：`torch.multiprocessing.spawn(main_worker, nprocs=ngpus_per_node, ...)` 为每个节点的每张卡启动一个进程；`batch_size` 需手动按卡数均分。
 
 ### DDP 下的模型保存
 多进程下每进程都会执行保存 → **只在主进程（rank 0）保存**，判断 `rank % ngpus_per_node == 0` 或 `args.local_rank == 0`。
 
 ## 经验与常见坑
 - **DP 不是完整的分布式计算**：只是把部分计算摊到多卡，梯度汇总时"一卡有难，八方围观"。新项目一律上 DDP。
-- DP 时 output_device 卡显存明显更大是正常现象，不是显存泄漏。
+- DP 时 `output_device` 卡显存明显更大是正常现象，不是显存泄漏。
 - 所有参与运算的 Tensor 必须在同一 device 上，混用报 `Expected all tensors to be on the same device`——排查漏 `.to(device)` 的输入或标签。
 - 节点数=1 时 DDP 就是单机多卡，代码可以一套通吃单机与集群。
-- `CUDA_VISIBLE_DEVICES` 环境变量控制进程可见哪些卡；DataParallel 的切分逻辑可以在 forward 里打印 batch size 验证（每个卡收到 batch_size/n）。
+- `CUDA_VISIBLE_DEVICES` 环境变量控制进程可见哪些卡；DataParallel 的切分逻辑可以在 forward 里打印 batch size 验证（每个卡收到 `batch_size/n`）。
 - `nn.ModuleList` 不能像单个模块那样直接调用，要在 forward 里遍历逐层应用。
 - 推理阶段与单卡无区别：DDP 只影响训练，保存的权重加载方式不变。
 
@@ -84,7 +84,7 @@ DDP 训练四步：
 | DP / DataParallel | PyTorch 单进程数据并行 API，有主卡负载瓶颈 |
 | DDP / DistributedDataParallel | 多进程数据并行 API，官方推荐，支持单机多卡与多机多卡 |
 | DistributedSampler | 分布式数据采样器，为每个进程切分互不重叠的数据子集 |
-| world_size / rank | 全局进程总数 / 当前进程编号（rank 0 为主节点） |
+| `world_size` / `rank` | 全局进程总数 / 当前进程编号（`rank=0` 为主节点） |
 | backend（nccl/gloo） | 分布式通信后端：NCCL 用于 GPU，Gloo 用于 CPU |
 | 迁移（to(device)） | 把 Tensor/Module 从 CPU 搬到 GPU 的动作 |
 | mp.spawn | torch.multiprocessing 的进程启动函数，每卡一进程 |

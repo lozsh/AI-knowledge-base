@@ -50,16 +50,16 @@ tags:
 
 - **不变量**：对具有稳定计算模式的工作负载，专门化可通过减少通用开销提高每瓦性能，代价是可编程性和工作负载灵活性：
 
-  ρ_energy,specific ≫ ρ_energy,general （固定功率预算下）
+  $$\rho_{\text{energy,specific}} \gg \rho_{\text{energy,general}} \quad \text{（固定功率预算下）}$$
 - **影响**：CPU → GPU → TPU → 固定功能 ASIC 的轨迹是与工作负载相关的架构权衡，不是普遍物理定律。每一步都在用可编程性换效率，Fleet 架构师必须为每个工作负载在曲线上选对点。
 
 ### 原则 6：I/O 墙
 
 - **不变量**：当存储吞吐量无法像加速器消耗数据那样快速交付训练数据时，无论计算能力多强，GPU 都会空闲：
 
-  Utilization = min(1, BW_storage / (N_GPU × R_consumption))
+  $$\text{Utilization} = \min\left(1,\ \frac{BW_{\text{storage}}}{N_{\text{GPU}} \times R_{\text{consumption}}}\right)$$
 
-  其中 BW_storage 是聚合存储带宽，N_GPU 是加速器数量，R_consumption 是每加速器数据消耗速率。
+  其中 $BW_{\text{storage}}$ 是聚合存储带宽，$N_{\text{GPU}}$ 是加速器数量，$R_{\text{consumption}}$ 是每加速器数据消耗速率。
 - **影响**：对 8 个 GPU 足够的存储系统在 64 个时成为瓶颈。I/O 墙随加速器数量扩展：每加入一块 GPU 都抬高存储必须维持的吞吐底线，数据管道（而非模型）会变成限制因素。
 
 ### 原则 7：存储层级原则
@@ -71,7 +71,7 @@ tags:
 
 - **不变量**：向分布式训练作业添加节点产生递减回报——通信开销随集群规模增长，而每节点计算保持恒定：
 
-  η_scaling = T₁ / (N × T_N) ≤ 1
+  $$\eta_{\text{scaling}} = T_1 / (N \times T_N) \le 1$$
 - **影响**：完美线性扩展（η = 1.0）是理论极限而非实际目标。中等规模上，密集训练作业在现代网络通常达到 η ≈ 0.85–0.95，并随 N 增长进一步退化。与 1.0 的差距就是"通信税"——协调的代价。
 
 ## 经验与常见坑

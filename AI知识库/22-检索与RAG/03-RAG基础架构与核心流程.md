@@ -63,7 +63,7 @@ tags:
 | 语义 Semantic | NLP 按句子/主题边界切（spaCy/NLTK） | 上下文敏感的精细任务 | 计算资源开销大 |
 | 混合 Mix | 先固定快速粗分，再语义细分 | 多格式、动态数据集 | 实现与调优复杂 |
 
-- 实战基线：RecursiveCharacterTextSplitter，chunk_size=512、chunk_overlap=128（字符数非 token）——实践中反复验证的稳健起点。
+- 实战基线：`RecursiveCharacterTextSplitter`，`chunk_size=512`、`chunk_overlap=128`（字符数非 token）——实践中反复验证的稳健起点。
 
 ### 生成环节与 Prompt 模式
 

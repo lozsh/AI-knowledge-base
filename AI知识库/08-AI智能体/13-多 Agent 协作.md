@@ -54,17 +54,17 @@ tags:
 
 ### 多阶段角色转换
 
-每个阶段切换系统提示词与工具集，即成为一个新 Agent（身份/职责/能力变了），但对话历史连续保留——像接班的同事翻阅前任全部工作日志。好处：每个"身份"的提示词与工具集可独立打磨，阶段边界天然成为质量门控点（不会跳过需求分析直接写代码、不会未经审查就交付）。典型案例：需求分析师（ask_clarifying_question 等工具）→ 触发 complete_requirements_analysis() → 软件工程师（write_file/execute_code）→ submit_for_review() → 代码审查员（run_linter/run_tests，可 request_revision 回退）。
+每个阶段切换系统提示词与工具集，即成为一个新 Agent（身份/职责/能力变了），但对话历史连续保留——像接班的同事翻阅前任全部工作日志。好处：每个"身份"的提示词与工具集可独立打磨，阶段边界天然成为质量门控点（不会跳过需求分析直接写代码、不会未经审查就交付）。典型案例：需求分析师（`ask_clarifying_question` 等工具）→ 触发 `complete_requirements_analysis()` → 软件工程师（`write_file`/`execute_code`）→ `submit_for_review()` → 代码审查员（`run_linter`/`run_tests`，可 `request_revision` 回退）。
 
 ### 跨领域角色转换
 
-Agent 按需求自主切换专业角色：triage（前台分诊，只持 transfer 工具，负责拆解与路由）→ research（web_search）→ coding / data_analysis（算 CAGR 等）→ writing（润色成稿）→ 回 triage 收尾。核心机制 `transfer_to_agent(target_role, reason)`：保存历史 → 加载目标角色提示词与工具 → 传递历史 → 以新身份继续。需处理循环切换问题。
+Agent 按需求自主切换专业角色：triage（前台分诊，只持 transfer 工具，负责拆解与路由）→ research（`web_search`）→ coding / `data_analysis`（算 CAGR 等）→ writing（润色成稿）→ 回 triage 收尾。核心机制 `transfer_to_agent(target_role, reason)`：保存历史 → 加载目标角色提示词与工具 → 传递历史 → 以新身份继续。需处理循环切换问题。
 
 ## 不共享上下文的多 Agent 协作
 
 ### Agent 眼中的文件系统（数据平面）
 
-Agent 访问的是**虚拟文件系统**——四类区域挂载到同一目录树，统一 read_file/write_file/list_dir 接口：
+Agent 访问的是**虚拟文件系统**——四类区域挂载到同一目录树，统一 `read_file`/`write_file`/`list_dir` 接口：
 
 | 区域 | 可见性 | 生命周期 | 读写 | 并发控制 |
 |---|---|---|---|---|
@@ -77,8 +77,8 @@ Agent 访问的是**虚拟文件系统**——四类区域挂载到同一目录�
 
 ### 通信与控制（控制平面）
 
-- **消息传递**：点对点适合拓扑固定、数量少；数量多且需异步并行时用**消息总线**（Redis Pub/Sub 轻量即发即收但不持久；RabbitMQ 持久化）。消息应带结构化信封：发送者 ID、目标（指定/广播）、类型（task_assigned/status_update/result/terminate）、JSON 负载——统一信封保证路由可靠、链路可追溯。
-- **状态查询**：拉取（get_subagent_status，实现简单但轮询过密浪费 token）；推送（子 Agent 主动上报，主 Agent 维护状态表，实时性好）。兜底：超时与心跳检测（"超 N 分钟无活动即判失败"）。子 Agent 状态可建模为状态机（已提交/执行中/需要输入/已完成/失败）。
+- **消息传递**：点对点适合拓扑固定、数量少；数量多且需异步并行时用**消息总线**（Redis Pub/Sub 轻量即发即收但不持久；RabbitMQ 持久化）。消息应带结构化信封：发送者 ID、目标（指定/广播）、类型（`task_assigned`/`status_update`/`result`/`terminate`）、JSON 负载——统一信封保证路由可靠、链路可追溯。
+- **状态查询**：拉取（`get_subagent_status`，实现简单但轮询过密浪费 token）；推送（子 Agent 主动上报，主 Agent 维护状态表，实时性好）。兜底：超时与心跳检测（"超 N 分钟无活动即判失败"）。子 Agent 状态可建模为状态机（已提交/执行中/需要输入/已完成/失败）。
 - **执行终止**：优雅终止（terminate 信号 → 子 Agent 在安全点清理资源、ack 后退出）为首选；强制终止（直接杀进程）仅兜底。要点：子 Agent 须在循环中定期检查终止信号；级联终止有竞态——多个子 Agent 近乎同时上报成功，须以锁或幂等设计保证只结算一次。
 
 ### 对等协作：提议者-审核者与过早终止
@@ -104,7 +104,7 @@ Manager 把每个专门 Agent 建模为**可调用的工具**——"调用 Agent
 
 **产品化实例——灵台（Lingtai）**：主器灵（常驻中枢，Manager 位置）、分神（短时并行工作者，完成后只带结论回——"子 Agent 返回结构化摘要"的产品化）、分身（有自己记忆与职责的持久专门队友）。知识私有、技能共享（Markdown 手册），上下文将满时"凝蜕"（写总结带记忆在干净上下文继续），"器灵即其文件"——身份、记忆、能力皆普通文件，底层模型可替换。
 
-**双 Agent 并行的典型场景**：边打电话边用电脑（Phone Agent：ASR+LLM+TTS 实时对话收集信息；Computer Agent：截屏+Vision LLM 操作表单；各自独立 ReAct 循环、WebSocket/消息总线双向通信，消息带 [FROM_<角色>_AGENT] 来源标记）。进阶形态是**自主编排**：Computer Agent 发现需要收集大量结构化信息时自主调用 initiate_phone_call_agent——协作决策不是预编程的。
+**双 Agent 并行的典型场景**：边打电话边用电脑（Phone Agent：ASR+LLM+TTS 实时对话收集信息；Computer Agent：截屏+Vision LLM 操作表单；各自独立 ReAct 循环、WebSocket/消息总线双向通信，消息带 [FROM_<角色>_AGENT] 来源标记）。进阶形态是**自主编排**：Computer Agent 发现需要收集大量结构化信息时自主调用 `initiate_phone_call_agent`——协作决策不是预编程的。
 
 ### 去中心化模式：对等移交
 
