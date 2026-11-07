@@ -8112,6 +8112,33 @@
 
 <p><strong>一句话定义</strong>：预训练语言模型（PLM）是在海量无监督语料上先预训练、再微调到下游任务的模型，按架构分为 Encoder-Only（BERT 系）、Encoder-Decoder（T5 系）、Decoder-Only（GPT 系）三大流派——最后一支正是如今所有 LLM 的基座。</p>
 <p>Transformer 由 Encoder 与 Decoder 两部分组成，不同团队沿 ELMo 的预训练思路走向了不同路线：Google 只取 Encoder 堆叠、提出掩码语言模型（MLM），打造了统治自然语言理解（NLU）的 <strong>BERT</strong>；OpenAI 选择 Decoder、沿用经典语言模型（LM）任务、靠不断加大参数与语料，造就了在自然语言生成（NLG）上占优的 <strong>GPT</strong> 系列——也是当今 LLM 的基座；Google 的 <strong>T5</strong> 则同时保留 Encoder 与 Decoder。本章按此三分法梳理主流模型的结构、预训练任务与优势。</p>
+<p><svg class="aikb-diagram" viewBox="0 0 470 300" role="img" aria-label="分类图：一块 Transformer 积木分出仅编码器、编码器-解码器、仅解码器三支，仅解码器是 LLM 基座">
+  <rect class="dg-ring" x="160" y="18" width="150" height="46"/>
+  <text class="dg-label" x="235" y="46" text-anchor="middle">Transformer 积木</text>
+  <line class="dg-ring" x1="235" y1="64" x2="235" y2="92"/>
+  <line class="dg-ring" x1="81" y1="92" x2="389" y2="92"/>
+  <line class="dg-ring" x1="81" y1="92" x2="81" y2="122"/>
+  <line class="dg-ring" x1="235" y1="92" x2="235" y2="122"/>
+  <line class="dg-ring" x1="389" y1="92" x2="389" y2="122"/>
+  <rect class="dg-ring" x="11" y="122" width="140" height="124"/>
+  <text class="dg-label" x="81" y="152" text-anchor="middle">仅编码器</text>
+  <text class="dg-label-en" x="81" y="171" text-anchor="middle">Encoder-Only</text>
+  <text class="dg-note" x="81" y="196" text-anchor="middle">理解类</text>
+  <text class="dg-example" x="81" y="218" text-anchor="middle">BERT 系</text>
+  <rect class="dg-ring" x="165" y="122" width="140" height="124"/>
+  <text class="dg-label" x="235" y="152" text-anchor="middle">编码器-解码器</text>
+  <text class="dg-label-en" x="235" y="171" text-anchor="middle">Encoder-Decoder</text>
+  <text class="dg-note" x="235" y="196" text-anchor="middle">转换类</text>
+  <text class="dg-example" x="235" y="218" text-anchor="middle">T5 系</text>
+  <rect class="dg-ring" x="319" y="122" width="140" height="124"/>
+  <rect class="dg-ring-accent" x="319" y="122" width="140" height="124"/>
+  <text class="dg-label" x="389" y="152" text-anchor="middle">仅解码器</text>
+  <text class="dg-label-en" x="389" y="171" text-anchor="middle">Decoder-Only</text>
+  <text class="dg-note" x="389" y="196" text-anchor="middle">生成类</text>
+  <text class="dg-example" x="389" y="218" text-anchor="middle">GPT 系</text>
+  <text class="dg-note" x="389" y="236" text-anchor="middle">如今 LLM 的基座</text>
+  <text class="dg-caption" x="235" y="282" text-anchor="middle">同一积木三种组合：理解 · 转换 · 生成；仅解码器是如今 LLM 的基座</text>
+</svg></p>
 <h2 id="encoder-onlybert">Encoder-Only：BERT 及其变体</h2>
 <h3 id="bertgoogle-2018">BERT（Google, 2018）</h3>
 <p>全名 Bidirectional Encoder Representations from Transformers，发布即拿下 GLUE、MultiNLI 等七项 NLP 评测 SOTA，正式确立<strong>预训练+微调</strong>范式的主导地位，衍生出 MacBERT、BART 等改进模型。直到 LLM 诞生，NLP 的主导地位才从 BERT 系迁移。</p>

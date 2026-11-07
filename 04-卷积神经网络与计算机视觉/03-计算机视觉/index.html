@@ -8097,6 +8097,18 @@
 <li>在目标数据集上训练：输出层从头学，其余层微调。</li>
 </ol>
 <p>关键技巧：微调层用<strong>小学习率</strong>，新输出层用 <strong>10 倍学习率</strong>。热狗识别实验（ResNet-18，仅千余张图）：微调 test acc <strong>0.939</strong>，从头训练仅 0.843。另一变体是<strong>冻结特征层</strong>（<code>requires_grad=False</code>）只训新输出头，更省时省显存。ImageNet 预训练模型的标配预处理：RGB 各通道减均值 (0.485, 0.456, 0.406)、除标准差 (0.229, 0.224, 0.225)。</p>
+<p><svg class="aikb-diagram" viewBox="0 0 560 230" role="img" aria-label="微调组成示意：源模型分为特征提取主体（迁移，小学习率）与输出头（随机初始化，10 倍学习率重学）">
+  <rect class="dg-ring" x="45" y="70" width="300" height="110"/>
+  <text class="dg-label" x="195" y="100" text-anchor="middle">特征提取主体</text>
+  <text class="dg-note" x="195" y="124" text-anchor="middle">复制源模型的全部设计与参数</text>
+  <text class="dg-note" x="195" y="146" text-anchor="middle">微调层用小学习率</text>
+  <rect class="dg-ring" x="345" y="70" width="155" height="110"/>
+  <rect class="dg-ring-accent" x="345" y="70" width="155" height="110"/>
+  <text class="dg-label" x="422" y="100" text-anchor="middle">输出头</text>
+  <text class="dg-note" x="422" y="124" text-anchor="middle">随机初始化的新头</text>
+  <text class="dg-note" x="422" y="146" text-anchor="middle">10 倍学习率重学</text>
+  <text class="dg-caption" x="280" y="215" text-anchor="middle">换头重学、身体微调——特征提取主体小学习率迁移，新输出头 10 倍学习率重学</text>
+</svg></p>
 <h3 id="iou">目标检测基础：边界框、锚框、IoU</h3>
 <p>目标检测 = 同时输出类别与位置。<strong>边界框</strong>（bounding box）两种等价表示：左上-右下角坐标 (x1,y1,x2,y2) 与中心+宽高 (cx,cy,w,h)，可互相换算。</p>
 <p><strong>锚框</strong>（anchor box）：以每个像素为中心，按缩放比 s∈(0,1] 和宽高比 r&gt;0 生成候选框（宽 hs√r、高 hs/√r）。全部组合会产生 whnm 个框，计算爆炸，实践只取含 s1 或 r1 的组合，每像素 n+m−1 个。</p>

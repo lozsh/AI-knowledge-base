@@ -8580,6 +8580,18 @@
 <p><strong>机理可解释性（mechanistic interpretability）</strong>：打开模型找"概念回路"。2024 年 Anthropic 用稀疏自编码器（SAE）从 Claude 3 中层抽出上千万概念特征，人为加强"金门大桥"特征后模型全面"入魔"（问天气答"金门大桥今天天气很好"）——证明模型内部确有对应抽象概念的可定位、可操控结构。但仅识别了极小部分特征，距理解其组合成高级行为还远。普遍权衡：<strong>可解释模型弱、黑箱模型强</strong>，问责敏感场景（欧盟 AI 法案对高风险应用）宁愿牺牲性能换可解释。</p>
 <h2 id="_18">对齐难题</h2>
 <p>罗素"咖啡机器人"思想实验：目标写成"去买杯咖啡"，机器人可能推人插队、抢钱、拒绝被关机（关机=任务失败）。麻烦不是 AI 听不懂，而是<strong>它太会把命令当合同条款来钻</strong>——说出口的目标、实际优化的目标、人的真实意图是三个不重合的圆。</p>
+<p><svg class="aikb-diagram" viewBox="0 0 400 345" role="img" aria-label="说出口的目标、实际优化的目标、人的真实意图是三个互不重合的圆，缝隙处存在偏差">
+  <circle class="dg-ring" cx="95" cy="95" r="58"/>
+  <circle class="dg-ring" cx="250" cy="135" r="58"/>
+  <circle class="dg-ring" cx="150" cy="245" r="58"/>
+  <text class="dg-label" x="95" y="99" text-anchor="middle">说出口的目标</text>
+  <text class="dg-label" x="250" y="139" text-anchor="middle">实际优化的目标</text>
+  <text class="dg-label" x="150" y="249" text-anchor="middle">人的真实意图</text>
+  <text class="dg-note" x="172" y="115" text-anchor="middle">偏差</text>
+  <text class="dg-note" x="200" y="190" text-anchor="middle">偏差</text>
+  <text class="dg-note" x="122" y="170" text-anchor="middle">偏差</text>
+  <text class="dg-caption" x="200" y="330" text-anchor="middle">对齐 = 让三个圆尽量重合</text>
+</svg></p>
 <h3 id="_19">技术路线与局限</h3>
 <ul>
 <li><strong>RLHF</strong>：人类对比标注 → 奖励模型 → 引导优化。有效但有局限：对齐到"人类能评判"的部分，催生奉承，复杂技术问题人类标错也无从发现。</li>

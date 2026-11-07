@@ -8349,6 +8349,21 @@
 <h2 id="_6">核心概念</h2>
 <h3 id="dam">D·A·M 分类法</h3>
 <p>任何 ML 系统由三个相互依存的轴组成：<strong>数据</strong>（Data）、<strong>算法</strong>（Algorithm）、<strong>机器</strong>（Machine）。瓶颈在轴之间迁移而非消失：改善一个轴通常把压力暴露到另一个轴。系统习惯是先问"哪个轴现在绑定"，再选择不引发更大下游故障的干预。</p>
+<p><svg class="aikb-diagram" viewBox="0 0 560 395" role="img" aria-label="数据、算法、机器三个轴两两交叠，交汇处是 ML 系统工程，瓶颈在轴之间迁移">
+  <circle class="dg-ring" cx="280" cy="150" r="100"/>
+  <circle class="dg-ring" cx="225" cy="240" r="100"/>
+  <circle class="dg-ring" cx="335" cy="240" r="100"/>
+  <text class="dg-label" x="280" y="30" text-anchor="middle">数据（Data）</text>
+  <text class="dg-label" x="112" y="236" text-anchor="end">算法</text>
+  <text class="dg-label-en" x="112" y="252" text-anchor="end">Algorithm</text>
+  <text class="dg-label" x="448" y="236" text-anchor="start">机器</text>
+  <text class="dg-label-en" x="448" y="252" text-anchor="start">Machine</text>
+  <text class="dg-note" x="238" y="178" text-anchor="middle">特征工程</text>
+  <text class="dg-note" x="322" y="178" text-anchor="middle">数据移动</text>
+  <text class="dg-note" x="280" y="266" text-anchor="middle">算法配硬件</text>
+  <text class="dg-label" x="280" y="214" text-anchor="middle">ML 系统工程</text>
+  <text class="dg-caption" x="280" y="378" text-anchor="middle">瓶颈在轴之间迁移而非消失</text>
+</svg></p>
 <h3 id="iron-law-of-ml-systems">铁律（Iron Law of ML Systems）</h3>
 <p>将端到端延迟分解为三项，是整个学科的分析骨架：</p>
 <div class="highlight"><pre><span></span><code>T ≈ Dvol/BW + O/(Rpeak·ηhw) + Llat

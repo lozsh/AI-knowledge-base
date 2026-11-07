@@ -8073,6 +8073,27 @@
 <p>中间两条路径先用 1×1 卷积压通道以降低复杂度。整个网络 9 个 Inception 块分 3 个模块串联（通道分配比 64:128:32:32 等来自 ImageNet 大量实验），末端同 NiN 用全局平均池化。以较低计算复杂度达到当时最优精度，一度是 ImageNet 上最有效的模型族。Fashion-MNIST（96×96 输入）test acc 0.886。</p>
 <h3 id="resnet2015">ResNet（2015）—— 残差连接</h3>
 <p>何恺明等提出，夺得 2015 年 ImageNet 冠军，是计算机视觉中最流行的架构。理论动机：只有当更复杂的函数类<strong>嵌套</strong>包含较简单的函数类时（F1 ⊆ F2 ⊆ …），加深网络才保证不劣化；让新增层容易学成恒等映射 f(x)=x 即可实现这一点。</p>
+<p><svg class="aikb-diagram" viewBox="0 0 560 400" role="img" aria-label="嵌套函数类示意：F₁ 到 F₆ 层层包含，嵌套时加深不劣化，非嵌套时更深的 f* 可能更差">
+  <circle class="dg-ring" cx="185" cy="205" r="155"/>
+  <circle class="dg-ring" cx="185" cy="205" r="130"/>
+  <circle class="dg-ring" cx="185" cy="205" r="105"/>
+  <circle class="dg-ring" cx="185" cy="205" r="80"/>
+  <circle class="dg-ring" cx="185" cy="205" r="55"/>
+  <circle class="dg-ring-accent" cx="185" cy="205" r="30"/>
+  <text class="dg-label" x="185" y="68" text-anchor="middle">F₆</text>
+  <text class="dg-label" x="185" y="93" text-anchor="middle">F₅</text>
+  <text class="dg-label" x="185" y="118" text-anchor="middle">F₄</text>
+  <text class="dg-label" x="185" y="143" text-anchor="middle">F₃</text>
+  <text class="dg-label" x="185" y="168" text-anchor="middle">F₂</text>
+  <text class="dg-label" x="185" y="210" text-anchor="middle">F₁</text>
+  <rect class="dg-ring" x="385" y="130" width="160" height="66"/>
+  <text class="dg-label" x="465" y="154" text-anchor="middle">嵌套时加深不劣化</text>
+  <text class="dg-note" x="465" y="176" text-anchor="middle">更深的解总能退回浅层解</text>
+  <rect class="dg-ring" x="385" y="220" width="160" height="52"/>
+  <text class="dg-label" x="465" y="244" text-anchor="middle">非嵌套时</text>
+  <text class="dg-note" x="465" y="264" text-anchor="middle">更深的 f* 可能更差</text>
+  <text class="dg-caption" x="280" y="385" text-anchor="middle">嵌套是加深不劣化的前提：F₁ ⊆ F₂ ⊆ ⋯ ⊆ F₆</text>
+</svg></p>
 <p><strong>残差块</strong>：两个 3×3 卷积（各接 BN + ReLU），输入跳过卷积直接加在最后 ReLU 之前，网络只需拟合<strong>残差映射 f(x)−x</strong>（拟合恒等映射时把权重学成 0 即可，远比直接拟合 f(x) 容易）。通道数或分辨率变化时，用额外的 1×1 卷积（步幅 2）调整输入形状再相加。</p>
 <p>ResNet-18：7×7 卷积(stride 2) + 最大池化开头，4 个模块各 2 个残差块（通道 64→128→256→512，模块间空间减半），全局平均池化收尾。Fashion-MNIST test acc 0.893。后续版本把"卷积-BN-激活"改为"BN-激活-卷积"（pre-activation），更深层用 bottleneck 结构。</p>
 <h3 id="densenet2017">DenseNet（2017）—— 稠密连结</h3>

@@ -7922,6 +7922,21 @@
 
 <p><strong>一句话定义</strong>：数据中心以物理层级组织算力——节点（8 卡服务器）是高速互联与故障域的基本单元，机柜是供电与冷却的工程单元，Pod/仓储级计算机（WSC）则把数百机柜当作一台机器来设计。</p>
 <p>层级之所以重要，是因为每一级都是一类边界：节点内是 NVLink 域，节点间慢一个量级；机柜是风冷/液冷与配电的物理极限所在；Pod 是网络拓扑、供电链与楼体结构的联合设计对象。并行策略（张量/流水线/数据并行）与集群采购决策必须沿这些边界展开。</p>
+<p><svg class="aikb-diagram" viewBox="0 0 520 240" role="img" aria-label="四层嵌套矩形：GPU 位于节点内，节点位于机柜内，机柜位于 Pod 内">
+  <rect class="dg-ring" x="6" y="6" width="508" height="190"/>
+  <text class="dg-label" x="260" y="23" text-anchor="middle">Pod · 仓储级计算机（WSC）</text>
+  <text class="dg-note" x="260" y="38" text-anchor="middle">网络拓扑、供电链与楼体的联合设计</text>
+  <rect class="dg-ring" x="6" y="44" width="440" height="152"/>
+  <text class="dg-label" x="226" y="61" text-anchor="middle">机柜</text>
+  <text class="dg-note" x="226" y="76" text-anchor="middle">供电与冷却的工程单元</text>
+  <rect class="dg-ring" x="6" y="82" width="372" height="114"/>
+  <text class="dg-label" x="192" y="99" text-anchor="middle">节点（8 卡服务器）</text>
+  <text class="dg-note" x="192" y="114" text-anchor="middle">NVLink 域，也是基本故障域</text>
+  <rect class="dg-ring-accent" x="180" y="128" width="160" height="52"/>
+  <text class="dg-label" x="260" y="150" text-anchor="middle">GPU</text>
+  <text class="dg-note" x="260" y="167" text-anchor="middle">包内硅中介层互连</text>
+  <text class="dg-caption" x="260" y="222" text-anchor="middle">每往上一层，硬件边界扩大一级</text>
+</svg></p>
 <h2 id="node">核心概念：节点（Node）</h2>
 <p>节点=一台服务器聚合 8 卡（NVLink/ICI 高速互联），是"高速本地通信"与"慢一个量级的跨节点网络"的边界，也是基本故障域。</p>
 <p><strong>训练内存账</strong>（175B）：权重 350GB + 梯度 350GB + Adam 一阶/二阶矩 1400GB + 激活 100–400GB ≈ 2.2–2.5TB——<strong>优化器状态是权重的 4 倍</strong>，只切权重的策略救不了最大的内存消耗者。单节点解法：8 路 TP 切权重（43.75GB/卡）+ ZeRO 切优化器 + 激活 checkpointing（多算 33% FLOP 换最高 10 倍激活内存节省）+ CPU/NVMe offload + 梯度累积。分层：HBM 放活跃计算，DDR5 放优化器状态，NVMe 放溢出与 checkpoint。</p>

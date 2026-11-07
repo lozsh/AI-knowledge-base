@@ -8248,6 +8248,19 @@
 </tbody>
 </table>
 <p>二者可以互相增强（少存敏感数据 = 缩小攻击面），也可冲突（DP 噪声降效用；加密妨碍审计）。生产系统往往需要组合使用，使"保护模型不暴露数据、保护数据不毁审计"同时成立。</p>
+<p><svg class="aikb-diagram" viewBox="0 0 420 335" role="img" aria-label="安全与隐私两圈交叠，交集处互相增强，两圆外侧各有一个冲突例">
+  <circle class="dg-ring" cx="160" cy="175" r="90"/>
+  <circle class="dg-ring" cx="260" cy="175" r="90"/>
+  <ellipse class="dg-ring-accent" cx="210" cy="175" rx="36" ry="15"/>
+  <text class="dg-label" x="130" y="115" text-anchor="middle">安全</text>
+  <text class="dg-label-en" x="130" y="131" text-anchor="middle">Security</text>
+  <text class="dg-label" x="290" y="115" text-anchor="middle">隐私</text>
+  <text class="dg-label-en" x="290" y="131" text-anchor="middle">Privacy</text>
+  <text class="dg-label" x="210" y="179" text-anchor="middle">互相增强</text>
+  <text class="dg-note" x="140" y="290" text-anchor="middle">加密妨碍审计</text>
+  <text class="dg-note" x="280" y="290" text-anchor="middle">DP 噪声降效用</text>
+  <text class="dg-caption" x="210" y="318" text-anchor="middle">既互相增强（少存敏感数据 = 缩小攻击面），也可冲突</text>
+</svg></p>
 <p><strong>量化代价</strong>：DP 加噪有直接效用税（1000 人平均工资、ε=1、敏感度 20 万美元 → Laplace 噪声尺度 20 万 → 均值误差 ~200 美元；n=100 时涨到 2000——小数据集上 DP 不稳定）；多租户隔离税（H100 上 MIG 硬件隔离使 1000 tok/s 降到 850，<strong>损失 15% 吞吐</strong>）。</p>
 <h2 id="ml">三起经典安全事件的 ML 启示</h2>
 <ul>

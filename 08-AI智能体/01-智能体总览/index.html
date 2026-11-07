@@ -8383,6 +8383,26 @@
 <ul>
 <li><strong>模型即 Agent（Model as Agent）与三种学习范式</strong>：先进模型通过后训练（尤其 RL）把工具调用决策内化为原生能力——何时调用、调哪个、传什么参数由模型自决，无需人工编排。但要分清归属：RL 内化的是<strong>决策策略</strong>（"用不用、怎么用"），工具本身及执行（<code>web_search</code>、代码沙盒）仍在模型之外的基础设施里；编排循环没有消失，只是从客户端移到了服务端。智能体的三种学习范式：后训练（训练时 RL 修改模型权重，永久通用、成本高更新慢）、上下文学习 ICL（推理时注意力做模式检索式适配，快至毫秒但临时、会话结束即失——本质是模式匹配而非真学习，能套用已见过的模式、不能发现全新规律）、外部化学习（运行时固化为知识库 + 可执行工具代码，持久、可更新、可验证）。基座方面，最成功的智能体场景都离不开代码——合格基座要擅长严格遵循格式（工具调用）、长程推理、写改代码、错误中恢复；不擅长代码的模型做智能体"像不会看地图的人送外卖"。</li>
 <li><strong>训练三步与工程范式演进</strong>：针对任务的后训练按 SFT（喂高质量智能体轨迹学"做事的样子"）→ 强化学习（模拟环境跑真实任务按结果给奖励，学长程目标导向；开放任务的奖励设计本身是研究问题）→ 工具使用训练（见过大量调用/错误/组合样本，知道"锤子不是拿来拧螺丝的"）三步展开。智能体产品 = 合格的基座模型 + 精心设计的驾驶舱 + 针对任务的后训练，缺一不可。工程范式则层层包含而非替代：软件工程 → 提示工程（优化指令）→ 上下文工程（系统性管理模型能看到的一切）→ Harness 工程（模型所在系统的全部基础设施）→ Loop 工程（跨轮次持续自主运转：谁发现下一件事、何时验证、何时算完成）。模型能力趋同后，竞争优势转移到模型之外的工程实践：仅靠 Harness 改进（自动检查执行结果、检测重复循环、优化思考策略）就能把 Terminal Bench 2.0 成绩从 52.8% 提到 66.5%，模型未变。与"苦涩的教训"的关系：方向认同（模型会持续"吃掉"Harness——工具调用、长程规划已从外部编排变成原生能力），节奏务实（训练以月计，模型无法一次内化所有业务约束；模型此刻的能力边界就是 Harness 此刻的价值——模型做不稳的先补上，模型每内化一层就卸下一层）。</li>
+</ul>
+<p><svg class="aikb-diagram" viewBox="0 0 520 240" role="img" aria-label="五层左对齐嵌套矩形：Loop 工程包含于 Harness 工程，依次向外为上下文工程、提示工程、软件工程">
+  <rect class="dg-ring" x="6" y="6" width="508" height="202"/>
+  <text class="dg-label" x="260" y="23" text-anchor="middle">软件工程</text>
+  <text class="dg-note" x="260" y="38" text-anchor="middle">工程实践的最外层底座</text>
+  <rect class="dg-ring" x="6" y="44" width="452" height="164"/>
+  <text class="dg-label" x="232" y="61" text-anchor="middle">提示工程</text>
+  <text class="dg-note" x="232" y="76" text-anchor="middle">优化指令</text>
+  <rect class="dg-ring" x="6" y="82" width="396" height="126"/>
+  <text class="dg-label" x="204" y="99" text-anchor="middle">上下文工程</text>
+  <text class="dg-note" x="204" y="114" text-anchor="middle">系统性管理模型能看到的一切</text>
+  <rect class="dg-ring" x="6" y="120" width="340" height="88"/>
+  <text class="dg-label" x="176" y="137" text-anchor="middle">Harness 工程</text>
+  <text class="dg-note" x="176" y="152" text-anchor="middle">模型所在系统的全部基础设施</text>
+  <rect class="dg-ring-accent" x="6" y="158" width="284" height="50"/>
+  <text class="dg-label" x="148" y="178" text-anchor="middle">Loop 工程</text>
+  <text class="dg-note" x="148" y="196" text-anchor="middle">跨轮次持续自主运转</text>
+  <text class="dg-caption" x="260" y="230" text-anchor="middle">层层包含而非替代：Loop ⊂ Harness ⊂ 上下文 ⊂ 提示 ⊂ 软件工程</text>
+</svg></p>
+<ul>
 <li><strong>轨迹是共同语言</strong>：训练、评测、排障、复盘共用——高质量轨迹含任务目标、环境状态、工具调用与返回、模型决策、人工接管点、最终结果；成功轨迹给可模仿路径，失败轨迹暴露边界与难例。训练路径：模仿学习打底 → 规则/奖励模型筛选排序 → 受控环境探索（沙箱、只读、可回滚是安全前提）。</li>
 <li><strong>评测</strong>：任务成功率之外还要看<strong>轨迹质量</strong>（路径合理性、证据链、是否走回头路）；基准各覆盖不同切面（WebArena 网页、SWE-bench 代码、OSWorld 桌面、GAIA 通用助手）。<strong>任务画像分层</strong>：按步数、工具依赖、写权限、可逆性、人工需求分箱——80% 低风险任务成功率 95% 很漂亮，跨币种/改旧表那 5% 可能只有 50%，均值掩盖关键退化。评测集三层：稳定回归集（旧能力不退化）、滚动更新集（跟环境漂移）、高风险难例集（越权、误删、状态污染）。<strong>评判器本身也要校准</strong>：标注协议先写清"什么叫成功"；模型裁判不能直接当客观真理，分层评判（规则可判的交给程序，策略合理性交人工，分歧进仲裁池）。</li>
 <li><strong>概率复合视角</strong>：每步成功率 95%，50 步后整体仅约 7.7%——可靠性是智能体工程最大瓶颈；检查点、反思、人在环都是打破指数衰减的机制。</li>
