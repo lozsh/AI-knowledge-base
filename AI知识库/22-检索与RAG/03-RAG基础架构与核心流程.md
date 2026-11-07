@@ -38,6 +38,52 @@ tags:
 2. **检索（Retrieval）**：查询用**同一个嵌入模型**向量化（保证同一向量空间），相似度匹配取 Top K 文本块。
 3. **生成（Generation）**：查询 + 检索块组合成增强 Prompt，LLM 生成回答。大模型是系统的"大脑中枢"，但**输入质量决定其发挥**。
 
+<svg class="aikb-diagram" viewBox="0 0 560 358" role="img" aria-label="RAG 泳道图：离线索引与在线问答共享同一嵌入模型与向量数据库">
+  <defs>
+    <marker id="arw1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-2)"/>
+    </marker>
+  </defs>
+  <rect x="12" y="20" width="536" height="80" fill="var(--paper-2)" opacity="0.4"/>
+  <rect x="12" y="256" width="536" height="76" fill="var(--paper-2)" opacity="0.4"/>
+  <text class="dg-note" x="22" y="36" text-anchor="start">离线索引</text>
+  <text class="dg-note" x="22" y="250" text-anchor="start">在线问答</text>
+  <rect class="dg-ring" x="25" y="56" width="120" height="38" rx="6"/>
+  <text class="dg-label" x="85" y="80" text-anchor="middle">文档解析</text>
+  <rect class="dg-ring" x="200" y="56" width="90" height="38" rx="6"/>
+  <text class="dg-label" x="245" y="80" text-anchor="middle">分块</text>
+  <line x1="145" y1="75" x2="196" y2="75" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#arw1)"/>
+  <line x1="245" y1="94" x2="245" y2="136" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#arw1)"/>
+  <text class="dg-note" x="268" y="119" text-anchor="middle">嵌入</text>
+  <rect class="dg-ring-accent" x="140" y="140" width="150" height="40" rx="6"/>
+  <text class="dg-label" x="215" y="161" text-anchor="middle">嵌入模型</text>
+  <text class="dg-note" x="215" y="175" text-anchor="middle">文档与查询共用</text>
+  <rect class="dg-ring" x="370" y="140" width="150" height="40" rx="6"/>
+  <text class="dg-label" x="445" y="161" text-anchor="middle">向量数据库</text>
+  <text class="dg-note" x="445" y="175" text-anchor="middle">向量 + 原文 + 元数据</text>
+  <line x1="290" y1="160" x2="366" y2="160" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#arw1)"/>
+  <text class="dg-note" x="328" y="152" text-anchor="middle">入库</text>
+  <rect class="dg-ring" x="20" y="268" width="100" height="38" rx="6"/>
+  <text class="dg-label" x="70" y="292" text-anchor="middle">用户查询</text>
+  <rect class="dg-ring" x="150" y="268" width="105" height="38" rx="6"/>
+  <text class="dg-label" x="202" y="292" text-anchor="middle">相似匹配</text>
+  <rect class="dg-ring" x="300" y="268" width="110" height="38" rx="6"/>
+  <text class="dg-label" x="355" y="292" text-anchor="middle">Prompt 组合</text>
+  <rect class="dg-ring" x="445" y="268" width="95" height="38" rx="6"/>
+  <text class="dg-label" x="492" y="292" text-anchor="middle">LLM 作答</text>
+  <line x1="70" y1="268" x2="156" y2="182" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#arw1)"/>
+  <text class="dg-note" x="88" y="218" text-anchor="middle">向量化</text>
+  <line x1="215" y1="180" x2="208" y2="264" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#arw1)"/>
+  <text class="dg-note" x="243" y="222" text-anchor="middle">查询向量</text>
+  <path d="M445,180 L445,232 L240,232 L240,264" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#arw1)"/>
+  <text class="dg-note" x="345" y="226" text-anchor="middle">Top K</text>
+  <line x1="255" y1="287" x2="296" y2="287" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#arw1)"/>
+  <text class="dg-note" x="276" y="280" text-anchor="middle">检索块</text>
+  <line x1="410" y1="287" x2="441" y2="287" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#arw1)"/>
+  <text class="dg-note" x="426" y="280" text-anchor="middle">生成</text>
+  <text class="dg-caption" x="280" y="350" text-anchor="middle">两阶段共享同一嵌入模型与向量库，查询与文档处于同一向量空间</text>
+</svg>
+
 ### 文档解析（Quality in, Quality out）
 
 - 文档解析的本质：把**格式各异、版式多样、元素多种**（段落/表格/标题/公式/多栏/图片）的文档，转为**阅读顺序正确**的字符串。"Quality in, Quality out"——解析质量对最终效果起决定性作用。

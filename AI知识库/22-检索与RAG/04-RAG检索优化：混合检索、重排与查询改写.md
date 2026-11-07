@@ -39,6 +39,40 @@ tags:
 - **Reciprocal Rank Fusion（倒数排名融合）**：不比较各路的分数（不同检索器分数量纲不同），只看**排名**——文档在越多路的结果里排得越靠前，综合排名越高。
 - 定位：比重排模型简单得多、零成本，适合快速融合多路结果的场景；重排模型可在其后再做一层精排。
 
+<svg class="aikb-diagram" viewBox="0 0 560 420" role="img" aria-label="混合检索流程：查询并行走向量语义检索与 BM25 关键词检索，RRF 融合后经 Cross-encoder 重排输出 Top K">
+  <defs>
+    <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-2)"/>
+    </marker>
+  </defs>
+  <rect class="dg-ring" x="210" y="24" width="140" height="36" rx="6"/>
+  <text class="dg-label" x="280" y="47" text-anchor="middle">查询</text>
+  <path d="M 280,60 L 120,84 L 120,102" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <text class="dg-note" x="160" y="72" text-anchor="middle">语义</text>
+  <path d="M 280,60 L 440,84 L 440,102" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <text class="dg-note" x="400" y="72" text-anchor="middle">关键词</text>
+  <rect class="dg-ring" x="40" y="106" width="160" height="40" rx="6"/>
+  <text class="dg-label" x="120" y="124" text-anchor="middle">向量语义检索</text>
+  <text class="dg-note" x="120" y="139" text-anchor="middle">Bi-encoder · 快但粗</text>
+  <rect class="dg-ring" x="360" y="106" width="160" height="40" rx="6"/>
+  <text class="dg-label" x="440" y="124" text-anchor="middle">BM25 关键词检索</text>
+  <text class="dg-note" x="440" y="139" text-anchor="middle">强项：精确匹配</text>
+  <path d="M 120,146 L 120,172 L 240,172 L 240,192" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <path d="M 440,146 L 440,172 L 320,172 L 320,192" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <rect class="dg-ring-accent" x="215" y="196" width="130" height="40" rx="6"/>
+  <text class="dg-label" x="280" y="221" text-anchor="middle">RRF 融合</text>
+  <line x1="280" y1="236" x2="280" y2="266" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <text class="dg-note" x="296" y="256" text-anchor="start">Top 2×K 候选</text>
+  <rect class="dg-ring" x="185" y="270" width="190" height="42" rx="6"/>
+  <text class="dg-label" x="280" y="288" text-anchor="middle">Cross-encoder 重排</text>
+  <text class="dg-note" x="280" y="304" text-anchor="middle">查询和文档一起输入，准但慢</text>
+  <line x1="280" y1="312" x2="280" y2="342" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <text class="dg-note" x="296" y="332" text-anchor="start">取前 K</text>
+  <rect class="dg-ring" x="215" y="346" width="130" height="36" rx="6"/>
+  <text class="dg-label" x="280" y="369" text-anchor="middle">Top K 结果</text>
+  <text class="dg-caption" x="280" y="406" text-anchor="middle">向量管语义，关键词管精确匹配；RRF 只看排名不看分数</text>
+</svg>
+
 ### 查询侧优化
 
 - **查询扩展（Multi-Query）**：让 LLM 从原始问题生成多个不同角度的子问题，各自检索、结果合并重排——克服"单个向量只能覆盖向量空间一个有限区域"的局限。
