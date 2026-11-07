@@ -8002,6 +8002,47 @@
 <li><strong>选型口诀</strong>：稳健的机器学习预测、重准确性 → Lambda；高实时、事件驱动响应 → Kappa。</li>
 <li>⚠️ 演进现状：Flink 流批一体、实时数仓（ClickHouse/StarRocks/Doris）与湖仓一体（Iceberg/Hudi/Paimon）大幅压缩了 T+1 依赖；新系统设计上"流批一体"优先于"两套管道"。</li>
 </ul>
+<p><svg class="aikb-diagram" viewBox="0 0 560 380" role="img" aria-label="对比图：Lambda 架构批处理层与速度层双管道经服务层合并，Kappa 架构单一流处理管道">
+  <defs>
+    <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-2)"/>
+    </marker>
+  </defs>
+  <line x1="280" y1="16" x2="280" y2="320" stroke="var(--hairline)" stroke-width="1"/>
+  <text class="dg-note" x="140" y="24" text-anchor="middle">Lambda 架构</text>
+  <rect class="dg-ring" x="95" y="38" width="90" height="34" rx="6"/>
+  <text class="dg-label" x="140" y="60" text-anchor="middle">数据源</text>
+  <path d="M 140,72 L 78,96 L 78,116" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <path d="M 140,72 L 208,96 L 208,116" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <rect class="dg-ring" x="18" y="116" width="120" height="58" rx="6"/>
+  <text class="dg-label" x="78" y="138" text-anchor="middle">批处理层</text>
+  <text class="dg-note" x="78" y="154" text-anchor="middle">预计算全量视图</text>
+  <text class="dg-note" x="78" y="168" text-anchor="middle">T+1 · 准确</text>
+  <rect class="dg-ring" x="148" y="116" width="120" height="58" rx="6"/>
+  <text class="dg-label" x="208" y="138" text-anchor="middle">速度层</text>
+  <text class="dg-note" x="208" y="154" text-anchor="middle">实时补滞后</text>
+  <text class="dg-note" x="208" y="168" text-anchor="middle">不完全准确</text>
+  <line x1="78" y1="174" x2="105" y2="226" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <line x1="208" y1="174" x2="175" y2="226" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <rect class="dg-ring" x="50" y="226" width="180" height="44" rx="6"/>
+  <text class="dg-label" x="140" y="246" text-anchor="middle">服务层</text>
+  <text class="dg-note" x="140" y="262" text-anchor="middle">合并两路视图响应查询</text>
+  <line x1="140" y1="298" x2="140" y2="274" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <text class="dg-example" x="156" y="290" text-anchor="start">查询</text>
+  <text class="dg-note" x="140" y="330" text-anchor="middle">根本缺点：同一业务逻辑维护两遍</text>
+  <text class="dg-note" x="420" y="24" text-anchor="middle">Kappa 架构</text>
+  <rect class="dg-ring" x="375" y="38" width="90" height="34" rx="6"/>
+  <text class="dg-label" x="420" y="60" text-anchor="middle">数据源</text>
+  <line x1="420" y1="72" x2="420" y2="112" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <rect class="dg-ring" x="355" y="116" width="130" height="58" rx="6"/>
+  <text class="dg-label" x="420" y="138" text-anchor="middle">流处理层</text>
+  <text class="dg-note" x="420" y="154" text-anchor="middle">Kafka 日志</text>
+  <text class="dg-note" x="420" y="168" text-anchor="middle">重放历史重算</text>
+  <line x1="420" y1="298" x2="420" y2="178" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <text class="dg-example" x="436" y="242" text-anchor="start">查询</text>
+  <text class="dg-note" x="420" y="330" text-anchor="middle">砍掉批处理层，逻辑只有一套</text>
+  <text class="dg-caption" x="280" y="362" text-anchor="middle">Lambda 双管道保准确，Kappa 单管道靠日志重放</text>
+</svg></p>
 <h2 id="_3">大数据平台架构</h2>
 <ul>
 <li>在线应用需毫秒响应，大数据计算分钟级，平台是两者的"粘合剂"。通用三层：</li>

@@ -8221,6 +8221,45 @@
 <li><strong>VAE 决定画质上限</strong>：小脸、复杂细节的重建是 VAE 弱项（8 倍降采样丢失细节）；生成小脸模糊可能是 VAE 解码器的锅，换更好的 VAE 或微调 VAE 可改善。</li>
 <li><strong>重参数化技巧</strong>是 VAE 可训练的关键：<span class="arithmatex">\(z = e^\sigma \cdot \epsilon + \mu\)</span>，让梯度能穿过随机采样操作。</li>
 </ul>
+<p><svg class="aikb-diagram" viewBox="0 0 560 470" role="img" aria-label="Stable Diffusion 文生图数据流：文本与图像两路汇入 UNet，潜空间去噪循环后解码还原图像">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-2)"/>
+    </marker>
+  </defs>
+  <rect class="dg-ring" x="40" y="26" width="130" height="34" rx="6"/>
+  <text class="dg-label" x="105" y="48" text-anchor="middle">prompt 文本</text>
+  <rect class="dg-ring" x="390" y="26" width="130" height="34" rx="6"/>
+  <text class="dg-label" x="455" y="48" text-anchor="middle">图像 512×512</text>
+  <line x1="105" y1="60" x2="105" y2="88" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="455" y1="60" x2="455" y2="88" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect class="dg-ring" x="30" y="92" width="150" height="38" rx="6"/>
+  <text class="dg-label" x="105" y="109" text-anchor="middle">CLIP 文本编码器</text>
+  <rect class="dg-ring" x="380" y="92" width="150" height="38" rx="6"/>
+  <text class="dg-label" x="455" y="109" text-anchor="middle">VAE 编码器</text>
+  <text class="dg-note" x="455" y="124" text-anchor="middle">压缩到 64×64×4</text>
+  <polyline points="105,130 105,152 230,152 230,172" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <text class="dg-note" x="160" y="146" text-anchor="middle">K、V</text>
+  <polyline points="455,130 455,152 330,152 330,172" fill="none" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect class="dg-ring" x="185" y="176" width="190" height="76" rx="6"/>
+  <rect class="dg-ring-accent" x="191" y="182" width="178" height="64" rx="5"/>
+  <text class="dg-label" x="280" y="206" text-anchor="middle">UNet</text>
+  <text class="dg-note" x="280" y="226" text-anchor="middle">交叉注意力注入文本条件</text>
+  <text class="dg-note" x="280" y="242" text-anchor="middle">预测每步要去除的噪声</text>
+  <line x1="280" y1="252" x2="280" y2="282" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <text class="dg-note" x="296" y="272" text-anchor="start">预测噪声</text>
+  <rect class="dg-ring" x="200" y="286" width="160" height="38" rx="6"/>
+  <text class="dg-label" x="280" y="310" text-anchor="middle">采样器</text>
+  <path d="M 360,305 L 492,305 L 492,214 L 379,214" fill="none" stroke="var(--ink-2)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#ar1)"/>
+  <text class="dg-note" x="430" y="270" text-anchor="middle">×T 去噪循环</text>
+  <line x1="280" y1="324" x2="280" y2="354" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <text class="dg-note" x="296" y="344" text-anchor="start">得到 x₀</text>
+  <rect class="dg-ring" x="200" y="358" width="160" height="38" rx="6"/>
+  <text class="dg-label" x="280" y="382" text-anchor="middle">VAE 解码器</text>
+  <line x1="280" y1="396" x2="280" y2="420" stroke="var(--ink-2)" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <text class="dg-label" x="280" y="438" text-anchor="middle">图像 512×512</text>
+  <text class="dg-caption" x="280" y="462" text-anchor="middle">两路汇流：文本条件经交叉注意力注入，图像在潜空间经 T 步去噪还原</text>
+</svg></p>
 <h3 id="unet-t">UNet 内部：文本和 t 从哪里进来</h3>
 <ul>
 <li>SD 的 UNet：编码器 12 个模块 + 中间模块 + 解码器 12 个模块，编解码器之间有跳跃连接。</li>
