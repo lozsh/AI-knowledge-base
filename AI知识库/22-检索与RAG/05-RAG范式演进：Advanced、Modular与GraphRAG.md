@@ -13,6 +13,20 @@ tags:
 ## 核心概念
 
 - **三代范式的继承关系**：Naive RAG ⊂ Advanced RAG ⊂ Modular RAG（Advanced 是 Modular 的特例，Naive 是 Advanced 的基础特例）。演变方向：从固定链路 → 分环节优化 → 模块化+动态编排。
+
+<svg class="aikb-diagram" viewBox="0 0 420 395" role="img" aria-label="三层同心圆：Naive RAG 包含于 Advanced RAG，Advanced RAG 包含于 Modular RAG">
+  <circle class="dg-ring" cx="210" cy="195" r="150"/>
+  <circle class="dg-ring" cx="210" cy="195" r="100"/>
+  <circle class="dg-ring-accent" cx="210" cy="195" r="52"/>
+  <text class="dg-label" x="210" y="68" text-anchor="middle">Modular RAG</text>
+  <text class="dg-note" x="210" y="87" text-anchor="middle">模块化 · 动态编排</text>
+  <text class="dg-label" x="210" y="118" text-anchor="middle">Advanced RAG</text>
+  <text class="dg-note" x="210" y="136" text-anchor="middle">分环节优化</text>
+  <text class="dg-label" x="210" y="190" text-anchor="middle">Naive RAG</text>
+  <text class="dg-note" x="210" y="208" text-anchor="middle">固定链路</text>
+  <text class="dg-caption" x="210" y="374" text-anchor="middle">层层包含：Naive ⊂ Advanced ⊂ Modular，由固定链路走向动态编排</text>
+</svg>
+
 - **Naive RAG 的典型失败模式**（以"比较 Nvidia 与 Apple 近三年财务表现"为例）：召回不同年度报告的同一章节、时间范围混淆、单实体内容缺失、缺乏处理复杂问题所需的上下文——根因是"切块+向量匹配"只重**局部文本匹配**，没有全局理解。
 - 传统 RAG（向量路线）的两大结构性短板（微软 GraphRAG 论文归纳）：
   1. **跨片段连接能力弱**：需要跨多个信息片段建立联系（多跳推理）的复杂查询表现差；

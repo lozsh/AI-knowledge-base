@@ -20,6 +20,22 @@ tags:
 - **MapReduce 上实现 join 的思路**：map 阶段给 Value 打表标记（标明来自哪张表），相同 join Key 聚到同一 reduce，在 reduce 内做笛卡尔积。小表场景用 MapJoin（全量 Cache 小表，免 shuffle）。
 - **批处理 vs 流处理的数据二分**（SQL 语义的前提）：**有界数据**（Bounded，如表/CSV，是时间窗提取后的子集）vs **无界数据**（Unbounded，传感器/支付流）；**事件时间**（数据实际产生时刻）vs **处理时间**（系统接收时刻）。传统 SQL 处理的是有界数据 + 事件时间。
 
+<svg class="aikb-diagram" viewBox="0 0 460 352" role="img" aria-label="象限图：数据界性与时间域两个维度正交组合，传统 SQL 落在有界数据加事件时间象限">
+  <rect class="dg-ring" x="120" y="20" width="320" height="250"/>
+  <line class="dg-ring" x1="280" y1="20" x2="280" y2="270"/>
+  <line class="dg-ring" x1="120" y1="145" x2="440" y2="145"/>
+  <rect class="dg-ring-accent" x="121" y="21" width="158" height="123"/>
+  <text class="dg-note" x="70" y="40" text-anchor="middle">时间域</text>
+  <text class="dg-label" x="70" y="95" text-anchor="middle">事件时间</text>
+  <text class="dg-label" x="70" y="212" text-anchor="middle">处理时间</text>
+  <text class="dg-label" x="200" y="82" text-anchor="middle">传统 SQL</text>
+  <text class="dg-note" x="200" y="104" text-anchor="middle">有界数据 + 事件时间</text>
+  <text class="dg-label" x="200" y="296" text-anchor="middle">有界数据</text>
+  <text class="dg-label" x="360" y="296" text-anchor="middle">无界数据</text>
+  <text class="dg-note" x="280" y="320" text-anchor="middle">数据界性</text>
+  <text class="dg-caption" x="230" y="344" text-anchor="middle">两个对立维度正交组合，传统 SQL 落在「有界 × 事件时间」象限</text>
+</svg>
+
 ## SQL 引擎谱系与原理
 
 - **Spark SQL 血统**：Hive（HQL → MapReduce）→ Shark（改造 Hive 内存管理，快 10-100 倍，但对 Hive 的依赖阻碍 Spark 发展）→ **2014 年 Spark SQL 自研执行引擎**。

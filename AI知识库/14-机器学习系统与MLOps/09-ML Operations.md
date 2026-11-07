@@ -151,6 +151,27 @@ ML on-call 与传统软件的四点差异：3% 准确率下降要先分辨统计
 
 跨级投资以月计，但生产关键系统用事故频率与调试时间的下降换回。架构随成熟度同步演化：低成熟度是单体（数据处理逻辑嵌在模型代码里），中成熟度出现模块化抽象（特征工程与模型逻辑解耦、声明式管道、API 边界），高成熟度呈现生产级软件属性（无状态服务、契约驱动接口、环境隔离、可观测执行）。**冰山图**：水面上只有 uptime，水面下是数据漂移、概念漂移、管道断裂、schema 变更、模型偏见、数据中断、欠佳分段——分属数据健康/模型健康/服务健康三类威胁，没有一类会触发传统"服务器宕机"告警，这正是它们在低成熟度环境长期潜伏的原因。
 
+<svg class="aikb-diagram" viewBox="0 0 520 400" role="img" aria-label="冰山示意：水面上只有 uptime，水面下是数据漂移、概念漂移、管道断裂、schema 变更、模型偏见、数据中断、欠佳分段七类隐患，分属数据健康、模型健康、服务健康三类">
+  <polygon class="dg-ring" points="225,50 290,50 305,110 215,110"/>
+  <polygon class="dg-ring" points="215,110 305,110 330,145 365,205 350,275 295,335 215,330 172,268 165,196 200,140"/>
+  <polygon class="dg-ring-accent" points="215,110 305,110 330,145 365,205 350,275 295,335 215,330 172,268 165,196 200,140"/>
+  <line class="dg-ring" x1="60" y1="110" x2="460" y2="110"/>
+  <text class="dg-note" x="483" y="104" text-anchor="middle">水面</text>
+  <text class="dg-example" x="125" y="85" text-anchor="middle">只有 uptime 露出水面</text>
+  <text class="dg-label" x="260" y="88" text-anchor="middle">uptime</text>
+  <text class="dg-label" x="260" y="152" text-anchor="middle">数据健康</text>
+  <text class="dg-note" x="260" y="172" text-anchor="middle">数据漂移</text>
+  <text class="dg-note" x="260" y="188" text-anchor="middle">schema 变更</text>
+  <text class="dg-note" x="260" y="204" text-anchor="middle">数据中断</text>
+  <text class="dg-label" x="260" y="228" text-anchor="middle">模型健康</text>
+  <text class="dg-note" x="260" y="248" text-anchor="middle">概念漂移</text>
+  <text class="dg-note" x="260" y="264" text-anchor="middle">模型偏见</text>
+  <text class="dg-label" x="260" y="288" text-anchor="middle">服务健康</text>
+  <text class="dg-note" x="260" y="308" text-anchor="middle">管道断裂</text>
+  <text class="dg-note" x="260" y="324" text-anchor="middle">欠佳分段</text>
+  <text class="dg-caption" x="260" y="372" text-anchor="middle">沉船的是水面下那一大块——七类隐患都不会触发传统"服务器宕机"告警</text>
+</svg>
+
 ### 组织模式与可靠性模式
 
 有效组织模式：集中式 MLOps 平台团队向多个模型组提供共享服务，或联邦式（MLOps 工程师嵌入产品组 + 中央架构职能管全局集成）。反模式：**工具优先**（未定义流程与角色就上基础设施 → 脆弱管道与模糊交接）、**孤岛实验**（数据科学家与生产工程师隔离 → 模型难部署难重训）、**组织漂移**（未成文的工作流固化、协调成本随规模膨胀）。ML 给分布式可靠性模式加了第三种系统状态——"响应但错误"：熔断器需为准确率降级另设阈值；舱壁模式给实验模型划固定资源预算，防一个模型的内存泄漏拖垮全场；拜占庭容错的"故障"从任意节点失效变成**语义故障**（合理但错误的预测通过一切健康检查）——经典 $3f+1$ 副本结论不能直接搬，因为模型错误相关而非独立。

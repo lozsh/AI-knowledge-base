@@ -71,6 +71,28 @@ Inception 块四条并行路径（输出按通道连结，高宽不变）：
 
 **理论动机**：设架构决定函数类 $\mathcal{F}$，我们找 $\mathcal{F}$ 内最优的 $f^*_\mathcal{F} = \arg\min_{f\in\mathcal{F}} L(\mathbf{X},\mathbf{y},f)$。加深得到更大的函数类 $\mathcal{F}'$ 时，若 $\mathcal{F} \not\subseteq \mathcal{F}'$，$f^*_{\mathcal{F}'}$ **不保证**更接近真函数 $f^*$（可能更差）。只有**嵌套**关系 $\mathcal{F}_1 \subseteq \cdots \subseteq \mathcal{F}_6$ 才能保证"加深不劣化"。让新加的层容易学成恒等映射 $f(x)=x$，就能构造出嵌套函数类。
 
+<svg class="aikb-diagram" viewBox="0 0 560 400" role="img" aria-label="嵌套函数类示意：F₁ 到 F₆ 层层包含，嵌套时加深不劣化，非嵌套时更深的 f* 可能更差">
+  <circle class="dg-ring" cx="185" cy="205" r="155"/>
+  <circle class="dg-ring" cx="185" cy="205" r="130"/>
+  <circle class="dg-ring" cx="185" cy="205" r="105"/>
+  <circle class="dg-ring" cx="185" cy="205" r="80"/>
+  <circle class="dg-ring" cx="185" cy="205" r="55"/>
+  <circle class="dg-ring-accent" cx="185" cy="205" r="30"/>
+  <text class="dg-label" x="185" y="68" text-anchor="middle">F₆</text>
+  <text class="dg-label" x="185" y="93" text-anchor="middle">F₅</text>
+  <text class="dg-label" x="185" y="118" text-anchor="middle">F₄</text>
+  <text class="dg-label" x="185" y="143" text-anchor="middle">F₃</text>
+  <text class="dg-label" x="185" y="168" text-anchor="middle">F₂</text>
+  <text class="dg-label" x="185" y="210" text-anchor="middle">F₁</text>
+  <rect class="dg-ring" x="385" y="130" width="160" height="66"/>
+  <text class="dg-label" x="465" y="154" text-anchor="middle">嵌套时加深不劣化</text>
+  <text class="dg-note" x="465" y="176" text-anchor="middle">更深的解总能退回浅层解</text>
+  <rect class="dg-ring" x="385" y="220" width="160" height="52"/>
+  <text class="dg-label" x="465" y="244" text-anchor="middle">非嵌套时</text>
+  <text class="dg-note" x="465" y="264" text-anchor="middle">更深的 f* 可能更差</text>
+  <text class="dg-caption" x="280" y="385" text-anchor="middle">嵌套是加深不劣化的前提：F₁ ⊆ F₂ ⊆ ⋯ ⊆ F₆</text>
+</svg>
+
 **残差块**：两个 3×3 卷积（各接 BN+ReLU），输入跳过卷积直接加在最后 ReLU 之前，网络拟合**残差映射** $f(x)-x$。理想映射接近恒等时，把上层加权运算的权重和偏置学成 0 即可——拟合"恒等的细微波动"远比直接拟合整个映射容易。通道数或分辨率变化时，捷径上加 1×1 卷积（步幅 2）对齐形状。
 
 ResNet-18 逐层：7×7 卷积(stride 2, 64 通道) + 3×3 最大池化 → 4 个模块各 2 个残差块（通道 64→128→256→512，每个模块第一个块步幅 2 降分辨率）→ 全局平均池化 → 全连接。后续变体：更深网络用 bottleneck（1×1 降维 → 3×3 → 1×1 升维）；"卷积-BN-激活"改为 pre-activation（BN-ReLU-卷积），梯度通路更顺。
