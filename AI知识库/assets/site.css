@@ -352,6 +352,25 @@ body,
   background: var(--paper);
   color: var(--ink-3);
 }
+/* 共建邀请沿用站点墨色，避免默认页脚浅色字在纸色背景上不可读。 */
+.md-copyright,
+.md-copyright__highlight {
+  color: var(--ink-2);
+}
+.kb-contribute {
+  display: block;
+  max-width: 56rem;
+  line-height: 1.8;
+}
+.md-copyright .kb-contribute a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.md-copyright .kb-contribute a:hover,
+.md-copyright .kb-contribute a:focus-visible {
+  color: var(--accent);
+}
 .md-top {
   background: var(--paper);
   color: var(--ink-2);
