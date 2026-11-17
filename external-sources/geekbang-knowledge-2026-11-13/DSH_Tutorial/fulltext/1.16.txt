@@ -1,0 +1,262 @@
+本文属于《DeepSeek Harness 入门教程（实战版）》· 第四部分 · 沿着项目掌握核心能力
+
+Windows 前提：使用 PowerShell 7.4+，先检查 $PSVersionTable.PSVersion；不要在 Windows PowerShell 5.1 直接复制本章重定向。将 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) 用于中文管道；调用 DSH 后立即保存 $dshExit = $LASTEXITCODE，非零时停止后续解析。对照 macOS/Linux bash 的 $? 含义，不能混用。
+
+第 15 章　案例六：定时任务与 Headless 自动化
+
+前面的操作都发生在 Desktop 或 Web 对话中。本章换两个入口：
+
+用 Headless 从系统终端发起一次 DSH 任务，拿到结果和退出码后自动结束；
+用 DSH 的内置定时任务把指令按时投递回原对话，让日报助手每天运行。
+
+这两条路线都能用于自动化，但不是一回事。Headless 适合外部脚本、CI 和操作系统调度器；内置定时任务由正在运行的 DSH Host 管理，触发时恢复原 Session 并投递一条后续消息。
+
+我们先让 Headless 执行第 14 章新增的离线 npm run check，确认命令、日志和退出码都可靠，再创建真正的每日任务。这样即使网络抓取暂时失败，也能先证明自动化链路本身是通的。
+
+15.1 先分清四种入口
+入口	谁启动工作	适合什么	本章是否实操
+Web / Desktop	人在界面中发消息	交互、审批、观察过程	已经熟悉
+Headless	Shell 启动一次 DSH 进程	脚本、CI、系统调度器	是
+内置 Schedule	DSH Host 到点向原 Session 投递消息	提醒、定时 Agent 任务	是
+SDK	你的程序通过 JSON-RPC 驱动 DSH 子进程	二次开发、程序集成	只说明边界
+
+Headless 不是“把现有 Desktop 对话隐藏起来运行”。它默认创建一个新的 Session，完成一个任务后进程退出，不打开浏览器和端口，也不会留下后台进程。需要继续同一段 Headless 历史时，可以显式使用 --session-id，但每次调用仍只处理一个任务。官方 Headless 说明
+
+15.2 确认项目和 CLI 起点
+
+在系统终端进入 daily-report 项目，先绕过 Agent 直接验证项目命令：
+
+npm run check
+npm test
+
+
+两条命令都应成功，而且 npm run check 不访问网络、不修改 daily-report.md。如果这里失败，先回第 14 章修复；Headless 只会多加一层 Agent 和模型调用，不会替项目命令消除故障。
+
+接着检查 CLI：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 --version
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --help
+
+
+第二条应显示 Headless 自己的任务、--json 和 --session-id 选项，然后直接退出，不运行模型。
+
+Headless 需要可用的 API 模型路线。只登录了 Desktop 账号不等于 CLI Headless 能复用账号模型；中国大陆读者通常按第 8 章配置官方 DeepSeek API Key、内置 Provider 或自定义模型 API。不要把 Key 写进下面的任务文字、Shell 历史或调度命令。
+
+15.3 第一次 Headless：只做离线检查
+
+确认当前工作目录仍是 daily-report，执行：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless "在当前工作区只运行 npm run check。不要修改文件，不要运行 npm start，不要访问网络。命令退出码为 0 时报告 CHECK_OK；否则如实报告错误。"
+
+
+这段任务刻意把工作目录、允许动作、禁止动作和成功标准都写清楚。Headless 默认是新 Session，不知道你在 Web 中完成过哪些章节；它能看到当前工作区，但不会自动拥有旧对话里的解释。
+
+正常情况下：
+
+推理增量可能以 dsh: reasoning: 写到 stderr；
+stdout 最后打印 Agent 的最终答案；
+进程返回系统命令提示符；
+完成时退出码为 0，中止或错误时为 1。
+
+macOS 与 Linux 查看上一条命令的退出码：
+
+echo $?
+
+
+Windows PowerShell：
+
+$LASTEXITCODE
+
+
+这里要区分两层退出码：Headless 的 0 说明 DSH 轮次正常完成；项目的 npm run check 是否真的成功，还要看工具轨迹和最终报告。我们的提示明确要求二者一致，但自动化场景仍应保留项目自己的独立检查。
+
+15.4 用 stdin 提交较长任务
+
+任务很长、包含引号或由其他命令生成时，可以从 stdin 输入。省略位置参数或传单独的 -，Headless 就从标准输入读取任务。
+
+macOS 与 Linux 示例：
+
+printf '%s\n' '在当前工作区运行 npm run check；不要修改文件；最后只报告命令、退出码和数据源数量。' | npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless
+
+
+Windows PowerShell：
+
+"在当前工作区运行 npm run check；不要修改文件；最后只报告命令、退出码和数据源数量。" | npx.cmd @deepseek-ai/dsh --profile headless
+
+
+不要同时传位置任务又指望 Headless 读取管道；只要位置参数存在，stdin 就不会成为任务内容。空位置参数和空管道会在模型运行前直接报错。
+
+15.5 用 --json 留下机器可读记录
+
+普通模式适合人看最终答案。自动化程序若要知道调用了什么工具、如何结束，应使用按行 JSON（NDJSON）事件流。
+
+在项目根目录执行：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --json "只运行 npm run check，不修改文件、不联网；如实报告结果。" > headless-check.ndjson
+
+
+stdout 现在只保存 JSON 事件；诊断仍在 stderr。文件第一条通常是带 Session 标识的 session 事件，最后成功结束时有 final，中间可能出现 status、text、thinking、tool_call 和 tool_result。
+
+用 Node.js 做一个不依赖额外工具的检查：
+
+node -e "const fs=require('node:fs'); const rows=fs.readFileSync('headless-check.ndjson','utf8').trim().split(/\r?\n/).map(JSON.parse); console.log({first:rows[0]?.type,last:rows.at(-1)?.type,sessionId:rows[0]?.sessionId});"
+
+
+你应该至少确认首条类型为 session、末条类型为 final，并记录输出中的 Session ID。字段的附加内容会随事件类型变化，不要用正则从整行日志里猜状态。
+
+还要同时检查 Headless 进程退出码。官方约定允许“格式完整但运行失败”的事件流：某些轮次失败仍可能写出 final，真正的失败信号是退出码 1 与结束原因，而不只是“文件最后一行能解析”。--json 是运行投影，也不是完整 Session 日志的无损副本。官方 Headless JSON 事件约定
+
+headless-check.ndjson 是本章的临时验收文件。它可能包含模型推理、工具参数和工作区信息，不要提交到公开仓库。检查完可移到项目外或用普通文件操作删除。
+
+15.6 显式继续同一个 Headless Session
+
+默认每次运行都会创建新 Session。若确实需要第二次调用基于第一次历史继续，把上一步 session 事件里的 ID 替换到下面命令：
+
+以下为参数模板，执行前先将尖括号占位符替换为实际值：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --session-id <SESSION_ID> "根据上一轮结果，只总结 npm run check 的验证结论，不运行命令、不修改文件。"
+
+
+不要保留尖括号。沿用要求：
+
+使用同一个 Headless Profile；
+从同一个工作目录运行；
+该 Session 已被持久化且当前没有另一个进程占用；
+它不是子智能体或 fork Session。
+
+ID 不存在或工作目录不匹配时，Headless 会在运行前失败，不会偷偷创建一段空历史。这种严格性对自动化是好事：脚本不会以为自己接上了旧任务，实际却从零开始。
+
+普通定时检查通常不需要续用历史。每次任务都写成自包含文本，更容易重试、审计和迁移。
+
+15.7 先认识 DSH 内置定时任务
+
+从 v0.1.7-rc.2 起，发布版 Web/Desktop 可以创建持久定时任务并查看运行记录，但该功能默认关闭。它支持一次性、固定间隔、每日、每周和五字段 cron 规则；触发时不是直接执行一条 Shell，而是向原 Session 投递一条普通 follow-up，让 Agent 再处理这条指令。官方发布说明 · 官方 Schedule 说明
+
+这意味着：
+
+任务继承的是原 Session 的工作区、Agent 预设、模型与权限上下文；
+到点后仍会产生模型调用和费用；
+如果指令要求网络抓取，就会产生真实外部请求；
+它依赖 Web/Desktop Host 与 Session 持久化，不能塞进一次性 Headless 进程里当作常驻调度器；
+关闭 Desktop 窗口时任务可以继续由后台应用处理，但彻底退出应用后，要等 Host 再次运行。
+
+重复任务在 Host 重启后仍会保留；错过多次时只补发最近一次发生点。它不是操作系统级“保证准点”的守护进程。
+
+15.8 启用 Schedule，并先做两分钟测试
+
+回到日常 Desktop 或 Web Profile，打开左侧“插件”页面，找到内置定时任务（Schedule）并启用。若界面提示重新加载或新建任务，请照做。然后在 daily-report 工作区新建标准模式任务，选择 Workspace Write 权限。
+
+先创建一个一次性测试任务，而不是直接创建每天运行的任务：
+
+请创建一个两分钟后触发的一次性定时任务：
+- 标题：日报配置自动检查测试
+- 到期后只运行 npm run check；
+- 不修改文件，不运行 npm start，不访问网络；
+- 最后报告命令退出码和检查到的数据源数量。
+
+创建完成后列出当前定时任务，并告诉我任务 id 和预计触发时间。不要创建重复任务。
+
+
+执行轨迹中应出现 schedule_create，然后用 schedule_list 返回同一任务。你也可以打开“任务”页面查看标题、下次运行时间和状态。
+
+等待触发后，原对话会收到一条定时来源的后续消息，Agent 执行 npm run check 并留下运行记录。核对：
+
+执行发生在 daily-report 工作区；
+没有 npm start、网络或文件改动；
+npm run check 成功；
+一次性任务已经结束，不会再次运行。
+
+如果两分钟后没有动静，先确认 DSH Host 仍在运行，再检查任务页的预计时间和最近投递记录；不要立即创建第二个同名任务。
+
+15.9 创建真正的每日日报任务
+
+测试通过后，在同一个 daily-report Session 中发送：
+
+请创建一个每日定时任务：
+- 标题：每天生成技术日报
+- 每天北京时间 08:00 触发，时区必须显式使用 Asia/Shanghai；
+- 到期后先运行 npm run check；
+- 检查成功后运行 npm start 生成 daily-report.md；
+- 任一步失败都停止后续动作，如实报告错误，不修改 sources.json，不安装依赖；
+- 不把 API Key、访问令牌或其他凭证写入任务内容。
+
+创建后立即调用任务列表核对标题、规则、时区和下一次运行时间。本次不要提前运行 npm start。
+
+
+Schedule 的 daily 规则使用本地钟表时间和显式 IANA 时区。不要用 every_seconds: 86400 代替“每天 08:00”，固定 24 小时间隔与本地每日时刻不是同一种语义。
+
+这条任务会真实访问配置的数据源，并可能每天覆盖 daily-report.md。如果你不希望产生这些外部副作用，就把指令改为只运行 npm run check，或在创建后立即删除任务。教程不能替你决定是否长期运行它。
+
+15.10 定时任务的停用与删除
+
+内置 Schedule 提供更新和删除工具，而不是让你编辑系统 crontab。要停止本章的每日任务，发送：
+
+请先列出当前定时任务，找到标题完全等于“每天生成技术日报”的任务。
+只删除这一条，并在删除后再次列出任务，证明它已经不存在。
+
+
+删除前一定先列出并核对 ID、标题与规则，避免名称相近时删错。删除会移除任务和已保存的投递记录；如果你只想改时间或指令，应使用更新，而不是先删后盲建。
+
+15.11 什么时候改用操作系统调度器
+
+如果你需要 CI、服务器 cron 或 Windows 任务计划程序统一管理，就让外部调度器调用已验证的 Headless 命令。此时要额外处理：
+
+使用 npx/dsh 的绝对路径，不能假设调度器加载登录 Shell 的 PATH；
+显式设置工作目录；
+把 stdout 与 stderr 写入访问受控的日志，并设置保留周期；
+防止上一次任务未结束时再次启动；
+依赖 DSH 已保存的凭证或安全的 Secret Store，不把 Key 直接写进 crontab、命令参数或脚本；
+同时检查进程退出码与产物，不把一段自然语言“成功”当作唯一信号。
+
+不同操作系统的安全凭证和锁机制差异很大，本教程不提供一条看似通用、实际会泄密的 cron 行。先把 15.3 的 Headless 命令手动跑通，再按你所在环境的调度规范接入。
+
+15.12 SDK 不是另一种 Headless 参数
+
+Python SDK 会通过 stdio 上的 JSON-RPC 启动并复用一个 DSH 子进程，适合你的程序需要连续创建 Session、接收结构化事件或管理多个调用时使用。它不是“给定时任务加个 Python 外壳”，也不是本章每日任务的必需品。
+
+当前 SDK 通过 deepseek-harness-sdk 安装，并要求显式指定隔离的 dsh_home 或 DSH_HOME；它不会自动发现 ~/.dsh。这些约束适合二次开发，却会把凭证、Profile 和生命周期管理带进入门主线，因此本章不安装。官方 Python SDK 说明
+
+选择原则很简单：
+
+Shell 里跑一次任务：Headless；
+DSH 对话到点继续：内置 Schedule；
+你的程序长期驱动 DSH：SDK。
+15.13 常见问题
+Headless 提示没有模型或凭证
+
+Desktop 账号路线与 CLI API Key 路线不是一回事。按第 8 章核对当前 DSH Home 中的 Provider、默认模型和凭证引用；不要把 Key 临时拼到任务字符串里。
+
+Headless 一直没有输出
+
+默认模式在模型产生第一个非空推理增量前没有心跳。先检查网络、Provider 额度和 stderr；自动化需要进度事件时使用 --json。不要因为几秒静默就并发启动多个相同任务。
+
+--session-id 无法继续
+
+核对 ID 是否来自该 Headless Profile 的 session 事件、工作目录是否相同、Session 是否仍被其他进程占用。未知 ID 会明确失败，不会自动新建。
+
+定时任务到点没有运行
+
+确认 Schedule 插件已启用、Host 正在运行或已重新启动、任务状态仍为活动、下一次时间使用 Asia/Shanghai。再看任务页的最近投递记录和原 Session 是否可恢复。
+
+定时任务重复创建
+
+先用 schedule_list 按标题和 ID 核对，再更新或删除。不要在“没看到回复”时重复发送创建指令；第一次调用可能已经成功，只是界面消息尚未刷新。
+
+15.14 本章验收
+
+进入下一章前，请确认：
+
+能解释 Headless、内置 Schedule 与 SDK 的不同职责；
+已从 daily-report 目录用 Headless 成功运行 npm run check；
+已检查 Headless 的系统退出码；
+已生成并解析一份 --json NDJSON 事件流；
+知道 --session-id 的 cwd、归属和独占限制；
+已启用 Schedule，并完成一次两分钟后的离线测试；
+已创建或明确选择不保留“每天生成技术日报”任务；
+每日规则显式使用 Asia/Shanghai，任务内容不含凭证；
+知道如何列出并精确删除本章的定时任务；
+不会把 Headless 最终文字、Goal complete 或 Schedule 投递当成独立验收。
+
+到这里，日报助手已经从交互式项目变成了可被终端、任务调度和后续程序集成调用的工具。下一章不再增加运行入口，而是整理哪些配置值得沉淀到 Profile、Skill 或插件中，哪些仍应留在具体项目里。
+
+← 上一章：案例五：让 Agent 持续推进一个长目标　|　回目录　|　下一章：案例七：把经验沉淀到项目、Skill 与 Profile →

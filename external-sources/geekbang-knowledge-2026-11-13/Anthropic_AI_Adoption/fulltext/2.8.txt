@@ -1,0 +1,47 @@
+原文：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P14-P16
+版本：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成
+译本：v1.0，2026-11
+时效：内容为 2025 年 8 月版本，功能名与命令以官方文档为准
+版权：原文 © Anthropic。非官方中文译本，仅供学习交流。
+
+安全考量不是可选项。它们是成功采用智能体编程（agentic coding）的根基。传统开发把安全评审（review）放在最后，而智能体（agent）工具要求从第一天起就具备安全前置（security-by-design）的思维。
+
+虽然 Claude Code 能帮助写出更安全的代码，但我们建议把它与你团队现有的安全工具并用，而不是取而代之。
+
+策略即代码（policy-as-code）的强制执行：在你的 CLAUDE.md 文件里创建 Claude Code 可以引用的显式安全策略。例如：「All database queries must use parameterized statements」「API endpoints require authentication middleware」，或「No hardcoded secrets in configuration files」。
+
+安全评审自动化：使用 /security-review 命令，在提交代码前从终端运行临时性的安全分析。该命令使用一个专门聚焦安全的提示词（prompt），检查常见的漏洞模式，包括 SQL 注入风险、跨站脚本（XSS）漏洞、身份验证（authentication）与授权（authorization）缺陷、不安全的数据处理，以及依赖漏洞。你还可以配置一个 /security-review 斜杠命令（slash command），通过对照 CLAUDE.md 文件中定义的策略，审计 GitHub Actions 工作流（workflow）的安全漏洞。
+
+安全模式库：构建一个收录已批准安全模式的仓库，供 Claude Code 引用。与其让它即兴发挥身份验证逻辑，不如提供经过测试、符合规范的示例让它遵循。
+
+自动化漏洞修复：用 Claude Code 不只是识别安全问题，还要提出具体修复方案。「This SQL query is vulnerable to injection—here’s the parameterized version」会成为它标准响应模式的一部分。
+
+配置企业权限：借助 Claude Code，管理员可以通过企业托管策略设置，把配置和允许使用的模型上下文协议（MCP）工具下发给所有用户，这些设置的优先级高于用户与项目设置。这种集中式做法，把 Claude Code 从一个强大但可能不一致的个人工具，转变为受治理、可投入企业使用的开发平台。
+
+MCP 服务器管理
+
+模型上下文协议是 Anthropic 发布的一项开放标准，规范了 AI 模型连接外部数据源和工具的方式。通过把 MCP 服务器与 Claude Code 集成，你可以为软件开发环境补充额外的上下文（context）和功能。不过，尽管智能体编程生态发展迅速，并非所有 MCP 服务器集成都能达到企业安全标准。以下是让你的 MCP 服务器保持最新的方法：
+
+安全优先的评估流程：在批准任何 MCP 服务器之前，进行彻底的安全评估。评估数据处理、API 安全、访问控制和供应商安全态势。创建一套标准化的评估量表，覆盖代码访问、数据传输和第三方依赖。
+
+精选的集成市场：创建一个内部「应用商店」，收录预先批准的 MCP 服务器。为每个工具附上安全评估、已批准用例和实现指南。这样既能阻止影子 IT（shadow IT）的采用，又能促进创新。
+
+集成沙箱（sandbox）化：在生产部署前，先在隔离环境中测试新的 MCP 服务器。监控数据流、API 调用和安全行为，在潜在风险影响主代码库之前识别出来。
+
+定期安全审计：安排每季度对所有已批准的 MCP 服务器进行评审。检查安全更新、漏洞报告和供应商安全实践的变化。维护一套集成生命周期，为不满足不断演进的安全标准的工具制定弃用计划。
+
+代码评审的演进
+
+组织可以把智能体编程工具本身当作安全评审员使用。这种方法能识别潜在漏洞，并针对以下用例（以及更多）建议安全的替代方案：
+
+多层安全分析：配置 Claude Code 执行不同类型的安全评审——针对常见漏洞的静态分析、针对安全模式的架构评审，以及对照你内部策略的合规检查。
+
+上下文感知的漏洞检测：训练 Claude Code 理解你特定的技术栈和安全要求。Node.js 应用与 Python Flask 应用或 Go 微服务有不同的安全考量。
+
+安全替代方案建议：当 Claude Code 识别出安全问题时，要求它提出具体、经过测试的替代方案。「This cookie handling is insecure」应配套「Use httpOnly and secure flags with SameSite=Strict configuration」。
+
+安全债务（security debt）跟踪：用 Claude Code 识别并编目技术安全债务（security debt）——过时的依赖、已弃用的安全实践或缺失的安全控制——并排定修复工作的优先级。
+
+协作式安全教育：让 Claude Code 用开发者友好的方式解释安全问题，把每次安全评审都变成学习机会，而不只是合规检查点（checkpoint）。
+
+有了这些最佳实践，Claude Code 能帮助你改善安全态势，并加速代码审计与评审。

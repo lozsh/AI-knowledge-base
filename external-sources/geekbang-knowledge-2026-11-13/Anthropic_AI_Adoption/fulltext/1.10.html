@@ -1,0 +1,21 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《How Anthropic teams use Claude Code》部门版 PDF，共 23 页，本页面对应原文 P17-P18<br><strong>版本</strong>：PDF 由 Anthropic 于 2025-06-03 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 6 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<p>产品设计团队（Product Design team）支持 Claude Code、Claude.ai 和 Anthropic API，专长是构建 AI 产品。即便是非开发者，也能用 Claude Code 弥合设计与工程之间传统的鸿沟，直接把自己的设计构想落地，而无需与工程师反复来回沟通。</p>
+<h2 id="wiki-h-0">Claude Code 的主要用例</h2>
+<p><strong>前端打磨与状态管理改动（Front-end polish and state management changes）</strong> —— 与其为视觉微调（字体、颜色、间距）撰写大量设计文档、与工程师来回多轮反馈，他们现在直接用 Claude Code 实现这些改动。工程师注意到，他们做出了「通常你不会看到设计师去做的大规模状态管理改动」，从而实现了自己设想中的精确质量。</p>
+<p><strong>GitHub Actions 自动化建单（GitHub Actions automated ticketing）</strong> —— 借助 Claude Code 的 GitHub 集成，他们只需提交描述所需改动的 issue/工单，Claude 就会自动提出代码方案，无需打开 Claude Code，从而为他们长期积压的打磨任务（backlog）创造出一条无缝的缺陷修复与功能完善工作流（workflow）。</p>
+<p><strong>快速交互式原型（Rapid interactive prototyping）</strong> —— 把设计稿（mockup）图片粘贴进 Claude Code，他们就能生成工程师可以立即理解并继续迭代的功能完备的原型，取代了过去「静态 Figma 设计稿 + 大量解释 + 翻译成可运行代码」的循环。</p>
+<p><strong>边界情况发现与系统架构理解（Edge case discovery and system architecture understanding）</strong> —— 他们用 Claude Code 梳理错误状态、逻辑流程和不同的系统状态，从而在设计阶段就能识别边界情况（edge case），而不是等到开发阶段后期才发现，从根本上提升了初始设计的质量。</p>
+<p><strong>复杂的文案改动与法务合规（Complex copy changes and legal compliance）</strong> —— 对于像在整个代码库中删除「research preview」字样这样的任务，他们用 Claude Code 找到所有出现位置、审阅周边文案、与法务实时协调改动并落实更新——整个过程只用了两次 30 分钟的通话，而不是一周的来回协调。</p>
+<h2 id="wiki-h-1">团队影响</h2>
+<p><strong>核心工作流被重塑（Transformed core workflow）</strong> —— Claude Code 成了主要的设计工具，Figma 和 Claude Code 有 80% 的时间都开着。</p>
+<p><strong>执行速度是原来的 2-3 倍（2-3x faster execution）</strong> —— 以往需要与工程师大量来回沟通的视觉改动和状态管理改动，现在可以直接实现。</p>
+<p><strong>周期从数周缩短到数小时（Weeks to hours cycle time）</strong> —— 像 GA（general availability，正式发布）发布文案这类原本需要一周协调的复杂项目，现在两次 30 分钟的通话就完成了。</p>
+<p><strong>两种截然不同的用户体验（Two distinct user experiences）</strong> —— 开发者得到的是「增强工作流」（执行更快），非技术用户得到的是「天哪，我成开发者了」的工作流（以往不可能拥有的全新能力）。</p>
+<p><strong>设计与工程协作改善（Improved design-engineering collaboration）</strong> —— 沟通更顺畅、问题解决更快，因为设计师提前理解了系统的约束与可能性。</p>
+<h2 id="wiki-h-2">来自产品设计团队（Product Design team）的建议</h2>
+<p><strong>请工程师帮忙做好初始设置（Get proper setup help from engineers）</strong> —— 让工程同事帮忙完成初始的仓库设置和权限配置——技术性的上手（onboarding）对非开发者来说颇具挑战，但一旦配置好，它会彻底改变日常工作流。</p>
+<p><strong>用自定义记忆文件引导 Claude 的行为（Use custom memory files to guide Claude's behavior）</strong> —— 写下具体的指示，告诉 Claude 你是一位编码经验很少的设计师，需要详细解释和更小的增量改动，这会大幅提升 Claude 回复的质量，也让它不那么令人生畏。</p>
+<p><strong>利用粘贴图片做原型（Leverage image pasting for prototyping）</strong> —— 用 Command+V 把截图直接粘贴进 Claude Code——它擅长读取设计并生成可用代码，对于把静态设计稿变成工程师能立即理解并继续开发的交互式原型，价值不可估量。</p>
+</article>

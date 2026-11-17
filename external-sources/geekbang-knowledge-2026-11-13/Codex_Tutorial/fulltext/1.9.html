@@ -1,0 +1,289 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本课按能力区分调查 read-only 与实施 workspace-write。若 /permissions 未显示只读，退出后用 <code>codex --sandbox read-only --ask-for-approval on-request</code> 启动；写入前明确切换 workspace-write 并提供计划。以实际权限摘要为准。</p>
+</blockquote>
+<blockquote>
+<p>预计阅读时间：45 分钟<br>本篇目标：通过给 TaskFlow 增加 CSV 导入，理解沙箱、审批和权限范围的区别，并学会判断一次授权是否合理。</p>
+</blockquote>
+<p>Codex 与普通聊天工具最明显的不同，是它不只给建议，还可以读文件、改代码和运行命令。因此，一个任务除了要说清“要做什么”，还要说清“允许在哪里做、可以使用什么资源”。</p>
+<p>这一篇不会用故意危险的命令测试安全性。我们会用一个正常需要读写文件、却完全不需要联网的功能，观察 Codex 如何在边界内工作。</p>
+<h2 id="wiki-h-0">先分清沙箱和审批</h2>
+<p>可以把它们理解成两个不同的问题：</p>
+<ul>
+<li><strong>沙箱</strong>回答“Codex 当前可以自主访问哪些文件和资源”；</li>
+<li><strong>审批策略</strong>回答“当操作需要越过边界时，Codex 是否会停下来请求批准”。</li>
+</ul>
+<p>官方文档列出的常见沙箱模式包括：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>能做什么</th>
+<th>适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>read-only</code></td>
+<td>主要用于检查文件，不在工作区写入</td>
+<td>读代码、解释项目、做只读审查</td>
+</tr>
+<tr>
+<td><code>workspace-write</code></td>
+<td>可以在工作区内读写文件并运行常规本地命令</td>
+<td>日常开发、测试、文档修改</td>
+</tr>
+<tr>
+<td><code>danger-full-access</code></td>
+<td>取消沙箱的文件系统和网络边界</td>
+<td>只在你确实愿意提供完整访问时使用</td>
+</tr>
+</tbody></table></div>
+<p>常见审批策略中，<code>on-request</code> 表示 Codex 先在沙箱内工作，必须越界时再请求审批；<code>never</code> 则表示不会停下来向用户发起审批。<code>never</code> 不等于自动获得更多权限：沙箱边界仍然由当前配置决定。</p>
+<p>官方文档：<a href="https://learn.chatgpt.com/docs/sandboxing">Sandbox</a>。</p>
+<h2 id="wiki-h-1">先检查权限，再开始写功能</h2>
+<p>在 TaskFlow 目录中启动：</p>
+<pre><code class="hljs language-bash">codex --sandbox workspace-write --ask-for-approval on-request
+</code></pre><p>进入交互界面后输入：</p>
+<pre><code class="hljs language-text">/permissions
+</code></pre><p>当前版本会打开权限选择器。本篇需要修改 TaskFlow 项目内的代码、测试和样例文件，因此不能继续使用只读沙箱。</p>
+<p>在你当前看到的三个选项中，应该选择 <strong>Ask for approval</strong>。它对应本篇启动命令中的 <code>workspace-write</code> 加 <code>on-request</code>：Codex 可以在 TaskFlow 工作区内修改文件和运行常规命令，越过边界时则由你决定是否批准。</p>
+<p>另外两个选项不是本篇默认值：</p>
+<ul>
+<li><strong>Approve for me</strong> 仍保留工作区边界，但把越界请求交给自动审查；</li>
+<li><strong>Full access</strong> 会放开文件系统和网络边界，本篇完全不需要。</li>
+</ul>
+<p>本篇不需要：</p>
+<ul>
+<li>读取桌面、下载目录或其他项目；</li>
+<li>安装第三方依赖；</li>
+<li>访问公网；</li>
+<li>读取 <code>.env</code>、SSH 密钥或云服务凭据；</li>
+<li>使用 Full Access。</li>
+</ul>
+<p>先写出“不需要什么”很有用。如果之后出现与这些范围冲突的申请，你就知道应该先停下来问为什么。</p>
+<h2 id="wiki-h-2">先定义 CSV 导入的行为</h2>
+<p>这一节只定义功能，还没有开始创建文件或修改代码。此时项目中还不 存在 <code>samples/</code> 目录和 <code>samples/tasks.csv</code>文件，所以下面的命令暂时不要执行。</p>
+<p>我们希望新增的命令用法是：</p>
+<pre><code><span class="hljs-symbol">python3</span> taskflow.py --<span class="hljs-meta">data</span> &lt;任务数据文件&gt; <span class="hljs-meta">import</span>-csv &lt;CSV 文件&gt;
+</code></pre><p>例如，功能完成后，可以让它读取：</p>
+<pre><code>samples/tasks.csv
+</code></pre><p>本篇使用的 <code>samples/tasks.csv</code> 是一份固定的练习文件。它的完整内容如下：</p>
+<pre><code><span class="hljs-built_in">title,</span>completed
+整理会议纪要,<span class="hljs-literal">false</span>
+提交报销,<span class="hljs-literal">true</span>
+准备周报,<span class="hljs-literal">false</span>
+</code></pre><p>其中：</p>
+<ul>
+<li>第一行是表头；</li>
+<li>后面三行是准备导入的三条任务；</li>
+<li><code>false</code> 表示未完成；</li>
+<li><code>true</code> 表示已完成。</li>
+</ul>
+<p>这份文件将在第五节创建。现在不需要现在手动创建，也不要现在运行导入命令，我们在这里只需要先确定导入规则：</p>
+<ul>
+<li>CSV 必须包含 <code>title</code> 和 <code>completed</code> 两列；</li>
+<li><code>title</code> 去掉首尾空格后不能为空；</li>
+<li><code>completed</code> 只接受 <code>true</code> 或 <code>false</code>；</li>
+<li>只读取命令参数指定的 CSV 文件；</li>
+<li>新任务追加到现有列表，不覆盖旧数据；</li>
+<li>任意一行不合法时，整次导入失败，原数据保持不变；</li>
+<li>本版不做重复任务去重，重复导入会照实追加，并在 README 中说明。</li>
+</ul>
+<h2 id="wiki-h-3">让 Codex 先解释权限需求</h2>
+<p>输入：</p>
+<pre><code class="hljs language-text">我要为 TaskFlow 增加 import-csv 命令。
+
+请先检查现有代码、数据保存方式和测试，给出实现计划，暂时不修改文件。
+
+功能规则：
+1. CSV 必须包含 title 和 completed 两列；
+2. title 去掉首尾空格后不能为空；
+3. completed 只接受 true 或 false；
+4. 只读取命令参数指定的 CSV 文件；
+5. 新任务追加到现有列表，不覆盖旧数据；
+6. 任意一行不合法时，整次导入失败，原数据保持不变；
+7. 本版不做重复任务去重，重复导入会照实追加，并在 README 中说明。
+
+安全边界：
+1. 只读取命令参数明确指定的 CSV；
+2. 测试使用临时目录，不触碰真实 data/tasks.json；
+3. 不访问网络，不安装依赖；
+4. 不读取工作区外的文件；
+5. 导入失败时不能留下部分写入。
+
+请在计划中单独说明：本任务需要读取和写入哪些路径，为什么 workspace-write 已经足够。
+</code></pre><p>理想的权限说明应该很简单：</p>
+<pre><code class="hljs language-text">需要读：taskflow.py、tests/、README.md、用户指定的 CSV
+需要写：taskflow.py、tests/、README.md、samples/tasks.csv
+不需要：网络、第三方依赖、工作区外目录
+</code></pre><p>如果它声称需要 Full Access，让它指出哪一个具体步骤无法在当前工作区中完成。对这个功能来说，通常没有充分理由扩大权限。</p>
+<h2 id="wiki-h-4">先在工作区内准备样例</h2>
+<p>确认计划后，把下面的完整任务交给 Codex：</p>
+<pre><code>请先完成下面的准备工作：
+
+<span class="hljs-number">1</span>. 如果 samples 目录不存在，就创建它；
+<span class="hljs-number">2</span>. 创建 samples/tasks.csv；
+<span class="hljs-number">3</span>. 文件内容必须严格如下：
+
+<span class="hljs-built_in">title</span>,completed
+整理会议纪要,<span class="hljs-literal">false</span>
+提交报销,<span class="hljs-literal">true</span>
+准备周报,<span class="hljs-literal">false</span>
+
+创建后重新读取这个文件，确认表头和三行数据正确。
+
+然后按照已经确认的计划实现 <span class="hljs-keyword">import</span>-csv，补充自动测试并更新 README。完成后先运行导入功能的测试，再运行完整测试。
+
+测试必须使用临时任务数据，不能读写真实的 <span class="hljs-keyword">data</span>/tasks.json。不要申请网络权限，也不要访问工作区外的文件。
+</code></pre><p>创建完成后，学员可以亲自检查文件。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code>!<span class="hljs-built_in">cat</span> samples/tasks.csv
+</code></pre><p>Windows PowerShell：</p>
+<pre><code>!<span class="hljs-title class_">Get</span>-<span class="hljs-title class_">Content</span> samples\tasks.csv
+</code></pre><p>看到完整的表头和三行任务后，才能确认样例已经准备好。</p>
+<p>实际测试导入功能时，也不要直接运行：</p>
+<pre><code><span class="hljs-title">python3</span> taskflow.py <span class="hljs-keyword">import</span>-csv samples/tasks.csv
+</code></pre><p>因为这可能写入默认的真实数据文件。应让 Codex通过 <code>--data</code> 明确指定临时的 <code>tasks.json</code>，例如：</p>
+<pre><code>请在系统临时目录中创建一份独立的 <span class="hljs-variable"><span class="hljs-class">tasks</span>.json</span>，然后执行完整 <span class="hljs-variable">CLI</span>：
+
+<span class="hljs-variable">python3</span> <span class="hljs-variable">taskflow.py</span> --<span class="hljs-variable">data</span> &lt;临时<span class="hljs-variable"><span class="hljs-class">tasks</span>.json</span>路径&gt; <span class="hljs-variable">import</span>-<span class="hljs-variable">csv</span> <span class="hljs-variable">samples</span>/<span class="hljs-variable"><span class="hljs-class">tasks</span>.csv</span>
+
+不要读取或修改项目中的 <span class="hljs-variable">data</span>/<span class="hljs-variable"><span class="hljs-class">tasks</span>.json</span>。执行后报告退出码、导入数量和临时数据文件内容。
+</code></pre><p>这一步的关键不是一定要用 <code>samples/</code>。关键是第一次练习时，样例、代码和测试都留在一个可检查的项目边界中。</p>
+<p>如果真实 CSV 位于工作区之外，对初学者来说，最容易检查的方法是先复制一份脱敏副本到项目的 <code>imports/</code> 目录。如果确实需要使用额外目录，应当只增加那一个明确路径，并先用当前版本的 <code>codex --help</code> 确认命令行选项，不要为了一个文件开放整个主目录。</p>
+<h2 id="wiki-h-5">看到审批时，具体看什么</h2>
+<p>审批弹窗的外观可能随版本变化，但判断方法基本不变。</p>
+<h3 id="wiki-h-6">先看操作</h3>
+<p>它是要读文件、写文件、运行测试、联网，还是执行删除、发布等会改变外部状态的操作？</p>
+<h3 id="wiki-h-7">再看对象</h3>
+<p>目标路径或网络地址是什么？它是否与当前任务直接相关？</p>
+<h3 id="wiki-h-8">再看范围</h3>
+<p>这次授权只针对当前操作，还是会对后续一类命令持续生效？能批准单次操作，就不要因为方便而扩大成宽泛规则。</p>
+<h3 id="wiki-h-9">最后看是否必要</h3>
+<p>可以在工作区内完成的任务，为什么要读取其他目录？可以用标准库完成的功能，为什么要下载依赖？</p>
+<p>对本篇任务来说，下列操作一般符合预期：</p>
+<ul>
+<li>在 TaskFlow 项目中创建样例和测试；</li>
+<li>修改 <code>taskflow.py</code> 和 README；</li>
+<li>运行 <code>unittest</code>；</li>
+<li>读取你明确放入项目的 CSV；</li>
+<li>查看 Git Diff。</li>
+</ul>
+<p>下列情况则应该先拒绝或暂停确认：</p>
+<ul>
+<li>读取无关项目、SSH 目录、钥匙串或云凭据；</li>
+<li>将 CSV 发送到外部服务；</li>
+<li>下载一个本任务根本不需要的依赖；</li>
+<li>覆盖或删除真实任务数据；</li>
+<li>没有具体理由地切换到 <code>danger-full-access</code>。</li>
+</ul>
+<h2 id="wiki-h-10">验证正常导入，也验证失败时不写一半</h2>
+<p>完成后先运行完整测试。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-text">!python3 -m unittest
+# 二选一，选择适用于当前系统的命令
+!python3 -m unittest discover -s tests -v
+</code></pre><p>Windows：</p>
+<pre><code class="hljs language-text">!py -m unittest
+# 二选一，选择适用于当前系统的命令
+!py -m unittest discover -s tests -v
+</code></pre><p>然后让 Codex 在临时目录中实跑下列场景：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>期望结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>三行合法数据</td>
+<td>成功导入 3 条，退出码为 0</td>
+</tr>
+<tr>
+<td>缺少 <code>title</code> 列</td>
+<td>提示缺少必需列，退出码非 0，旧数据不变</td>
+</tr>
+<tr>
+<td>某行标题为空</td>
+<td>指出错误行或有用的定位信息，整次不写入</td>
+</tr>
+<tr>
+<td><code>completed</code> 为 <code>yes</code></td>
+<td>按当前规则拒绝，不悄悄猜测</td>
+</tr>
+<tr>
+<td>数据写入前校验失败</td>
+<td>现有任务数量和内容完全不变</td>
+</tr>
+<tr>
+<td>重复导入同一文件</td>
+<td>行为与 README 中约定一致</td>
+</tr>
+</tbody></table></div>
+<p>输入：</p>
+<pre><code class="hljs language-text">请在临时目录中验证上述六个场景。每个场景列出输入文件的关键内容、运行命令、退出码、关键输出，以及导入前后的任务数量。不要读写真实 data/tasks.json。
+</code></pre><p>正常导入的输出可能类似：</p>
+<pre><code class="hljs language-text">已导入 3 条任务。
+</code></pre><p>非法布尔值则可能类似：</p>
+<pre><code class="hljs language-text">错误：第 4 行 completed 必须是 true 或 false。
+</code></pre><p>文字不必与示例相同，重点是用户能找到问题，失败后数据仍然完整。</p>
+<h2 id="wiki-h-11">用 Diff 检查代码范围和数据风险</h2>
+<p>输入：</p>
+<pre><code class="hljs language-text">/diff
+</code></pre><p>这次不只看“功能能不能跑”，还要看：</p>
+<ul>
+<li>是否引入了本来不需要的第三方库；</li>
+<li>是否写死了某台电脑的绝对路径；</li>
+<li>是否一边读 CSV 一边直接写正式数据，导致中途失败时留下半成品；</li>
+<li>错误信息是否泄露了不必要的完整文件内容；</li>
+<li>测试是否使用临时目录；</li>
+<li>是否把真实 CSV 或运行后的 <code>tasks.json</code> 加入了 Git。</li>
+</ul>
+<p>再做一次只读审查：</p>
+<pre><code class="hljs language-text">请只从权限与数据完整性角度审查当前 Diff，不要修改：
+- 文件读取范围是否过大；
+- 输入是否在写入前完整校验；
+- 失败是否可能留下部分写入；
+- 日志或错误信息是否泄露文件内容；
+- 新增权限是否都与功能直接相关。
+
+每个发现给出文件位置和触发条件。
+</code></pre><p>确认后再通过 git 提交实际变更的文件。</p>
+<h2 id="wiki-h-12">把这一阶段提交到 Git</h2>
+<p>测试、手工验证和 Diff 都通过后，打开另一个终端，进入 TaskFlow 项目根目录。先查看实际改动：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>确认列表中只有本篇产生的代码、测试、文档和样例文件，再明确暂存它们：</p>
+<pre><code class="hljs language-bash">git add taskflow.py tests README.md samples/tasks.csv
+</code></pre><p>如果 Codex 实际还修改了其他必要文件，不要直接使用 <code>git add .</code>。先确认它确实属于 CSV 导入功能，再把准确路径补到 <code>git add</code> 命令中。</p>
+<p>提交前检查暂存区：</p>
+<pre><code class="hljs language-bash">git diff --cached --check
+git diff --cached
+</code></pre><p>前一条正常情况下没有输出；后一条应只包含已经审查过的 CSV 导入改动。确认无误后提交：</p>
+<pre><code class="hljs language-bash">git commit -m <span class="hljs-string">"feat: add CSV import"</span>
+git status --short
+</code></pre><p>提交成功时会看到提交摘要；最后一条命令应当没有输出。若仍列出文件，先判断它们是遗漏的本篇改动，还是不应提交的运行数据。<code>data/tasks.json</code> 等真实数据不应被顺手加入版本库。</p>
+<h2 id="wiki-h-13">为什么“一直批准”和“什么都拒绝”都不理想</h2>
+<p>如果每次看到审批都直接允许，审批就失去了意义。反过来，如果任何写入和测试都拒绝，Codex 又无法完成开发任务。</p>
+<p>更实用的方法是：事先界定工作区和允许的操作，边界内的常规工作让 Codex 连续执行，越界时再检查具体原因。沙箱的价值之一，就是减少无意义的反复确认，同时保留清楚的信任边界。</p>
+<h2 id="wiki-h-14">一份可复用的权限任务模板</h2>
+<pre><code class="hljs language-text">请完成：&lt;任务目标&gt;
+
+允许的范围：
+- 可读取：&lt;必要的目录或文件&gt;
+- 可写入：&lt;必要的目录或文件&gt;
+- 可运行：&lt;测试、构建或检查命令&gt;
+
+本任务不需要：
+- &lt;网络、安装依赖、工作区外文件等&gt;
+
+安全要求：
+- 先读取和验证，再写入；
+- 失败时不能留下部分结果；
+- 删除、覆盖、发布和外部发送前先停下来说明；
+- 需要扩大权限时，说明具体操作、目标和不可替代性。
+
+完成后报告实际读写范围、运行命令、验证结果和未执行的高风险操作。
+</code></pre><h2 id="wiki-h-15">本篇小结</h2>
+<p>沙箱决定 Codex 在什么边界内能自主行动，审批策略决定它越过边界时怎样停下来。判断一次授权时，不要只看“Codex 说需要”，要看操作、对象、范围和必要性。</p>
+<p>本篇完成的 CSV 导入只需要工作区内的读写和本地测试。权限越贴合任务，执行过程越容易检查。</p>
+<p>下一篇，我们会把标准库、临时目录、数据保护和完整测试等约束写进 <code>AGENTS.md</code>，让新会话也能自动了解项目的工作方式。</p>
+</article>

@@ -1,0 +1,136 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>前五章我们学的都是"怎么用 Kimi"，这一章回到项目本身。我们会连续走几遍专业开发的完整流程：<strong>提清需求 → 实现 → 测试 → 修 bug → 重构 → 分支管理</strong>。这一章是全书的核心，篇幅也最长，建议分几次读完——更重要的是跟着做，做一遍比读三遍都管用。</p>
+<h2 id="wiki-h-0">6.1 写好需求：功能描述 + 验收标准</h2>
+<p>先说一个新手最常踩的坑：把需求写成一句话，比如"给我的应用加上饮食记录"。Kimi 确实会干活，但做出来的东西十有八九和你想的不一样——它不知道你要记哪些字段、不知道新功能和已有的"热量预算"是什么关系、更不知道你打算怎么验收。<strong>AI 不会读心术，需求里的每一分模糊，都会变成返工。</strong></p>
+<p>专业的写法是<strong>功能描述 + 验收标准清单</strong>。现在实战，给应用加两个大功能：结构化的饮食记录和运动记录。发送：</p>
+<pre><code>给应用加两个功能：饮食记录和运动记录。
+
+饮食记录：
+<span class="hljs-bullet">1.</span> 每餐记录包含：餐别（早/午/晚/加餐）、食物名称、热量（千卡）
+<span class="hljs-bullet">2.</span> 之前"每日热量预算"里手工录的热量输入，迁移为这里的饮食记录
+
+运动记录：
+<span class="hljs-bullet">1.</span> 每条记录包含：运动项目、消耗热量（千卡）
+<span class="hljs-bullet">2.</span> 运动热量计入当天总消耗
+
+首页按天汇总显示：今日总摄入、总消耗、净摄入（摄入减去消耗）。
+
+验收标准：
+<span class="hljs-bullet">1.</span> 刷新页面数据不丢
+<span class="hljs-bullet">2.</span> 首页能看到今日摄入、消耗、净摄入三个数字，且数值计算正确
+<span class="hljs-bullet">3.</span> 浏览器窗口拉到手机那么窄时，页面也能正常显示和操作
+</code></pre><p>对比第 3 章的需求，这次多了两样关键东西：</p>
+<ul>
+<li><strong>和旧功能的关系</strong>："手工录热量迁移为饮食记录"——不说清楚，它很可能给你留两套并存的录入入口，数据各算各的；</li>
+<li><strong>可逐条检查的验收标准</strong>：它既是你验收时的对照表，也是 Kimi 完工前自查的依据。</li>
+</ul>
+<p>它做完后，<strong>逐条核对验收标准</strong>：刷新页面看数据还在不在、心算核对三个汇总数字、把窗口拉窄试试布局。如果哪条没通过，不要自己动手改代码，直接把事实甩给它：</p>
+<pre><code><span class="hljs-string">验收标准第</span> <span class="hljs-number">2</span> <span class="hljs-string">条没通过：我录了早餐</span> <span class="hljs-number">400</span><span class="hljs-string">、午餐</span> <span class="hljs-number">650</span><span class="hljs-string">，</span>
+<span class="hljs-string">首页总摄入显示</span> <span class="hljs-number">900</span><span class="hljs-string">，应该是</span> <span class="hljs-number">1050</span><span class="hljs-string">。请修复。</span>
+</code></pre><p>发现它对需求的理解有偏差，也一样处理——在对话里说清楚哪里不对、应该是什么样，让它改到你满意为止。<strong>你的角色是产品经理加验收员，不是替它擦屁股的实习生。</strong>全部通过后，提交。</p>
+<h2 id="wiki-h-1">6.2 给它配上测试：零依赖的测试页</h2>
+<p>功能多了，"每次手动点一遍验证"会越来越靠不住：点一遍要五分钟，而且人总会偷懒漏项。该上测试了。</p>
+<p>但我们的项目没有 Node 环境，怎么跑测试？用一个零依赖的办法：<strong>把计算逻辑抽成独立模块，再写一个浏览器里直接打开的测试页。</strong>发送：</p>
+<pre><code>把热量汇总、净摄入这类纯计算逻辑抽到一个独立的 calc<span class="hljs-selector-class">.js</span> 里，
+然后写一个 tests<span class="hljs-selector-class">.html</span> 测试页：浏览器打开它就能看到每条测试是否通过（绿色通过、红色失败）。
+覆盖这些场景：单日汇总、多条记录累加、净摄入计算、空数据、边界日期。
+</code></pre><p>这个方案能成立，关键在于"纯计算逻辑"——也就是<strong>纯函数</strong>：给它输入，它算出输出，不碰页面、不碰存储。这种函数最好测，扔几组数据进去，对一下结果就行。反过来，如果计算逻辑和界面操作混在一起，想测都无从下手。所以"把纯逻辑抽出来"本身就是一次小小的架构改善。</p>
+<p>完成后打开 <code>tests.html</code>（保持第 3 章 HTTP 服务运行，访问 <code>http://127.0.0.1:8000/tests.html</code>）。页面会列出每条测试的名称和结果，<strong>全绿才允许提交</strong>。</p>
+<p>如果有红色条目怎么办？把那条测试的名称和失败信息原样发给 Kimi：</p>
+<pre><code><span class="hljs-attribute">tests</span>.html 里<span class="hljs-string">"净摄入计算"</span>这条失败了，期望 -<span class="hljs-number">300</span>，实际显示 NaN，请修复。
+</code></pre><p>它修完你刷新页面再看，直到全绿。</p>
+<p>从此立个新规矩：<strong>每次改动计算逻辑，先开测试页跑一遍。</strong>测试不是为了形式，是为了让后面的每一次修改都有底气。</p>
+<h2 id="wiki-h-2">6.3 修 bug 的正确姿势</h2>
+<p>先说方法论。向 Kimi 报 bug，<strong>一次给清三样东西：症状、复现步骤、期望行为</strong>。对比两种报法：</p>
+<ul>
+<li>差的报法："应用有点问题，数字不对，你看看吧。"——它得来回追问三轮才能开工。</li>
+<li>好的报法，看下面这个完整示例：</li>
+</ul>
+<pre><code>症状：首页的<span class="hljs-string">"今日总摄入"</span>没算上加餐。
+复现：<span class="hljs-number">1</span>. 录一条<span class="hljs-string">"加餐，苹果，95 千卡"</span>；<span class="hljs-number">2</span>. 回到首页看今日总摄入。
+期望：总摄入应该包含加餐的 <span class="hljs-number">95</span> 千卡；实际：数字没有变化。
+</code></pre><p>如果原因不明，就让它<strong>先调查后动手</strong>：</p>
+<pre><code>先别改代码。请找出最可能的原因，列出可疑的文件和位置，我确认方向后你再动手。
+</code></pre><p>这样可以避免它一边猜一边改，把代码搅得更乱。</p>
+<p>光说不练假把式，来场<strong>排错演习</strong>：</p>
+<pre><code>我们做个练习：请在 app.<span class="hljs-keyword">js </span>里故意引入一个会导致日期判断出错的 <span class="hljs-keyword">bug，
+</span>不要告诉我细节，然后等我报 <span class="hljs-keyword">bug。</span>
+</code></pre><p>接下来按真实流程走一遍：</p>
+<ol>
+<li><strong>观察现象</strong>：在浏览器里正常操作应用，留意哪里不对劲（比如昨晚录的记录跑到了今天）；</li>
+<li><strong>记录复现步骤</strong>：把"做了什么操作、看到什么"一步步记下来，确保按这个步骤能稳定重现；</li>
+<li><strong>按模板报给它</strong>：不偷看代码，只描述症状、步骤、期望；</li>
+<li><strong>双确认验收</strong>：现象消失 + 测试页全绿，才算修完；</li>
+<li>提交，提交信息用 <code>fix:</code> 类型。</li>
+</ol>
+<p>这个演习值得认真做——真实工作中遇到 bug 时，流程一模一样，区别只是没人陪你排练。</p>
+<h2 id="wiki-h-3">6.4 重构：敢改，因为有测试和 git 兜底</h2>
+<p>代码越攒越多，<code>app.js</code> 开始变得臃肿：数据读写、计算调用、界面操作全搅在一起。该重构了。重构的黄金法则是<strong>不改变外部行为，只改善内部结构</strong>——而我们的测试页和 git，正好为这个法则上了双保险。</p>
+<p>切到 Plan 模式（还记得吗，复杂任务先审方案），发送：</p>
+<pre><code>app.<span class="hljs-keyword">js </span>现在有点臃肿了。请重构一下：
+<span class="hljs-number">1</span>. 把数据读写（localStorage 相关）抽到 storage.<span class="hljs-keyword">js
+</span><span class="hljs-number">2</span>. 计算逻辑已经在 calc.<span class="hljs-keyword">js </span>了，app.<span class="hljs-keyword">js </span>只保留界面交互
+<span class="hljs-number">3</span>. 不改变任何现有功能的表现
+先给我一个重构计划。
+</code></pre><p>审重构计划时多留个心眼：<strong>警惕"顺手改行为"</strong>。如果计划里出现"顺便把汇总逻辑改成……""顺便优化一下显示格式"之类的条目，让它拿掉——重构就只做结构调整，行为变更另起一次改动；混在一起做，出了问题根本没法定位。一份合格的重构计划，还应该写清楚"如何验证行为不变"。</p>
+<p>批准、它动手。改完后<strong>双验证</strong>：测试页全绿 + 手动把核心流程过一遍（录体重、录餐、录运动、看汇总、刷新）。都正常，提交（<code>refactor:</code> 类型）。</p>
+<p>体会一下这个安全感：测试页兜住"行为没变"，git 兜住"随时可退"，所以重构从一件提心吊胆的事，变成了一件日常小事。<strong>这就是好习惯的复利。</strong></p>
+<h2 id="wiki-h-4">6.5 Git 分支与项目文档</h2>
+<p>我们的提交一直打在主分支上，单人项目这样问题不大。但当你要做一个"可能会失败"的尝试时，开个分支更稳妥：</p>
+<pre><code class="hljs language-bash">git switch -c feature/weekly-report   <span class="hljs-comment"># 创建并切到功能分支</span>
+</code></pre><p>分支上随便折腾，满意了切回主分支合并：</p>
+<pre><code class="hljs language-bash">git switch main
+git merge feature/weekly-report
+</code></pre><p>不满意时先检查实验目录的暂存、未暂存和未跟踪文件，保存要留的改动。已提交未合并的分支会被 <code>git branch -d</code> 拒绝删除；保留分支也可以安全回到主线。只有确认不再需要其提交时才用 <code>git branch -D feature/weekly-report</code>。分支本身不是文件隔离，建议沿用第 5 章的独立 worktree。</p>
+<p>顺便把提交信息的类型规范补全，以后照着用：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>用于</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>feat</code></td>
+<td>新功能</td>
+</tr>
+<tr>
+<td><code>fix</code></td>
+<td>修 bug</td>
+</tr>
+<tr>
+<td><code>refactor</code></td>
+<td>不改变行为的结构调整</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td>只改文档</td>
+</tr>
+<tr>
+<td><code>chore</code></td>
+<td>杂务：改 .gitignore、整理目录等</td>
+</tr>
+</tbody></table></div>
+<p>文档也该跟上。让 Kimi 来：</p>
+<pre><code>根据 git log 里的提交记录，生成一份 CHANGELOG.<span class="hljs-built_in">md</span>，按 feat / fix / refactor 分类；
+再把 README.<span class="hljs-built_in">md</span> 更新一下，功能列表要包含现在的全部功能
+</code></pre><p>养成"功能做到哪，文档跟到哪"的习惯，三个月后的你会感谢现在的你。</p>
+<h2 id="wiki-h-5">动手练习：数据导出与备份</h2>
+<p>还记得第 3 章埋的伏笔吗——数据跟着浏览器走，换电脑就丢。现在你自己走一遍完整闭环，给应用加上"导出 / 导入"功能。提示：</p>
+<ol>
+<li>自己写需求：导出为 JSON 文件下载、选择 JSON 文件导入恢复；</li>
+<li>自己写验收标准（至少包括：导出后清空数据、再导入、记录完整恢复）；</li>
+<li>复杂任务记得 Plan 模式先行；</li>
+<li>完成后跑测试页、提交。</li>
+</ol>
+<p>完整做完这个练习，你就把本章的流程内化成自己的了。</p>
+<h2 id="wiki-h-6">本章小结</h2>
+<p>这一章我们完整走了一遍专业开发流程：</p>
+<ul>
+<li>需求写成"<strong>功能描述 + 验收标准清单</strong>"，交代清楚与旧功能的关系；验收没通过就摆事实让它修，你的角色是产品经理加验收员；</li>
+<li>用"独立计算模块 + 浏览器测试页"的办法，给零依赖项目配上了测试，<strong>全绿才允许提交</strong>；</li>
+<li>报 bug 给齐"<strong>症状、复现、期望</strong>"三样，原因不明就先调查后动手；</li>
+<li>重构只做结构调整、警惕顺手改行为，有测试和 git 双兜底就敢放手做；</li>
+<li>实验性开发开 <strong>git 分支</strong>，提交信息按类型规范书写，文档跟着功能走。</li>
+</ul>
+<p>应用的功能已经像模像样了，但录入数据还得手工填——吃个苹果都要自己查热量，太麻烦。下一章我们给 Kimi 接上"眼睛"和"网络"：让它联网查热量、看照片估热量、按截图改界面。</p>
+</article>

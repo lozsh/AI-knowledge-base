@@ -1,0 +1,177 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>应用岗的评估不是跑 benchmark，而是 Bad Case 分析、评测集建设、LLM-as-Judge。核心是"用数据判断模型好不好"。</p>
+</blockquote>
+<h3 id="wiki-h-0">109. 应用侧怎么评估一个 LLM 应用？和跑 benchmark 有什么区别？</h3>
+<p><strong>直接答案</strong>：应用侧评估和"跑公开 benchmark"是两回事：</p>
+<ul>
+<li><strong>benchmark</strong>（MMLU、HumanEval）测的是<strong>通用能力</strong>，帮你初选模型。</li>
+<li><strong>应用侧评估</strong>测的是<strong>模型在你业务上的表现</strong>，用<strong>你自己的数据</strong>构建评测集（golden set），测任务完成率、准确性、忠实度、延迟、成本。</li>
+</ul>
+<p><strong>核心区别</strong>：通用榜单高 ≠ 你的业务好。必须用<strong>业务数据</strong>评。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>三个评估维度</strong>：质量（对不对、忠实不忠实）+ 体验（延迟、成本）+ 安全（不越权、不泄露）。</li>
+<li><strong>benchmark 的局限</strong>：公开榜单可能有数据污染（训练集里见过），且分布和你的业务无关。</li>
+<li><strong>评测集要代表真实分布</strong>：从线上真实流量抽样，而非人工编造"理想"问题。</li>
+<li><strong>为什么不能只看 benchmark</strong>：模型可能在 MMLU 高分、但在你的领域术语/格式上表现差。</li>
+<li>面试加分点：能说出"选型看 benchmark，上线看业务评测集"。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-1">110. 线上出错的案例怎么系统性归因，并把它变成改进信号？</h3>
+<p><strong>直接答案</strong>：Bad Case 分析是<strong>系统性地分析线上出错案例</strong>，找出失败模式并归因，驱动改进。</p>
+<p><strong>做法</strong>：</p>
+<ol>
+<li><strong>收集</strong>：从日志、用户反馈、评测集中捞失败案例。</li>
+<li><strong>归类</strong>：按失败模式分（检索错、幻觉、格式错、理解错、工具调用错）。</li>
+<li><strong>归因</strong>：定位到具体环节（是 prompt、检索、模型能力、还是数据）。</li>
+<li><strong>沉淀</strong>：把 bad case 加进评测集，防止回归。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：bad case 是改进的信号，不是"模型不行"的结论——归因到环节才能针对性修复。</li>
+<li><strong>归因要挂到 trace 上</strong>：没有 trace，只知道"错了"，不知道"哪一步错"——这是 Agent 场景尤其重要的一点。</li>
+<li><strong>失败模式的聚类价值</strong>：个别失败是噪声，<strong>高频失败模式</strong>才是要修的系统性问题。</li>
+<li><strong>沉淀闭环</strong>：bad case → 归因 → 修复 → 加入评测集 → 回归，形成持续改进。</li>
+<li>面试加分点：能说出"bad case → 归类 → 归因 → 沉淀评测集"的闭环。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-2">111. 怎么构建 LLM 应用的评测集（Golden Set）？</h3>
+<p><strong>直接答案</strong>：从真实业务分布抽样，明确标签和评分准则，再补人工边界/对抗样例。</p>
+<ul>
+<li><strong>开发集</strong>：用于调提示词、路由和阈值。</li>
+<li><strong>回归集</strong>：用于频繁检查。</li>
+<li><strong>独立保留测试集</strong>：不参与这些选择（否则会过拟合）。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>切分防泄漏</strong>：按时间、用户或来源分割以减少泄漏（同一文档的近重复样本不能跨集）。</li>
+<li><strong>三种样例来源</strong>：<ol>
+<li>真实样例——衡量常见需求（从线上流量抽样）。</li>
+<li>人工构造样例——覆盖难以自然采到的权限越界、空输入等边界。</li>
+<li>对抗样例——针对已知弱点的攻击性输入。</li>
+</ol>
+</li>
+<li><strong>评分准则要明确</strong>：rubric 写清"什么算对、什么算错"，否则评估不可复现。</li>
+<li><strong>分切片报告</strong>：不能只看总分，要按难度/类型分切片看，否则"整体提升"掩盖"关键类型退化"。</li>
+<li><strong>多次运行估计波动</strong>：LLM 输出非确定，要跑多次看方差，不能只保留最好一次。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-3">112. LLM-as-Judge 为什么不能直接替代人工评估？它的偏见和校准怎么做？</h3>
+<p><strong>直接答案</strong>：LLM-as-Judge 是<strong>用一个 LLM 当"裁判"</strong>，按 rubric 给另一个 LLM 的输出打分，替代部分人工评估。</p>
+<p><strong>可靠性</strong>：有一定可靠性，但有局限：</p>
+<ol>
+<li><strong>自身偏见</strong>：judge 模型也可能有偏好（偏好长回答、偏好自己的风格、位置偏见）。</li>
+<li><strong>不稳定</strong>：同一输出可能打出不同分。</li>
+<li><strong>复杂任务吃力</strong>：需要细粒度、专业判断的，judge 不如人。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>已知偏见</strong>：位置偏见（偏好排在前面的答案）、长度偏见（偏好更长回答）、自我偏好（偏好和自己同源模型的风格）——这些都要在评估设计时注意。</li>
+<li><strong>正确用法</strong>：judge 做粗筛（大规模初评），人工做精标（关键用例定标），且 judge 要<strong>定期用人工标注校准</strong>（算 judge 与人工的一致率）。</li>
+<li><strong>rubric 的必要性</strong>：打分要配明确的评分标准，否则 judge 乱打；最好用"成对比较"（pairwise）而非"绝对打分"来降偏见。</li>
+<li><strong>校准闭环</strong>：定期抽样 judge 结果 vs 人工标注，偏差大就调 rubric 或换 judge。</li>
+<li>面试加分点：能说出"judge 是辅助不是替代，要人工校准"，并知道位置/长度偏见。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-4">113. 评测分数提高两分，如何判断是否值得发布？</h3>
+<p><strong>案例题</strong>：新版本在 100 道题上从 82 道正确变为 84 道，能发布吗？第 112 题说明评估维度，这里检验判断过程。</p>
+<p><strong>直接答案</strong>：不能只看 +2 分就发布，要<strong>多角度验证</strong>：</p>
+<ol>
+<li><strong>看变化分布</strong>：新增正确是否伴随关键安全题退化？（整体 +2 可能掩盖某类题 -10）</li>
+<li><strong>看随机波动</strong>：运行多次，+2 可能只是噪声。</li>
+<li><strong>分切片看</strong>：简单题、复杂题、权限边界分别报告。</li>
+<li><strong>核对延迟和费用</strong>：质量 +2 但成本翻倍，未必值得。</li>
+<li><strong>用保留集复验</strong>：用未参与调参的保留集独立验证。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>两个百分点不足以单独证明改进</strong>：小样本 + 非确定输出，+2 可能落在噪声范围内。</li>
+<li><strong>预先定义发布门槛</strong>：上线前就定好"什么算显著提升、什么算不可接受退化"，而非事后解读。</li>
+<li><strong>不可退化项</strong>：安全、合规这类关键项必须设"不可退化"红线。</li>
+<li><strong>评测集的可持续性</strong>：失败样例进入开发回归集，同时为下一次保留新的独立评测（否则评测集会被"调参调穿"）。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-5">114. 用户反馈（thumbs up/down）怎么用于评估？</h3>
+<p><strong>直接答案</strong>：用户反馈是<strong>"优先级信号"，不是"质量标签"</strong>——告诉你"去哪里看"，不是"真相是什么"。</p>
+<p>原因：显式反馈稀疏且有噪声；信号更多藏在行为和语言里（"这不是我要的"、反复改述、转人工）。</p>
+<p><strong>正确用法</strong>：提取隐式反馈 → 转化为审阅队列（人工判断）→ 按工作流阶段归因。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>显式反馈的局限</strong>：thumbs up/down 覆盖率低（多数用户不点）、且可能受情绪影响。</li>
+<li><strong>隐式信号更可信</strong>：用户"做了什么"（反复改述、转人工、放弃）比"说了什么"（点踩）更真实。</li>
+<li><strong>反馈是"该查哪里"的指针</strong>：不能直接把"踩多"当"质量差"的结论，要人工审阅确认真正原因。</li>
+<li><strong>归因到环节</strong>：反馈要按工作流阶段（检索/生成/工具）归因，才能转化为改进动作。</li>
+<li>加分点：能区分"优先级信号"和"质量标签"，并知道隐式信号的价值。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-6">115. LLM 应用怎么做 A/B 测试？为什么必须先离线评测再小流量？</h3>
+<p><strong>直接答案</strong>：A/B 测试是<strong>对比两个版本（两个模型、两条 prompt）在同一批真实流量下的表现</strong>，用数据决定哪个更好。</p>
+<p><strong>LLM 应用做 A/B</strong>：</p>
+<ol>
+<li>流量分流：一部分用户走 A（旧），一部分走 B（新）。</li>
+<li>采集指标：质量（准确率、满意度）+ 体验（延迟）+ 成本（token）。</li>
+<li>统计显著性：样本量足够才下结论。</li>
+<li>离线评测先行：先跑 golden set，再上小流量 A/B，最后全量。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>层层递进降风险</strong>：离线评测（便宜、快、可复现）→ 小流量 A/B（真实流量验证）→ 全量（确认后发布）。</li>
+<li><strong>LLM 的特殊性</strong>：输出非确定，A/B 需要更大样本量才能达到统计显著。</li>
+<li><strong>多指标权衡</strong>：质量、延迟、成本要一起看，A 组质量高但成本翻倍，未必是"更好"。</li>
+<li><strong>A/B 的局限</strong>：只能测"能观测到的指标"，隐性的质量退化（如某类 case）要靠评测集补。</li>
+<li>面试加分点：能说出"离线 → 小流量 → 全量"的灰度路径。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-7">116. LLM 应用为什么必须配回归测试门禁？非确定性输出下怎么防退化？</h3>
+<p><strong>直接答案</strong>：回归测试门禁是<strong>每次改动（改 prompt、换模型、改流程）都跑一遍评测集，不达标不发布</strong>的机制。</p>
+<p><strong>为什么需要</strong>：LLM 应用是<strong>非确定性</strong>的，改动某个环节可能在其他 case 上悄悄变差。门禁用数据拦住"退化"。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：LLM 应用要像代码一样走 CI/CD，评测集就是测试集——prompt/模型/流程的改动都纳入版本控制和回归。</li>
+<li><strong>非确定性的应对</strong>：因为输出有随机性，回归要跑多次取稳定值，且设"容忍区间"（而非单次精确比对）。</li>
+<li><strong>门禁指标</strong>：准确率、忠实度、关键 case 不回归（尤其安全/合规 case 设硬红线）。</li>
+<li><strong>门禁的位置</strong>：在发布流水线里，任何改动（含 prompt 改一个字）都触发回归，不达标自动阻断。</li>
+<li>面试加分点：能说出"prompt/模型也纳入版本控制和回归"，并知道非确定性下的评估要跑多次。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-8">117. 怎么让 Agent 持续变好？完整反馈闭环怎么设计？</h3>
+<p><strong>直接答案</strong>：持续改进要把生产问题转为可复现案例，同时保留独立评估能力。</p>
+<ol>
+<li>按授权范围采集脱敏 trace。</li>
+<li>结合用户反馈、程序检查、人工复核、校准过的 LLM judge 定位失败。</li>
+<li>已用于调 prompt、选模型、修实现的案例进入<strong>开发回归集</strong>。</li>
+<li>另保留不用于反复调参的<strong>测试集</strong>，并按用户、时间或文档来源分组切分，防近重复泄漏。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>保留集的纪律</strong>：若多次查看保留集并据此修改，它就不再是独立保留集，应记录使用并补充新样本——这是防"评估自欺"的关键。</li>
+<li><strong>多信号融合</strong>：用户反馈（优先级信号）+ 程序检查（确定性真值）+ 人工复核（精标）+ LLM judge（粗筛）四者结合，而非依赖单一信号。</li>
+<li><strong>人工边界样例的价值</strong>：人工设计的边界与对抗案例能覆盖线上自然流量难采到的场景。</li>
+<li><strong>上线门禁的多维指标</strong>：同时看任务成功率、关键风险失败率、成本和延迟。</li>
+<li><strong>分布漂移</strong>：真实流量分布变化时更新评测分层，不只追求一个总分。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-9">118. 评估 LLM 应用时，怎么平衡"质量、延迟、成本"三个维度？</h3>
+<p><strong>直接答案</strong>：三个维度是<strong>三角权衡</strong>，评估要一起看，不能只看质量：</p>
+<ul>
+<li><strong>质量</strong>：准确率、忠实度、任务完成率。</li>
+<li><strong>延迟</strong>：TTFT、总耗时。</li>
+<li><strong>成本</strong>：token 用量、单次调用成本、月度总成本。</li>
+</ul>
+<p><strong>平衡思路</strong>：</p>
+<ol>
+<li>先定质量底线（最低可接受质量）。</li>
+<li>在满足质量的前提下，最小化成本。</li>
+<li>对延迟敏感场景（实时对话）额外约束延迟。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>："最优"是约束下的最优——质量达标后拼成本和延迟，而非无脑用最强模型。</li>
+<li><strong>典型手段</strong>：模型路由（简单任务用便宜小模型，复杂任务才上大模型）。</li>
+<li><strong>质量是底线不是目标</strong>：质量一旦达标，继续堆质量（用更强模型）的边际收益递减，而成本和延迟持续上升。</li>
+<li><strong>量化权衡</strong>：画出"质量-成本"曲线和"质量-延迟"曲线，找到帕累托最优点，而非追求单一维度的极致。</li>
+<li><strong>场景敏感性</strong>：实时对话延迟是硬约束，离线批处理成本是硬约束，不同场景权重不同。</li>
+<li>面试加分点：能说出"质量是底线，成本和延迟是优化目标"，并知道模型路由是平衡手段。</li>
+</ul>
+<hr>
+</article>

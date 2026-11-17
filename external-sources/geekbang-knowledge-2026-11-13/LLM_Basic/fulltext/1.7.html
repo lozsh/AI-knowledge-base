@@ -1,0 +1,238 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你给个人复习助手一段笔记：</p>
+<blockquote>
+<p>本周计划：周二复习第 1 章，周五复习第 2 章。第 3 章尚未安排。</p>
+</blockquote>
+<p>然后要求：“生成一张问答卡，只问第 2 章的复习时间，答案依据笔记，不要添加其他安排。”</p>
+<p>你想要的结果很简单：</p>
+<pre><code class="hljs language-text">问题：第 2 章安排在什么时候复习？
+答案：周五。
+</code></pre><p>但是，一个擅长续写文字的模型，可能接着列出第 4 章、第 5 章的安排，也可能围绕复习方法写一大段建议。文字可以通顺，却没有完成指定任务。</p>
+<p>上一篇讲了预训练怎样形成广泛能力。本篇讨论下一步：<strong>怎样用有目的的训练数据与反馈，让模型更倾向于按照要求使用这些能力。</strong> 读完后，你应能区分指令微调、RLHF 和 DPO，也能解释为什么“回答更像助手”仍不等于“回答一定正确”。</p>
+<p>本篇的笔记、回答和概率都是教学构造，不是任何模型的实际测试结果；无需安装训练工具。</p>
+<h2 id="wiki-h-0">后训练改变的是什么</h2>
+<p>预训练之后得到的基础模型，已经具有一定的语言、知识与计算能力。不过，“接下来的文本可能是什么”和“怎样完成用户当前的请求”并不完全相同。</p>
+<p>后训练，Post-training，泛指在基础预训练之后，为特定能力与行为目标继续进行的训练。面向助手的目标可以包括：遵循指令、保持多轮对话、采用指定格式、适当追问、依据材料回答，以及遵守服务设定的边界。</p>
+<p>这里的<strong>对齐</strong>主要指让模型行为更符合明确的意图、偏好与约束。它不是一个已取得“全场景可靠”资格的认证，也不意味着无条件顺从用户的每一句话。例如，笔记没有第 3 章的时间，用户要求“随便补一个并说是原计划”，忠实依据材料的助手应指出信息缺失。</p>
+<p>先区分三种操作：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>操作</th>
+<th>直接改变什么</th>
+<th>是否在这次操作中更新模型参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>在提示词里加上“只输出问题和答案”</td>
+<td>本次输入条件</td>
+<td>普通调用不更新</td>
+</tr>
+<tr>
+<td>用许多合格问答卡继续训练模型</td>
+<td>模型的生成倾向</td>
+<td>更新所训练的参数</td>
+</tr>
+<tr>
+<td>应用在输出后检查是否有两个字段</td>
+<td>应用接受结果的规则</td>
+<td>检查本身不更新</td>
+</tr>
+</tbody></table></div>
+<p>三者可以配合。不能因为聊天中模型接受了纠正，就断言它已完成一次后训练。</p>
+<p>后训练也并非只修改礼貌和语气。任务示范与反馈可以影响任务表现。指令微调研究在其测试设置中发现，多任务指令数据能改善未见任务的表现；具体收益仍取决于数据、模型和评估方式。<a href="https://arxiv.org/abs/2210.11416">《Scaling Instruction-Finetuned Language Models》</a></p>
+<h2 id="wiki-h-1">指令微调：用合格示范教模型怎样响应</h2>
+<p><strong>SFT，Supervised Fine-Tuning，监督微调</strong>，使用带目标输出的样本继续训练模型。指令微调是其中面向“理解并执行指令”的一种用法；并非所有监督微调都在训练通用聊天助手。</p>
+<p>对复习助手，一条示范可以写成：</p>
+<pre><code class="hljs language-text">输入：
+笔记：周二复习第 1 章，周五复习第 2 章。第 3 章尚未安排。
+任务：生成一张问答卡，只问第 2 章的复习时间；仅输出问题和答案。
+
+目标回答：
+问题：第 2 章安排在什么时候复习？
+答案：周五。
+</code></pre><p>模型训练时仍然预测 Token。不同之处在于，材料经过选择和组织：输入是任务，目标是希望模型学会产生的响应。模型在正确回答前缀的条件下预测后续内容，用交叉熵计算误差，再更新参数。</p>
+<h3 id="wiki-h-2">为什么可以只对回答部分计算损失</h3>
+<p>一种常见配置是：把指令与回答都送入模型，但只把回答位置的预测误差计入训练损失。</p>
+<pre><code class="hljs language-text">输入条件：[用户任务与笔记]
+训练目标：[问题：…… 答案：周五。]
+</code></pre><p>这里的“只算回答损失”不表示模型看不到指令。指令仍是预测回答的条件，只是训练目标没有要求它在这些位置学着复述用户输入。官方训练工具也支持只对助手消息或补全部分计算损失；这是可配置的训练选择，不是所有 SFT 都必须采用的唯一方式。<a href="https://huggingface.co/docs/trl/sft_trainer">Hugging Face TRL：SFT Trainer</a></p>
+<p>因此，SFT 与预训练并不一定使用两套完全不同的基础数学。两者都可以使用下一 Token 的交叉熵，区别包括数据分布、任务组织、计入损失的位置，以及希望强化的行为。</p>
+<h3 id="wiki-h-3">好示范要覆盖“应该答”和“不足以答”</h3>
+<p>如果所有示范都提供完整材料，模型学到的可能是“遇到问题就给一个完整答案”。但实际笔记会有缺漏。</p>
+<p>同一份笔记至少可以构造三类示范：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>用户任务</th>
+<th>合格目标的要点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>问第 2 章的复习时间</td>
+<td>回答周五，格式符合要求</td>
+</tr>
+<tr>
+<td>问第 3 章的复习时间</td>
+<td>说明尚未安排，不猜测日期</td>
+</tr>
+<tr>
+<td>要求按时间列出已安排章节</td>
+<td>列出周二第 1 章、周五第 2 章，不把未安排事项塞入时间表</td>
+</tr>
+</tbody></table></div>
+<p>这些例子不仅教一种文风，也教模型区分材料支持什么、任务要求什么。若示范遗漏条件、擅自扩写或一律拒答，训练可能强化相应问题。几条样本在这里用于理解数据结构，不足以证明训练后能够泛化。</p>
+<h2 id="wiki-h-4">偏好数据：不只告诉模型“照这样写”</h2>
+<p>有时很难写出唯一标准答案，但可以比较两个回答哪个更好。</p>
+<p>仍用开篇任务，假设有两份候选：</p>
+<p><strong>回答 A</strong></p>
+<pre><code class="hljs language-text">问题：第 2 章安排在什么时候复习？
+答案：周五。
+</code></pre><p><strong>回答 B</strong></p>
+<pre><code class="hljs language-text">问题：第 2 章安排在什么时候复习？
+答案：周五，之后周日复习第 3 章。
+</code></pre><p>按照“忠实依据笔记、不添加安排”的标准，A 优于 B。偏好样本可以保存为：</p>
+<pre><code class="hljs language-text">同一输入 + 较优回答 A + 较差回答 B
+</code></pre><p>这种标签表达的是<strong>在该输入和评价标准下的相对选择</strong>。较优回答不保证完美；较差回答也可能有正确部分。B 中“周五”是对的，问题在于后半句补出了笔记没有的计划。</p>
+<p>如果另一个任务要求“提出一份新的复习建议”，添加建议可能有帮助，只要清楚标注为建议。偏好不能脱离任务单独解释，也不能把某个词永久贴上“好词”或“坏词”的标签。</p>
+<p>评价者还可能分歧。有人喜欢详细解释，有人只要最短答案；如果没有统一标准，同一种回答会得到互相矛盾的反馈。收集更多偏好之前，先明确“好”的含义，才知道数据在教什么。</p>
+<h2 id="wiki-h-5">RLHF：把人的比较变成可用于训练的反馈</h2>
+<p><strong>RLHF，Reinforcement Learning from Human Feedback，基于人类反馈的强化学习</strong>，把人的评价用于改进模型。下面介绍经典的“示范训练、奖励模型、策略优化”路线，真实训练流程可以有变体。</p>
+<p>InstructGPT 原始研究使用了示范、回答排序与强化学习。在其提示分布上的人工评估中，经过这些训练的小模型可以比大得多的基础模型更受偏好，同时仍会犯错。这说明参数规模与助手行为不是同一个维度。<a href="https://arxiv.org/abs/2203.02155">《Training language models to follow instructions with human feedback》</a></p>
+<h3 id="wiki-h-6">第一步：先训练一个能基本完成任务的模型</h3>
+<p>通常先用示范做 SFT，使模型能产生值得比较的回答。否则候选普遍跑题，后续评价的效率也会降低。</p>
+<h3 id="wiki-h-7">第二步：训练奖励模型，学习比较标准</h3>
+<p>奖励模型读取“输入＋回答”，输出一个分数。训练时，用成对偏好推动它把较优回答排在较差回答之前。</p>
+<p>可以把它理解为一个学习过评价样例的评分器，但不是天然正确的裁判。假设它给 A 打 2 分、给 B 打 0 分，这只是一组人为设定的示意分数；2 分不是“200% 正确”，0 分也不表示没有任何价值。</p>
+<p>人类比较提供监督，奖励模型试着推广到更多回答。它可能正确注意到“周日”没有依据，也可能学到错误捷径，例如偏爱更长的回答。</p>
+<h3 id="wiki-h-8">第三步：利用评分更新生成模型</h3>
+<p>生成模型又称策略模型，因为它决定在当前前缀下怎样选择后续 Token。经典路线让它产生回答，由奖励模型评分，再使用强化学习算法调整生成倾向；PPO 是其中一种算法，不等于 RLHF 这个概念本身。</p>
+<p>训练还常加入与参考模型的差异约束，例如 KL 惩罚。KL 在这里衡量概率分布的偏离程度：争取较高奖励的同时，限制生成策略过度偏离参照。它不是“修改了多少百分比参数”，也不是禁止模型改善。<a href="https://arxiv.org/html/2203.02155v1">InstructGPT 论文的方法部分</a></p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-5" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 360px;" viewBox="4 4 360 600" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-5{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-5 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-5 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-5 .error-icon{fill:#552222;}#wiki-mermaid-5 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-5 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-5 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-5 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-5 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-5 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-5 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-5 .marker{fill:#666;stroke:#666;}#wiki-mermaid-5 .marker.cross{stroke:#666;}#wiki-mermaid-5 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-5 p{margin:0;}#wiki-mermaid-5 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-5 .cluster-label text{fill:#333;}#wiki-mermaid-5 .cluster-label span{color:#333;}#wiki-mermaid-5 .cluster-label span p{background-color:transparent;}#wiki-mermaid-5 .label text,#wiki-mermaid-5 span{fill:#000000;color:#000000;}#wiki-mermaid-5 .node rect,#wiki-mermaid-5 .node circle,#wiki-mermaid-5 .node ellipse,#wiki-mermaid-5 .node polygon,#wiki-mermaid-5 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-5 .rough-node .label text,#wiki-mermaid-5 .node .label text,#wiki-mermaid-5 .image-shape .label,#wiki-mermaid-5 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-5 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-5 .rough-node .label,#wiki-mermaid-5 .node .label,#wiki-mermaid-5 .image-shape .label,#wiki-mermaid-5 .icon-shape .label{text-align:center;}#wiki-mermaid-5 .node.clickable{cursor:pointer;}#wiki-mermaid-5 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-5 .arrowheadPath{fill:#333333;}#wiki-mermaid-5 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-5 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-5 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-5 .edgeLabel p{background-color:white;}#wiki-mermaid-5 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-5 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-5 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-5 .cluster text{fill:#333;}#wiki-mermaid-5 .cluster span{color:#333;}#wiki-mermaid-5 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-5 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-5 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-5 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-5 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-5 .icon-shape,#wiki-mermaid-5 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-5 .icon-shape p,#wiki-mermaid-5 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-5 .icon-shape .label rect,#wiki-mermaid-5 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-5 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-5 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-5 .node .neo-node{stroke:#999;}#wiki-mermaid-5 [data-look="neo"].node rect,#wiki-mermaid-5 [data-look="neo"].cluster rect,#wiki-mermaid-5 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-5-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-5 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-5 [data-look="neo"].node path{stroke:url(#wiki-mermaid-5-gradient);stroke-width:1px;}#wiki-mermaid-5 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-5 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-5 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-5-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-5 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-5 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-5-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-5 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-5-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-5 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-5_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-5_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-5_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-5_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-5_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-5_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-5_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-5_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-5_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-5_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-5_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-5_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M88,60L88,96" id="wiki-mermaid-5-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6ODgsInkiOjYwfSx7IngiOjg4LCJ5IjoxMDB9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-5_flowchart-v2-pointEnd-margin)"></path><path d="M280,172L280,220" id="wiki-mermaid-5-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 44 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6MjgwLCJ5IjoxNzJ9LHsieCI6MjgwLCJ5IjoyMjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-5_flowchart-v2-pointEnd-margin)"></path><path d="M88,172L88,208" id="wiki-mermaid-5-L_B_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_E_0" data-points="W3sieCI6ODgsInkiOjE3Mn0seyJ4Ijo4OCwieSI6MjEyfV0=" data-look="neo" marker-end="url(#wiki-mermaid-5_flowchart-v2-pointEnd-margin)"></path><path d="M110,284L110,296.9289321881345Q110,304 117.07106781186548,304L228.92893218813452,304Q236,304 236,311.0710678118655L236,320" id="wiki-mermaid-5-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 152.67172241210938 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MTEwLCJ5IjoyODR9LHsieCI6MTEwLCJ5IjozMDR9LHsieCI6MjM2LCJ5IjozMDR9LHsieCI6MjM2LCJ5IjozMjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-5_flowchart-v2-pointEnd-margin)"></path><path d="M280,272L280,320" id="wiki-mermaid-5-L_D_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 44 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_F_0" data-points="W3sieCI6MjgwLCJ5IjoyNzJ9LHsieCI6MjgwLCJ5IjozMjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-5_flowchart-v2-pointEnd-margin)"></path><path d="M258,396L258,408.9289321881345Q258,416 250.92893218813452,416L191.07106781186548,416Q184,416 184,423.0710678118655L184,432" id="wiki-mermaid-5-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 100.67171478271484 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6MjU4LCJ5IjozOTZ9LHsieCI6MjU4LCJ5Ijo0MTZ9LHsieCI6MTg0LCJ5Ijo0MTZ9LHsieCI6MTg0LCJ5Ijo0MzZ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-5_flowchart-v2-pointEnd-margin)"></path><path d="M140,436L140,423.0710678118655Q140,416 132.92893218813452,416L73.07106781186548,416Q66,416 66,408.9289321881345L66,360L66,288" id="wiki-mermaid-5-L_G_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 212.67172241210938 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_G_E_0" data-points="W3sieCI6MTQwLCJ5Ijo0MzZ9LHsieCI6MTQwLCJ5Ijo0MTZ9LHsieCI6NjYsInkiOjQxNn0seyJ4Ijo2NiwieSI6MzYwfSx7IngiOjY2LCJ5IjoyODR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-5_flowchart-v2-pointEnd-margin)"></path><path d="M162,508L162,544" id="wiki-mermaid-5-L_G_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_G_H_0" data-points="W3sieCI6MTYyLCJ5Ijo1MDh9LHsieCI6MTYyLCJ5Ijo1NDh9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-5_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"></g><g class="nodes"><g class="node default" id="wiki-mermaid-5-flowchart-A-0" data-look="neo" transform="translate(88, 36)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>基础模型</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-5-flowchart-B-1" data-look="neo" transform="translate(88, 136)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>用示范做监督微调</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-5-flowchart-C-2" data-look="neo" transform="translate(280, 136)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>同一输入下的人类偏好</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-5-flowchart-D-3" data-look="neo" transform="translate(280, 248)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>训练奖励模型</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-5-flowchart-E-5" data-look="neo" transform="translate(88, 248)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>当前策略生成回答</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-5-flowchart-F-7" data-look="neo" transform="translate(258, 360)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>奖励评分与参考分布约束</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-5-flowchart-G-11" data-look="neo" transform="translate(162, 472)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>强化学习更新策略</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-5-flowchart-H-15" data-look="neo" transform="translate(162, 572)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>用独立任务评估</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-5-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-5-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-5-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>人的作用通常不是实时观看每一次参数更新、逐条手动奖励每个 Token。先收集偏好，再由学到的评分器提供大量训练信号，是这条路线能扩大规模的原因。</p>
+<p>训练完成后，普通用户的一次聊天也不必重新运行这套流程。奖励模型可以是训练阶段的组件；某个产品是否在回答时额外使用评分器，是另外的系统设计问题。</p>
+<h2 id="wiki-h-9">DPO：直接从成对偏好更新语言模型</h2>
+<p><strong>DPO，Direct Preference Optimization，直接偏好优化</strong>，提供了另一条路线。原始 DPO 使用输入、较优回答和较差回答，结合一个固定参考模型，直接构造损失来更新语言模型。</p>
+<p>它省去经典流程中单独拟合奖励模型、再通过在线生成与强化学习优化策略的环节。标准离线 DPO 在这一步使用已有偏好数据，不必每次更新都重新生成回答。<a href="https://arxiv.org/html/2305.18290v3">《Direct Preference Optimization》</a></p>
+<p>“直接”不表示不训练、不需要偏好标签，或者只在提示词里写“请选 A”。模型参数仍会通过损失和梯度更新。偏好回答在数据准备阶段仍要获得，数据也可能被迭代补充。</p>
+<h3 id="wiki-h-10">用一个比值看懂它在比较什么</h3>
+<p>DPO 不只是把较优答案拿出来再做一遍 SFT。它同时使用两个答案，并考虑它们相对于参考模型的变化。</p>
+<p>下面构造一个极简情况。概率均表示<strong>给定同一输入时，生成整段指定回答的概率</strong>，不是某个 Token 的概率，也不是答案正确率。A、B 之外还有其他可能回答，所以两项不必加起来等于 1。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>回答</th>
+<th align="right">固定参考模型</th>
+<th align="right">某个训练状态的模型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>较优 A</td>
+<td align="right">0.20</td>
+<td align="right">0.30</td>
+</tr>
+<tr>
+<td>较差 B</td>
+<td align="right">0.10</td>
+<td align="right">0.05</td>
+</tr>
+</tbody></table></div>
+<p>计算它们相对参考的变化：</p>
+<pre><code class="hljs language-text">A 的概率倍率 = 0.30 / 0.20 = 1.5
+B 的概率倍率 = 0.05 / 0.10 = 0.5
+两者的相对倍率 = 1.5 / 0.5 = 3
+</code></pre><p>相对于参考，模型朝着偏好 A 的方向发生了变化。作为对照，若 A 和 B 都变为参考的两倍，两者相对倍率仍为 1，并没有拉开这一对回答的偏好差距。</p>
+<p>想多看一步公式，可以把上面的相对倍率记为 <code>R</code>。标准 DPO 的这一对样本损失可写成：</p>
+<pre><code class="hljs language-text">损失 = -ln sigmoid(β × ln R)
+sigmoid(z) = 1 / (1 + exp(-z))
+</code></pre><p><code>β</code> 是正的训练系数；这里只为验算取 <code>β=1</code>，不是推荐训练配置。模型与参考相同时，<code>R=1</code>，损失约 <code>0.693</code>；上表示意状态中，<code>R=3</code>，<code>sigmoid(ln 3)=0.75</code>，损失约 <code>0.288</code>。</p>
+<p>这只是比较两个参数状态，不是模拟了一次真实更新。也不能由此断言每一步都会让 A 的绝对概率上升：损失关注相对关系，参数又被大量样本共享。公式里的 <code>0.75</code> 描述该目标下的成对偏好拟合，不是“答案有 75% 概率符合事实”。</p>
+<h3 id="wiki-h-11">三种方法可以这样区分</h3>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>主要学习材料</th>
+<th>直接推动的方向</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SFT</td>
+<td>输入与合格目标回答</td>
+<td>学习产生示范中的响应</td>
+</tr>
+<tr>
+<td>经典奖励模型式 RLHF</td>
+<td>人类偏好、学到的奖励及生成结果</td>
+<td>通过强化学习优化受约束的奖励目标</td>
+</tr>
+<tr>
+<td>标准离线 DPO</td>
+<td>输入、成对偏好与参考模型</td>
+<td>通过偏好损失直接调整语言模型</td>
+</tr>
+</tbody></table></div>
+<p>不应据此理解为每个模型都必须依次经过 SFT、RLHF、DPO 三道工序。DPO 可以作为偏好优化路线的选择，也可以参与更复杂的分阶段流程；这些名字本身不构成质量排名。</p>
+<h2 id="wiki-h-12">反馈来自人，也不代表标准没有漏洞</h2>
+<p>后训练把“什么输出更好”的要求转化成可优化信号。关键限制在于：信号只是目标的近似。</p>
+<p>如果评分主要奖励“答案完整”，模型可能补齐笔记没有的信息。如果主要奖励“与用户意见一致”，模型可能在用户坚持“第 2 章是周四吧”时，放弃材料里的“周五”。</p>
+<p>这类迎合称为 Sycophancy。相关研究在其测试的助手和任务中观察到迎合，并发现人的偏好判断可能偏向与用户观点一致、表达有说服力的回答。它不表示所有人类反馈必然降低真实性，而是提示评价标准可能奖励错误的行为。<a href="https://arxiv.org/abs/2310.13548">《Towards Understanding Sycophancy in Language Models》</a></p>
+<p>另一个问题是<strong>奖励过度优化</strong>：学到的评分器存在漏洞，继续提高其分数，未必继续提高真正关心的质量。原始研究曾用合成实验、以更强评分器作为参照，分析这种偏离；这不是对所有产品给出同一条下降曲线。<a href="https://arxiv.org/abs/2210.10760">《Scaling Laws for Reward Model Overoptimization》</a></p>
+<p>反馈也可以部分来自 AI。Constitutional AI 研究使用原则指导批评、修订与 AI 偏好评价，探索了 RLAIF，即基于 AI 反馈的强化学习。<a href="https://arxiv.org/abs/2212.08073">《Constitutional AI》</a> 评价来源换成模型，数据仍要接受质量检查；这并没有自动产生无偏、永远正确的裁判。</p>
+<p>后训练可以改善拒答、纠错与表达不确定性的行为，但仅凭输出“我确定”或“我不确定”，不能知道其置信表达是否校准。既要检查应该回答时是否完成任务，也要检查信息不足时是否承认缺口。</p>
+<h2 id="wiki-h-13">回到个人项目：分别检查行为与事实</h2>
+<p>接入一个经过后训练的模型，通常能省掉很多从基础模型塑造助手行为的工作。但你的笔记、格式和使用场景仍需检查。</p>
+<p>以开篇笔记为基础，可以准备以下小检查，不需要自己训练模型：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>检查</th>
+<th>输入变化</th>
+<th>怎样判定</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>指令遵循</td>
+<td>要求只出一张卡、两个字段</td>
+<td>是否多出卡片、建议或说明</td>
+</tr>
+<tr>
+<td>材料忠实</td>
+<td>问第 2 章时间</td>
+<td>是否回答周五，且没有添加安排</td>
+</tr>
+<tr>
+<td>信息缺失</td>
+<td>问第 3 章具体日期</td>
+<td>是否说明尚未安排</td>
+</tr>
+<tr>
+<td>抵抗错误暗示</td>
+<td>说“第 2 章是周四，对吧”</td>
+<td>是否依据笔记纠正为周五</td>
+</tr>
+<tr>
+<td>多轮保持</td>
+<td>第一轮定格式，第二轮换章节</td>
+<td>是否继续遵守适用的格式要求</td>
+</tr>
+</tbody></table></div>
+<p>这是一份检查设计，不是已执行评测。真正比较时应使用更多未参与调整的笔记，记录不同类型错误；不能靠这五个例子宣布模型全面可靠。</p>
+<p>如果格式不稳定，可以先检查指令是否明确、是否需要程序验证；如果新知识缺失，要确保相关材料确实进入输入；如果模型在复杂条件下持续判断错误，就要进一步比较模型能力或拆分任务。不能把所有问题统一诊断为“再做一次 RLHF 就好了”。</p>
+<p>尤其要分清：<strong>遵循要求、受到评价者偏好、符合事实，是相关但不同的结果。</strong> 一个好用的个人助手，需要这些方面共同达到你的任务标准。</p>
+<h2 id="wiki-h-14">理解检查</h2>
+<p><strong>1. 把“只输出问题和答案”写进提示词，就算做了 SFT 吗？</strong></p>
+<p>不算。普通提示改变输入条件；SFT 用样本计算损失并更新所训练的参数。它们都可能影响输出，但发生机制不同。</p>
+<p><strong>2. 只对助手回答计算损失，意味着用户笔记不进入模型吗？</strong></p>
+<p>不意味着。笔记仍是预测回答的条件，只是不在那些输入位置直接累计目标损失。损失掩码与模型是否能读取材料是不同问题。</p>
+<p><strong>3. 在示例偏好对里，B 包含正确的“周五”，为什么仍可以标为较差回答？</strong></p>
+<p>因为同一句回答又添加了无依据的周日安排，违反任务约束。成对偏好评价整个响应在该任务下的质量，不要求较差回答每个字都错。</p>
+<p><strong>4. 标准离线 DPO 不单独训练奖励模型，是不是没有训练信号，也不改变语言模型？</strong></p>
+<p>不是。成对偏好就是监督信号；目标还使用参考模型的概率。损失通过梯度改变语言模型参数，只是没有采用经典的奖励模型加在线强化学习流程。</p>
+<p><strong>5. 参考模型给 A/B 的概率是 0.2/0.1，另一模型给出 0.4/0.2，相对倍率 R 是多少？在 β=1 时损失是多少？</strong></p>
+<p>两者都增长为原来的 2 倍，所以 <code>R=2/2=1</code>，这一对的 DPO 损失仍约 <code>0.693</code>。另有其他回答承接剩余概率，因此这组数字可以成立。</p>
+<p><strong>6. 一个模型更受评价者喜欢，能直接证明它更忠实于你的笔记吗？</strong></p>
+<p>不能。需要单独检查材料一致性、错误暗示、信息缺失等案例。偏好可能受风格和迎合影响，不能代替事实核对。</p>
+<hr>
+<p>预训练提供了广泛的学习基础，后训练进一步塑造模型怎样响应任务。理解两者之后，再看“助手模型”，就能把能力、行为和应用验证分别考虑。</p>
+<p>下一篇《推理模型：为什么多花一些计算，可能解出更难的问题》，我们将继续讨论：怎样训练模型处理较难的任务，以及使用时增加计算预算究竟可能改善什么。</p>
+<p>上一篇：预训练与能力形成 · 返回第二部分大纲</p>
+</article>

@@ -1,0 +1,235 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：45 分钟<br>本篇目标：把 TaskFlow 的结构、测试方式和安全约束固化下来，并通过一次新会话验证它们是否真的生效。</p>
+</blockquote>
+<p>前面几篇里，我们反复告诉 Codex：</p>
+<ul>
+<li>TaskFlow 只使用 Python 标准库；</li>
+<li>测试必须使用临时目录；</li>
+<li>不能读写真实 <code>data/tasks.json</code>；</li>
+<li>修改后要先跑局部测试，再跑完整测试；</li>
+<li>CLI 行为变化时要同步 README。</li>
+</ul>
+<p>如果这些要求每次都由你重写，时间久了总会漏掉一两条。<code>AGENTS.md</code> 的作用，就是把“这个仓库中应该长期遵守的工作方式”放进项目，让 Codex 在开始任务前自动读取。</p>
+<p>配置文件解决的是另一类问题：Codex 用什么沙箱模式、什么审批策略、哪些功能开启。两者一个管“在项目里怎样做事”，一个管“Codex 以什么运行方式开始工作”。</p>
+<h2 id="wiki-h-0">README、AGENTS.md 和 config.toml 分别管什么</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>主要读者</th>
+<th>适合放的内容</th>
+<th>不适合放的内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>README.md</code></td>
+<td>项目使用者</td>
+<td>安装、功能、命令示例、数据格式</td>
+<td>Agent 的内部工作约定</td>
+</tr>
+<tr>
+<td><code>AGENTS.md</code></td>
+<td>Codex 等开发 Agent</td>
+<td>项目结构、验证命令、持续约束、完成标准</td>
+<td>API Key、短期临时任务、大段用户手册</td>
+</tr>
+<tr>
+<td><code>config.toml</code></td>
+<td>Codex 运行时</td>
+<td>模型、推理强度、沙箱、审批、功能开关等</td>
+<td>项目业务规则和敏感凭据</td>
+</tr>
+</tbody></table></div>
+<p>一个实用的判断方法是：</p>
+<ul>
+<li>用户需要知道的，写进 README；</li>
+<li>Codex 每次开工都应遵守的，写进 <code>AGENTS.md</code>；</li>
+<li>Codex 应该以什么权限和功能运行，写进 <code>config.toml</code>；</li>
+<li>只对当前一次任务有效的，直接写在本次提示词里。</li>
+</ul>
+<p>官方建议也是保持 <code>AGENTS.md</code> 简短、准确，从重要规则开始，再根据反复出现的问题逐步增加。参考：<a href="https://learn.chatgpt.com/guides/best-practices">Codex best practices</a>。</p>
+<h2 id="wiki-h-1">用 <code>/init</code> 建立初稿，但不直接照单全收</h2>
+<p>在 TaskFlow 根目录启动 Codex，然后输入：</p>
+<pre><code class="hljs language-text">/init
+</code></pre><p><code>/init</code> 会根据当前目录快速生成一份初始 <code>AGENTS.md</code>。它是一个起点，不是项目规则的最终答案。</p>
+<p>生成后先不要急着提交，让 Codex 说明它是从哪些文件推断出项目命令和结构的。它能看见当前仓库里有什么，却不一定知道我们前面特别在意的数据安全和验收顺序。</p>
+<p>可以继续输入：</p>
+<pre><code class="hljs language-text">请审查刚生成的 AGENTS.md，暂时不修改。
+
+请核对：
+1. 项目结构是否与当前仓库一致；
+2. 测试命令是否已经实际运行验证；
+3. 是否写明测试使用临时目录；
+4. 是否保护真实 data/tasks.json；
+5. 是否保留 Python 标准库约束；
+6. 是否写清了修改后的验收方式；
+7. 是否有空泛、重复或无法执行的句子。
+
+对每个问题给出证据和修订建议。
+</code></pre><h2 id="wiki-h-2">为 TaskFlow 写一份足够用、但不臃肿的 AGENTS.md</h2>
+<p>可以把下面的版本作为核对基准，再按你的实际文件名调整：</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># TaskFlow 项目协作指南</span>
+
+<span class="hljs-section">## 项目概况</span>
+
+TaskFlow 是一个使用 Python 3.11+ 标准库开发的命令行任务管理器，不依赖第三方库。
+
+保持实现简单，并确保现有 JSON 数据仍然兼容。
+
+<span class="hljs-section">## 重要文件和目录</span>
+
+<span class="hljs-bullet">-</span> <span class="hljs-code">`taskflow.py`</span>：CLI 入口和核心功能
+<span class="hljs-bullet">-</span> <span class="hljs-code">`tests/`</span>：unittest 测试
+<span class="hljs-bullet">-</span> <span class="hljs-code">`samples/`</span>：不含敏感信息的示例输入
+<span class="hljs-bullet">-</span> <span class="hljs-code">`README.md`</span>：面向用户的命令和使用说明
+
+<span class="hljs-section">## 验证方式</span>
+
+<span class="hljs-bullet">-</span> macOS、Linux、WSL2：<span class="hljs-code">`python3 -m unittest discover -s tests -v`</span>
+<span class="hljs-bullet">-</span> Windows：<span class="hljs-code">`py -m unittest discover -s tests -v`</span>
+<span class="hljs-bullet">-</span> 修改后先运行相关测试，再运行完整测试。
+<span class="hljs-bullet">-</span> 修改 CLI 行为后，使用临时数据运行受影响的命令，并记录退出码。
+<span class="hljs-bullet">-</span> 不要只根据 Codex 的完成报告判断结果，必须检查实际输出和 Diff。
+
+<span class="hljs-section">## 项目约束</span>
+
+<span class="hljs-bullet">-</span> 除非任务明确改变这一约定，否则只使用 Python 标准库。
+<span class="hljs-bullet">-</span> 自动测试必须使用临时目录。
+<span class="hljs-bullet">-</span> 测试和调试不得读取或覆盖真实的 <span class="hljs-code">`data/tasks.json`</span>。
+<span class="hljs-bullet">-</span> 日常开发任务不得访问网络或安装依赖。
+<span class="hljs-bullet">-</span> 除非已经制定并测试迁移方案，否则必须兼容旧任务数据。
+<span class="hljs-bullet">-</span> 不得提交密钥、个人绝对路径、运行数据或缓存文件。
+<span class="hljs-bullet">-</span> 不要进行与当前任务无关的重构。
+
+<span class="hljs-section">## 完成标准</span>
+
+<span class="hljs-bullet">-</span> 请求的功能已经实现，重要错误场景有测试覆盖。
+<span class="hljs-bullet">-</span> 相关测试和完整测试全部通过。
+<span class="hljs-bullet">-</span> 用户可见的 CLI 行为发生变化时，已经同步更新 <span class="hljs-code">`README.md`</span>。
+<span class="hljs-bullet">-</span> 最终报告列出修改的文件、运行的命令、实际结果和仍然存在的限制。
+</code></pre><p>这份文件里没有“写出优雅代码”“遵循最佳实践”这类句子，因为它们无法直接验收。“测试使用临时目录”和“CLI 变化同步 README”则是可以观察的行为。</p>
+<p>把它交给 Codex 时，不要让它不加判断地整段覆盖：</p>
+<pre><code class="hljs language-text">请用下面的内容作为核对基准，修订仓库根目录的 AGENTS.md。
+
+先根据当前项目确认文件名、命令和目录是否真实存在。保留初稿中已经准确的项目信息，删除重复或空泛内容。不要把示例中与当前仓库不符的路径照抄进去。
+
+&lt;粘贴上面的基准内容&gt;
+
+修订后说明删除、保留和新增了什么，以及依据是什么。
+</code></pre><h2 id="wiki-h-3">理解 AGENTS.md 的发现顺序</h2>
+<p>Codex 可以同时加载多层项目指令。官方文档描述的核心顺序是：</p>
+<ol>
+<li>先读取 Codex 主目录中的全局指导，默认位于 <code>~/.codex</code>；</li>
+<li>再从项目根目录向当前工作目录逐层查找；</li>
+<li>同一目录中优先检查 <code>AGENTS.override.md</code>，然后是 <code>AGENTS.md</code>；</li>
+<li>越靠近当前工作目录的指导越具体，会出现在合并后的更后面。</li>
+</ol>
+<p>官方详细说明：<a href="https://learn.chatgpt.com/docs/agent-configuration/agents-md">Custom instructions with AGENTS.md</a>。</p>
+<p>对 TaskFlow 来说，刚开始只需要根目录的一份 <code>AGENTS.md</code>：</p>
+<pre><code class="hljs language-text">taskflow/
+├── AGENTS.md
+├── taskflow.py
+├── README.md
+├── samples/
+└── tests/
+</code></pre><p>不要因为支持分层，就立即在每个目录放一份。只有当子目录确实存在不同的构建或审查规则时，再增加更具体的指导。否则重复规则很容易日后不一致。</p>
+<p><code>AGENTS.override.md</code> 更适合明确的临时覆盖或特殊目录约束，不要把它当成“更高级的默认文件”到处使用。</p>
+<h2 id="wiki-h-4">不要假设它生效了，开新会话验证</h2>
+<p><code>AGENTS.md</code> 的意义是影响新的工作过程。因此，修改完成后退出当前 Codex，在 TaskFlow 根目录重新启动。</p>
+<p>先让它总结当前指令：</p>
+<pre><code class="hljs language-text">请只读取当前会话已加载的项目指导，不要修改文件。
+
+请列出：
+1. 你发现的指令文件及所在层级；
+2. TaskFlow 的完整测试命令；
+3. 对真实数据的保护规则；
+4. 修改 CLI 后的文档要求；
+5. 当前任务的完成标准。
+</code></pre><p>还可以从终端做一次只读验证：</p>
+<pre><code class="hljs language-bash">codex --ask-for-approval never <span class="hljs-string">"Summarize the current project instructions and their sources. Do not modify files."</span>
+</code></pre><p>官方文档也使用这类方式检查指令是否被加载。注意，<code>--ask-for-approval never</code> 只是说不弹出审批，不是赋予 Full Access；命令仍然受当前沙箱和配置约束。</p>
+<p>如果它没有说出 TaskFlow 的临时目录和数据保护规则，检查：</p>
+<ul>
+<li>文件名是否真的是 <code>AGENTS.md</code>；</li>
+<li>文件是否位于仓库根目录到当前目录的路径上；</li>
+<li>是否存在更近的 <code>AGENTS.override.md</code>；</li>
+<li>启动 Codex 时是否位于你以为的项目目录；</li>
+<li>修改后是否新开了会话。</li>
+</ul>
+<h2 id="wiki-h-5">用一个小任务测试行为，不只是复述规则</h2>
+<p>能复述 <code>AGENTS.md</code> 不等于工作时一定会遵守。继续给它一个边界清楚的小任务：</p>
+<pre><code class="hljs language-text">为 import-csv 增加一个“CSV 只有表头、没有数据行”的测试。
+
+请自行根据项目指导决定使用什么测试目录、需要运行哪些验证，以及是否需要更新 README。不要读写真实任务数据。
+</code></pre><p>观察它是否会：</p>
+<ul>
+<li>使用临时目录；</li>
+<li>不安装新依赖；</li>
+<li>先运行相关测试，再运行完整测试；</li>
+<li>在结尾报告实际运行的命令和结果；</li>
+<li>根据用户可见行为是否改变，判断 README 是否需要修改，而不是机械地每次都改。</li>
+</ul>
+<p>如果它遗漏了某一条，先判断是指令写得不清楚，还是本次执行偏离。只有当一个要求对后续任务都有价值时，才应该补进 <code>AGENTS.md</code>。</p>
+<h2 id="wiki-h-6">什么时候应该修订 AGENTS.md</h2>
+<p>适合加入的内容：</p>
+<ul>
+<li>Codex 已经重复犯过的错误；</li>
+<li>评审中反复出现的同一条要求；</li>
+<li>真实可运行的构建、测试和 lint 命令；</li>
+<li>仓库特有的数据、兼容性或安全约束；</li>
+<li>可以明确检查的完成标准。</li>
+</ul>
+<p>不适合加入的内容：</p>
+<ul>
+<li>只用一次的具体功能需求；</li>
+<li>一大段代码实现细节；</li>
+<li>与当前仓库无关的个人偏好；</li>
+<li>“保证高质量”“仔细思考”之类无法验收的口号；</li>
+<li>密钥、令牌、账号密码和敏感内部地址；</li>
+<li>已经过时的目录或命令。</li>
+</ul>
+<p>规则越多不代表效果越好。如果一份 <code>AGENTS.md</code> 已经让新成员都很难找到测试命令，Codex 同样会被无关信息干扰。</p>
+<h2 id="wiki-h-7">加入最小项目配置</h2>
+<p>Codex 的个人默认配置通常放在：</p>
+<pre><code class="hljs language-text">~/.codex/config.toml
+</code></pre><p>仓库特定配置可放在：</p>
+<pre><code class="hljs language-text">.codex/config.toml
+</code></pre><p>官方参考：<a href="https://learn.chatgpt.com/docs/config-file/config-sample">Sample configuration</a>。</p>
+<p>对 TaskFlow 的日常开发，一份小配置就足够：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">sandbox_mode</span> = <span class="hljs-string">"workspace-write"</span>
+<span class="hljs-attr">approval_policy</span> = <span class="hljs-string">"on-request"</span>
+</code></pre><p>它表示：Codex 可以在工作区内完成日常开发，需要超出边界时再请求审批。</p>
+<p>配置文件不需要追求“把所有可用字段都写上”。字段越多，未来过时或互相冲突的可能性越高。在增加当前版本的其他配置项之前，先查阅官方配置参考或使用 <code>codex --help</code>。</p>
+<p>还要注意两个边界：</p>
+<ul>
+<li>不要把 API Key 或其他秘密写进会提交到 Git 的 <code>.codex/config.toml</code>；</li>
+<li>不要因为项目里放了一份高权限配置，就对一个陌生仓库不加检查地使用。</li>
+</ul>
+<h2 id="wiki-h-8">用“文件发现”和“实际行为”做双重验收</h2>
+<p>最终验收不应该只问“你看到 <code>AGENTS.md</code> 了吗”，而应该包含两层。</p>
+<h3 id="wiki-h-9">第一层：它加载了哪些规则</h3>
+<p>让新会话列出指令来源和关键规则。如果来源不对，先解决目录和文件发现问题。</p>
+<h3 id="wiki-h-10">第二层：它真的按规则工作了吗</h3>
+<p>用一个小任务检查临时目录、测试顺序、README 判断和最终报告。如果行为与文字不一致，规则就还不算真正落地。</p>
+<p>完成后输入：</p>
+<pre><code class="hljs language-text">/diff
+</code></pre><p>确认没有密钥、个人绝对路径和与仓库不符的命令，再按实际变更提交：</p>
+<pre><code class="hljs language-bash">git add AGENTS.md .codex/config.toml
+git commit -m <span class="hljs-string">"add Codex project guidance"</span>
+</code></pre><p>如果验证小任务还改了测试或 README，先在 Diff 中确认这些改动，再把实际需要的文件加入提交。</p>
+<h2 id="wiki-h-11">一份可复用的项目指导检查清单</h2>
+<p>新建或审查 <code>AGENTS.md</code> 时，可以问：</p>
+<ul>
+<li>文件中的目录和命令是否真实存在？</li>
+<li>测试命令是否已经实际运行过？</li>
+<li>哪些是项目长期约束，哪些只是当前任务？</li>
+<li>规则是否可以被观察和验收？</li>
+<li>是否正在重复 README、CI 或其他文档的大段内容？</li>
+<li>是否有过时命令、本机路径或敏感信息？</li>
+<li>更具体的子目录规则是否真有必要？</li>
+<li>是否可以通过一个小任务验证它确实生效？</li>
+</ul>
+<h2 id="wiki-h-12">本篇小结</h2>
+<p><code>AGENTS.md</code> 不是越长越好。它应该记录真实、持续、可执行的项目规则；<code>config.toml</code> 则负责 Codex 的运行默认值。新会话能复述规则，只是第一步；它能在真实任务中正确使用临时目录、运行测试并保护数据，才说明项目指导真正发挥了作用。</p>
+<p>下一篇，我们会把 TaskFlow 升级到 2.0，并学会怎样用计划、目标、恢复和上下文整理管理一项更长的工作。</p>
+</article>

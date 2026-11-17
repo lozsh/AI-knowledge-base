@@ -1,0 +1,322 @@
+预计阅读与练习时间：60～80 分钟
+本篇目标：让失败进入可解释的控制分支——第一轮失败后保存证据并生成新计划，第二轮用新策略完成；连续出现相同失败时停止消耗，把任务转入 needs-input。
+
+第 5 篇证明了“Generator 说完成”不等于完成。接下来还有一个更现实的问题：Verifier 拒绝候选以后，应该立刻结束，还是再给 Agent 一轮机会？
+
+答案不能只是“失败就重试三次”。如果下一轮的输入、证据和策略都不变，所谓重试只是重复下注。可靠的循环至少要分清三种动作：
+
+Retry（重试）：故障更像暂时性环境问题，计划不变，但等待后再执行；
+Replan（重新规划）：验证暴露了计划本身的问题，下一轮必须带着新证据换做法；
+Escalate（升级）：缺少信息、越过权限、预算耗尽或重复撞上同一失败，停止自动运行并找人。
+
+这一篇用两个任务把后两条路径跑一遍。网络限流、临时服务错误等 Retry 场景会说明设计方法，但不会为了演示去调用真实外部服务。
+
+从干净的 ISBN 搜索基线开始
+
+第 5 篇结束时，issue-003 已进入 blocked，issue-004 已完成，ISBN 搜索结果已经提交。先确认工作区和既有能力：
+
+git status --short
+node --test acceptance/isbn-search.test.mjs
+npm test
+npm run check
+
+
+Git 状态应为空，其他命令应通过。若 src/ 仍有未提交改动，先回到第 5 篇末尾完成审阅和提交；多轮引擎不会在来源不明的候选上继续叠加修改。
+
+加入多轮引擎与两项练习任务
+
+从课程根目录复制本篇增量素材。
+
+macOS 或 Linux：
+
+cp -R assets/lesson-06-retry/. issue-garden-lab/
+cd issue-garden-lab
+source .venv/bin/activate
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force assets/lesson-06-retry/* issue-garden-lab
+Set-Location issue-garden-lab
+.\.venv\Scripts\Activate.ps1
+
+
+关键新增内容：
+
+issue_garden/loop_engine.py          多轮决策、失败签名和升级
+issue_garden/loop_generator.py       能读取轮次与新计划的模拟 Generator
+tools/run_loop.py                    多轮入口
+tasks/inbox/issue-005.json           第一轮失败、第二轮完成
+tasks/inbox/issue-006.json           连续相同失败后请求输入
+acceptance/diacritic-search.test.mjs 重音符号验收
+acceptance/publisher-search.test.mjs 出版社字段验收
+
+
+验证注册表也新增了 diacritic-search 和 publisher-search 两个 profile。
+
+先运行控制面测试：
+
+python -m unittest discover -s loop_tests -p "test_*.py" -v
+
+
+预期十六项通过。本篇新增三项检查：失败签名忽略输出文字和耗时抖动，退出码变化会产生新签名，只统计末尾连续出现的相同失败。
+
+保存课程代码与任务定义：
+
+git add .
+git commit -m "feat: add retry and escalation policy"
+git status --short
+
+
+工作区应再次干净。
+
+先给失败做分类，再决定下一步
+
+多轮引擎不会看到非零退出码就机械重跑，而是按证据选择动作。
+
+失败类型	典型证据	默认动作
+暂时性环境故障	超时、限流、临时 5xx，代码没有变化	等待并 Retry，但仍受时间与次数预算限制
+计划或实现错误	验收稳定失败，日志提供了新的定位信息	把失败证据写进新计划，再 Replan
+候选越界	修改测试、契约、白名单外文件或改动过大	立即 Block，不靠下一轮“自觉改好”
+信息不足	字段约定、期望行为或输入样例缺失	needs-input，等人补充
+相同失败重复	连续多轮的失败签名相同	停止原地打转并升级
+预算耗尽	达到最大轮次、运行次数、时间或费用	停止；是否加预算由人决定
+
+Retry 和 Replan 最容易混淆。判断标准不是“再运行一次”，而是下一轮有没有新的决策依据：
+
+临时网络错误消失后，同一计划可能成功，适合 Retry；
+测试稳定证明方案不成立时，必须把失败变成新上下文，适合 Replan；
+如果什么都没变，只是再次发送同一句提示词，它既不是可靠 Retry，也不是 Replan。
+失败签名只保留稳定特征
+
+命令输出常含耗时、临时路径和执行顺序。直接对整份日志求哈希，即使根因相同，每轮也可能得到不同值。
+
+Issue Garden 的失败签名只包含：
+
+排序后的 boundary_errors
++ 每条验证命令的参数数组
++ 每条命令的退出码
+
+
+它不包含完整 stdout；只提取其中稳定的失败测试标识和错误类别、stderr、耗时和 Agent 的措辞。序列化后计算 SHA-256，并取前 16 位作为可读标识。
+
+这不是通用的“根因识别算法”。两个不同问题可能恰好拥有同样的命令退出码；一个问题也可能在不同阶段产生不同签名。它的作用更朴素：发现控制面能够稳定观察到的“没有进展”模式，避免把日志噪声误认为新情况。
+
+loop.yaml 中已有：
+
+stop:
+  same_failure_limit: 2
+
+
+所以同一签名连续出现两次，就停止自动尝试。
+
+第一轮失败后，先暂停看新计划
+
+issue-005 要求输入 garcia marquez 时也能匹配 García Márquez。当前使用 NFKC 统一字符宽度，但不会移除重音标记。
+
+先确认验收失败：
+
+node --test acceptance/diacritic-search.test.mjs
+
+
+然后让循环只完成第一轮并在 Replan 后暂停：
+
+python tools/run_loop.py --pause-after-round 1
+
+
+预期退出码为 75，输出类似：
+
+{
+  "decision": "interrupted",
+  "reason": "paused_after_replan",
+  "task_id": "issue-005",
+  "completed_round": 1,
+  "next_round": 2,
+  "plan": ".loop/tasks/issue-005/plan-round-002.json",
+  "failure_signature": "..."
+}
+
+
+第一轮模拟 Generator 错误地认为 NFKC 已经足够，因此没有修改代码。Verifier 观察到两件事：候选文件为空，重音符号验收退出码为 1。Loop 没有立即重发原任务，而是把这两项证据写进下一轮计划。
+
+查看第一轮记录和第二轮计划：
+
+python -m json.tool .loop/tasks/issue-005/attempts/round-001.json
+python -m json.tool .loop/tasks/issue-005/plan-round-002.json
+python -m json.tool .loop/tasks/issue-005/state.json
+
+
+你应该看到：
+
+第一轮 decision 是 retry，原因是 verification_failed_replan；
+尝试记录包含一个失败签名和 consecutive_same_failure: 1；
+新计划的 new_evidence 保存边界错误与失败命令，不复制大段易变日志；
+状态是 active + round_ready，下一轮编号为 2。
+
+再查看源文件：
+
+git diff -- src/search.mjs
+
+
+应没有输出。第一轮没有留下失败候选，因此第二轮可以从已提交基线继续。若失败轮已经修改代码，多轮引擎会输出 rejected_candidate_requires_cleanup 并转入 blocked；在第 7 篇加入隔离工作区之前，它不会用自动 git restore 冒险覆盖未知改动。
+
+用新证据完成第二轮
+
+不用移动任务，也不要手工修改计划。直接运行：
+
+python tools/run_loop.py
+
+
+引擎发现 processing/issue-005.json 与 round_ready checkpoint，读取 plan-round-002.json 后继续。第二轮 Generator 根据上一轮证据改用 NFKD 分解字符，并移除 Unicode Mark 类字符。
+
+关键输出应类似：
+
+{
+  "decision": "completed",
+  "reason": "independent_verification_passed",
+  "task_id": "issue-005",
+  "round": 2,
+  "generation": {
+    "status": "candidate_ready",
+    "summary": "根据上一轮失败证据改用 NFKD，并移除 Unicode Mark 类字符。"
+  },
+  "verification": {
+    "accepted": true,
+    "changed_files": ["src/search.mjs"],
+    "changed_lines": 2,
+    "boundary_errors": []
+  }
+}
+
+
+独立核对新旧行为：
+
+node --test acceptance/diacritic-search.test.mjs
+node --test acceptance/fullwidth-space.test.mjs
+node --test acceptance/punctuation-search.test.mjs
+node --test acceptance/isbn-search.test.mjs
+npm test
+npm run check
+
+
+全部应通过。再确认任务进入完成区，并且两轮记录都存在：
+
+macOS 或 Linux：
+
+ls tasks/done
+ls .loop/tasks/issue-005/attempts
+
+
+Windows PowerShell：
+
+Get-ChildItem tasks/done
+Get-ChildItem .loop/tasks/issue-005/attempts
+
+
+你应看到 issue-005.json、round-001.json 和 round-002.json。第一轮留下失败证据，第二轮留下成功证据，没有用最终结果覆盖历史。
+
+审阅 Diff 后保存新基线：
+
+git diff -- src/search.mjs
+git add src/search.mjs tasks
+git commit -m "feat: ignore diacritics in search"
+git status --short
+
+
+最后一条命令应为空。提交后再处理下一项任务，避免把成功候选混进另一个循环。
+
+连续相同失败时，停止而不是继续加轮次
+
+现在待办箱中只剩 issue-006。它用于稳定复现一个“没有新信息”的情况：模拟 Generator 每轮都表示出版社字段约定不清，没有产生候选修改；Publisher 验收每轮都以相同方式失败。
+
+运行：
+
+python tools/run_loop.py
+
+
+这次不加暂停参数，引擎会在一次进程中完成两轮。预期退出码为 2，最终关键字段为：
+
+{
+  "decision": "needs_input",
+  "reason": "same_failure_limit_reached",
+  "task_id": "issue-006",
+  "round": 2,
+  "failure_signature": "...",
+  "consecutive_same_failure": 2,
+  "request": "请补充字段约定、验收示例或新的诊断证据后，以新任务继续。"
+}
+
+
+第一轮已经写入失败证据和新计划，但第二轮仍得到相同的边界错误、命令与退出码，因此签名不变。系统不再启动第三轮，即使契约的最大轮数是 3。max_rounds_per_task 是绝对上限，不是必须用完的额度。
+
+检查终态。macOS 或 Linux：
+
+ls tasks/needs-input
+ls .loop/tasks/issue-006/attempts
+
+
+Windows PowerShell：
+
+Get-ChildItem tasks/needs-input
+Get-ChildItem .loop/tasks/issue-006/attempts
+
+
+issue-006.json 应进入 needs-input，尝试目录有 round-001.json 与 round-002.json。分别打开两份文件：
+
+python -m json.tool .loop/tasks/issue-006/attempts/round-001.json
+python -m json.tool .loop/tasks/issue-006/attempts/round-002.json
+python -m json.tool .loop/results/issue-006.json
+
+
+两轮的 failure_signature 应相同，连续计数从 1 变为 2；最终结果不是含糊的 failed，而是带具体补充请求的 needs_input。
+
+源代码不应产生新 Diff：
+
+git diff -- src/search.mjs
+
+
+命令没有输出，说明升级给人没有顺手制造一个半成品。
+
+什么时候值得 Retry，而不是 Replan
+
+本篇没有连接真实服务，但实际项目经常遇到暂时性故障。设计 Retry 时至少加四个限制：
+
+只对明确的暂时性错误重试。 例如受控列表中的超时、限流或服务不可用；语法错误和验收失败不是网络 Retry。
+使用退避与抖动。 不要在服务故障时立即高速重放；同时仍受任务总时间约束。
+确认动作可重放。 读取和本地纯计算通常安全，发送消息或创建订单必须有幂等键。
+把等待也计入预算。 Retry 不应绕开总时长、运行次数和费用上限。
+
+如果一次失败带来了新的测试输出、诊断文件或范围信息，就把这些证据提炼进下一轮计划，走 Replan。若证据没有变化，签名计数应让循环尽早停下。
+
+常见阻塞
+输出 dirty_worktree
+
+多轮引擎只容忍 tasks/ 的队列移动，src/ 或验证资产有未提交改动就停止。运行：
+
+git status --short
+git diff
+
+
+先审阅并处理上一项候选。不要在多个任务之间共享一团未提交代码；第 7 篇会用独立工作区降低这种耦合。
+
+输出 rejected_candidate_requires_cleanup
+
+Verifier 拒绝了一个已经修改文件的候选。当前版本不自动还原，因为它无法证明工作区里没有人的并行修改。查看尝试记录和 Diff，决定保留到人工分支、手工修复，还是在确认无价值后回到基线。
+
+为什么第二轮一定要有计划文件
+
+loop_generator.py 在第二轮找不到 new_evidence 时会停止。这个限制用于防止“轮次增加了，输入却没变”的伪 Replan。真实 Agent 的下一轮 Prompt 也应明确引用上一轮失败证据、变化后的假设和禁止重复的做法。
+
+补充信息后能否把 issue-006 原样移回 inbox
+
+不建议。原任务 ID 已有 claim、两轮记录和终态。补充字段约定后创建一个新 ID，并在新任务中引用 issue-006，才能保留历史并避免去重冲突。
+
+本篇留下了什么
+
+Issue Garden 现在会根据失败证据决定下一步：稳定签名排除日志噪声，Replan 把失败命令和边界错误写进下一轮计划，round_ready checkpoint 支持暂停后恢复；同一失败连续达到阈值时，任务进入 needs-input，而不是耗尽所有轮次。
+
+下一篇，我们会把这个已经能多轮运行的循环从“手工启动、共用一个工作区”推进到“可触发、可调度、可隔离”：加入单实例锁、手动/定时/事件触发边界，以及每个任务独立的 Git 工作区。
+
+修订后的边界验收
+
+失败签名保留命令、退出码、边界错误和 Node 测试输出中的失败测试标识／错误类别。不会直接把全部日志放入签名；适配其他测试工具时需添加其结构化错误提取器。测试同退出码但不同断言、同一断言仅耗时变化两组样本。

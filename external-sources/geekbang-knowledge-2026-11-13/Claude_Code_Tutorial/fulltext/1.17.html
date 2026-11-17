@@ -1,0 +1,307 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计用时：70～90 分钟<br>本篇目标：在 12 篇固定个人旅行笔记上完成“只读盘点 → 规则审计 → dry-run → 两篇小批量 → 全量 → 幂等 → 报告与回滚”闭环，并用字节级证据证明正文、异常项和既有新格式没有被误改。</p>
+</blockquote>
+<p>单文件修复的风险通常集中在一处；批量迁移的风险会乘以文件数量。最危险的结果不是脚本报错，而是它安静地猜测缺失字段、误把正文当元数据，或第二次运行继续改写已经完成的文件。</p>
+<p>本篇不让 Claude 临场生成 10～20 篇随机笔记，也不把重点放在发明 YAML 解析器。课程提供固定笔记、窄范围迁移工具、工具自测、分批清单、状态检查器和重置脚本。你要练习的是如何让 Claude 审计并操作一条可恢复的迁移流程。</p>
+<h2 id="wiki-h-0">开始状态</h2>
+<p>本练习独立于 MealCraft 和第 15 篇博客仓库。需要：</p>
+<ul>
+<li>Claude Code、Git 和 Python 3.11+ 可用；</li>
+<li><code>~/claude-code-course/travel-notes-lab</code> 尚不存在；</li>
+<li>知道修订版教程目录的实际位置；</li>
+<li>理解这是模拟个人笔记，不能把“中国”默认值直接套到真实旅行资料。</li>
+</ul>
+<p>练习不安装第三方 YAML 包，不读取你的真实笔记目录，也不需要网络。</p>
+<h2 id="wiki-h-1">创建固定练习仓库</h2>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> COURSE_SOURCE=<span class="hljs-string">"/替换为实际路径/claude-code-tutorial-v0.2"</span>
+<span class="hljs-built_in">export</span> TRAVEL_SOURCE=<span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/travel-notes-lab"</span>
+<span class="hljs-built_in">test</span> -f <span class="hljs-string">"<span class="hljs-variable">$TRAVEL_SOURCE</span>/scripts/verify_travel_lab.py"</span>
+<span class="hljs-built_in">cd</span> ~/claude-code-course
+<span class="hljs-built_in">test</span> ! -e travel-notes-lab
+<span class="hljs-built_in">mkdir</span> travel-notes-lab
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$TRAVEL_SOURCE</span>/."</span> travel-notes-lab/
+<span class="hljs-built_in">cd</span> travel-notes-lab
+git init
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$CourseSource</span> = <span class="hljs-string">"C:\替换为实际路径\claude-code-tutorial-v0.2"</span>
+<span class="hljs-variable">$TravelSource</span> = <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\travel-notes-lab"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">"<span class="hljs-variable">$TravelSource</span>\scripts\verify_travel_lab.py"</span>)) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"旅行笔记素材路径错误"</span> }
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> travel<span class="hljs-literal">-notes-lab</span>) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"travel-notes-lab 已存在，请先检查旧目录"</span> }
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory travel<span class="hljs-literal">-notes-lab</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$TravelSource</span>\*"</span> <span class="hljs-literal">-Destination</span> travel<span class="hljs-literal">-notes-lab</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$TravelSource</span>\.gitignore"</span> <span class="hljs-literal">-Destination</span> travel<span class="hljs-literal">-notes-lab</span> <span class="hljs-literal">-Force</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$TravelSource</span>\.gitattributes"</span> <span class="hljs-literal">-Destination</span> travel<span class="hljs-literal">-notes-lab</span> <span class="hljs-literal">-Force</span>
+<span class="hljs-built_in">Set-Location</span> travel<span class="hljs-literal">-notes-lab</span>
+git init
+</code></pre><p>先检查固定输入和工具本身：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_travel_lab.py --expect-original
+python3 -B scripts/test_migration_tool.py -v
+python3 -B scripts/inventory_notes.py --root notes
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\verify_travel_lab.py <span class="hljs-literal">--expect-original</span>
+py <span class="hljs-literal">-B</span> scripts\test_migration_tool.py <span class="hljs-literal">-v</span>
+py <span class="hljs-literal">-B</span> scripts\inventory_notes.py <span class="hljs-literal">--root</span> notes
+</code></pre><p>关键输出应为：</p>
+<pre><code class="hljs language-text">PASS travel lab state=original: files=12 bodies=unchanged protected=unchanged
+Ran 8 tests ... OK
+SUMMARY total=12 old=6 new=2 blocked=4
+</code></pre><p>12 篇笔记覆盖以下情况：</p>
+<ul>
+<li>6 篇可迁移旧格式，其中包含中文、英文、空格文件名、额外 frontmatter 字段和 <code>2025/08/14</code> 这种必须原样保留的日期；</li>
+<li>2 篇已经是新格式，其中京都笔记的 <code>country: Japan</code> 绝不能被“中国”覆盖；</li>
+<li>4 篇阻塞项：缺日期、空城市、无 frontmatter、缺城市；</li>
+<li>成都笔记正文中有一行 <code>city:</code>，只能保留，不能当作元数据处理。</li>
+</ul>
+<p>工具自测会在系统临时目录复制 baseline，验证 dry-run 不写入、batch 只改两篇、正文字节不变、保护项不变、完整统计、二次 apply 幂等和路径穿越拒绝。它不会修改当前 <code>notes/</code>。</p>
+<p>保存练习基线：</p>
+<pre><code class="hljs language-bash">git add .
+git diff --cached --check
+git commit -m <span class="hljs-string">"create deterministic travel notes migration lab"</span>
+git status --short
+</code></pre><p>预期工作区为空。<code>.gitattributes</code> 固定 Markdown、Python 和清单为 LF，避免跨平台换行转换破坏字节级验收；<code>.gitignore</code> 只忽略 <code>reports/</code>、<code>.snapshots/</code> 和 Python 缓存。</p>
+<h2 id="wiki-h-2">理解“退出 0”不等于“全部迁移”</h2>
+<p>本篇工具遵守 <a href="exercise-assets/travel-notes-lab/MIGRATION_SPEC.md">MIGRATION_SPEC.md</a> 的窄契约。旧格式：</p>
+<pre><code class="hljs language-yaml"><span class="hljs-meta">---</span>
+<span class="hljs-attr">city:</span> <span class="hljs-string">杭州</span>
+<span class="hljs-attr">date:</span> <span class="hljs-number">2025-04-03</span>
+<span class="hljs-meta">---</span>
+</code></pre><p>会变成：</p>
+<pre><code class="hljs language-yaml"><span class="hljs-meta">---</span>
+<span class="hljs-attr">location:</span>
+  <span class="hljs-attr">city:</span> <span class="hljs-string">杭州</span>
+  <span class="hljs-attr">country:</span> <span class="hljs-string">中国</span>
+<span class="hljs-attr">travel_date:</span> <span class="hljs-number">2025-04-03</span>
+<span class="hljs-meta">---</span>
+</code></pre><p>工具只解析文件开头由 <code>---</code> 包围的 frontmatter，只转换顶层 <code>city</code> 与 <code>date</code>。日期值、其他元数据行及结束分隔线后的正文按原字节保留。缺字段不会猜；混合新旧格式也会阻塞。</p>
+<p>阻塞项是<strong>正常业务结果</strong>，所以命令扫描成功时仍退出 0。脚本调用者必须同时检查 JSON 报告中的 <code>blocked</code> 和具体原因，不能只看退出码。</p>
+<p>工具已由课程固定哈希保护。本篇不修改 <code>scripts/migrate_notes.py</code>、测试、baseline 或分批清单；Claude 负责审计和执行，而不是边迁移边改工具。真实项目如果规则不同，应先在另一份工具副本和数据副本中重新测试。</p>
+<h2 id="wiki-h-3">让 Claude 做只读盘点和规则审计</h2>
+<p>从练习根目录以 Plan Mode 启动：</p>
+<pre><code class="hljs language-bash">claude --permission-mode plan
+</code></pre><p>发送：</p>
+<pre><code class="hljs language-text">这是 12 篇模拟个人旅行笔记的格式迁移练习。先只读调查，不要修改。
+
+请：
+1. 阅读 MIGRATION_SPEC.md、manifests/batch-1.txt、scripts/migrate_notes.py、工具自测和状态检查器；
+2. 运行原始态检查、8 项工具自测和只读 inventory；
+3. 按 old/new/blocked 列出 12 篇文件、城市、日期和原因；
+4. 解释工具怎样限定 frontmatter、保护正文、保持日期、拒绝路径穿越并默认 dry-run；
+5. 指出退出 0、blocked=0、正文未变和幂等分别需要什么证据；
+6. 给出 dry-run、batch-1、全量、第二次 apply、报告和 Git 回滚的顺序。
+
+不要修改 notes、baseline、scripts、manifests 或任何配置。
+</code></pre><p>盘点必须得到 <code>old=6, new=2, blocked=4</code>。如果 Claude 把正文中的 <code>city:</code> 算成元数据、把京都归为可迁移旧格式，或建议为缺失字段自动补值，要求它回到检查器的实际输出。</p>
+<h2 id="wiki-h-4">把计划写入磁盘并单独提交</h2>
+<p>确认口头计划后切回 Manual 模式，让 Claude 只创建 <code>MIGRATION_PLAN.md</code>：</p>
+<pre><code class="hljs language-text">只创建 MIGRATION_PLAN.md，不改其他文件。
+
+计划必须记录：
+- 固定范围是 notes 下 12 篇模拟笔记；
+- 原始统计 old=6、new=2、blocked=4；
+- 中国默认值仅适用于本练习六篇已知国内旧笔记；
+- dry-run 默认不写文件；
+- batch-1 只含清单中的两篇；
+- 异常项跳过，不猜城市或日期；
+- 正文、文件名、额外元数据和日期值保持；
+- 每阶段的命令、预期统计、独立检查与 Git 回滚方法；
+- 第二次 apply 的完整文件哈希必须不变。
+
+不要实施迁移。
+</code></pre><p>退出 Claude Code，审查并提交计划：</p>
+<pre><code class="hljs language-bash">git diff --check
+git diff --name-only
+git add MIGRATION_PLAN.md
+git commit -m <span class="hljs-string">"document travel notes migration plan"</span>
+git status --short
+</code></pre><p>Diff 应只有 <code>MIGRATION_PLAN.md</code>，提交后工作区为空。把计划与数据迁移分开提交，后面回滚数据时可以保留决策记录。</p>
+<h2 id="wiki-h-5">先运行全量 dry-run</h2>
+<p>dry-run 默认不写笔记，因此没有 <code>--apply</code>：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/migrate_notes.py \
+  --root notes \
+  --report reports/dry-run.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\migrate_notes.py `
+  <span class="hljs-literal">--root</span> notes `
+  <span class="hljs-literal">--report</span> reports\dry<span class="hljs-literal">-run</span>.json
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS mode=dry-run total=12 would_migrate=6 migrated=0 already_new=2 blocked=4
+REPORT reports/dry-run.json
+</code></pre><p>查看完整报告：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -m json.tool reports/dry-run.json
+python3 -B scripts/verify_travel_lab.py --expect-original
+git status --short
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> json.tool reports\dry<span class="hljs-literal">-run</span>.json
+py <span class="hljs-literal">-B</span> scripts\verify_travel_lab.py <span class="hljs-literal">--expect-original</span>
+git status <span class="hljs-literal">--short</span>
+</code></pre><p>状态检查仍必须是 <code>original</code>，Git 仍为空；报告文件被忽略。逐项确认 6 个 <code>would_migrate</code>、2 个 <code>already_new</code> 和 4 个 <code>blocked</code> 的文件名与理由，不要因为总数正确就跳过清单。</p>
+<h2 id="wiki-h-6">只执行两篇 batch-1</h2>
+<p><code>manifests/batch-1.txt</code> 固定包含杭州和带空格文件名的苏州笔记。先显示清单：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/migrate_notes.py \
+  --root notes \
+  --include-from manifests/batch-1.txt \
+  --apply \
+  --report reports/batch-1.json
+python3 -B scripts/verify_travel_lab.py --expect-batch1
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\migrate_notes.py `
+  <span class="hljs-literal">--root</span> notes `
+  <span class="hljs-literal">--include-from</span> manifests\batch<span class="hljs-literal">-1</span>.txt `
+  <span class="hljs-literal">--apply</span> `
+  <span class="hljs-literal">--report</span> reports\batch<span class="hljs-literal">-1</span>.json
+py <span class="hljs-literal">-B</span> scripts\verify_travel_lab.py <span class="hljs-literal">--expect-batch1</span>
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS mode=apply total=2 would_migrate=0 migrated=2 already_new=0 blocked=0
+PASS travel lab state=batch1: files=12 bodies=unchanged protected=unchanged
+</code></pre><p>检查实际范围。<code>core.quotepath=false</code> 只改善本次中文文件名显示，不修改仓库配置：</p>
+<pre><code class="hljs language-bash">git -c core.quotepath=<span class="hljs-literal">false</span> diff --name-only
+git diff --check
+git diff -- notes
+</code></pre><p>必须只出现 <code>notes/01-杭州春日.md</code> 与 <code>notes/02-苏州 夜游.md</code>。Diff 应仅改变 frontmatter；检查器已经逐篇比较结束分隔线后的正文字节。</p>
+<p>保存小批量检查点：</p>
+<pre><code class="hljs language-bash">git add notes
+git commit -m <span class="hljs-string">"migrate travel notes batch 1"</span>
+git status --short
+</code></pre><h2 id="wiki-h-7">全量执行剩余可迁移项</h2>
+<p>再次运行全量 dry-run。此时应显示 4 篇仍可迁移、4 篇已经是新格式、4 篇阻塞：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/migrate_notes.py --root notes --report reports/after-batch-dry-run.json
+</code></pre><p>Windows PowerShell 把 <code>python3</code> 换成 <code>py</code>，路径也可使用正斜杠；确认输出为 <code>would_migrate=4 already_new=4 blocked=4</code>。</p>
+<p>确认报告后才执行：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/migrate_notes.py \
+  --root notes \
+  --apply \
+  --report reports/full.json
+python3 -B scripts/verify_travel_lab.py --expect-complete
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\migrate_notes.py `
+  <span class="hljs-literal">--root</span> notes `
+  <span class="hljs-literal">--apply</span> `
+  <span class="hljs-literal">--report</span> reports\full.json
+py <span class="hljs-literal">-B</span> scripts\verify_travel_lab.py <span class="hljs-literal">--expect-complete</span>
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS mode=apply total=12 would_migrate=0 migrated=4 already_new=4 blocked=4
+PASS travel lab state=complete: files=12 bodies=unchanged protected=unchanged
+</code></pre><p>为什么不是 <code>migrated=6</code>？杭州和苏州已经在 batch-1 中迁移，加上两篇原本的新格式，现在有 4 篇 <code>already_new</code>；全量阶段只需修改剩余 4 篇。</p>
+<p>检查 Diff，必须只剩西安、成都、上海、厦门四篇：</p>
+<pre><code class="hljs language-bash">git -c core.quotepath=<span class="hljs-literal">false</span> diff --name-only
+git diff --check
+git diff -- notes
+</code></pre><p>确认成都正文里的 <code>city: 这只是我给照片写的标签</code> 仍在，厦门的 <code>travel_date</code> 仍为 <code>2025/08/14</code>，京都仍为 <code>country: Japan</code>。然后提交：</p>
+<pre><code class="hljs language-bash">git add notes
+git commit -m <span class="hljs-string">"complete travel notes metadata migration"</span>
+git status --short
+</code></pre><h2 id="wiki-h-8">用完整文件哈希证明幂等</h2>
+<p>“dry-run 没有可迁移项”很有用，但二次 apply 的完整文件哈希不变是更强的证据。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/hash_notes.py \
+  --root notes \
+  --output .snapshots/before-second-apply.json
+python3 -B scripts/migrate_notes.py \
+  --root notes \
+  --apply \
+  --report reports/second-apply.json
+python3 -B scripts/verify_travel_lab.py \
+  --expect-idempotent \
+  --snapshot .snapshots/before-second-apply.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\hash_notes.py `
+  <span class="hljs-literal">--root</span> notes `
+  <span class="hljs-literal">--output</span> .snapshots\before<span class="hljs-literal">-second-apply</span>.json
+py <span class="hljs-literal">-B</span> scripts\migrate_notes.py `
+  <span class="hljs-literal">--root</span> notes `
+  <span class="hljs-literal">--apply</span> `
+  <span class="hljs-literal">--report</span> reports\second<span class="hljs-literal">-apply</span>.json
+py <span class="hljs-literal">-B</span> scripts\verify_travel_lab.py `
+  <span class="hljs-literal">--expect-idempotent</span> `
+  <span class="hljs-literal">--snapshot</span> .snapshots\before<span class="hljs-literal">-second-apply</span>.json
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS snapshot: 12 notes -&gt; ...before-second-apply.json
+PASS mode=apply total=12 would_migrate=0 migrated=0 already_new=8 blocked=4
+PASS travel lab state=idempotent: files=12 bodies=unchanged protected=unchanged
+</code></pre><p>再运行 <code>git status --short</code>，应为空。幂等不是“脚本没有报错”，而是第二次运行迁移数为 0 且 12 个完整文件哈希都没有变化。</p>
+<h2 id="wiki-h-9">生成有证据的迁移报告</h2>
+<p>重新进入 Claude Code，让它根据四份 JSON 报告和 Git 证据只创建 <code>MIGRATION_REPORT.md</code>：</p>
+<pre><code class="hljs language-text">只创建 MIGRATION_REPORT.md，不修改 notes、scripts、baseline、manifests 或配置。
+
+报告必须使用以下标题和证据文字：
+
+## 统计
+- migrated: 6
+- already_new: 2
+- blocked: 4
+
+## 阻塞项
+逐项记录：
+- 09-青岛待补日期.md — missing_or_empty_date
+- 10-空城市.md — missing_or_empty_city
+- 11-无头部笔记.md — no_or_malformed_frontmatter
+- 12-只有日期.md — missing_or_empty_city
+
+## 验证
+明确写出：12 notes、bodies unchanged、second apply migrated=0，并列出对应命令。
+
+## 回滚
+说明先查看 git log 与 diff，再对 batch 和 full 两个迁移提交按倒序使用 git revert；不要建议 reset --hard。还要说明真实笔记必须先备份，不能沿用本练习的 country 默认值。
+
+不要声称四个阻塞项已经迁移。
+</code></pre><p>退出后验证并提交：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_migration_report.py --report MIGRATION_REPORT.md
+git diff --check
+git add MIGRATION_REPORT.md
+git commit -m <span class="hljs-string">"record travel notes migration evidence"</span>
+git status --short
+</code></pre><p>Windows 把 <code>python3</code> 换成 <code>py</code>。预期报告检查通过，最终工作区为空。</p>
+<h2 id="wiki-h-10">回滚边界</h2>
+<p>如果 batch-1 尚未提交且验收失败，先查看 <code>git diff -- notes</code>，确认只有练习笔记后，可以用课程重置脚本恢复全部 12 篇原始模拟数据：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/reset_travel_lab.py
+python3 -B scripts/verify_travel_lab.py --expect-original
+</code></pre><p>它会替换<strong>当前练习仓库的 <code>notes/</code></strong>，所以不要把这个脚本复制到真实笔记唯一副本中运行。</p>
+<p>已经提交后，先定位提交：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">git log --oneline -5
+git show --stat &lt;迁移提交ID&gt;
+</code></pre><p>需要保留可审计历史时，对报告中记录的迁移提交按倒序执行：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">git revert &lt;全量迁移提交ID&gt;
+git revert &lt;batch-1提交ID&gt;
+</code></pre><p>提交 ID 必须来自你自己的 <code>git log</code>，不能照抄占位符。<code>git revert</code> 创建反向提交；不要用 <code>git reset --hard</code> 清掉不相关工作。Claude Code 的 Checkpoint 也不等同于备份：本篇写入来自外部 Python 进程，Git 提交和独立副本才是可恢复边界。</p>
+<h2 id="wiki-h-11">常见阻塞</h2>
+<h3 id="wiki-h-12">原始统计不是 6 / 2 / 4</h3>
+<p>运行 <code>git status --short</code> 和原始态检查。如果只是 <code>notes/</code> 被上次练习改过，确认不含要保留的工作后运行重置脚本。不要修改检查器去迎合错误数据。</p>
+<h3 id="wiki-h-13">dry-run 后 Git 出现笔记修改</h3>
+<p>立即停止。默认命令不含 <code>--apply</code>，应完全不写 <code>notes/</code>。检查实际运行的是课程固定工具和正确目录；固定哈希失败时重新复制素材。</p>
+<h3 id="wiki-h-14">命令退出 0，但 blocked=4</h3>
+<p>这是预期。退出 0 表示扫描与报告成功，不代表每个文件都可迁移。四个异常项必须保留供人工补充事实；不要在提示词里让 Claude“合理猜测”。</p>
+<h3 id="wiki-h-15">中文文件名在 Git 中显示为转义序列</h3>
+<p>使用：</p>
+<pre><code class="hljs language-bash">git -c core.quotepath=<span class="hljs-literal">false</span> status --short
+git -c core.quotepath=<span class="hljs-literal">false</span> diff --name-only
+</code></pre><p>这只影响本次显示，不改变文件名或全局 Git 配置。</p>
+<h3 id="wiki-h-16">真实笔记规则比练习复杂</h3>
+<p>停止复用这个工具。真实 YAML 可能包含引号、多行字符串、数组、注释、多个国家和不同编码。先复制数据、建立真实 schema 与 country 映射，再用成熟解析器和新的测试重做工具；课程脚本只保证当前固定子集。</p>
+<h2 id="wiki-h-17">文章级验收</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">初始状态固定为 12 篇，old=6、new=2、blocked=4；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">8 项工具自测通过，固定素材哈希未变；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>MIGRATION_PLAN.md</code> 在任何数据写入前单独提交；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">dry-run 报告 6 个 would_migrate，且原始态仍通过；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">batch-1 只修改杭州和苏州两篇；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">全量阶段只修改剩余四篇可迁移笔记；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">2 篇原有新格式和 4 篇阻塞项字节不变；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">12 篇正文逐字节不变，日期值未格式化；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">第二次 apply 为 migrated=0，完整文件哈希不变；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">迁移报告记录统计、阻塞项、证据和非破坏性回滚；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">最终 Git 工作区为空，真实个人笔记从未进入练习范围。</li>
+</ul>
+<p>这套顺序比“一次性全改完再看 Diff”慢几分钟，却把最危险的猜测和静默损坏变成可观察证据。第 17 篇会继续迁移这套方法：面对跨平台偶发测试，不把重复运行当成证明，而是让互斥假设分别寻找日志和代码证据。</p>
+<p>官方参考：<a href="https://code.claude.com/docs/en/common-workflows">Claude Code common workflows</a>、<a href="https://code.claude.com/docs/en/commands">Claude Code commands</a>、<a href="https://git-scm.com/docs/git-revert">Git revert</a>。</p>
+</article>

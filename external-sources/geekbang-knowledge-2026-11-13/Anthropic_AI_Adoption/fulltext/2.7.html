@@ -1,0 +1,34 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P11-P13<br><strong>版本</strong>：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 8 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<p>与任何技术一样，智能体编程（agentic coding）工具无法在真空中成功部署。以下是如何避开最常见的采用阻力，并确保你的 Claude Code 推广快速见效：</p>
+<h2 id="wiki-h-0">别落入「什么都做」的陷阱</h2>
+<p>智能体（agent）工具干劲十足，但并非总有足够的上下文（context）来发挥影响。新用户常常交给它们庞大、无边界的大任务，结果却不理想。解法是什么？测试驱动开发（TDD）〔原文误作 TTD〕，它能为你的智能体编程工具提供护栏和清晰的成功标准。</p>
+<p><strong>从测试规格开始</strong>：与其让 Claude Code「build a user authentication system」，不如先让它编写全面的测试。让它先创建测试用例，把「成功是什么样」精确写清楚：身份验证（authentication）流程、边界情况（edge case）、错误处理和安全要求。</p>
+<p><strong>增量实现功能</strong>：把你的请求拆成小的、可测试的块。让 Claude Code 每次只实现刚好能让一个测试通过的代码。例如，先做基础登录校验，再加密码哈希，然后是会话管理。</p>
+<p><strong>在每个检查点（checkpoint）验证</strong>：每完成一个实现步骤，就运行测试并评审（review）代码变更。Claude Code 能帮你分析测试结果、识别问题，但在当前功能稳固之前，不要让它继续前进。</p>
+<p><strong>逐步扩展范围</strong>：核心功能跑通并通过测试后，再逐步添加新需求。让 Claude Code 先为新功能写测试，再实现它。这能防止范围蔓延，维持代码质量。</p>
+<p><strong>利用 Claude Code 的迭代特性</strong>：充分利用命令行工作流（workflow），运行聚焦的命令，例如先「write tests for user registration」，再「implement the registration logic to pass these tests」，而不是一个庞大的「build everything」请求。</p>
+<p>参见附录中如何用 Claude Code 做测试驱动开发的示例。</p>
+<h2 id="wiki-h-1">弥合上下文差距</h2>
+<p>「This isn't working」或「The button is too big」这样的反馈，让你的 AI 无从着手。这些含糊的描述只会带来一轮轮白费功夫和令人沮丧的调试。相反，我们建议宁可过度分享上下文，向 Claude 提供清晰、可执行的反馈，以获得最佳结果。</p>
+<p><strong>分享完整的错误信息</strong>：与其说「it crashed」，不如提供完整的错误消息、堆栈跟踪（stack trace），以及触发它的具体操作。把终端输出、浏览器控制台错误或 IDE 错误面板直接复制粘贴到你的 Claude Code 会话中。</p>
+<p><strong>记录完整的环境</strong>：包含你的操作系统、语言版本、框架细节和相关依赖。Claude Code 需要理解你的技术栈，才能给出准确的解决方案。</p>
+<p><strong>有策略地使用可视化调试</strong>：处理 UI 问题时，截图并精确描述哪里不对——「the login button extends 20px beyond the container border on mobile screens」，而不是「the button looks weird」。对于命令行工具，分享操作前后的终端输出。</p>
+<p><strong>精确说明预期行为与实际行为的对比</strong>：写清验收标准，比如「Expected: API returns 200 status with user data. Actual: Returns 401 with 'invalid token' message.」这给了 Claude Code 具体可努力的目标。</p>
+<p><strong>附上相关文件内容</strong>：分享与你的问题相关的具体代码文件、配置文件或数据。Claude Code 无法调试它看不到的代码。</p>
+<p>参见附录中的一个示例提示词（prompt），它提供了充足上下文，好让 Claude（但愿）能直击软件缺陷的根因。</p>
+<h2 id="wiki-h-2">优先做提示词（prompt）工程（prompt engineering）</h2>
+<p>用智能体编程取得成功，需要学会有效地与 AI 沟通。许多开发者一上来就指望 Claude Code 会读心，结果被不尽人意的产出搞得沮丧。此外，与任何 AI 智能体一样，提供正确的结构、内容和顺序，对于确保最佳结果至关重要。</p>
+<h2 id="wiki-h-3">掌握与 Claude Code 的沟通</h2>
+<p><strong>把 Claude 当作工程师</strong>：问问自己，基于你给同事的提示词，你的同事能否确切理解你要什么。如果不能，试着预判他们接下来会有什么问题、或者开始动手前希望你在哪些地方澄清或补充细节，并主动提供给 Claude。</p>
+<p><strong>使用技术上的精确表述</strong>：用具体的技术语言替换含糊的说法。与其说「make it faster」，不如明确说「optimize the database query to reduce response time from 2 seconds to under 500ms」，或者「implement caching to reduce API calls」。</p>
+<p><strong>提供示例和约束</strong>：用具体示例让 Claude Code 看到成功长什么样。「Follow this existing API pattern [paste code]」或「Use this coding style [share style guide]」，比抽象需求更能指明方向。</p>
+<p><strong>把复杂任务拆成聚焦的命令</strong>：与其「build a complete e-commerce system」，不如用顺序提示词：「Create the database schema」，然后「implement product catalog API」，再「add shopping cart functionality」。每条命令都应有单一、清晰的目标。</p>
+<p><strong>学会增量精化</strong>：从基础功能开始，迭代改进。先「Create a simple user login form」，接着「add input validation」，然后「implement password strength requirements」，比起一开始就把一切细节都规定死，这样产出的结果更好。</p>
+<p><strong>掌握反馈循环</strong>：学会针对 Claude Code 的输出给出具体反馈。「The error handling is too generic—add specific validation for email format and password length」，比「fix the validation」更能引导出好的改进。</p>
+<p><strong>练习上下文管理</strong>：理解 Claude Code 在会话内会保留哪些信息、哪些需要重新说明。明确引用之前的成果：「Using the authentication middleware from earlier, now add role-based permissions.」</p>
+<p>参见附录中的一个示例提示词，它具备确保产出充分的有效结构。</p>
+<hr>
+<p><strong>原文备注</strong>：原文 P12 将测试驱动开发误写为 TTD，译文按术语表作 TDD 并加注。</p>
+</article>

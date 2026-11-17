@@ -1,0 +1,476 @@
+预计阅读与练习时间：70～90 分钟
+本篇目标：把前面八篇的部件串成一次完整实验，用三个任务证明循环能够完成、求助和拒绝，并且三条路径都有持久状态、资源账本、通知路线和明确终点。
+
+到这里，我们已经分别实现了契约、状态、独立验证、失败升级、触发、锁、隔离、预算和风险门。最后一篇不再增加一个孤立概念，而是回答更重要的问题：这些部件按什么顺序组合，才能让循环在现实任务中可靠地结束？
+
+综合实验包含三个任务：
+
+任务	预期终态	为什么这样结束
+按丛书名称搜索	completed	隔离候选通过独立验证
+按评分筛选	needs_input	两轮得到相同失败，缺少产品约定
+发布到外部系统	blocked	在 Agent 运行前触发权限边界
+
+三个任务都由同一个入口处理。它不会因为任务听起来简单就扩大权限，也不会把“没有报错”当成完成。
+
+确认第 8 篇留下的起点
+
+当前工作目录应为 issue-garden-lab/，虚拟环境已经激活。第 8 篇的治理案例可能在 .loop/ 中留下预算账本和本地通知，它们都被 Git 忽略，不影响本篇。
+
+先检查主工作区：
+
+git status --short
+git worktree list
+
+
+第一条命令应没有输出，第二条只应列出主工作区。第 7 篇的标签搜索候选仍保存在 .loop/candidates/issue-007/，但临时 worktree 已删除，候选也没有合并。这是本篇故意保留的安全边界。
+
+从课程根目录复制综合实战增量。
+
+macOS 或 Linux：
+
+cp -R assets/lesson-09-capstone/. issue-garden-lab/
+cd issue-garden-lab
+source .venv/bin/activate
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force assets/lesson-09-capstone/* issue-garden-lab
+Set-Location issue-garden-lab
+.\.venv\Scripts\Activate.ps1
+
+
+新增的核心文件如下：
+
+tools/run_capstone.py                 单次调度入口
+tools/run_capstone_worker.py          隔离 worktree 内的 Worker
+tools/check_capstone.py               三项终态的独立汇总检查
+issue_garden/capstone.py              风险门、锁、worktree、账本和终态
+issue_garden/capstone_worker.py       多轮生成、验证和失败升级
+issue_garden/capstone_generator.py    确定性模拟 Agent
+tasks/inbox/capstone-001..003.json    三项综合任务
+
+
+运行累计测试：
+
+python -m unittest discover -s loop_tests -p "test_*.py" -v
+
+
+修订版预期三十三项通过（原二十五项加八项回归）。原有综合测试检查综合任务的固定顺序、needs_input 的立即通知路线，以及每项任务都显式声明所需能力。
+
+提交本篇代码和任务。worktree 始终从 Git HEAD 创建；不先提交的话，隔离目录不会包含刚复制的综合实战文件。
+
+git add .
+git commit -m "feat: add loop engineering capstone"
+git status --short
+
+
+最后一条命令应没有输出。
+
+先看一次调度到底经过哪些门
+
+run_capstone.py 每次只领取编号最小的一项 capstone-*.json，然后退出。外层定时器可以稍后再次调用它，但程序本身没有永久循环。
+
+一次调用的实际顺序是：
+
+取得单实例锁
+  -> 从 inbox 选择一个任务
+  -> 读取 requested_capabilities
+  -> 风险检查
+       ├─ 不允许：不启动 Agent，直接 blocked
+       └─ 允许：检查已有资源账本
+  -> 从当前 HEAD 创建 detached worktree
+  -> 在 worktree 内运行模拟 Agent
+  -> 独立 Verifier 裁决候选
+  -> 失败时比较失败签名，决定重试或求助
+  -> 把每轮用量写入主工作区账本
+  -> 保存 patch、attempt、state、events 和 result
+  -> 移动任务到终态目录
+  -> 按注意力策略路由通知
+  -> 释放锁并结束
+
+
+这里没有一个“万能 Agent”负责自我监督。风险门、生成器、验证器和终态决策是不同部件；Agent 的文字总结只是证据之一，不能替代测试、Diff 和策略。
+
+本篇只处理文件名以 capstone- 开头的任务。即使你此前跳过某篇、tasks/inbox/ 里还留有旧练习，也不会被综合入口误领。
+
+先证明第一个功能目前不存在
+
+任务一要求书目可以按可选的 series 字段搜索。先在主工作区运行验收：
+
+node --test acceptance/series-search.test.mjs
+
+
+测试应失败：查询 chronicles 找不到 series: "Dune Chronicles"。这条失败建立了实验基线；如果它一开始就通过，说明你的主工作区已经有等价改动，不适合继续使用本例的确定性生成器。
+
+再查看任务声明：
+
+python -m json.tool tasks/inbox/capstone-001.json
+
+
+它只请求：
+
+[
+  "workspace_read",
+  "workspace_write",
+  "local_test"
+]
+
+
+这些能力都在无人值守白名单中，所以风险门允许进入隔离执行。
+
+任务一：生成并验证一个可审阅候选
+
+运行一次综合入口：
+
+python tools/run_capstone.py
+
+
+命令应以退出码 0 结束。输出较长，因为它保留了生成、验证和用量证据；先关注这些字段：
+
+{
+  "task_id": "capstone-001",
+  "decision": "completed",
+  "reason": "independent_verification_passed",
+  "attention_route": "digest",
+  "worktree": ".loop/worktrees/capstone-001",
+  "patch": ".loop/capstone/capstone-001/candidate.patch",
+  "task_destination": "tasks/done/capstone-001.json"
+}
+
+
+“完成”仍然表示候选通过验证，不表示已经合并。先在候选 worktree 中重跑验收：
+
+node --test .loop/worktrees/capstone-001/acceptance/series-search.test.mjs
+
+
+应有一项测试通过。再回到主工作区运行同一验收：
+
+node --test acceptance/series-search.test.mjs
+
+
+它仍应失败。这个对照比 Agent 的“已完成”更有说服力：功能只存在于隔离候选，主工作区没有被偷偷修改。
+
+检查 patch 是否只触碰预期文件：
+
+git apply --stat .loop/capstone/capstone-001/candidate.patch
+git apply --check .loop/capstone/capstone-001/candidate.patch
+
+
+第一条应只列出 src/search.mjs；第二条没有输出且退出码为 0。--check 只验证能否应用，不会真的应用 patch。
+
+最后检查资源和通知：
+
+python -m json.tool .loop/budgets/capstone-001.json
+python -m json.tool .loop/capstone/capstone-001/result.json
+
+
+账本中的 agent_runs 应为 1；结果中的 attention_route 为 digest、notification 为 null。正常完成被留到摘要，不会立即打断人。
+
+任务二：重复失败后停止猜测
+
+第二项任务想按评分筛选，却没有说明：
+
+rating 是单个数字、用户评分数组，还是聚合后的平均值；
+使用 5 分制、10 分制，还是百分制；
+查询语法是 rating:5、>=4，还是界面传入结构化条件；
+没有评分的书应该排除、保留，还是单独归类。
+
+这些不是代码风格问题，而是产品语义。模拟 Agent 第一轮不会猜字段，Verifier 也不会接受“没有改动”。运行：
+
+python tools/run_capstone.py
+
+
+这次退出码应为 2，关键结果是：
+
+{
+  "task_id": "capstone-002",
+  "decision": "needs_input",
+  "reason": "same_failure_limit_reached",
+  "attention_route": "immediate",
+  "task_destination": "tasks/needs-input/capstone-002.json"
+}
+
+
+不要把非零退出码误判成 Python 崩溃。它表示调度器得到了一个正常但未完成的终态，方便 cron、任务计划程序或上层队列识别。
+
+检查两轮尝试：
+
+python -m json.tool .loop/capstone/capstone-002/attempts/round-001.json
+python -m json.tool .loop/capstone/capstone-002/attempts/round-002.json
+
+
+两份记录的 failure_signature 应相同，第二轮的 consecutive_same_failure 为 2。它说明第二轮没有带来新证据；继续启动第三轮只会消耗预算，因此系统请求人补充规则。
+
+再检查代码候选：
+
+macOS 或 Linux：
+
+test ! -s .loop/capstone/capstone-002/candidate.patch \
+  && echo "no guessed patch"
+
+
+Windows PowerShell：
+
+if ((Get-Item .loop/capstone/capstone-002/candidate.patch).Length -eq 0) { "no guessed patch" }
+
+
+应看到 no guessed patch。系统不是“失败了但偷偷留下一半实现”，而是在缺少关键输入时保持代码不变。
+
+账本仍然记录了已经发生的两轮调用：
+
+python -m json.tool .loop/budgets/capstone-002.json
+
+
+agent_runs 应为 2。needs_input 不是免费动作，也不是可以忽略的日志；它消耗过资源，现在需要人的判断，所以进入立即通知路线。通知仍只写本地 outbox，没有发送到真实消息系统。
+
+如果你要让任务继续，不要直接篡改旧任务后重放。先补齐字段约定和验收示例，再创建新的任务 ID。旧结果保留为“当时为什么停下”的审计证据。
+
+任务三：越权任务在 Agent 启动前结束
+
+第三项任务要求把书目发布到外部线上系统。它声明了：
+
+[
+  "workspace_read",
+  "network_access",
+  "secret_access",
+  "external_write"
+]
+
+
+课程没有提供目标系统、凭据范围、允许写入的对象或回滚方式。运行：
+
+python tools/run_capstone.py
+
+
+命令以退出码 2 结束，输出应包含：
+
+{
+  "task_id": "capstone-003",
+  "decision": "blocked",
+  "reason": "permission_boundary",
+  "usage": {
+    "totals": {
+      "agent_runs": 0
+    }
+  },
+  "attention_route": "immediate",
+  "worktree": null,
+  "patch": null
+}
+
+
+agent_runs = 0、worktree = null 和 patch = null 共同证明：系统先检查权限，没有启动 Agent，也没有尝试访问网络后再道歉。
+
+独立检查没有为它创建 worktree：
+
+macOS 或 Linux：
+
+test ! -d .loop/worktrees/capstone-003 \
+  && echo "blocked before execution"
+
+
+Windows PowerShell：
+
+if (-not (Test-Path .loop/worktrees/capstone-003)) { "blocked before execution" }
+
+
+应看到 blocked before execution。任务文件位于 tasks/blocked/capstone-003.json，结果报告则保存在 .loop/capstone/capstone-003/result.json。
+
+如果未来确实要发布，应由人建立新的授权任务，至少写明目标系统、作用域、凭据来源、幂等键、预演方式和回滚方案。提高 Token 或轮次预算不能解决权限缺失。
+
+证明队列会结束，而不是空转
+
+再运行一次：
+
+python tools/run_capstone.py
+
+
+应得到：
+
+{
+  "decision": "stopped",
+  "reason": "no_task",
+  "attention_route": "silent"
+}
+
+
+退出码仍为 2，因为本次没有完成新任务；但 no_task 是健康的停止条件，不是告警。定时器下次可以再检查，当前调用则立即结束，不会在空队列上无限消耗。
+
+现在运行课程提供的汇总检查：
+
+python tools/check_capstone.py
+
+
+预期 verified 为 true，并得到三条终态：
+
+{
+  "capstone-001": {
+    "decision": "completed",
+    "agent_runs": 1
+  },
+  "capstone-002": {
+    "decision": "needs_input",
+    "agent_runs": 2
+  },
+  "capstone-003": {
+    "decision": "blocked",
+    "agent_runs": 0
+  }
+}
+
+
+这个检查还会确认四件事：成功任务 patch 非空、求助任务 patch 为空、越权任务没有 worktree、综合任务 inbox 已清空。它读取的是持久产物，不依赖刚才终端里是否出现了“成功”字样。
+
+顺着一项任务读完整证据链
+
+以 capstone-002 为例，相关文件分成四类：
+
+tasks/needs-input/capstone-002.json
+  原始任务事实与最终队列位置
+
+.loop/capstone/capstone-002/facts.json
+  调度时保存的任务快照
+
+.loop/capstone/capstone-002/attempts/round-001.json
+.loop/capstone/capstone-002/attempts/round-002.json
+  每轮生成、验证、失败签名和用量
+
+.loop/capstone/capstone-002/state.json
+.loop/capstone/capstone-002/events.jsonl
+.loop/capstone/capstone-002/result.json
+  当前状态、事件时间线和最终裁决
+
+
+可以逐项打开：
+
+python -m json.tool .loop/capstone/capstone-002/facts.json
+python -m json.tool .loop/capstone/capstone-002/state.json
+python -m json.tool .loop/capstone/capstone-002/result.json
+
+
+events.jsonl 是一行一条 JSON 的追加日志，可直接查看：
+
+python -c "from pathlib import Path; print(Path('.loop/capstone/capstone-002/events.jsonl').read_text())"
+
+
+这条证据链让恢复和审计不依赖聊天上下文。真正的长期循环往往运行跨越数小时甚至数天；如果“为什么停下”只存在某次模型会话里，下一次运行就只能猜。
+
+清理 worktree，但保留可审阅产物
+
+任务一和任务二都通过了风险门，因此各自创建了 worktree。任务二没有代码 Diff，但目录仍保留运行现场。先确认：
+
+git worktree list
+
+
+应看到主工作区、capstone-001 和 capstone-002 三个条目。确认结果和 patch 已写回主工作区后，删除两个临时 worktree：
+
+git worktree remove --force .loop/worktrees/capstone-001
+git worktree remove --force .loop/worktrees/capstone-002
+git worktree prune
+git worktree list
+
+
+--force 会丢弃 worktree 中未提交的候选，所以必须先确认 .loop/capstone/capstone-001/candidate.patch 存在且 git apply --check 通过。清理后列表应只剩主工作区，而保存在 .loop/capstone/ 的 patch、尝试和结果仍然存在。
+
+把任务终态提交，候选代码继续保持未合并：
+
+git add tasks
+git commit -m "chore: record capstone terminal states"
+git status --short
+
+
+工作区应为空。主目录中的 series-search 验收仍然失败，这再次区分了“候选通过验证”和“代码已合并”。
+
+接入真实 Agent 的边界检查
+
+课程使用确定性模拟器，是为了让你每次都能复现三条终态。接入 Codex、Claude Code 或其他 CLI Agent 时，先替换：
+
+issue_garden/capstone_generator.py
+
+
+新的适配器至少要返回：
+
+本轮是否产生候选；
+简短、可持久化的结果摘要；
+Agent 或 Provider 能提供的 Token、耗时和费用数据；
+可区分的工具错误，而不是只返回一段自然语言。
+
+不要让适配器顺便接管验证、预算和通知。外层控制流程仍应保留：
+
+受限任务输入
+  + 明确能力声明
+  + 隔离工作区
+  + 独立验证
+  + 持久状态
+  + 资源账本
+  + 失败升级
+  + 明确终态
+
+
+调用 CLI 时使用参数数组和明确工作目录，不要把任务文本拼进 Shell 字符串；凭据只在经过授权的任务中以最小作用域提供；真实外部写入先做 Dry Run，并为操作设计幂等键和回滚路径。
+
+常见阻塞
+1. 提示找不到综合任务文件
+
+确认已经提交本篇增量：
+
+git log -1 --oneline
+git ls-files "tasks/inbox/capstone-*.json"
+
+
+worktree 从 HEAD 创建，只有复制但未提交的文件不会进入隔离目录。
+
+2. 第一个任务被生成器拒绝
+
+若报告提示“没有找到课程当前的搜索文本”，先看：
+
+git status --short
+python -c "from pathlib import Path; print(Path('src/search.mjs').read_text())"
+
+
+确定性模拟器只接受前面课程留下的基线，避免覆盖你的自定义改动。若你已经修改过搜索实现，请在新的实验副本中完成综合练习，或者自己调整适配器并重新审查验证边界。
+
+3. 提示 worktree_already_exists
+
+运行：
+
+git worktree list
+
+
+先检查该目录是否保存了尚未审阅的候选。只有确认 patch 和结果已回传，才使用 git worktree remove --force 清理；不要直接删除目录，否则 Git 仍可能保留 worktree 注册信息。
+
+4. 第二项任务为什么一定失败
+
+acceptance/rating-filter.test.mjs 是一个需求就绪门：在字段与交互约定未确认前，它明确失败。练习重点不是实现评分功能，而是证明循环不会用多轮猜测替代产品决策。补齐需求时应更新任务和受保护验收，并用新任务 ID 重新开始。
+
+5. 汇总检查显示 verified: false
+
+先读具体子项。若队列位置不对，检查对应 result.json；若成功 patch 为空，检查 Worker 输出和候选 worktree；若 inbox 未清空，确认三次调用是否都执行。不要为了让汇总变绿而手工移动任务，先找到控制流程在哪一步停止。
+
+你现在真正掌握了什么
+
+Loop Engineering 不是让 Agent “永远工作”，而是让一次又一次运行都受到工程约束。一个值得长期运行的循环，至少应该能回答：
+
+它为什么现在启动，谁保证不会重叠运行？
+它从哪里读取稳定任务事实，状态保存在哪里？
+Agent 每轮能修改什么，候选与主工作区怎样隔离？
+谁独立判断成功，失败有没有稳定证据？
+下一轮为什么值得运行；没有新证据时何时停止？
+调用次数、时间、Token 和费用上限是什么？
+哪些能力可以无人值守，哪些必须找人审批？
+完成、求助、拒绝和空队列是否都有明确终态？
+哪些状态立即通知，哪些进入摘要，哪些只记日志？
+中断后能否从持久证据恢复，而不是依赖一段聊天记录？
+
+这套本地实现不是生产级调度平台，但它已经把关键判断变成了可运行、可观察、可验证的控制结构。今后无论接入哪一种 Agent，先保住这些边界，再提高自动化程度。能够可靠停止的循环，才有资格长期运行。
+
+修订后的预算、超时与中断规则
+
+综合 worker 每轮启动前评估剩余预算并预留本课 mock 用量，启动前写 worker-state.json，每轮结束立即写 attempts。外层不再重复累计。把 max_agent_runs_per_task 设为 1，模糊需求任务最多运行一轮，第二轮前以 budget_exhausted 停止。
+
+生成器在独立子进程运行；生成与验证共享单轮 deadline。外层还有整次 worker 的硬时限，超时按失败保存。POSIX 会终止进程组；Windows 进程树行为须在目标系统复验。
+
+突然中断时不要删除已有 worktree 重跑。先检查 .loop/capstone/<id>/worker-state.json、attempts/、预算账本和候选差异：generating/verifying 阶段可能有副作用，只能人工核查；当前综合示例保守拒绝自动续跑。核查后把已保存证据、用量和后续决定写入恢复记录，以明确的新任务继续，不能把预算清零伪装成未运行。第 04/06 篇仍用于练习无副作用检查点的自动恢复。
+
+本例 token／费用是 mock，不是供应商实际消费。接入真实 CLI 还必须实现认证、实际用量回传、失败输出协议、进程树取消以及单轮最大 token／费用限制；仅替换生成函数不足以用于无人值守运行。

@@ -1,0 +1,195 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>前面十章都在终端里。这一章换个场景。</p>
+<p>不是说 CLI 不够好——而是它并不总是最合适的工具。<strong>用对工具的前提是知道每个工具擅长什么。</strong></p>
+<h2 id="wiki-h-0">什么时候该从 CLI 切到桌面版</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>你在干什么</th>
+<th>该用哪个</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>批量改几十个文件</td>
+<td>CLI</td>
+<td>脚本化、可重放、能接 CI</td>
+</tr>
+<tr>
+<td>接进流水线 / 定时任务</td>
+<td>CLI</td>
+<td>只有命令行能被调用</td>
+</tr>
+<tr>
+<td>在服务器或容器里干活</td>
+<td>CLI</td>
+<td>没有图形界面</td>
+</tr>
+<tr>
+<td>想看着 diff 一点点改</td>
+<td>Desktop / 插件</td>
+<td>可视化 diff 比终端里读 patch 舒服得多</td>
+</tr>
+<tr>
+<td>断点调试、看变量</td>
+<td>Desktop / 插件</td>
+<td>CLI 里你只能靠 print 和日志</td>
+</tr>
+<tr>
+<td>从零做一个带界面的东西</td>
+<td>Desktop</td>
+<td>有预览，能边看边调</td>
+</tr>
+<tr>
+<td>边写边要补全</td>
+<td>插件</td>
+<td>补全必须在编辑器里</td>
+</tr>
+<tr>
+<td>设计稿转代码</td>
+<td>Desktop</td>
+<td>需要上传设计稿和可视图</td>
+</tr>
+</tbody></table></div>
+<p>一句话的判断标准：<strong>要"看"和"点"的，用桌面版或插件；要"批量"和"自动"的，用 CLI。</strong></p>
+<h2 id="wiki-h-1">装 Desktop</h2>
+<p><strong>macOS</strong></p>
+<ol>
+<li>打开官网下载页，下载 macOS 版安装包（.dmg）</li>
+<li>双击打开，把图标拖进 Applications</li>
+<li>首次打开如果提示"来自身份不明的开发者"，去「系统设置 → 隐私与安全性」里点"仍要打开"</li>
+<li>启动后按提示登录（和 CLI 一样的几种登录方式）</li>
+</ol>
+<p><strong>Windows</strong></p>
+<ol>
+<li>下载 Windows 版安装程序（.exe）</li>
+<li>双击运行，按向导下一步</li>
+<li>如果 SmartScreen 弹窗，点"更多信息 → 仍要运行"</li>
+<li>启动后登录</li>
+</ol>
+<blockquote>
+<p>Apple 芯片的 Mac 和 Intel 的 Mac 安装包不一样，下载时注意选对。不确定自己是哪一种：左上角苹果图标 → 关于本机，看"芯片"那一行。</p>
+</blockquote>
+<p><strong>WSL2 用户</strong>：Desktop 是 Windows 程序，装在 Windows 侧。它可以直接打开 WSL 里的项目目录——启动后选择"打开文件夹"时，WSL 的项目路径在 <code>\\wsl$\Ubuntu\home\你\...</code> 下面（或者在 WSL 终端里敲 <code>explorer.exe .</code> 直接用 Windows 资源管理器打开当前目录，再拖进去）。</p>
+<h2 id="wiki-h-2">界面长什么样</h2>
+<p>第一次打开你会看到三块区域：</p>
+<ul>
+<li><strong>左侧</strong>：文件树 + 会话列表</li>
+<li><strong>中间</strong>：对话区（和 CLI 里一样，用自然语言说需求）</li>
+<li><strong>右侧/下方</strong>：结果区——代码 diff、文件列表、预览</li>
+</ul>
+<p>和 CLI 最大的区别有两个：</p>
+<p><strong>一是 diff 是可视化的。</strong> CLI 里你看到的是文本 patch，这里你能看到并排的旧/新代码，能一行一行地点"保留"或"撤销"。改错了一行，不用整个推翻。</p>
+<p><strong>二是能真的调试。</strong> 它有运行环境，能打断点、看变量、看调用栈。CLI 里遇到复杂逻辑问题，你只能加 print 再跑一遍；这里可以直接停在那儿看。</p>
+<h2 id="wiki-h-3">同一个案例在 Desktop 里做一遍</h2>
+<p>我们把第 4 章那个"接手陌生仓库"在 Desktop 里重做一次，你就能感受到差别了。</p>
+<p><strong>第一步：打开项目。</strong> 启动 Desktop，选择"打开文件夹"，选 <code>~/playground/legacy-repo</code>（或你自己的项目）。</p>
+<p><strong>第二步：建记忆。</strong> 在对话框里输入：</p>
+<pre><code>/init
+</code></pre><p>和 CLI 里完全一样。<code>CODEBUDDY.md</code> 会生成在同一个位置——<strong>这是关键：三端共享同一份项目记忆</strong>。</p>
+<p><strong>第三步：让它考古。</strong></p>
+<pre><code>读一遍这个项目，告诉我它干什么、怎么启动、有哪些隐患。
+先不要改代码。
+</code></pre><p><strong>第四步：看 diff。</strong> 让它修 Flask 那个 <code>before_first_request</code> 的问题。改完之后，右侧结果区会显示改动的文件列表，点进去能看到并排 diff。你可以逐行决定要还是不要。</p>
+<p><strong>对比一下两种体验：</strong></p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th></th>
+<th>CLI</th>
+<th>Desktop</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>建记忆</td>
+<td><code>/init</code></td>
+<td>一样</td>
+</tr>
+<tr>
+<td>看改动</td>
+<td><code>git diff</code>（文本 patch）</td>
+<td>并排可视化 diff，可逐行取舍</td>
+</tr>
+<tr>
+<td>确认命令</td>
+<td>弹一个 Y/n</td>
+<td>有命令执行面板，能看到完整命令再决定</td>
+</tr>
+<tr>
+<td>验证启动</td>
+<td>自己在终端跑</td>
+<td>可以直接点运行、看输出、打断点</td>
+</tr>
+<tr>
+<td>检查改动范围</td>
+<td><code>git status</code></td>
+<td>结果区直接列出所有被改的文件</td>
+</tr>
+</tbody></table></div>
+<p><strong>哪个更好？</strong> 取决于你在干什么。这个案例里 Desktop 更舒服——因为你主要是在"看"和"验证"。但如果你的任务是"把两百个文件的 class 组件改成函数组件"，CLI 的脚本化和可重放就是决定性的优势。</p>
+<h2 id="wiki-h-4">三端怎么配合</h2>
+<p><strong>共享的部分：</strong></p>
+<pre><code>CODEBUDDY.md                   三端都读
+<span class="hljs-title">.codebuddy/rules/              三端都读</span>
+<span class="hljs-title">.codebuddy/settings.json       三端都读</span>
+<span class="hljs-title">.codebuddy/agents/             三端都读</span>
+</code></pre><p>所以你在 CLI 里建立的规矩，<strong>切到 Desktop 里照样生效</strong>——这就是第 10、11 章那套配置最值钱的地方，它不绑工具。</p>
+<p>具体说：项目级的 <code>CODEBUDDY.md</code>、<code>.codebuddy/rules/</code>、<code>.codebuddy/agents/</code>、<code>.codebuddy/skills/</code> 三端都读。唯一的例外是 <strong>CodeBuddy 自己的 Hooks</strong>（第 11.4 节）——那是 CLI 运行时的机制，Desktop 有自己的执行环境，hooks 不一定会被触发。<strong>如果你依赖某个 hook 做安全拦截，跨端时要重新验证一遍</strong>，别默认它在那边也生效。</p>
+<p><strong>不共享的部分：</strong></p>
+<pre><code>~/.codebuddy/CODEBUDDY.md      用户级，跟着机器走，但三端在同一台机器上都读
+会话历史                       CLI 的 /resume 和 Desktop 的会话列表是两套
+</code></pre><p>会话历史不互通，这是当前的现实——你不能在终端里接着桌面版的会话继续聊。</p>
+<p><strong>我的实际用法</strong>，供你参考：</p>
+<ul>
+<li><strong>日常写代码</strong>：插件（在编辑器里补全和问答最顺）</li>
+<li><strong>批量改动、接 CI、服务器上干活</strong>：CLI</li>
+<li><strong>接手陌生项目、做原型、需要调试或预览</strong>：Desktop</li>
+<li><strong>项目规矩</strong>：写在 <code>.codebuddy/</code> 里，三端共享</li>
+</ul>
+<p>不需要忠诚于某一个。需要什么拿什么。</p>
+<h2 id="wiki-h-5">生态能力简介</h2>
+<p>Desktop 版有些能力是 CLI 没有的，简单提一下，用不用看你：</p>
+<ul>
+<li><strong>设计稿转代码</strong>：上传 Figma/图片设计稿，生成前端代码</li>
+<li><strong>后端集成</strong>：接 CloudBase、Supabase 这类托管后端，做带数据存储的应用</li>
+<li><strong>一键部署</strong>：做完直接发布成可访问的链接</li>
+<li><strong>可视化调试</strong>：前面说过了</li>
+</ul>
+<p>这些能力面向的是"从零做一个能用的应用"这个场景，和 CLI 面向的"在既有代码库上干活"是两条路。</p>
+<h2 id="wiki-h-6">选择建议</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>你是谁</th>
+<th>建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>后端 / 全栈开发者，日常在既有仓库里改</td>
+<td>CLI 为主，插件做补全</td>
+</tr>
+<tr>
+<td>前端开发者，经常做界面</td>
+<td>插件为主，Desktop 做原型</td>
+</tr>
+<tr>
+<td>DevOps / SRE</td>
+<td>CLI，几乎不用别的</td>
+</tr>
+<tr>
+<td>产品 / 设计 / 编程初学者</td>
+<td>Desktop</td>
+</tr>
+<tr>
+<td>学生 / 自学编程</td>
+<td>Desktop 入门，熟练后转 CLI</td>
+</tr>
+</tbody></table></div>
+<p><strong>如果你不知道选哪个</strong>：先用 Desktop（门槛最低），等你需要"批量改文件"或者"接进自动化"的时候，自然就会用到 CLI。到时候回来翻第 2、3 章就行。</p>
+<h2 id="wiki-h-7">常见坑</h2>
+<p><strong>Desktop 里改了代码，CLI 里看不到。</strong> 不存在这个问题——同一个文件系统，同一份 git 仓库。只是两边的会话历史不互通。</p>
+<p><strong>规则在 Desktop 里没生效。</strong> 确认规则文件在 <code>.codebuddy/rules/</code>（项目级）而不是只有用户级。项目级的三端都读。</p>
+<p><strong>WSL 里的项目打开很慢。</strong> 可能是因为路径经过了网络映射。把项目放在 WSL 自己的文件系统里，通过 <code>\\wsl$\...</code> 路径打开，不要放在 <code>/mnt/c/</code>。</p>
+<p><strong>插件版和 Desktop 版冲突。</strong> 不冲突，它们是独立的。但同一个项目里三个工具同时改文件容易打架——<strong>同一时间只用一个工具改代码</strong>。</p>
+<hr>
+<p>最后一章，把常用的东西整理成速查表。</p>
+</article>

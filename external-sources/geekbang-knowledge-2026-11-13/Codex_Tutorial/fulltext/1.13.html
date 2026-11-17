@@ -1,0 +1,254 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>权限名称可能随版本和配置变化。本课按能力选择：调查用 read-only，实施用 workspace-write。若 /permissions 没有只读选项，退出后运行 <code>codex --sandbox read-only --ask-for-approval on-request</code>；实施前用 workspace-write 重新启动并明确提供计划，不凭 Read Only／Auto 等标签猜权限。</p>
+</blockquote>
+<blockquote>
+<p>预计学习时间：50—65 分钟<br>本篇目标：把 TaskFlow 的发布前审查拆给三个只读子 Agent，并由主 Agent 统一核验证据、决定修复和完成最终验收。</p>
+</blockquote>
+<p>TaskFlow 2.0 已经具备筛选、统计和 Markdown 报告功能，我们还在上一篇创建了 <code>taskflow-release</code> Skill。现在要做发布前审查，需要同时回答三个问题：</p>
+<ul>
+<li>核心功能和数据处理有没有隐藏缺陷；</li>
+<li>测试是否遗漏了关键边界和跨平台行为；</li>
+<li>README 是否仍然与真实 CLI 一致。</li>
+</ul>
+<p>让一个 Agent 依次检查当然可以，但这三个方向以阅读和调查为主，彼此依赖很少，很适合并行。多 Agent 的价值不在于“多叫几个人显得更认真”，而在于把相互独立、会产生大量中间信息的工作移出主会话，再由主 Agent 收集精简结论。</p>
+<p>这一篇采用一个稳妥的协作模式：</p>
+<pre><code class="hljs language-text">主 Agent 定义范围
+    ├── 子 Agent A：代码与数据风险，只读
+    ├── 子 Agent B：测试与跨平台，只读
+    └── 子 Agent C：文档与 CLI 一致性，只读
+                  ↓
+主 Agent 去重、复现、判断
+                  ↓
+主 Agent 统一修改和验收
+</code></pre><p>前半段允许并行，真正写代码时重新收口。这样既能获得并行调查的速度，又不会让几个 Agent 同时争抢 <code>taskflow.py</code>。</p>
+<h2 id="wiki-h-0">先判断这项工作是否值得并行</h2>
+<p>适合交给子 Agent 的任务通常有三个特征：</p>
+<ol>
+<li>子问题之间基本独立；</li>
+<li>每个子任务有清楚的输入、边界和交付格式；</li>
+<li>主要产出是调查结论、证据或互不重叠的文件。</li>
+</ol>
+<p>典型例子包括：</p>
+<ul>
+<li>分别梳理代码、测试和文档；</li>
+<li>分别调查几种互不相关的故障假设；</li>
+<li>一个 Agent 复现问题，另一个查影响范围；</li>
+<li>分别阅读多份材料，最后由主 Agent 汇总。</li>
+</ul>
+<p>下面这些情况不适合为了并行而并行：</p>
+<ul>
+<li>只需要改一两行的小任务；</li>
+<li>后一个步骤必须等待前一个步骤的输出；</li>
+<li>任务范围还没有讲清楚；</li>
+<li>几个 Agent 必须同时修改同一个核心文件；</li>
+<li>协调和去重的成本已经超过工作本身。</li>
+</ul>
+<p>子 Agent 会独立使用模型、上下文和工具，因此通常比单 Agent 消耗更多额度。官方也建议先从代码探索、测试、问题分类和总结这类“读多写少”的工作开始，谨慎对待并行写入。参见 <a href="https://learn.chatgpt.com/docs/agent-configuration/subagents">Subagents</a>。</p>
+<h2 id="wiki-h-1">确认起点，避免把旧问题算到本次审查里</h2>
+<p>进入 TaskFlow 仓库根目录。macOS、Linux 或 WSL 执行：</p>
+<pre><code class="hljs language-bash">git status --short
+python3 -m unittest discover -s tests -v
+</code></pre><p>Windows PowerShell 执行：</p>
+<pre><code class="hljs language-powershell">git status <span class="hljs-literal">--short</span>
+py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+</code></pre><p>同时确认上一篇创建的 Skill 存在：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">test</span> -f .agents/skills/taskflow-release/SKILL.md &amp;&amp; <span class="hljs-built_in">echo</span> <span class="hljs-string">"skill found"</span>
+</code></pre><p>PowerShell 对应命令：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Test-Path</span> .agents\skills\taskflow<span class="hljs-literal">-release</span>\SKILL.md
+</code></pre><p>预期结果是：</p>
+<ul>
+<li>你知道当前有哪些未提交改动；</li>
+<li>完整测试在审查前处于已知状态；</li>
+<li>Skill 文件存在，稍后可以用于最终验收。</li>
+</ul>
+<p>如果你跳过了上一篇，没有这个 Skill，也可以继续完成多 Agent 练习。最终验收时把 <code>$taskflow-release</code> 换成文中提供的普通提示词即可。</p>
+<p>测试基线有失败时，先记录失败名称和输出。不要让三个子 Agent 都把同一个已知失败当成新发现。</p>
+<h2 id="wiki-h-2">调查阶段先切到只读权限</h2>
+<p>在 TaskFlow 根目录启动 Codex：</p>
+<pre><code class="hljs language-bash">codex
+</code></pre><p>进入交互界面后输入：</p>
+<pre><code class="hljs language-text">/permissions
+</code></pre><p>选择只读模式，然后输入：</p>
+<pre><code class="hljs language-text">/status
+</code></pre><p>检查输出中的工作目录和权限状态。你要确认 Codex 位于 TaskFlow 仓库，并且当前回合不应写文件。</p>
+<p>子 Agent 会继承父回合的沙箱和审批策略。先把主会话设为只读，比在三个子任务里分别写一句“不要修改”更可靠；提示词边界仍然要保留，用来说明任务意图。当前官方权限说明和继承行为见 <a href="https://learn.chatgpt.com/docs/agent-configuration/subagents#approvals-and-sandbox-controls">Subagents</a>。</p>
+<p>如果你的版本里没有 <code>/permissions</code>，退出 Codex，在终端以只读沙箱重新启动：</p>
+<pre><code class="hljs language-bash">codex --sandbox read-only
+</code></pre><h2 id="wiki-h-3">由主 Agent 先画出共同边界</h2>
+<p>不要一进入会话就立刻派出三个子 Agent。先让主 Agent 建立共同事实：</p>
+<pre><code class="hljs language-text">我要对 TaskFlow 2.0 做发布前审查。现在先不要创建子 Agent，也不要修改文件。
+
+请读取 AGENTS.md、README.md、PLAN.md、STATUS.md、RELEASE_CHECK.md（如果存在），并检查当前 Git 状态与项目结构。
+
+请输出：
+1. 本次审查范围；
+2. 已知测试基线；
+3. 核心命令和数据文件；
+4. 三个适合独立调查的方向；
+5. 所有子 Agent 必须遵守的只读边界和统一报告格式。
+
+共同目标：只寻找会影响正确性、数据安全、跨平台使用或文档可信度的问题，忽略纯粹的个人风格偏好。
+</code></pre><p>理想结果应该把审查范围限制在 TaskFlow 2.0 的真实能力上，而不是泛泛地说“检查整个项目质量”。如果它提出重做架构、加入依赖扫描、部署流水线等新目标，先删掉这些超出范围的内容。</p>
+<h2 id="wiki-h-4">一次创建三个边界互不重叠的子 Agent</h2>
+<p>确认共同边界后，提交下面的任务：</p>
+<pre><code class="hljs language-text">请创建三个子 Agent 并行调查。三个子 Agent 全部只读，不修改文件、不创建报告、不执行安装、提交、推送或网络操作。
+
+子 Agent A：代码与数据风险
+- 检查 add、done、import-csv、list --status、stats、report；
+- 关注损坏 JSON、部分写入、重复 ID、空数据、非法参数和报告路径错误；
+- 每个发现给出文件与行号、触发条件、实际行为、预期行为、严重程度；
+- 最多返回 5 个高价值发现。
+
+子 Agent B：测试与跨平台
+- 检查测试是否覆盖正常、错误、旧数据兼容和退出码；
+- 检查 macOS、Linux、Windows 的路径、Python 命令和编码差异；
+- 找出“测试通过但真实 CLI 仍可能失败”的缺口；
+- 每个发现给出缺少的验证方式，最多 5 个。
+
+子 Agent C：文档与 CLI 一致性
+- 逐项核对 README 中的命令、参数、默认值、错误行为和输出示例；
+- 对照当前实现确认示例是否能在干净环境中运行；
+- 只报告有文件或命令证据的不一致，最多 5 个。
+
+统一输出字段：
+- 标题；
+- 状态：已证实 / 需要主 Agent 复现 / 非阻塞建议；
+- 证据位置；
+- 复现或核对步骤；
+- 影响；
+- 建议的最小验证。
+
+请并行执行，等待三个子 Agent 都结束后再汇总。主 Agent 此时只收集结果，不修改文件，也不要把“需要验证”自动升级为缺陷。
+</code></pre><p>这个提示词做了四件重要的事：</p>
+<ul>
+<li>按不同证据面拆任务，减少重复；</li>
+<li>明确只读，避免写入冲突；</li>
+<li>限制每个 Agent 的输出数量，防止低价值问题淹没主线；</li>
+<li>统一报告字段，便于主 Agent 去重和比较。</li>
+</ul>
+<p>当前 Codex 通常会在你明确要求后创建子 Agent。它们会各自在独立的 agent thread 中工作，主 Agent 最后收集结果。不是所有模型和配置都会主动帮你拆任务，因此在教学练习中直接写“创建三个子 Agent”最可靠。</p>
+<h2 id="wiki-h-5">用 <code>/agent</code> 观察，而不是反复追问进度</h2>
+<p>子 Agent 运行时，在 Codex CLI 中输入：</p>
+<pre><code class="hljs language-text">/agent
+</code></pre><p>也可以使用：</p>
+<pre><code class="hljs language-text">/subagents
+</code></pre><p>界面会显示正在运行和已经完成的 agent thread。选择某个线程后，可以查看它正在调查什么以及最终返回了什么；回到主线程后，主 Agent 仍负责总汇报。当前命令说明见 <a href="https://learn.chatgpt.com/docs/developer-commands#switch-agent-threads-with-agent">Developer commands</a>。</p>
+<p>观察时重点看三件事：</p>
+<ol>
+<li>三个线程是否拿到了不同任务；</li>
+<li>它们是否仍处于只读范围；</li>
+<li>是否有线程卡在权限请求或错误命令上。</li>
+</ol>
+<p>在 CLI 中，即使你正在查看主线程，后台子 Agent 的审批请求也可能弹出。审批界面会标出来源线程；先看清是哪一个任务和哪条命令，再决定是否允许。只读审查阶段如果出现写文件、安装依赖或访问无关目录的请求，通常应该拒绝并让该 Agent 改用只读证据。</p>
+<p>不要每隔几十秒向主 Agent 发送“好了吗”。主 Agent 会等待请求中的三个结果；频繁插入新要求反而容易改变边界。</p>
+<h2 id="wiki-h-6">子 Agent 的结论不能直接变成修复清单</h2>
+<p>三个线程结束后，先让主 Agent 做一次证据整理：</p>
+<pre><code class="hljs language-text">现在只汇总，不修改文件。
+
+请把三个子 Agent 的结果合并成候选问题表：
+1. 去掉重复项；
+2. 保留每项原始证据位置；
+3. 区分“已证实缺陷、需要主 Agent 复现、测试缺口、文档不一致、非阻塞建议”；
+4. 标出彼此矛盾的结论；
+5. 给出主 Agent 接下来需要亲自执行的最小验证。
+
+不要根据出现次数投票，也不要因为多个 Agent 说法一致就跳过验证。
+</code></pre><p>多个 Agent 的一致意见仍然可能来自同一个错误假设。最终分类必须回到代码、需求、测试和实际命令。</p>
+<p>一项可以进入修复阶段的问题，至少要包含：</p>
+<ul>
+<li>具体文件与位置；</li>
+<li>可重复的触发条件；</li>
+<li>实际结果；</li>
+<li>有依据的预期结果；</li>
+<li>对用户或数据的影响；</li>
+<li>修复后可以运行的验证。</li>
+</ul>
+<p>“这里可以更优雅”“建议重构”“也许在 Windows 上有问题”都还不是已证实缺陷。</p>
+<h2 id="wiki-h-7">由主 Agent 逐项复现</h2>
+<p>继续保持只读权限，让主 Agent 验证候选项：</p>
+<pre><code class="hljs language-text">请由主 Agent 亲自复现候选问题，仍然不要修改文件。
+
+规则：
+- 优先使用临时目录和临时数据；
+- 不读取或覆盖真实 data/tasks.json；
+- 每次只验证一个问题；
+- 记录命令、退出码、关键输出和对应文件位置；
+- 不能复现的项目降级为“未证实”，说明缺少什么条件；
+- 最后给出按严重程度排序的已证实问题清单。
+</code></pre><p>如果子 Agent 彼此冲突，例如一个认为 <code>report</code> 会自动创建父目录，另一个认为应该报错，主 Agent 要以既定需求和真实执行结果为准，而不是凭多数票。</p>
+<p>复现完成后，在另一个终端执行：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>它应该与调查前一致。若多出源代码、报告或测试文件，说明所谓只读调查发生了写入。先检查这些改动，不要直接进入修复阶段。</p>
+<p>如果三个方向都没有发现已证实缺陷，这是正常结果。不要为了让多 Agent 看起来“有产出”而要求它们继续找茬；保留审查范围和验证证据，直接进入最终验收即可。</p>
+<h2 id="wiki-h-8">修改阶段切回单一责任主体</h2>
+<p>只有当已证实问题确实需要修复时，才从只读模式切回你愿意使用的工作权限。输入：</p>
+<pre><code class="hljs language-text">/permissions
+</code></pre><p>选择允许在工作区修改、但仍保留合适审批的模式，再用 <code>/status</code> 核对。接着提交：</p>
+<pre><code class="hljs language-text">请由主 Agent 修复刚才已经复现的发布阻塞问题。不要创建新的子 Agent，也不要让已有子 Agent 修改文件。
+
+按严重程度逐项进行：
+1. 先补充或确认能够失败的复现测试；
+2. 做最小修改；
+3. 运行相关测试；
+4. 展示该项 Diff 与验证结果；
+5. 一项通过后再进入下一项。
+
+测试缺口和文档不一致可以一并处理；非阻塞重构建议记录到 RELEASE_CHECK.md，本轮不实施。全部完成后运行完整测试并停下来汇报，不提交、不打标签、不推送。
+</code></pre><p>为什么不继续让多个 Agent 写代码？因为 TaskFlow 规模不大，许多命令共享同一个入口和存储逻辑。并行修改同一工作树会增加覆盖、冲突和重复修复的风险。</p>
+<p>如果以后遇到多个真正独立的模块，并且确实需要并行写入，应先把它们放到不同 Git 分支或 worktree 中，再明确集成责任人。会话线程的隔离不等于文件系统隔离。关于工作树的使用边界，可以参考 <a href="https://learn.chatgpt.com/docs/environments/git-worktrees">Worktrees</a>。</p>
+<h2 id="wiki-h-9">用上一课的 Skill 做最终验收</h2>
+<p>修改完成后，显式调用发布检查 Skill：</p>
+<pre><code class="hljs language-text">$taskflow-release 请对当前 TaskFlow 2.0 执行最终发布检查。请把本次多 Agent 审查中已证实的问题、主 Agent 的修复以及实际验证证据写入 RELEASE_CHECK.md。不要提交、不打标签、不推送、不发布。
+</code></pre><p>如果你没有创建这个 Skill，使用普通提示词：</p>
+<pre><code class="hljs language-text">请完成 TaskFlow 2.0 最终发布检查：运行完整测试，核对 README 与 CLI，检查旧 JSON 兼容性，检查真实运行数据、缓存、密钥和个人路径是否进入 Diff，并生成 RELEASE_CHECK.md。报告每条已证实问题的修复与验证证据。不要提交或发布。
+</code></pre><p>然后在终端独立检查：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --check
+git diff --<span class="hljs-built_in">stat</span>
+</code></pre><p>macOS、Linux 或 WSL 再运行：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+</code></pre><p>最后在 Codex 中输入：</p>
+<pre><code class="hljs language-text">/diff
+</code></pre><p>把三个层次对起来：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>层次</th>
+<th>你要核对什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>子 Agent 调查</td>
+<td>每个候选问题有没有位置、触发条件和证据</td>
+</tr>
+<tr>
+<td>主 Agent 修复</td>
+<td>Diff 是否只处理已证实问题，测试是否先失败后通过</td>
+</tr>
+<tr>
+<td>最终发布检查</td>
+<td>完整测试、README、数据兼容和安全检查是否都有实际结果</td>
+</tr>
+</tbody></table></div>
+<p>只有这三层能互相对应，才说明多 Agent 提升了审查效率，而不是只制造了三份更长的意见。</p>
+<h2 id="wiki-h-10">最常见的四个卡点</h2>
+<h3 id="wiki-h-11">1. Codex 没有创建子 Agent</h3>
+<p>先确认你是直接要求“创建三个子 Agent 并行调查”，而不是含糊地说“可以并行看看”。然后检查：</p>
+<pre><code class="hljs language-text">/agent
+</code></pre><p>若列表始终没有子线程，查看 <code>codex --version</code> 并更新 Codex。当前版本默认启用多 Agent；如果你修改过配置，还可以用 <code>/debug-config</code> 检查 <code>agents.enabled</code> 是否被关闭。</p>
+<h3 id="wiki-h-12">2. 三个 Agent 返回了几乎相同的内容</h3>
+<p>通常是任务边界按“角色名称”写了，却没有按证据面拆开。重新指定不同文件范围、问题类型和交付字段，不要简单复制同一任务给三个人。</p>
+<h3 id="wiki-h-13">3. 某个子 Agent 返回一段泛泛建议</h3>
+<p>要求它补充文件位置、触发条件、实际与预期结果、最小验证。仍然没有证据的内容只能保留为建议，不能进入修复清单。</p>
+<h3 id="wiki-h-14">4. 子 Agent 请求修改或额外权限</h3>
+<p>先看请求来自哪个线程。调查阶段默认拒绝写入，让它改为输出证据。若任务确实无法只读完成，也应回到主 Agent 重新划分阶段，而不是临时给某个后台线程扩大权限。</p>
+<h2 id="wiki-h-15">什么时候值得定义自定义 Agent</h2>
+<p>这次练习直接用临时子任务就够了。只有当同一种分工会反复出现，例如每次发布都需要固定的安全审查者、测试审查者和文档审查者，才值得把它们定义成项目级 custom agents。</p>
+<p>当前 Codex 还提供 <code>default</code>、<code>worker</code> 和 <code>explorer</code> 等内置 Agent，并允许在 <code>.codex/agents/</code> 中定义项目 Agent。自定义 Agent 可以指定更窄的职责、模型、推理强度和只读沙箱，但这会引入新的配置维护成本。先把一次任务拆对，再考虑固化角色；不要在第一次使用多 Agent 时同时引入一整套配置。</p>
+<h2 id="wiki-h-16">本篇小结</h2>
+<p>多 Agent 最适合并行展开相互独立的调查，而不是让多个 Agent 同时修改同一份代码。我们先在只读权限下，由三个子 Agent 分别检查代码、测试和文档；再由主 Agent 去重、复现和判断；真正的修改重新集中到主 Agent；最后用 <code>taskflow-release</code> Skill 和独立测试完成验收。</p>
+<p>完成这一篇以后，你应该掌握的不只是“怎样创建三个 Agent”，而是一套可复用的协作纪律：<strong>并行调查、统一证据、单点写入、集中验收。</strong></p>
+<p>下一篇，我们会把已经稳定的检查任务搬出交互式会话，使用 <code>codex exec</code> 生成可供脚本和 CI 消费的结果。</p>
+</article>

@@ -1,0 +1,364 @@
+预计学习时间：75—90 分钟
+本篇目标：为 TaskFlow 增加优先级和截止日期，让数据、CLI、排序、统计、报告、旧数据兼容、测试与 README 遵守同一套规则。
+
+修复一个缺陷时，改动通常可以围绕一条因果链收紧。跨文件功能更容易出现另一类问题：每一处单看都能运行，合在一起却不一致。CLI 默认是 normal，存储层可能写成空值；stats 说任务逾期，报告却没有标记；新数据运行正常，老用户的 JSON 一打开就报错。
+
+这篇回到 TaskFlow 主线，把已经完成的 2.0 升级到 3.0。我们不再练“怎样让 Codex 多写几个文件”，而是练怎样先冻结业务契约，再按阶段让所有受影响位置对齐。
+
+最终结果应满足：
+
+add 接受 --priority low|normal|high 与可选的 --due YYYY-MM-DD；
+list 展示新字段并稳定排序；
+stats 和 Markdown report 使用相同的逾期规则；
+1.0/2.0 JSON 不迁移也能读取；
+纯读取旧数据不会偷偷改写文件；
+完整测试和一次真实升级演练都通过。
+回到 TaskFlow 2.0 的干净基线
+
+上一篇使用的是独立练习仓库。现在请切回 TaskFlow 根目录。开始前应已完成第 10 篇的 2.0 功能：list --status、stats 和 report --output 可以使用，PLAN.md、STATUS.md 与仓库级 taskflow-release Skill 也已经存在。
+
+macOS、Linux 或 WSL：
+
+cd /你的路径/taskflow
+git status --short
+python3 -m unittest discover -s tests -v
+python3 taskflow.py --help
+
+
+Windows PowerShell：
+
+Set-Location C:\你的路径\taskflow
+git status --short
+py -m unittest discover -s tests -v
+py taskflow.py --help
+
+
+只有下面三项同时成立，才进入 3.0：
+
+git status --short 没有不认识的改动；
+2.0 完整测试通过；
+帮助中能看到 add、list、done、stats 和 report 等现有命令。
+
+如果你跳过了第 10 篇，先补齐 2.0；这篇不会重新创建项目。若测试基线失败，也应先把失败作为单独问题处理，否则后面无法判断是哪次改动引入了回归。
+
+建立功能分支并记录基线提交：
+
+git switch -c feature/taskflow-3-priority-due
+git rev-parse --short HEAD
+
+
+如果同名分支已经存在，不要覆盖它；先确认它是否属于之前未完成的练习，再换一个新分支名或回到原任务继续。
+
+规划的重点是找到“同一条规则出现了几次”
+
+在 TaskFlow 根目录启动 Codex：
+
+codex --sandbox workspace-write --ask-for-approval on-request
+
+
+进入 Plan 模式：
+
+/plan
+
+
+当前官方说明中，/plan 会让 Codex 先调查并提出实施路线；Plan 模式不会因为名字叫“计划”就自动替你消除需求歧义，关键规则仍需由你确认。命令入口和适用场景可参考 Developer commands 与 Prompting。
+
+提交第一版需求：
+
+请规划 TaskFlow 3.0，先检查当前实现、测试、AGENTS.md、PLAN.md、STATUS.md 和 README，但不要修改文件。
+
+目标：
+1. add 支持 --priority low|normal|high，默认 normal；
+2. add 支持可选的 --due YYYY-MM-DD；
+3. list 展示 priority 和 due；
+4. list 默认按“未完成优先、优先级从高到低、截止日期从近到远”排序；
+5. stats 增加逾期未完成任务数；
+6. Markdown report 展示 priority、due 和 overdue 标记；
+7. TaskFlow 1.0/2.0 的旧 JSON 仍可读取；
+8. 继续只用 Python 标准库，并更新测试与 README。
+
+请先输出：
+- 当前数据从 CLI 输入到 JSON、list、stats、report 的调用路径；
+- 受影响文件和函数；
+- 需求中尚未定义的边界；
+- 三个可单独验收的实施阶段；
+- 每个阶段的局部测试、完整测试、停止点和回滚点。
+
+此时不要写代码，也不要替我决定业务歧义。
+
+
+理想的计划会指出，同一个字段至少涉及六类契约：输入校验、内存表示、JSON 兼容、展示与排序、统计/报告、文档示例。若计划只写“修改 taskflow.py 和测试”，说明它还没有把跨文件影响展开。
+
+先冻结 TaskFlow 3.0 的业务契约
+
+这套教程采用下面的规则：
+
+主题	3.0 规则
+优先级	只接受 low、normal、high，默认 normal
+截止日期	可省略；提供时必须是有效的 YYYY-MM-DD 日历日期
+默认排序	未完成在前；再按 high → normal → low；同优先级时有截止日期的在前，日期早的在前；仍相同时按任务 ID 升序
+逾期	仅当任务未完成且 due < 今天；截止当天不逾期
+已完成任务	永远不标记逾期，但仍展示原截止日期
+旧字段缺失	缺少 priority 按 normal 读取；缺少 due 按无日期读取
+旧数据改写	list、stats、report 等纯读取命令不得改写 JSON；后续用户主动执行写命令时允许按当前格式保存，但任务语义不能变化
+非法旧数据	已存在但值非法的 priority 或 due 必须给出明确错误，不静默替换成默认值
+
+把规则发给 Codex：
+
+请用以上规则修订计划和测试矩阵，仍不要实现。
+
+额外要求：
+- 日期相关测试固定参考日，不读取测试运行当天；
+- stats 与 report 必须复用同一份逾期判断；
+- 排序必须有任务 ID 兜底，避免结果在不同运行间漂移；
+- 读取旧 JSON 的兼容测试还要证明纯读取不会改变文件字节；
+- 列出非目标：不增加提醒通知、不增加时区、不引入迁移命令、不更换 CLI 框架。
+
+先退出 Plan 模式并确认 workspace-write 权限；只授权以下文档落盘，再进入实现阶段。把确认后的 3.0 计划写入现有 PLAN.md，把 STATUS.md 更新为“阶段一待开始”，然后停下。除了这两个状态文件，不修改业务代码。
+
+
+收到结果后输入 /diff，只应看到 PLAN.md 和 STATUS.md 的计划性变化。计划里至少要有下面三段：
+
+数据模型与旧数据兼容；
+add、list 与排序；
+stats、report 与真实升级演练。
+
+如果 Codex 已经改了业务代码，先让它恢复这些提前发生的修改，再进入阶段一。跨文件任务最容易失控的时刻，就是计划和实现混在同一轮里。
+
+阶段一：先让新模型读得懂旧数据
+
+提交阶段一任务：
+
+执行 PLAN.md 的阶段一：扩展任务数据模型并保持 1.0/2.0 JSON 兼容。只做这一阶段，完成后停止。
+
+验收要求：
+- 新任务在内存中有 priority 和 due；
+- 缺少 priority 的旧任务按 normal 读取，缺少 due 按空值读取；
+- 已存在但非法的 priority 或 due 返回明确错误；
+- 纯读取旧数据不会改写文件；
+- 测试覆盖旧记录、新记录、缺字段、非法值和读取前后字节一致；
+- 不修改 add/list/stats/report 的用户界面；
+- 运行相关测试和完整测试；
+- 更新 STATUS.md，列出修改文件、实际命令、结果与下一步。
+
+
+完成后先看可见结果：业务代码、兼容测试和 STATUS.md 可以变化，CLI 展示与 README 不应提前进入 3.0。然后在另一个终端独立运行：
+
+macOS、Linux 或 WSL：
+
+python3 -m unittest discover -s tests -v
+git diff --check
+git diff --stat
+
+
+Windows PowerShell：
+
+py -m unittest discover -s tests -v
+git diff --check
+git diff --stat
+
+
+完整测试通过只说明现有测试认可实现，还要打开新兼容测试确认它真的验证了三件事：旧字段缺失得到默认语义、非法字段被拒绝、只读命令执行前后文件内容完全一致。只创建一个“旧 JSON 能解析”的测试还不够。
+
+阶段二：把输入、展示和排序当成一个契约
+
+继续提交：
+
+执行 PLAN.md 的阶段二：扩展 add 与 list。不要进入 stats 和 report。
+
+要求：
+1. add 接受 --priority low|normal|high，默认 normal；
+2. add 接受可选 --due YYYY-MM-DD，并拒绝不存在的日期；
+3. 保留原有 add 用法；
+4. list 展示 priority 和 due，无日期时使用 README 中定义的统一表示；
+5. 严格按已确认的“状态、优先级、日期、任务 ID”顺序排序；
+6. 测试覆盖默认值、三个优先级、无日期、非法枚举、非法日期和所有排序层级；
+7. 更新 README 对应命令和示例；
+8. 运行相关测试与完整测试，更新 STATUS.md 后停止。
+
+
+这里最容易漏掉的是“最后一个排序键”。如果两条任务的状态、优先级和日期都相同，却没有 ID 兜底，结果可能依赖输入顺序或内部实现，测试也会偶发变化。
+
+测试通过后，让 Codex 根据当前项目真实的数据文件参数或环境变量准备冒烟命令，不要凭教程猜参数：
+
+请先只输出、不要执行一组 TaskFlow 3.0 add/list 冒烟命令。
+
+命令必须使用当前项目真实支持的数据路径机制，并指向一个可删除的临时 JSON，绝不能读写 data/tasks.json。请创建下面六条任务：
+- 未完成 high，due=2999-01-01；
+- 未完成 high，无 due；
+- 未完成 normal，due=2999-01-01；
+- 未完成 low，due=2000-01-01；
+- 未完成 normal，无 due；
+- 已完成 high，due=2000-01-01。
+
+最后运行 list，标明预期 ID 顺序，并给出清理临时文件的命令。所有占位路径都替换成真实路径。
+
+
+先检查命令中的数据路径。只要仍指向 data/tasks.json，就不要执行，让 Codex 改成临时文件。确认后再让它运行，或者复制到另一个终端执行。
+
+预期排序逻辑是：所有未完成任务先出现；未完成内部先 high，再 normal，最后 low；同一优先级下有日期的在无日期之前；最后才出现已完成任务。注意，优先级比截止日期更靠前，所以一条已经逾期的 low 任务不会越过未来截止的 normal 任务。这不是唯一合理规则，但它是本教程已经冻结的规则。
+
+再次检查：
+
+git status --short
+git diff --check
+
+
+临时 JSON、缓存和冒烟输出不应进入待提交文件。
+
+阶段三：让统计和报告共享同一个“今天”
+
+提交最后一个实现阶段：
+
+执行 PLAN.md 的阶段三：扩展 stats 和 Markdown report，然后完成真实升级演练。不要增加计划外功能。
+
+要求：
+- stats 增加逾期未完成任务数；
+- report 的每条任务展示 priority 和 due，并只给逾期未完成任务加 overdue 标记；
+- stats 与 report 复用同一份逾期判断；
+- 业务函数可以注入参考日期，自动化测试固定 today=2026-06-15；
+- due=2026-06-14 的未完成任务逾期；
+- due=2026-06-15 的未完成任务不逾期；
+- due=2026-06-14 的已完成任务不逾期；
+- 报告摘要与明细中的逾期数量一致；
+- 更新 README，运行相关测试与完整测试；
+- 更新 STATUS.md 后停止。
+
+
+不要用修改电脑系统日期来测试。可注入的 today 或集中封装的日期函数，能让测试在明天、下个月和 CI 中得到同样结果。你要检查的是 stats 与 report 是否调用同一份规则，而不是分别复制一段看起来相同的条件判断。
+
+完成后独立运行完整测试：
+
+macOS、Linux 或 WSL：
+
+python3 -m unittest discover -s tests -v
+
+
+Windows PowerShell：
+
+py -m unittest discover -s tests -v
+
+
+然后让 Codex 输出一份临时报告，并明确回显：临时数据路径、生成文件路径、stats 的逾期数、报告摘要的逾期数，以及哪些任务带有 overdue 标记。三处数字必须能互相对上。
+
+用一份真实旧文件演练升级，而不是只测新用户
+
+普通功能测试容易从空数据开始，遗漏老用户路径。现在单独做一次升级演练：
+
+请在系统临时目录中完成 TaskFlow 2.0 → 3.0 升级演练，不要修改仓库内的 data/tasks.json。
+
+步骤：
+1. 创建一份旧格式 JSON，至少包含一条未完成和一条已完成任务，二者都没有 priority 和 due；
+2. 记录文件路径和运行前 SHA-256；
+3. 用 3.0 依次运行 list、stats 和 report；
+4. 再次计算 SHA-256，证明三条纯读取命令没有改写旧文件；
+5. 对同一临时文件执行一次 add，创建带 high 和 due 的新任务；
+6. 再运行 list、stats、done 和 report；
+7. 打开最终 JSON 与 Markdown 报告，核对旧任务语义、新任务字段、完成状态和逾期数字；
+8. 记录每条命令的退出码和关键输出，最后清理临时文件。
+
+如果当前 CLI 的数据路径参数与这里表述不同，以实际 --help 和 README 为准。不要为了演练修改真实用户数据。
+
+
+合格证据应同时说明：
+
+旧文件不经过手工迁移即可读取；
+三条纯读取命令前后 SHA-256 相同；
+主动写入后，新任务保存新字段；
+旧任务仍有正确的默认语义；
+done、stats 与报告在升级后的同一文件上仍然一致。
+
+如果只证明“单元测试通过”，还不能说明真实命令链路正确；如果只跑真实命令却不保留旧文件哈希，也不能证明读取没有副作用。
+
+做一次跨文件契约审查
+
+实现完成后，让当前会话先只读审查，不要立即修：
+
+请对 TaskFlow 3.0 做跨文件契约审查，暂时不要修改。
+
+逐项核对并给出文件、测试或命令证据：
+- CLI 默认 priority 与旧数据默认 priority 是否一致；
+- add 写出的 due 与读取、展示的格式是否一致；
+- list 排序与 README 描述是否完全一致；
+- stats、report 明细和 report 摘要是否共用逾期定义；
+- 纯读取旧文件是否保持字节不变；
+- 无效 priority/date 的错误信息与退出码是否一致；
+- README 示例是否可以直接运行且不会碰真实数据。
+
+把发现分为“阻塞 3.0”“非阻塞建议”“已验证无问题”。每个阻塞项先给最小复现，不要直接扩大重构范围。
+
+
+跨文件审查关注的是同一个概念在不同层之间有没有漂移。某个函数写得是否优雅，可以留到下一篇；契约不一致则必须在本篇收口。若发现阻塞问题，按“补回归测试—最小修复—局部验证—完整测试—重跑升级演练”的顺序处理。
+
+完成最终验收并提交
+
+先运行仓库级发布检查 Skill，作为功能完成后的初步检查：
+
+$taskflow-release 请对当前 TaskFlow 3.0 功能分支做一次发布前检查。重点核对完整测试、旧数据兼容、README 和未跟踪文件；只生成或更新 RELEASE_CHECK.md，不提交、不打标签、不推送、不发布。
+
+
+这个报告只是证据索引，不能替代你亲自执行验证。最后在终端运行：
+
+macOS、Linux 或 WSL：
+
+python3 -m unittest discover -s tests -v
+git diff --check
+git status --short
+git diff --stat
+git diff --name-only
+
+
+Windows PowerShell：
+
+py -m unittest discover -s tests -v
+git diff --check
+git status --short
+git diff --stat
+git diff --name-only
+
+
+最终应看到：
+
+完整测试全部通过；
+没有空白错误；
+变化集中在业务代码、测试、README、计划/状态和发布检查报告；
+没有 data/tasks.json、临时 JSON、临时报告、缓存或真实任务数据；
+STATUS.md 记录的命令与刚才实际执行的结果一致。
+
+在 Codex 中输入 /diff，逐个文件检查后再明确暂存：
+
+git add taskflow.py tests README.md PLAN.md STATUS.md RELEASE_CHECK.md
+git diff --cached --check
+git diff --cached --stat
+git commit -m "add priority and due dates"
+git status --short
+
+
+如果实际项目拆成了多个模块，或某个列出的文件并未存在，就按照 git diff --name-only 的结果逐个添加；不要用 git add . 把临时数据一起收入提交。提交后 git status --short 应为空。
+
+遇到问题时先看契约落在哪一层
+新任务正常，旧 JSON 报错
+
+检查读取路径是否在字段访问前补默认值，以及兼容测试是否真的使用了不含新字段的原始 JSON。只在 add 中设置默认值，无法帮助历史记录。
+
+测试今天通过，明天失败
+
+日期逻辑仍直接读取系统当天。把参考日作为参数传入业务函数，或集中到可替换的日期函数；测试固定参考日，CLI 默认才使用真实当天。
+
+stats 与报告逾期数量不同
+
+寻找两套独立条件判断。应让二者调用同一业务函数，并用同一组任务和同一参考日做一致性测试。
+
+list 顺序偶尔变化
+
+检查排序键是否包含所有层级，尤其是最后的任务 ID；还要确认优先级使用显式映射，而不是按 high、low、normal 的字母顺序排序。
+
+冒烟测试改动了真实 data/tasks.json
+
+立即停止后续命令，先保存 git status 和 Diff 证据。若该文件受 Git 管理，确认改动只来自本次误操作后再恢复；若它包含真实未提交数据，不要直接覆盖，先备份并人工比较。下一次演练必须在执行前检查临时路径。
+
+本篇小结
+
+TaskFlow 3.0 的难点不是两个新字段，而是让这两个字段在输入、存储、兼容、排序、统计、报告、测试和文档中保持同一含义。我们先用 Plan 模式找出跨层影响，再冻结业务契约，按三个阶段实施，每阶段都停下来验证，最后用旧文件哈希和真实命令链路证明升级可用。
+
+下一篇不再增加功能。我们会把这个已提交的 3.0 分支当成发布候选版本，使用专门的 Review、复现证据和有限重构完成发布前收口。

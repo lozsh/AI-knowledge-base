@@ -1,0 +1,233 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与练习时间：60～80 分钟<br>本篇目标：让失败进入可解释的控制分支——第一轮失败后保存证据并生成新计划，第二轮用新策略完成；连续出现相同失败时停止消耗，把任务转入 <code>needs-input</code>。</p>
+</blockquote>
+<p>第 5 篇证明了“Generator 说完成”不等于完成。接下来还有一个更现实的问题：Verifier 拒绝候选以后，应该立刻结束，还是再给 Agent 一轮机会？</p>
+<p>答案不能只是“失败就重试三次”。如果下一轮的输入、证据和策略都不变，所谓重试只是重复下注。可靠的循环至少要分清三种动作：</p>
+<ul>
+<li><strong>Retry（重试）</strong>：故障更像暂时性环境问题，计划不变，但等待后再执行；</li>
+<li><strong>Replan（重新规划）</strong>：验证暴露了计划本身的问题，下一轮必须带着新证据换做法；</li>
+<li><strong>Escalate（升级）</strong>：缺少信息、越过权限、预算耗尽或重复撞上同一失败，停止自动运行并找人。</li>
+</ul>
+<p>这一篇用两个任务把后两条路径跑一遍。网络限流、临时服务错误等 Retry 场景会说明设计方法，但不会为了演示去调用真实外部服务。</p>
+<h2 id="wiki-h-0">从干净的 ISBN 搜索基线开始</h2>
+<p>第 5 篇结束时，<code>issue-003</code> 已进入 <code>blocked</code>，<code>issue-004</code> 已完成，ISBN 搜索结果已经提交。先确认工作区和既有能力：</p>
+<pre><code class="hljs language-bash">git status --short
+node --<span class="hljs-built_in">test</span> acceptance/isbn-search.test.mjs
+npm <span class="hljs-built_in">test</span>
+npm run check
+</code></pre><p>Git 状态应为空，其他命令应通过。若 <code>src/</code> 仍有未提交改动，先回到第 5 篇末尾完成审阅和提交；多轮引擎不会在来源不明的候选上继续叠加修改。</p>
+<h2 id="wiki-h-1">加入多轮引擎与两项练习任务</h2>
+<p>从课程根目录复制本篇增量素材。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R assets/lesson-06-retry/. issue-garden-lab/
+<span class="hljs-built_in">cd</span> issue-garden-lab
+<span class="hljs-built_in">source</span> .venv/bin/activate
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> assets/lesson<span class="hljs-literal">-06-retry</span>/* issue<span class="hljs-literal">-garden-lab</span>
+<span class="hljs-built_in">Set-Location</span> issue<span class="hljs-literal">-garden-lab</span>
+.\.venv\Scripts\Activate.ps1
+</code></pre><p>关键新增内容：</p>
+<pre><code class="hljs language-text">issue_garden/loop_engine.py          多轮决策、失败签名和升级
+issue_garden/loop_generator.py       能读取轮次与新计划的模拟 Generator
+tools/run_loop.py                    多轮入口
+tasks/inbox/issue-005.json           第一轮失败、第二轮完成
+tasks/inbox/issue-006.json           连续相同失败后请求输入
+acceptance/diacritic-search.test.mjs 重音符号验收
+acceptance/publisher-search.test.mjs 出版社字段验收
+</code></pre><p>验证注册表也新增了 <code>diacritic-search</code> 和 <code>publisher-search</code> 两个 profile。</p>
+<p>先运行控制面测试：</p>
+<pre><code class="hljs language-bash">python -m unittest discover -s loop_tests -p <span class="hljs-string">"test_*.py"</span> -v
+</code></pre><p>预期十六项通过。本篇新增三项检查：失败签名忽略输出文字和耗时抖动，退出码变化会产生新签名，只统计末尾连续出现的相同失败。</p>
+<p>保存课程代码与任务定义：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"feat: add retry and escalation policy"</span>
+git status --short
+</code></pre><p>工作区应再次干净。</p>
+<h2 id="wiki-h-2">先给失败做分类，再决定下一步</h2>
+<p>多轮引擎不会看到非零退出码就机械重跑，而是按证据选择动作。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>失败类型</th>
+<th>典型证据</th>
+<th>默认动作</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>暂时性环境故障</td>
+<td>超时、限流、临时 5xx，代码没有变化</td>
+<td>等待并 Retry，但仍受时间与次数预算限制</td>
+</tr>
+<tr>
+<td>计划或实现错误</td>
+<td>验收稳定失败，日志提供了新的定位信息</td>
+<td>把失败证据写进新计划，再 Replan</td>
+</tr>
+<tr>
+<td>候选越界</td>
+<td>修改测试、契约、白名单外文件或改动过大</td>
+<td>立即 Block，不靠下一轮“自觉改好”</td>
+</tr>
+<tr>
+<td>信息不足</td>
+<td>字段约定、期望行为或输入样例缺失</td>
+<td><code>needs-input</code>，等人补充</td>
+</tr>
+<tr>
+<td>相同失败重复</td>
+<td>连续多轮的失败签名相同</td>
+<td>停止原地打转并升级</td>
+</tr>
+<tr>
+<td>预算耗尽</td>
+<td>达到最大轮次、运行次数、时间或费用</td>
+<td>停止；是否加预算由人决定</td>
+</tr>
+</tbody></table></div>
+<p>Retry 和 Replan 最容易混淆。判断标准不是“再运行一次”，而是下一轮有没有新的决策依据：</p>
+<ul>
+<li>临时网络错误消失后，同一计划可能成功，适合 Retry；</li>
+<li>测试稳定证明方案不成立时，必须把失败变成新上下文，适合 Replan；</li>
+<li>如果什么都没变，只是再次发送同一句提示词，它既不是可靠 Retry，也不是 Replan。</li>
+</ul>
+<h2 id="wiki-h-3">失败签名只保留稳定特征</h2>
+<p>命令输出常含耗时、临时路径和执行顺序。直接对整份日志求哈希，即使根因相同，每轮也可能得到不同值。</p>
+<p>Issue Garden 的失败签名只包含：</p>
+<pre><code class="hljs language-text">排序后的 boundary_errors
++ 每条验证命令的参数数组
++ 每条命令的退出码
+</code></pre><p>它不包含完整 stdout；只提取其中稳定的失败测试标识和错误类别、stderr、耗时和 Agent 的措辞。序列化后计算 SHA-256，并取前 16 位作为可读标识。</p>
+<p>这不是通用的“根因识别算法”。两个不同问题可能恰好拥有同样的命令退出码；一个问题也可能在不同阶段产生不同签名。它的作用更朴素：发现控制面能够稳定观察到的“没有进展”模式，避免把日志噪声误认为新情况。</p>
+<p><code>loop.yaml</code> 中已有：</p>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">stop:</span>
+  <span class="hljs-attr">same_failure_limit:</span> <span class="hljs-number">2</span>
+</code></pre><p>所以同一签名连续出现两次，就停止自动尝试。</p>
+<h2 id="wiki-h-4">第一轮失败后，先暂停看新计划</h2>
+<p><code>issue-005</code> 要求输入 <code>garcia marquez</code> 时也能匹配 <code>García Márquez</code>。当前使用 NFKC 统一字符宽度，但不会移除重音标记。</p>
+<p>先确认验收失败：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/diacritic-search.test.mjs
+</code></pre><p>然后让循环只完成第一轮并在 Replan 后暂停：</p>
+<pre><code class="hljs language-bash">python tools/run_loop.py --pause-after-round 1
+</code></pre><p>预期退出码为 <code>75</code>，输出类似：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"interrupted"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"paused_after_replan"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-005"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"completed_round"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"next_round"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"plan"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">".loop/tasks/issue-005/plan-round-002.json"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"failure_signature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"..."</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>第一轮模拟 Generator 错误地认为 NFKC 已经足够，因此没有修改代码。Verifier 观察到两件事：候选文件为空，重音符号验收退出码为 <code>1</code>。Loop 没有立即重发原任务，而是把这两项证据写进下一轮计划。</p>
+<p>查看第一轮记录和第二轮计划：</p>
+<pre><code class="hljs language-bash">python -m json.tool .loop/tasks/issue-005/attempts/round-001.json
+python -m json.tool .loop/tasks/issue-005/plan-round-002.json
+python -m json.tool .loop/tasks/issue-005/state.json
+</code></pre><p>你应该看到：</p>
+<ul>
+<li>第一轮 <code>decision</code> 是 <code>retry</code>，原因是 <code>verification_failed_replan</code>；</li>
+<li>尝试记录包含一个失败签名和 <code>consecutive_same_failure: 1</code>；</li>
+<li>新计划的 <code>new_evidence</code> 保存边界错误与失败命令，不复制大段易变日志；</li>
+<li>状态是 <code>active + round_ready</code>，下一轮编号为 <code>2</code>。</li>
+</ul>
+<p>再查看源文件：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+</code></pre><p>应没有输出。第一轮没有留下失败候选，因此第二轮可以从已提交基线继续。若失败轮已经修改代码，多轮引擎会输出 <code>rejected_candidate_requires_cleanup</code> 并转入 <code>blocked</code>；在第 7 篇加入隔离工作区之前，它不会用自动 <code>git restore</code> 冒险覆盖未知改动。</p>
+<h2 id="wiki-h-5">用新证据完成第二轮</h2>
+<p>不用移动任务，也不要手工修改计划。直接运行：</p>
+<pre><code class="hljs language-bash">python tools/run_loop.py
+</code></pre><p>引擎发现 <code>processing/issue-005.json</code> 与 <code>round_ready</code> checkpoint，读取 <code>plan-round-002.json</code> 后继续。第二轮 Generator 根据上一轮证据改用 NFKD 分解字符，并移除 Unicode Mark 类字符。</p>
+<p>关键输出应类似：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"completed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"independent_verification_passed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-005"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"round"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"generation"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"candidate_ready"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"summary"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"根据上一轮失败证据改用 NFKD，并移除 Unicode Mark 类字符。"</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"verification"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"accepted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"changed_files"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"src/search.mjs"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"changed_lines"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"boundary_errors"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>独立核对新旧行为：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/diacritic-search.test.mjs
+node --<span class="hljs-built_in">test</span> acceptance/fullwidth-space.test.mjs
+node --<span class="hljs-built_in">test</span> acceptance/punctuation-search.test.mjs
+node --<span class="hljs-built_in">test</span> acceptance/isbn-search.test.mjs
+npm <span class="hljs-built_in">test</span>
+npm run check
+</code></pre><p>全部应通过。再确认任务进入完成区，并且两轮记录都存在：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">ls</span> tasks/done
+<span class="hljs-built_in">ls</span> .loop/tasks/issue-005/attempts
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span> tasks/done
+<span class="hljs-built_in">Get-ChildItem</span> .loop/tasks/issue<span class="hljs-literal">-005</span>/attempts
+</code></pre><p>你应看到 <code>issue-005.json</code>、<code>round-001.json</code> 和 <code>round-002.json</code>。第一轮留下失败证据，第二轮留下成功证据，没有用最终结果覆盖历史。</p>
+<p>审阅 Diff 后保存新基线：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+git add src/search.mjs tasks
+git commit -m <span class="hljs-string">"feat: ignore diacritics in search"</span>
+git status --short
+</code></pre><p>最后一条命令应为空。提交后再处理下一项任务，避免把成功候选混进另一个循环。</p>
+<h2 id="wiki-h-6">连续相同失败时，停止而不是继续加轮次</h2>
+<p>现在待办箱中只剩 <code>issue-006</code>。它用于稳定复现一个“没有新信息”的情况：模拟 Generator 每轮都表示出版社字段约定不清，没有产生候选修改；Publisher 验收每轮都以相同方式失败。</p>
+<p>运行：</p>
+<pre><code class="hljs language-bash">python tools/run_loop.py
+</code></pre><p>这次不加暂停参数，引擎会在一次进程中完成两轮。预期退出码为 <code>2</code>，最终关键字段为：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"needs_input"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"same_failure_limit_reached"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-006"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"round"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"failure_signature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"..."</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"consecutive_same_failure"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"request"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"请补充字段约定、验收示例或新的诊断证据后，以新任务继续。"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>第一轮已经写入失败证据和新计划，但第二轮仍得到相同的边界错误、命令与退出码，因此签名不变。系统不再启动第三轮，即使契约的最大轮数是 <code>3</code>。<code>max_rounds_per_task</code> 是绝对上限，不是必须用完的额度。</p>
+<p>检查终态。macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">ls</span> tasks/needs-input
+<span class="hljs-built_in">ls</span> .loop/tasks/issue-006/attempts
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span> tasks/needs<span class="hljs-literal">-input</span>
+<span class="hljs-built_in">Get-ChildItem</span> .loop/tasks/issue<span class="hljs-literal">-006</span>/attempts
+</code></pre><p><code>issue-006.json</code> 应进入 <code>needs-input</code>，尝试目录有 <code>round-001.json</code> 与 <code>round-002.json</code>。分别打开两份文件：</p>
+<pre><code class="hljs language-bash">python -m json.tool .loop/tasks/issue-006/attempts/round-001.json
+python -m json.tool .loop/tasks/issue-006/attempts/round-002.json
+python -m json.tool .loop/results/issue-006.json
+</code></pre><p>两轮的 <code>failure_signature</code> 应相同，连续计数从 <code>1</code> 变为 <code>2</code>；最终结果不是含糊的 <code>failed</code>，而是带具体补充请求的 <code>needs_input</code>。</p>
+<p>源代码不应产生新 Diff：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+</code></pre><p>命令没有输出，说明升级给人没有顺手制造一个半成品。</p>
+<h2 id="wiki-h-7">什么时候值得 Retry，而不是 Replan</h2>
+<p>本篇没有连接真实服务，但实际项目经常遇到暂时性故障。设计 Retry 时至少加四个限制：</p>
+<ol>
+<li><strong>只对明确的暂时性错误重试。</strong> 例如受控列表中的超时、限流或服务不可用；语法错误和验收失败不是网络 Retry。</li>
+<li><strong>使用退避与抖动。</strong> 不要在服务故障时立即高速重放；同时仍受任务总时间约束。</li>
+<li><strong>确认动作可重放。</strong> 读取和本地纯计算通常安全，发送消息或创建订单必须有幂等键。</li>
+<li><strong>把等待也计入预算。</strong> Retry 不应绕开总时长、运行次数和费用上限。</li>
+</ol>
+<p>如果一次失败带来了新的测试输出、诊断文件或范围信息，就把这些证据提炼进下一轮计划，走 Replan。若证据没有变化，签名计数应让循环尽早停下。</p>
+<h2 id="wiki-h-8">常见阻塞</h2>
+<h3 id="wiki-h-9">输出 <code>dirty_worktree</code></h3>
+<p>多轮引擎只容忍 <code>tasks/</code> 的队列移动，<code>src/</code> 或验证资产有未提交改动就停止。运行：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff
+</code></pre><p>先审阅并处理上一项候选。不要在多个任务之间共享一团未提交代码；第 7 篇会用独立工作区降低这种耦合。</p>
+<h3 id="wiki-h-10">输出 <code>rejected_candidate_requires_cleanup</code></h3>
+<p>Verifier 拒绝了一个已经修改文件的候选。当前版本不自动还原，因为它无法证明工作区里没有人的并行修改。查看尝试记录和 Diff，决定保留到人工分支、手工修复，还是在确认无价值后回到基线。</p>
+<h3 id="wiki-h-11">为什么第二轮一定要有计划文件</h3>
+<p><code>loop_generator.py</code> 在第二轮找不到 <code>new_evidence</code> 时会停止。这个限制用于防止“轮次增加了，输入却没变”的伪 Replan。真实 Agent 的下一轮 Prompt 也应明确引用上一轮失败证据、变化后的假设和禁止重复的做法。</p>
+<h3 id="wiki-h-12">补充信息后能否把 <code>issue-006</code> 原样移回 inbox</h3>
+<p>不建议。原任务 ID 已有 claim、两轮记录和终态。补充字段约定后创建一个新 ID，并在新任务中引用 <code>issue-006</code>，才能保留历史并避免去重冲突。</p>
+<h2 id="wiki-h-13">本篇留下了什么</h2>
+<p>Issue Garden 现在会根据失败证据决定下一步：稳定签名排除日志噪声，Replan 把失败命令和边界错误写进下一轮计划，<code>round_ready</code> checkpoint 支持暂停后恢复；同一失败连续达到阈值时，任务进入 <code>needs-input</code>，而不是耗尽所有轮次。</p>
+<p>下一篇，我们会把这个已经能多轮运行的循环从“手工启动、共用一个工作区”推进到“可触发、可调度、可隔离”：加入单实例锁、手动/定时/事件触发边界，以及每个任务独立的 Git 工作区。</p>
+<h2 id="wiki-h-14">修订后的边界验收</h2>
+<p>失败签名保留命令、退出码、边界错误和 Node 测试输出中的失败测试标识／错误类别。不会直接把全部日志放入签名；适配其他测试工具时需添加其结构化错误提取器。测试同退出码但不同断言、同一断言仅耗时变化两组样本。</p>
+</article>

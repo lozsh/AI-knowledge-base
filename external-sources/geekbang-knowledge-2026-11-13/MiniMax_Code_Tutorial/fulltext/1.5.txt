@@ -1,0 +1,245 @@
+这一章开始动手了。我们要在本地建一个 habitlog 项目，跑 mcode init .，让 Agent 帮我们生成 AGENTS.md，然后做第一次 git 提交。
+学完这一章，你会有一个可以长期维护的、能记住"我们这个项目是怎么约定"的初始仓库。
+
+4.1 这一章要达成什么
+在家目录下建好 habitlog 项目目录
+在目录里跑 git init 把项目交给 git 管
+跑 mcode init . 让 Agent 生成 AGENTS.md
+读懂 AGENTS.md，知道它会怎么影响 Agent 的行为
+把脚手架用规范 commit 提交
+
+完成后你就有了一个干净的起点。
+
+4.2 准备项目目录
+
+打开终端，先到你想放项目的目录。教程默认放在家目录的 projects/habitlog。
+
+macOS / Linux / WSL2
+mkdir -p ~/projects/habitlog
+cd ~/projects/habitlog
+pwd
+
+
+pwd 应该输出 /Users/sean/projects/habitlog（macOS）或 /home/<你的用户名>/projects/habitlog（Linux / WSL2）。
+
+Windows PowerShell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\projects\habitlog"
+Set-Location "$env:USERPROFILE\projects\habitlog"
+Get-Location
+
+
+Get-Location 应该输出 C:\Users\<你的用户名>\projects\habitlog。
+
+4.3 用 git 接管
+macOS / Linux / WSL2
+git init -b main
+
+
+预期看到：
+
+Initialized empty Git repository in /Users/sean/projects/habitlog/.git/
+
+Windows PowerShell
+git init -b main
+
+
+输出类似。
+
+配置仓库级身份（可选）
+
+如果你的全局 user.name / user.email 还没配，现在就配：
+
+git config --global user.name "你的名字"
+git config --global user.email "你的邮箱@example.com"
+
+
+--global 表示这台机器所有仓库都用这个身份。如果只想给当前仓库配，去掉 --global 并在项目目录里跑。
+
+顺手写一个 .gitignore
+
+habitlog 是 Python 项目，会有一些不该提交进 git 的文件。先建一个最小可用的 .gitignore：
+
+macOS / Linux / WSL2：
+
+cat > .gitignore <<'EOF'
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+
+# habitlog 用户数据（可选：教程里我们会让数据放在 ~/.habitlog/，所以这里不进仓库）
+EOF
+
+
+Windows PowerShell：
+
+@'
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# 编辑器
+.vscode/
+.idea/
+
+# habitlog 用户数据
+'@ | Out-File -Encoding utf8 .gitignore
+
+
+habitlog 的实际数据放在 ~/.habitlog/data.json（每台机器一个），不需要写进仓库。
+
+4.4 让 Agent 认识这个仓库：mcode init .
+
+这是这一章的核心。mcode init . 会启动 Agent，让它分析当前目录的结构、已经存在的文件、可能的项目规则，然后生成或更新 AGENTS.md。
+
+先把命令敲进去
+
+确保你在 habitlog 目录里，然后：
+
+mcode init .
+
+
+会发生三件事：
+
+CLI 启动 TUI，Agent 收到一条 /init 任务："分析当前目录，生成 AGENTS.md"
+Agent 读取目录内容（这时候只有 .gitignore 和 .git），可能问你几个澄清问题
+Agent 把 AGENTS.md 写出来，并在 TUI 里汇报结果
+你可能看到 Agent 问的问题
+
+AGENTS.md 不是模板填空，而是 Agent 真的去读项目然后推出来的。所以对空目录，Agent 通常会问：
+
+这是什么语言的项目？
+主要入口是什么？
+怎么运行 / 怎么测试？
+有没有特殊的目录约定？
+
+按你的实际情况回答。习惯上对 habitlog 你可以这样告诉它：
+
+这是一个 Python 命令行工具，叫 habitlog，用来做个人习惯打卡。
+语言：Python 3.10+
+测试：pytest
+入口：habitlog/cli.py（马上要创建）
+存储：~/.habitlog/data.json
+约定：使用 conventional commit（feat: / fix: / docs: / test: / refactor:）
+
+等待生成完成
+
+Agent 在做分析时，你会在 TUI 底部看到工具调用日志（读目录、写文件等）。完成后，退出 TUI（按 Esc 或输入 /exit）。
+
+回到普通终端，验证 AGENTS.md 已生成：
+
+macOS / Linux / WSL2：
+
+ls -la
+cat AGENTS.md
+
+
+Windows PowerShell：
+
+Get-ChildItem
+Get-Content AGENTS.md
+
+
+你应该看到目录里多了 AGENTS.md 文件，内容大致包括：
+
+项目概述（Project Overview）
+目录结构（Directory Structure）
+常用命令（Common Commands）—— 怎么跑、怎么测
+约定（Conventions）—— 代码风格、commit 规范、测试要求
+
+如果觉得 AGENTS.md 写得不够详细，可以再次进入 TUI 让它补充：
+
+mcode "请补充 AGENTS.md：把 commit 规范、测试约定、错误处理约定写得更具体一些"
+
+AGENTS.md 是什么、能做什么
+
+AGENTS.md 不是一个写给人看的文档，而是写给 Agent 看的"项目记忆"。每次你让 Agent 干活，它都会先读这个文件，按里面的约定来：
+
+写代码要不要带类型？
+commit message 用什么前缀？
+测试覆盖率要求是什么？
+哪些目录是禁区（不要碰）？
+
+所以养成习惯：项目里发生重要约定变化时，回到 TUI 让 Agent 把 AGENTS.md 更新一下。这是这套教程从一开始就强调"养成好规范"的根。
+
+4.5 第一次提交
+
+AGENTS.md 是项目里第一个真正有意义的文件，单独做一个 commit。
+
+macOS / Linux / WSL2：
+
+git status
+git add .gitignore AGENTS.md
+git commit -m "chore: initialize habitlog project with AGENTS.md"
+
+
+Windows PowerShell：
+
+git status
+git add .gitignore
+git add AGENTS.md
+git commit -m "chore: initialize habitlog project with AGENTS.md"
+
+
+git status 用来确认要提交哪些文件；git add 用来把这些文件加入暂存区；git commit -m "..." 用来提交并写 commit message（提交说明）。chore: 是 conventional commit 前缀之一，表示"杂项维护性变更"。
+
+预期看到：
+
+[main (root-commit) xxxxxxx] chore: initialize habitlog project with AGENTS.md
+ 2 files changed, xx insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 AGENTS.md
+
+养成"提交前看一眼"的习惯
+
+每章都会做这种 commit。流程固定下来：
+
+改完代码 → git status 看改了哪些文件
+git diff 看具体改动（不想看 diff 可以跳过，但 qa 等接口测试时不必往下走）
+确认无遗漏 → git add 把对应文件加入暂存区
+git commit -m "..." 提交并写规范 message
+
+这条流程会在第 5 章直接复用，先记住这个四步。
+
+4.6 这一章做了什么、留下了什么
+项目目录建好并交给 git
+.gitignore 写好
+AGENTS.md 生成，Agent 知道这个项目的约定
+第一次 commit 提交进 git
+
+当前仓库状态：
+
+habitlog/
+├── .git/
+├── .gitignore
+└── AGENTS.md
+
+
+下一章我们会用 Plan Mode 写第一个子命令 habitlog add，把 TUI 的核心操作（Plan Mode、权限、/steer、/queue）一并熟悉一遍。
+
+4.7 这一章的常见问题
+mcode init . 一直转圈
+看 TUI 顶部是否有 Agent 在等你回复（澄清问题）。按一下回车让输入框获得焦点再回答
+网络问题时 Agent 会重试；如果超过 2 分钟没动静，按 Esc 中断后重试
+AGENTS.md 太简单
+再进 TUI 跑 mcode "请基于现有 AGENTS.md 补充：commit 规范、测试约定、错误处理约定"
+或者直接手动编辑 AGENTS.md，把你想加的约定写进去
+git commit 报 "Please tell me who you are"
+还没配 user.name / user.email，按 4.3 节的命令配一遍
+Windows 上 .gitignore 文件名打错
+PowerShell 里新建文件时不要写 .gitignore.txt。如果建错了，删掉重来：
+Remove-Item .gitignore.txt
+New-Item -ItemType File -Path .gitignore -Value "# Python`n__pycache__/`n..."
+

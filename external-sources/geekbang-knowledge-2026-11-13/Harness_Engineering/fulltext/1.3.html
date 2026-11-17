@@ -1,0 +1,243 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与操作时间：45～60 分钟<br>本篇目标：用同一个小功能建立一份可重复的 Agent 工作基线，区分“功能没做出来”和“环境让 Agent 不得不猜”这两类问题。</p>
+</blockquote>
+<h2 id="wiki-h-0">配套代码说明</h2>
+<p>本篇的实验起点是 <code>assets/shelfcare-starter/</code>，一份刻意“能运行、但没为 Agent 整理过”的起始项目。它使用 Node.js 自带的 HTTP 与测试模块，无任何第三方依赖，目录结构如下：</p>
+<pre><code class="hljs language-text">shelfcare-starter/
+├── data/
+│   └── books.json          # 8 本藏书样本（id/title/author/status/tags）
+├── public/
+│   ├── index.html          # 页面结构：搜索框、状态下拉、书卡模板
+│   ├── app.js              # 浏览器端状态、筛选与渲染逻辑
+│   └── styles.css          # 纯样式，不承载任何产品行为
+├── src/
+│   └── library.js          # 读取 data/books.json，导出 listBooks()
+├── tests/
+│   └── library.test.js     # 两项基础测试（数据可读、状态值合法）
+└── server.js               # HTTP 服务：/ 静态页 + /api/books 接口
+</code></pre><p>代码实现的功能很直接：</p>
+<ul>
+<li><strong>server.js</strong> 用 <code>node:http</code> 起一个监听 <code>127.0.0.1:3000</code> 的服务，<code>GET /</code> 返回首页、<code>GET /api/books</code> 返回全部藏书 JSON，并对静态文件做了简单的路径穿越防护（越出 <code>public/</code> 一律 403）。</li>
+<li><strong>src/library.js</strong> 是唯一的取数入口，用 <code>path.join(__dirname, "..", "data", "books.json")</code> 定位数据文件，<code>listBooks()</code> 读并解析后返回数组。</li>
+<li><strong>public/app.js</strong> 负责全部交互：监听搜索框 <code>input</code> 和状态下拉 <code>change</code>，在 <code>currentBooks()</code> 里用 <code>keyword + status</code> 做 AND 过滤，通过 <code>&lt;template&gt;</code> 克隆书卡渲染，并在零结果时显示“没有找到符合条件的书。”。</li>
+<li><strong>tests/library.test.js</strong> 用 <code>node:test</code> 断言 8 本书可读、且 <code>status</code> 都落在 <code>planned/reading/finished</code> 三个合法值内。</li>
+</ul>
+<p>这套起始代码的关键特征，正好对应本篇要制造的那些“缺口”：<strong>没有 <code>README</code>、没有 <code>AGENTS.md</code>、没有 <code>package.json</code></strong>，启动靠 <code>node server.js</code>、测试靠 <code>node --test tests/library.test.js</code> 这些口头经验，业务规则（如搜索与状态如何组合）只存在于代码里。基线实验的目的，就是看 Agent 在缺少这些“可发现入口”时到底会怎样挣扎。</p>
+<p>上一篇把 Harness 拆成了知识、工具、环境、反馈、验证和权限六个部分。这一篇先不改任何一部分。我们要把 Agent 放进一份能运行、却没有为它整理过的项目里，看看它怎样接手任务。</p>
+<p>这不是一场“找茬测试”，也不是要证明 Agent 不行。Agent 可能失败，也可能把功能做出来。真正要记录的是过程：它找命令花了多久，做了哪些猜测，需要人补了几次信息，最后拿出了什么证据。</p>
+<p>到了第八篇，我们会用相同 Agent、相同模型和完全相同的任务再跑一次。没有这份基线，所谓“改造后更好用”就只是一种感觉。</p>
+<h2 id="wiki-h-1">准备这次实验</h2>
+<p>课程提供了一份起始项目：<code>assets/shelfcare-starter</code>。它使用 Node.js 自带的 HTTP 和测试模块，不需要下载第三方依赖，避免网络和包管理器把实验带偏。</p>
+<p>开始前需要：</p>
+<ul>
+<li>Node.js 20 或更高版本；</li>
+<li>Git；</li>
+<li>一种已经可以正常使用的命令行编码 Agent；</li>
+<li>大约 30 分钟不被打断的时间。</li>
+</ul>
+<p>先在终端中确认版本：</p>
+<pre><code class="hljs language-bash">node --version
+git --version
+</code></pre><p><code>node --version</code> 应显示 <code>v20</code> 或更高版本。你的 Agent 只要能在当前文件夹中读写文件、运行终端命令即可；浏览器操作能力不是本篇的硬性要求，是否具备会成为一项观察结果。</p>
+<h3 id="wiki-h-2">复制一份实验项目</h3>
+<p>不要直接修改课程自带的起始文件。先把它复制成独立实验目录。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> harness-engineering-tutorial
+<span class="hljs-built_in">cp</span> -R assets/shelfcare-starter shelfcare-lab
+<span class="hljs-built_in">cd</span> shelfcare-lab
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> harness<span class="hljs-literal">-engineering-tutorial</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> .\assets\shelfcare<span class="hljs-literal">-starter</span> .\shelfcare<span class="hljs-literal">-lab</span>
+<span class="hljs-built_in">Set-Location</span> .\shelfcare<span class="hljs-literal">-lab</span>
+</code></pre><p>这里的 <code>harness-engineering-tutorial</code> 是你保存本教程文件的目录。如果终端已经位于该目录，就从复制命令开始。</p>
+<p>检查当前目录，应看到下面这些内容：</p>
+<pre><code class="hljs language-text">data/
+public/
+src/
+tests/
+server.js
+</code></pre><p>你会发现项目没有 README、<code>AGENTS.md</code> 和 <code>package.json</code>。这不是教程漏发了文件，而是初始仓库的一部分：程序可以运行，但很多信息仍靠维护者自己知道。</p>
+<h2 id="wiki-h-3">先由你确认起始项目没有坏</h2>
+<p>基线实验必须从一个可用项目开始，否则 Agent 的失败可能只是素材损坏。</p>
+<p>在 <code>shelfcare-lab</code> 目录运行：</p>
+<pre><code class="hljs language-bash">node server.js
+</code></pre><p>终端应该出现：</p>
+<pre><code class="hljs language-text">ShelfCare running at http://127.0.0.1:3000
+</code></pre><p>在浏览器打开 <code>http://127.0.0.1:3000</code>。页面顶部应显示 ShelfCare，下面有搜索框、阅读状态选择框和 8 本书。依次做两个检查：</p>
+<ol>
+<li>搜索“Martin”，结果应剩下 2 本；</li>
+<li>清空搜索，选择“想读”，结果也应剩下 2 本。</li>
+</ol>
+<p>回到终端按 <code>Ctrl+C</code> 停止服务，再运行已有测试：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> tests/library.test.js
+</code></pre><p>你应看到 2 个测试通过，失败数为 0。Node.js 小版本不同，输出排版可能略有差异，关键是末尾的 <code>pass 2</code> 与 <code>fail 0</code>。</p>
+<p>这一步是人的预检，不要把命令复制到稍后给 Agent 的任务里。我们已经知道正确入口，实验要观察的是仓库本身能不能让 Agent 找到它们。</p>
+<h2 id="wiki-h-4">冻结实验条件</h2>
+<p>想比较两次运行，至少要固定四件事：Agent、模型、任务、起始代码。先在课程目录旁边新建一份 <code>shelfcare-baseline.md</code>，不要放进 <code>shelfcare-lab</code>，避免 Agent 在实验前读到观察表。</p>
+<p>写下：</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># ShelfCare Harness 基线</span>
+
+<span class="hljs-bullet">-</span> 日期：
+<span class="hljs-bullet">-</span> Agent 与版本：
+<span class="hljs-bullet">-</span> 模型：
+<span class="hljs-bullet">-</span> 推理强度或模式：
+<span class="hljs-bullet">-</span> 操作系统：
+<span class="hljs-bullet">-</span> 浏览器工具：有 / 无
+<span class="hljs-bullet">-</span> 自动执行权限：
+<span class="hljs-bullet">-</span> 开始时间：
+<span class="hljs-bullet">-</span> 结束时间：
+</code></pre><p>如果工具不显示精确模型版本，就记录界面中能看到的名称，不要猜。权限也要写清楚，例如“可读写当前目录，终端命令逐次确认”。第八篇复测时尽量保持一致。</p>
+<p>接着把起始代码交给 Git 保存。仍在 <code>shelfcare-lab</code> 目录运行：</p>
+<pre><code class="hljs language-bash">git init -b main
+git add .
+git commit -m <span class="hljs-string">"chore: add ShelfCare starter"</span>
+git switch -c baseline-attempt
+</code></pre><p>如果较旧的 Git 不支持 <code>git init -b main</code>，改用：</p>
+<pre><code class="hljs language-bash">git init
+git branch -M main
+</code></pre><p>如果提交时提示没有配置姓名或邮箱，按 Git 给出的提示配置自己的身份后重试。不要随便复制网上的陌生邮箱。完成后运行：</p>
+<pre><code class="hljs language-bash">git status --short --branch
+</code></pre><p>预期第一行包含 <code>baseline-attempt</code>，并且下面没有未提交文件。这样无论 Agent 改成什么样，我们都能看到精确差异，也能回到干净起点。</p>
+<h2 id="wiki-h-5">只给 Agent 一段原始任务</h2>
+<p>在 <code>shelfcare-lab</code> 目录启动你平时使用的命令行 Agent。授予它读取、修改当前目录和运行本地命令的权限，但不要开放课程目录、个人文件、真实凭据或不相关的外部系统。</p>
+<p>把下面这段话原样交给它：</p>
+<pre><code class="hljs language-text">请为 ShelfCare 增加按标签筛选藏书的功能。请完成实现并检查结果。
+</code></pre><p>不要补充启动命令、代码位置、界面样式、筛选规则或验收方法。这段任务故意接近真实工作中常见的简短需求：目标听起来清楚，但细节依赖项目知识和工程约定。</p>
+<h3 id="wiki-h-6">运行中尽量不要救场</h3>
+<p>观察 Agent 的行为，但不要因为它走了一点弯路就立刻提示。重点记下：</p>
+<ul>
+<li>它先读了哪些文件；</li>
+<li>是否主动寻找项目说明；</li>
+<li>尝试了哪些启动或测试命令；</li>
+<li>哪些命令失败了，失败后怎样恢复；</li>
+<li>是否询问标签筛选的具体规则；</li>
+<li>是否启动了应用；</li>
+<li>是否真正操作了页面；</li>
+<li>是否运行已有测试或新增测试；</li>
+<li>最终用什么证据说明“完成了”。</li>
+</ul>
+<p>如果 Agent 因权限确认停住，可以批准与当前项目直接相关、可逆的本地操作，并把这次批准记作一次正常权限确认。如果它需要你提供业务规则或启动命令，先把问题记下来，再只回答使实验能够继续的最少信息。</p>
+<p>下面几类情况应直接拒绝：读取项目之外的个人目录、索要真实密钥、删除课程或其他仓库、上传代码到外部服务。基线实验不需要这些权限。</p>
+<p>给这次运行设置一个边界：最多 30 分钟，或者在 Agent 明确报告完成、明确表示无法继续时结束。不要无限陪它重试。</p>
+<h2 id="wiki-h-7">不要先相信“已完成”，独立检查结果</h2>
+<p>Agent 停止后，先不要继续追问它。打开另一个终端，在 <code>shelfcare-lab</code> 目录检查实际修改：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --<span class="hljs-built_in">stat</span>
+git diff
+</code></pre><p>你要确认它究竟改了哪些文件，而不是只看最后一段总结。接着运行起始测试：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> tests/library.test.js
+</code></pre><p>然后启动应用：</p>
+<pre><code class="hljs language-bash">node server.js
+</code></pre><p>打开 <code>http://127.0.0.1:3000</code>，按下面这组行为逐项检查：</p>
+<ol>
+<li>页面上能找到标签筛选控件；</li>
+<li>标签选项来自现有图书数据，至少能选择“科幻”和“技术”；</li>
+<li>选择“科幻”后，只显示《献给阿尔吉侬的花束》和《你一生的故事》；</li>
+<li>选择“技术”并把阅读状态设为“在读”，只显示《设计数据密集型应用》和《程序员修炼之道》；</li>
+<li>搜索、状态和标签三种条件同时生效，而不是互相覆盖；</li>
+<li>恢复“全部标签”后，标签条件被清除；</li>
+<li>没有结果时仍显示清楚的空状态，浏览器控制台没有报错。</li>
+</ol>
+<p>这些是我们将要逐步写进 Harness 的产品规则。原始任务里没有明说，因此 Agent 如果猜错，不要立刻把它归为“模型不会写筛选”。它更可能暴露了知识与验收条件没有进入仓库。</p>
+<p>如果你的 Agent 没有浏览器能力，它无法亲自完成第 3～7 项页面验证，这本身就是基线的一部分。你仍应由人手动检查，并记录“Agent 未获得用户界面反馈”。</p>
+<p>检查完按 <code>Ctrl+C</code> 停止服务。</p>
+<h2 id="wiki-h-8">把失败按原因分类</h2>
+<p>回到 <code>shelfcare-baseline.md</code>，补上结果。可以直接使用下面的表：</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section">## 运行结果</span>
+
+<span class="hljs-bullet">-</span> 是否交付可见的标签筛选：是 / 否 / 部分
+<span class="hljs-bullet">-</span> 独立行为检查通过数：<span class="hljs-strong">__/7
+- 原有测试：通过 / 失败 / 未运行
+- Agent 新增的验证：
+- Agent 提供的完成证据：
+
+## 过程数据
+
+- 人工补充信息次数：
+- 权限确认次数：
+- 失败命令次数：
+- 无效重试次数：
+- 修改文件数：
+- 是否检查实际页面：
+- 是否检查 Git Diff：
+
+## Harness 问题
+
+- 知识：
+- 工具：
+- 环境：
+- 反馈：
+- 验证：
+- 权限：</span>
+</code></pre><p>分类时不要把所有问题都写成“Agent 不够聪明”。下面是更具体的判断方式：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>观察到的现象</th>
+<th>更可能缺少什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>反复猜启动命令、测试命令</td>
+<td>可发现的环境入口</td>
+</tr>
+<tr>
+<td>不知道搜索、状态和标签怎样组合</td>
+<td>产品规则与验收知识</td>
+</tr>
+<tr>
+<td>改了页面但从未真正打开</td>
+<td>浏览器或用户行为反馈</td>
+</tr>
+<tr>
+<td>只运行语法检查就宣布完成</td>
+<td>独立的功能验证</td>
+</tr>
+<tr>
+<td>试图读取无关目录或使用外部服务</td>
+<td>清楚且可执行的权限边界</td>
+</tr>
+<tr>
+<td>已有完整信息和工具，仍无法实现基本逻辑</td>
+<td>才更像能力、规划或实现问题</td>
+</tr>
+</tbody></table></div>
+<p>一次现象可能同时涉及几类。例如，Agent 没有打开页面，既可能是缺少浏览器工具，也可能是项目没有告诉它怎样启动应用。先记录证据，不急着追求唯一答案。</p>
+<h3 id="wiki-h-9">“做成功了”也有基线价值</h3>
+<p>如果 Agent 一次就通过全部七项检查，不需要为了配合教程而判它失败。继续看过程：它是否花了很多步骤猜命令，是否靠偶然猜中了组合规则，是否遗漏了自动化验证，下一次换个功能还能不能重复成功。</p>
+<p>Harness Engineering 追求的不是把偶然成功包装成必然失败，而是让成功更可重复、失败更容易定位。</p>
+<h2 id="wiki-h-10">保存尝试，但把主线恢复到起点</h2>
+<p>无论结果完整与否，都把这次尝试保存在实验分支上：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"baseline: agent tag-filter attempt"</span>
+</code></pre><p>如果 Agent 没有改动文件，Git 会提示没有内容可提交，这是正常情况。可以只保留 <code>shelfcare-baseline.md</code> 中的记录。</p>
+<p>现在切回最初的 <code>main</code> 分支：</p>
+<pre><code class="hljs language-bash">git switch main
+git status --short --branch
+</code></pre><p>预期位于 <code>main</code>，工作区干净，并且标签筛选功能不在主线代码中。<code>baseline-attempt</code> 分支保留了第一次尝试，第八篇复测时可以随时对比：</p>
+<pre><code class="hljs language-bash">git diff main..baseline-attempt
+</code></pre><p>这样做比运行 <code>git reset --hard</code> 更安全：尝试结果没有被删除，后续改造也从统一起点开始。</p>
+<h2 id="wiki-h-11">常见阻塞</h2>
+<h3 id="wiki-h-12">端口 3000 已被占用</h3>
+<p>症状通常是 <code>EADDRINUSE</code>。可以先用另一个端口做预检：</p>
+<p>macOS、Linux 或 Git Bash：</p>
+<pre><code class="hljs language-bash">PORT=3100 node server.js
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$env:PORT</span>=<span class="hljs-number">3100</span>
+node server.js
+</code></pre><p>然后打开 <code>http://127.0.0.1:3100</code>。记得在基线里写下端口变化；如果 Agent 不知道这一点，不要在它运行前悄悄替它修好。</p>
+<h3 id="wiki-h-13">页面能打开，但一直显示“正在读取书架”</h3>
+<p>先直接访问 <code>http://127.0.0.1:3000/api/books</code>。如果看不到包含 8 本书的 JSON，回终端查看服务是否仍在运行以及是否有错误。若 API 正常，再打开浏览器开发者工具的 Console，检查前端错误。</p>
+<h3 id="wiki-h-14">Git 切换分支时提示有未提交修改</h3>
+<p>不要强制切换。先运行 <code>git status --short</code>，确认修改属于本次实验，再提交到 <code>baseline-attempt</code>。基线的意义就是保留这些痕迹。</p>
+<h3 id="wiki-h-15">Agent 对项目做了过度改造</h3>
+<p>如果它引入框架、包管理器或大规模重写，也先不要手工修正。记录新增依赖、修改文件数和它给出的理由，提交到基线分支，再切回 <code>main</code>。修改范围失控本身就是值得改造的 Harness 信号。</p>
+<h2 id="wiki-h-16">本篇留下了什么</h2>
+<p>现在你应该有三样东西：</p>
+<ol>
+<li>一份可以运行的 ShelfCare 主线仓库；</li>
+<li>一个保留首次 Agent 尝试的 <code>baseline-attempt</code> 分支；</li>
+<li>一份记录人工介入、失败命令、行为验收和六类问题的 <code>shelfcare-baseline.md</code>。</li>
+</ol>
+<p>下一篇先不改命令和测试。我们会从最常见的缺口开始：把产品规则、架构和工作入口整理成 Agent 能发现的仓库知识，同时避免把 <code>AGENTS.md</code> 写成一本过期的百科全书。</p>
+</article>

@@ -1,0 +1,250 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你让复习助手根据同一段笔记出题。第一次，它问“什么是间隔复习”；第二次，它问“为什么要把练习分散到不同时间”。两种问法可能都合理，但有时答案也会跟着变，甚至出现错误。</p>
+<p>你在设置里看见 Temperature、Top-p 和输出长度限制。把 Temperature 调低，是否就能消除错误？把输出长度调高，模型是不是会自动把问题想得更深入？</p>
+<p>上一篇已经走到 Transformer 的输出头：它给词表里的候选 Token 打分。本篇从这些分数继续往下走，解释<strong>模型怎样根据已有内容，反复计算并选择下一个 Token，直到某个停止条件成立</strong>。</p>
+<p>我们只讨论常见的自回归文本生成过程。所有概率、Token 切分和案例都是教学构造，不是模型实测；不需要调用付费 API。</p>
+<h2 id="wiki-h-0">每选出一个 Token，下一步的问题就变了</h2>
+<p>假设模型要续写：</p>
+<pre><code class="hljs language-text">间隔复习可以
+</code></pre><p>为了便于观察，我们人为规定下面的“帮助”“记忆”等片段各自都是一个 Token。实际分词不一定如此。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>本步使用的前缀</th>
+<th>本步候选分布，教学构造</th>
+<th>假设本步选中</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>间隔复习可以</td>
+<td>帮助 0.6；减少 0.3；改变 0.1</td>
+<td>帮助</td>
+</tr>
+<tr>
+<td>2</td>
+<td>间隔复习可以帮助</td>
+<td>记忆 0.7；理解 0.2；整理 0.1</td>
+<td>记忆</td>
+</tr>
+<tr>
+<td>3</td>
+<td>间隔复习可以帮助记忆</td>
+<td>结束标记 0.8；句号 0.2</td>
+<td>结束标记</td>
+</tr>
+</tbody></table></div>
+<p>这张表把每一步的候选集合缩小到两三个，其余项视为不参与本次教学计算。真实模型通常面对大得多的词表。</p>
+<p>第二步没有再次从“帮助、减少、改变”里抽一次。模型已经把“帮助”加入前缀，重新计算“在这段内容后面，接什么更合适”。如果第一步选的是“减少”，第二步就必须基于新的前缀计算，不能照搬表里的概率。</p>
+<p>这就是 <strong>Autoregressive Generation，自回归生成</strong>：后续输出依赖此前内容，包括模型自己刚刚生成的 Token。前缀通过上下文计算影响后续预测，不需要在每一步更新模型参数。<a href="https://d2l.ai/chapter_recurrent-neural-networks/language-model.html">《动手学深度学习》：语言模型与序列概率</a></p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-3" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 360px;" viewBox="4 4 360 810" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-3{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-3 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-3 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-3 .error-icon{fill:#552222;}#wiki-mermaid-3 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-3 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-3 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-3 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-3 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-3 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-3 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-3 .marker{fill:#666;stroke:#666;}#wiki-mermaid-3 .marker.cross{stroke:#666;}#wiki-mermaid-3 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-3 p{margin:0;}#wiki-mermaid-3 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-3 .cluster-label text{fill:#333;}#wiki-mermaid-3 .cluster-label span{color:#333;}#wiki-mermaid-3 .cluster-label span p{background-color:transparent;}#wiki-mermaid-3 .label text,#wiki-mermaid-3 span{fill:#000000;color:#000000;}#wiki-mermaid-3 .node rect,#wiki-mermaid-3 .node circle,#wiki-mermaid-3 .node ellipse,#wiki-mermaid-3 .node polygon,#wiki-mermaid-3 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-3 .rough-node .label text,#wiki-mermaid-3 .node .label text,#wiki-mermaid-3 .image-shape .label,#wiki-mermaid-3 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-3 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-3 .rough-node .label,#wiki-mermaid-3 .node .label,#wiki-mermaid-3 .image-shape .label,#wiki-mermaid-3 .icon-shape .label{text-align:center;}#wiki-mermaid-3 .node.clickable{cursor:pointer;}#wiki-mermaid-3 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-3 .arrowheadPath{fill:#333333;}#wiki-mermaid-3 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-3 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-3 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-3 .edgeLabel p{background-color:white;}#wiki-mermaid-3 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-3 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-3 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-3 .cluster text{fill:#333;}#wiki-mermaid-3 .cluster span{color:#333;}#wiki-mermaid-3 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-3 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-3 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-3 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-3 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-3 .icon-shape,#wiki-mermaid-3 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-3 .icon-shape p,#wiki-mermaid-3 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-3 .icon-shape .label rect,#wiki-mermaid-3 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-3 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-3 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-3 .node .neo-node{stroke:#999;}#wiki-mermaid-3 [data-look="neo"].node rect,#wiki-mermaid-3 [data-look="neo"].cluster rect,#wiki-mermaid-3 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-3-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-3 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-3 [data-look="neo"].node path{stroke:url(#wiki-mermaid-3-gradient);stroke-width:1px;}#wiki-mermaid-3 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-3 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-3 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-3-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-3 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-3 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-3-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-3 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-3-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-3 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-3_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-3_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-3_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-3_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-3_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-3_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-3_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-3_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-3_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-3_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-3_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-3_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M158.66666666666666,84L158.66666666666666,120" id="wiki-mermaid-3-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTU4LjY2NjY2NjY2NjY2NjY2LCJ5Ijo4NH0seyJ4IjoxNTguNjY2NjY2NjY2NjY2NjYsInkiOjEyNH1d" data-look="neo" marker-end="url(#wiki-mermaid-3_flowchart-v2-pointEnd-margin)"></path><path d="M180.66666666666666,196L180.66666666666666,208.92893218813452Q180.66666666666666,216 187.73773447853213,216L210.09559885480118,216Q217.16666666666666,216 217.16666666666666,223.07106781186548L217.16666666666666,232" id="wiki-mermaid-3-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 63.17169952392578 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MTgwLjY2NjY2NjY2NjY2NjY2LCJ5IjoxOTZ9LHsieCI6MTgwLjY2NjY2NjY2NjY2NjY2LCJ5IjoyMTZ9LHsieCI6MjE3LjE2NjY2NjY2NjY2NjY2LCJ5IjoyMTZ9LHsieCI6MjE3LjE2NjY2NjY2NjY2NjY2LCJ5IjoyMzZ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-3_flowchart-v2-pointEnd-margin)"></path><path d="M217.16666666666666,308L217.16666666666666,344" id="wiki-mermaid-3-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6MjE3LjE2NjY2NjY2NjY2NjY2LCJ5IjozMDh9LHsieCI6MjE3LjE2NjY2NjY2NjY2NjY2LCJ5IjozNDh9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-3_flowchart-v2-pointEnd-margin)"></path><path d="M217.16666666666666,396L217.16666666666666,432" id="wiki-mermaid-3-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6MjE3LjE2NjY2NjY2NjY2NjY2LCJ5IjozOTZ9LHsieCI6MjE3LjE2NjY2NjY2NjY2NjY2LCJ5Ijo0MzZ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-3_flowchart-v2-pointEnd-margin)"></path><path d="M188.5,599.3332824707031L188.5,628L188.5,640.9289321881345Q188.5,648 181.42893218813452,648L139.23773447853216,648Q132.16666666666669,648 132.16666666666669,655.0710678118655L132.16666666666669,706.9289321881345Q132.16666666666669,714 125.09559885480121,714L117.07106781186548,714Q110,714 110,721.0710678118655L110,730" id="wiki-mermaid-3-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 194.5102081298828 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MTg4LjUsInkiOjU5OS4zMzMyODI0NzA3MDMxfSx7IngiOjE4OC41LCJ5Ijo2Mjh9LHsieCI6MTg4LjUsInkiOjY0OH0seyJ4IjoxMzIuMTY2NjY2NjY2NjY2NjksInkiOjY0OH0seyJ4IjoxMzIuMTY2NjY2NjY2NjY2NjksInkiOjcxNH0seyJ4IjoxMTAsInkiOjcxNH0seyJ4IjoxMTAsInkiOjczNH1d" data-look="neo" marker-end="url(#wiki-mermaid-3_flowchart-v2-pointEnd-margin)"></path><path d="M66,734L66,681L66,532L66,372L66,272L66,223.07106781186548Q66,216 73.07106781186548,216L129.59559885480118,216Q136.66666666666666,216 136.66666666666666,208.92893218813452L136.66666666666666,200" id="wiki-mermaid-3-L_F_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 595.33837890625 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_B_0" data-points="W3sieCI6NjYsInkiOjczNH0seyJ4Ijo2NiwieSI6NjgxfSx7IngiOjY2LCJ5Ijo1MzJ9LHsieCI6NjYsInkiOjM3Mn0seyJ4Ijo2NiwieSI6MjcyfSx7IngiOjY2LCJ5IjoyMTZ9LHsieCI6MTM2LjY2NjY2NjY2NjY2NjY2LCJ5IjoyMTZ9LHsieCI6MTM2LjY2NjY2NjY2NjY2NjY2LCJ5IjoxOTZ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-3_flowchart-v2-pointEnd-margin)"></path><path d="M245.83333333333334,599.3332824707031L245.83333333333334,628L245.83333333333334,640.9289321881345Q245.83333333333334,648 252.90440114519882,648L272.9289321881345,648Q280,648 280,655.0710678118655L280,730" id="wiki-mermaid-3-L_E_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 155.505126953125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_G_0" data-points="W3sieCI6MjQ1LjgzMzMzMzMzMzMzMzM0LCJ5Ijo1OTkuMzMzMjgyNDcwNzAzMX0seyJ4IjoyNDUuODMzMzMzMzMzMzMzMzQsInkiOjYyOH0seyJ4IjoyNDUuODMzMzMzMzMzMzMzMzQsInkiOjY0OH0seyJ4IjoyODAsInkiOjY0OH0seyJ4IjoyODAsInkiOjczNH1d" data-look="neo" marker-end="url(#wiki-mermaid-3_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(132.16666666666669, 681)"><g class="label" data-id="L_E_F_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-10" y="-3" width="20" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">否</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(280, 681)"><g class="label" data-id="L_E_G_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-10" y="-3" width="20" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">是</tspan></tspan></text></g></g></g></g><g class="nodes"><g class="node default" id="wiki-mermaid-3-flowchart-A-0" data-look="neo" transform="translate(158.66666666666666, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>提示词与已有输出</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-3-flowchart-B-1" data-look="neo" transform="translate(158.66666666666666, 160)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>模型计算下一 Token 的分数</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-3-flowchart-C-3" data-look="neo" transform="translate(217.16666666666666, 272)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>按设置调整候选分布</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-3-flowchart-D-5" data-look="neo" transform="translate(217.16666666666666, 372)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>选择一个 Token</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-3-flowchart-E-7" data-look="neo" transform="translate(217.16666666666666, 532)"><polygon points="96,0 192,-96 96,-192 0,-96" class="label-container" transform="translate(-95.5, 96)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>达到停止条件了吗</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-3-flowchart-F-9" data-look="neo" transform="translate(88, 770)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>把选中 Token 加入前缀</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-3-flowchart-G-13" data-look="neo" transform="translate(280, 770)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>结束本次生成并返回原因</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-3-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-3-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-3-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>为了清楚，图中按一步一步画。缓存、批处理、推测解码等实现可以减少重复计算或提高效率，但理解基本生成逻辑时，不必先掌握这些优化。</p>
+<h3 id="wiki-h-1">一个错误为什么可能影响后面整段话</h3>
+<p>假如助手先把旧版安排中的“周三”写进了回答，后面的解析就可能围绕“周三”继续组织。后续每一步都在使用已经生成的前缀，而不是自动回到最初重新核查所有前提。</p>
+<p>这不意味着模型绝不纠错。它也可能继续生成一句更正，或者在应用安排的第二轮检查中改写答案。但“逐 Token 生成”本身，不包含一个保证发现并撤销错误的程序。</p>
+<h2 id="wiki-h-2">分数怎样变成概率：先分清三种数字</h2>
+<p>上一篇的词表输出分数叫 <strong>Logits</strong>。它们可以是正数或负数，总和也不必为 1。Softmax 可以把它们转换为总和为 1 的概率分布。</p>
+<p>用三个抽象 Token A、B、C 举例。假设它们的分数分别是：</p>
+<pre><code class="hljs language-text">A：ln(6) ≈ 1.792
+B：ln(3) ≈ 1.099
+C：ln(1) = 0
+</code></pre><p><code>ln</code> 是自然对数，与你在前两篇见到的指数运算相对应。这里特意这样选数字，只是为了方便计算：取指数后恰好得到 <code>6、3、1</code>，总和为 10，概率就是 <code>0.6、0.3、0.1</code>。</p>
+<p>接下来还可能应用温度调整、候选过滤等处理。因此，要区分：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>数字</th>
+<th>表达的含义</th>
+<th>不能直接当成什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Logit</td>
+<td>当前模型给候选项的分数</td>
+<td>已归一化的概率</td>
+</tr>
+<tr>
+<td>模型分布中的概率</td>
+<td>在当前前缀下对下一 Token 的预测</td>
+<td>整篇答案的正确率</td>
+</tr>
+<tr>
+<td>调整、过滤后的采样概率</td>
+<td>生成程序这一步实际如何抽取候选</td>
+<td>模型未经处理的原始分布</td>
+</tr>
+</tbody></table></div>
+<p>例如，把其他候选都过滤掉，只留下 A，采样时 A 的概率会成为 1。这说明程序只允许选 A，不说明 A 所表达的内容已经被证明正确。</p>
+<p>开头表中，如果按照那组分布逐步采样，路径“帮助 → 记忆 → 结束标记”的概率为：</p>
+<pre><code class="hljs language-text">0.6 × 0.7 × 0.8 = 0.336
+</code></pre><p>这里算的是给定初始前缀后，这条特定 Token 路径的概率，不是“间隔复习有用”这个命题有 33.6% 的概率成立。若实际改用贪心选择或调整了分布，生成程序选中这条路径的概率也会改变。</p>
+<h2 id="wiki-h-3">贪心与采样：同一分布可以有不同选择方式</h2>
+<h3 id="wiki-h-4">贪心选择：每一步选最高分候选</h3>
+<p><strong>Greedy Decoding，贪心解码</strong>，每一步都选择概率最高的 Token。在 <code>A 0.6、B 0.3、C 0.1</code> 这组分布中，它会选 A。</p>
+<p>若下一步的分布不同，就在下一步重新选最高项。这里的“贪心”只描述局部选择规则，不表示程序已经比较了所有完整回答。<a href="https://huggingface.co/docs/transformers/generation_strategies">Hugging Face：生成策略</a></p>
+<p>最高概率 Token 不一定属于概率最高的完整序列，更不等于事实最正确的回答。第一部分讲生成式 AI 时已经见过局部选择与整条路径的区别；在应用中，也不要把“每步都选第一名”当作质量证明。</p>
+<h3 id="wiki-h-5">采样：按权重抽取，而不是平均抽签</h3>
+<p><strong>Sampling，采样</strong>，根据分布随机选择。概率为 0.6 的 A 更容易被选中，但 B、C 也有机会。</p>
+<p>一个可以手工模拟的方法，是把 0 到 1 分成三个区间：</p>
+<pre><code class="hljs language-text">[0.0, 0.6) → A
+[0.6, 0.9) → B
+[0.9, 1.0) → C
+</code></pre><p>从 <code>[0,1)</code> 均匀取一个随机数：如果是 0.42，选 A；如果是 0.82，选 B；如果是 0.96，选 C。方括号表示包含左端点，圆括号表示不包含右端点，因此边界没有重复归属。</p>
+<p>这不是“随机性越强，模型越聪明”。采样可以带来不同措辞和思路，也可能选中不合适的后续内容。一个小概率候选仍可能正确，一个高概率候选也可能错误。</p>
+<h2 id="wiki-h-6">Temperature：改变分布的集中程度</h2>
+<p><strong>Temperature，温度</strong>，通常通过把 Logits 除以一个正数 <code>T</code>，再做 Softmax，改变候选概率的集中程度。它不是硬件温度，也不是让模型训练更久的开关。<a href="https://huggingface.co/docs/transformers/internal/generation_utils#transformers.TemperatureLogitsWarper">Hugging Face：TemperatureLogitsWarper</a></p>
+<p>写成公式是：</p>
+<p>$$<br>P_T(i)=\frac{\exp(z_i/T)}{\sum_j\exp(z_j/T)},\qquad T&gt;0<br>$$</p>
+<p><code>z_i</code> 是第 i 个候选的分数；分母把所有候选的指数值加起来。无需记住符号，只需看它对同一组候选产生什么影响。</p>
+<p>仍使用基础概率 <code>A 0.6、B 0.3、C 0.1</code>：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>温度</th>
+<th align="right">A 的概率</th>
+<th align="right">B 的概率</th>
+<th align="right">C 的概率</th>
+<th>这一步的变化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0.5</td>
+<td align="right">78.26%</td>
+<td align="right">19.57%</td>
+<td align="right">2.17%</td>
+<td>更集中于本来较高的候选</td>
+</tr>
+<tr>
+<td>1</td>
+<td align="right">60%</td>
+<td align="right">30%</td>
+<td align="right">10%</td>
+<td>保持这里的基础分布</td>
+</tr>
+<tr>
+<td>2</td>
+<td align="right">47.27%</td>
+<td align="right">33.43%</td>
+<td align="right">19.30%</td>
+<td>分布更平缓</td>
+</tr>
+</tbody></table></div>
+<p>这些数字可以不用对数验算。仅做温度变换时，把基础概率各自变为 <code>p^(1/T)</code>，再除以总和，就得到相同结果。例如 <code>T=0.5</code>：</p>
+<pre><code class="hljs language-text">先平方：0.6²=0.36，0.3²=0.09，0.1²=0.01
+总和：0.46
+重新归一化：0.36/0.46，0.09/0.46，0.01/0.46
+</code></pre><p>只要 <code>T</code> 为正，这种变换不会改变固定 Logits 的大小排序。所以，如果程序始终用贪心选择，单独改变正温度通常不会改变这一刻的最高项；温度的主要作用体现在采样分布上。在 Transformers 的常见生成用法中，还需要启用采样，相关采样设置才有意义。</p>
+<h3 id="wiki-h-7">温度为 0 怎么理解</h3>
+<p>上面的公式不能直接除以 0。某些接口把 <code>temperature=0</code> 当作特殊约定，用来表达贪心或近似确定性的生成；另一些实现要求温度严格大于 0，需要通过关闭采样来使用贪心。不能只看参数名字就假定所有库行为相同。</p>
+<p>在最高分唯一时，正温度越来越接近 0，分布会越来越集中到该最高项；如果有并列最高项，还要考虑并列的处理方式。</p>
+<p>更关键的是：降低温度只是更倾向原本高分的选择。若高分答案本身错了，它可能让错误更稳定地重复出现，而不会把模型缺失的知识补齐。</p>
+<h2 id="wiki-h-8">Top-p：保留一组累计概率足够大的候选</h2>
+<p><strong>Top-p，也叫 Nucleus Sampling，核采样</strong>，采用另一种方式：把候选按概率从高到低排列，保留累计概率达到阈值的一小组，再在组内采样。Holtzman 等人的原始研究讨论了这种方法对文本生成的作用。<a href="https://arxiv.org/abs/1904.09751">《The Curious Case of Neural Text Degeneration》</a></p>
+<p>用另一组完整教学分布来计算：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>候选</th>
+<th align="right">原概率</th>
+<th align="right">从高到低累计</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td align="right">0.50</td>
+<td align="right">0.50</td>
+</tr>
+<tr>
+<td>B</td>
+<td align="right">0.25</td>
+<td align="right">0.75</td>
+</tr>
+<tr>
+<td>C</td>
+<td align="right">0.15</td>
+<td align="right">0.90</td>
+</tr>
+<tr>
+<td>D</td>
+<td align="right">0.07</td>
+<td align="right">0.97</td>
+</tr>
+<tr>
+<td>E</td>
+<td align="right">0.03</td>
+<td align="right">1.00</td>
+</tr>
+</tbody></table></div>
+<p>若设 <code>top_p=0.8</code>，只保留 A、B 还不够，因为累计只有 0.75；加入 C 后达到 0.90，才达到阈值。因此保留 A、B、C，排除 D、E。</p>
+<p>然后用保留项的总和 0.90 重新归一化：</p>
+<pre><code class="hljs language-text">A：0.50 / 0.90 ≈ 55.56%
+B：0.25 / 0.90 ≈ 27.78%
+C：0.15 / 0.90 ≈ 16.67%
+</code></pre><p>显示的小数经过四舍五入，合计可能略偏离 100%；精确分数的总和是 1。</p>
+<p>这里的 0.8 不是“保留词表里前 80% 的 Token”，也不是“只留单项概率超过 0.8 的 Token”。它限制的是<strong>累计概率质量</strong>。不同步骤的分布不同，留下的候选数量也可以不同。<a href="https://huggingface.co/docs/transformers/main_classes/text_generation">Hugging Face：GenerationConfig 的 top_p 定义</a></p>
+<p>如果你看到另一个参数 <strong>Top-k</strong>，可以作一个简单区分：Top-k 主要限制保留前多少个候选，Top-p 根据累计概率决定保留多少个。</p>
+<h3 id="wiki-h-9">温度和 Top-p 可以一起使用吗</h3>
+<p>在支持组合的实现中可以。例如先调整温度，再做 Top-p，温度会改变概率，从而可能改变 Top-p 保留的集合。但具体处理顺序、默认过滤器和支持范围取决于实现。</p>
+<p>因此，做项目比较时，适合先固定其他条件，只改一个有效参数。否则观察到输出变化，很难判断是哪一个设置起了作用。本篇的表格分别隔离一个机制计算，不代表某个 API 的整套默认行为。</p>
+<h2 id="wiki-h-10">回答为什么会停：结束标记与长度上限不是一回事</h2>
+<p>模型不会在每一步都天然知道“任务已经正确完成”。生成程序需要明确的停止机制。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>停止方式</th>
+<th>它表示什么</th>
+<th>对复习助手意味着什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>生成结束标记</td>
+<td>选中了配置认可的特殊 Token</td>
+<td>本次序列或回答段落结束，不证明答案正确</td>
+</tr>
+<tr>
+<td>命中停止字符串</td>
+<td>输出出现应用指定的文本边界</td>
+<td>边界选得不合适，可能提前截断</td>
+</tr>
+<tr>
+<td>达到输出上限</td>
+<td>生成数量达到硬限制</td>
+<td>可能只写了一半题目或缺少解析</td>
+</tr>
+<tr>
+<td>服务中断、取消或转交工具</td>
+<td>执行环境或协议要求停止当前阶段</td>
+<td>需要看原因，不能一律当作完整答案</td>
+</tr>
+</tbody></table></div>
+<p><strong>EOS，End of Sequence</strong>，是结束序列标记的常见名称。实际聊天模型还可能有结束轮次等特殊标记，使用哪个 Token ID 由模型和生成配置决定。显示给用户时，这些标记往往会被隐藏。它不是每次都打印出来的一句“回答完毕”。<a href="https://huggingface.co/docs/transformers/main_classes/text_generation">Hugging Face：生成配置中的 eos_token_id 与长度参数</a></p>
+<p>同样，“最多生成 500 个 Token”不意味着必须写满 500，也不等于最多写 500 个汉字。如果生成正常提前结束，输出可以更短；如果到上限才被切断，内容可能仍不完整。</p>
+<p>停止字符串则属于另一层控制。假如你把“答案：”设为停止字符串，助手写完题目、刚准备给出答案，就可能被终止。这个反例说明：停止条件要结合输出格式设计，不能随意借用正文里本来就会出现的文字。</p>
+<h3 id="wiki-h-11">读返回状态，比盯着最后一句话更可靠</h3>
+<p>以 DeepSeek 的 Chat Completions 文档为例，<code>finish_reason</code> 区分 <code>stop</code>、<code>length</code>、<code>tool_calls</code> 等情况。<code>stop</code> 可以来自自然停止或命中停止字符串；<code>length</code> 表示长度相关限制导致结束，不能把它当作“模型已经写完”。具体字段含义以所用接口版本为准。<a href="https://api-docs.deepseek.com/zh-cn/api/create-chat-completion/">DeepSeek 官方接口文档</a></p>
+<p>如果复习助手需要保存“题目、答案、解析”三个字段，至少要检查字段是否齐全，以及本次为何结束。提高上限可以缓解截断，但无法代替格式检查，更不能保证答案得到资料支持。</p>
+<p>流式输出只是把结果分块送达，让你可以早些看到内容。一个传输块不保证恰好等于一个 Token；也可能只有状态信息。提前收到几段文本，并不表示整个响应已经正常结束。调用代码需要等到完成状态或处理错误，这部分会在 API 实战中展开。</p>
+<h2 id="wiki-h-12">为什么同一设置也未必永远输出同一句话</h2>
+<p>如果采用采样，随机选择本身就可能让两次结果不同。<strong>随机种子，Seed</strong>，用于控制伪随机数序列；在实现支持、其他条件一致时，它有助于复现一次抽取过程。</p>
+<p>但种子不是跨设备、跨版本的绝对保证。计算后端、软件版本等变化也可能影响可复现性；PyTorch 官方明确说明，不保证跨版本、平台等条件下完全相同的结果。<a href="https://docs.pytorch.org/docs/2.9/notes/randomness.html">PyTorch：可复现性说明</a></p>
+<p>即使用贪心策略，也只能在分数、并列处理等条件确定时说选择确定。实际服务的模型版本、输入模板和计算实现变化，仍可能影响结果。不能把“温度低”直接等同于“今后每次逐字一致”。</p>
+<p>如果需要保存一次已经认可的复习卡片，可靠做法是保存那次生成的正文及其来源，而不是期待下次再生成时自动还原它。若要比较参数效果，可以固定材料、提示词与模型版本，多次观察题目是否完整、答案是否有据、措辞是否有足够变化。</p>
+<p>还有一个实际限制：<strong>接口里能填写的参数，不一定在所有模式下都生效。</strong>截至本系列的资料观察基准 2026 年 10 月 3 日，DeepSeek 上述文档对 Temperature、Top-p 就分别写了模式相关的生效限制。因此，本篇 <code>T=0.5</code> 或 <code>top_p=0.8</code> 的手算是通用机制演示，不能直接当成任何模式都支持的请求配置。</p>
+<p>对于你的项目，可以把判断顺序定为：先确认任务和材料是否清楚，再检查模型能力与输出完整性，最后用受支持的采样参数调节变化程度。解析缺了一半，先查停止原因；事实反复出错，先查依据与模型表现；只是希望题目换种问法，才更适合比较采样设置。</p>
+<h2 id="wiki-h-13">理解检查</h2>
+<p><strong>1. 一次采样得到 A，下一步是否仍然从同一组概率中采样？</strong></p>
+<p>通常不是。A 加入前缀之后，模型根据新的上下文计算下一步分布。只有在某个构造或特殊情况下，新的分布才可能恰好相同。</p>
+<p><strong>2. 对 <code>A 0.6、B 0.3、C 0.1</code>，按本篇区间法取到随机数 0.82，会选谁？贪心会选谁？</strong></p>
+<p>0.82 位于 <code>0.6,0.9)</code>，采样选 B；贪心选最高概率的 A。两者使用同一分布，却采用不同决策规则。</p>
+<p><strong>3. 对五候选分布 <code>0.50、0.25、0.15、0.07、0.03</code>，<code>top_p=0.7</code> 留下谁？新概率是多少？</strong></p>
+<p>留下 A、B，累计 0.75 已达到阈值。重新归一化后，A 为 <code>0.50/0.75=2/3</code>，B 为 <code>1/3</code>。不是留下概率大于 0.7 的候选，也不是留下 70% 数量的候选。</p>
+<p><strong>4. 某次分布最高概率的候选本身包含错误事实，降低温度会自动纠正它吗？</strong></p>
+<p>不会。温度没有引入新的事实证据；它只调整现有候选的选择倾向，甚至可能让错误更稳定。</p>
+<p><strong>5. 输出上限设为 500，实际只得到 120 个 Token，能否断言服务出错？</strong></p>
+<p>不能。模型可能已选中结束标记或命中正常停止条件。要结合返回状态与内容检查。反过来，恰好输出到上限也不证明任务完整完成。</p>
+<p><strong>6. 返回状态为 <code>length</code>，卡片只有题目，没有答案与解析，应该先提高温度吗？</strong></p>
+<p>不应把温度作为首要修复。先检查输出预算、提示中要求的长度和实际停止原因，调整后重新生成或按明确流程续写，再验证字段完整性与内容正确性。继续输出也不保证自动修好所有问题。</p>
+<hr>
+<p>现在，你已经把“模型输出一组分数”接到了“应用收到一段回答”：前缀决定本步分布，生成策略决定怎样选，选出的内容成为后续上下文，停止条件结束本轮。采样参数会改变选择方式，却不会凭空补充知识或提供正确性保证。</p>
+<p>下一篇《预训练：预测下一个 Token，为什么能形成广泛能力》，我们回到训练阶段，解释这些预测能力是怎样从数据中形成的。</p>
+<p>[上一篇：Transformer · 返回第二部分大纲</p>
+</article>

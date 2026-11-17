@@ -1,0 +1,489 @@
+预计阅读时间：50～65 分钟
+本篇目标：建立一份小型中文评估集，计算准确率、自动覆盖率与人工复核率，并用错误样例指导下一轮改进。
+
+到目前为止，Decision Inbox 的问题定义和阈值都来自合理猜测。四条演示消息能证明程序跑得通，却不能证明它对你的真实留言好用。
+
+尤其是在中文场景里，我们不能把英文文档中的示例表现直接当成自己的效果。官方 Models 文档 说明英语目前表现最好，其他语言需要用自己的内容验证；即使没有语言差异，留言来源、写作风格和类别边界也会影响结果。真正有用的结论只能来自与你的业务相似、由人标注的数据。
+
+这一篇不会搭一个复杂的机器学习评估平台。我们用 JSON 和 Python 标准库完成最小闭环：准备样例、保存预测、计算指标、查看错误，再决定改什么。
+
+先明确我们在评估什么
+
+当前系统有三项语义判断和一项业务决策：
+
+category                  Choice 的分类结果
+urgency_score             Score 的紧急程度
+action_requested          Noul 的真假判断
+manual_review / auto      由置信度和阈值决定的业务路径
+
+
+只报一个“总体准确率”会掩盖很多问题。例如，系统可能分类很准，却经常把没有行动请求的消息送进回复队列；也可能自动处理的部分很准，但 80% 的消息都需要人工看。
+
+本篇至少计算五项指标：
+
+指标	回答的问题
+分类准确率	主题标签判断得对不对？
+紧急判断准确率	是否正确识别了高紧急消息？
+行动请求准确率	是否正确判断对方要求采取行动？
+自动覆盖率	有多少样例没有进入人工复核？
+自动样例全对率	自动处理的样例中，三项判断同时正确的比例是多少？
+
+最后一项也叫“选择性准确率”的一种简单形式：系统可以放弃一部分不确定样例，只衡量它愿意自动处理的部分。对应的代价是覆盖率下降。所以准确率与覆盖率必须一起看。
+
+TypeSafe 的官方 Choice 自一致性示例 和 Noul 自一致性示例 也会同时保留不确定结果与自动处理比例，而不是把所有输入强行变成自动决策。
+
+制作第一份评估集
+
+在 ~/jev-course/decision-inbox 中新建 evaluation_cases.json：
+
+[
+  {
+    "id": "eval-001",
+    "text": "我订阅了两次同一个服务，请帮我查一下重复扣款。",
+    "expected_category": "billing",
+    "expected_urgent": false,
+    "expected_action_requested": true
+  },
+  {
+    "id": "eval-002",
+    "text": "退款已经到账了，谢谢你之前的处理，不用回复。",
+    "expected_category": "billing",
+    "expected_urgent": false,
+    "expected_action_requested": false
+  },
+  {
+    "id": "eval-003",
+    "text": "应用打开后一直白屏，我已经重装过一次。",
+    "expected_category": "technical",
+    "expected_urgent": false,
+    "expected_action_requested": false
+  },
+  {
+    "id": "eval-004",
+    "text": "今晚直播前必须恢复上传功能，否则活动无法开始，请尽快排查。",
+    "expected_category": "technical",
+    "expected_urgent": true,
+    "expected_action_requested": true
+  },
+  {
+    "id": "eval-005",
+    "text": "可以把我们周三的碰面改到周四下午吗？",
+    "expected_category": "scheduling",
+    "expected_urgent": false,
+    "expected_action_requested": true
+  },
+  {
+    "id": "eval-006",
+    "text": "场地只保留到今天五点，请在那之前确认是否参加。",
+    "expected_category": "scheduling",
+    "expected_urgent": true,
+    "expected_action_requested": true
+  },
+  {
+    "id": "eval-007",
+    "text": "这次分享的例子很直观，我终于弄懂了，谢谢。",
+    "expected_category": "feedback",
+    "expected_urgent": false,
+    "expected_action_requested": false
+  },
+  {
+    "id": "eval-008",
+    "text": "这节课有两处代码看不清，希望下次能放大一点。",
+    "expected_category": "feedback",
+    "expected_urgent": false,
+    "expected_action_requested": false
+  },
+  {
+    "id": "eval-009",
+    "text": "你上次提到的那本书叫什么？有空发我一下。",
+    "expected_category": "other",
+    "expected_urgent": false,
+    "expected_action_requested": true
+  },
+  {
+    "id": "eval-010",
+    "text": "我还没想好要不要改时间，先和你说一声。",
+    "expected_category": "scheduling",
+    "expected_urgent": false,
+    "expected_action_requested": false
+  }
+]
+
+
+这十条数据只够学习评估流程，不足以证明系统可以上线。它们刻意包含：
+
+同一类别中有请求和无请求两种情况；
+带明确截止时间的紧急样例；
+可能落入 other 的开放问题；
+“有空”“先说一声”这类语气边界。
+
+标注时不要先运行模型再顺着结果改答案。应该先由人根据业务定义写出期望标签；有争议的样例可以让第二个人独立标注。如果两个人都无法达成一致，说明业务标准还不够清楚，它本来就不适合直接作为“模型答错”的证据。
+
+真实项目中还应覆盖错别字、口语、省略上下文、长消息、罕见类别和真实比例。不要为了让准确率好看，构造一批比真实输入更整齐的句子。
+
+写一个可重复运行的评估脚本
+
+新建 evaluate_dataset.py：
+
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+from typesafe_sdk import TypeSafeClient
+
+from decision_inbox import QUESTIONS
+from decision_policy import build_recommendation
+
+
+BASE_DIR = Path(__file__).resolve().parent
+CASES_FILE = BASE_DIR / "evaluation_cases.json"
+RESULTS_FILE = BASE_DIR / "output" / "evaluation_results.json"
+from decision_policy import URGENCY_THRESHOLD as URGENT_THRESHOLD
+
+
+def load_cases() -> list[dict]:
+    with CASES_FILE.open("r", encoding="utf-8") as file:
+        cases = json.load(file)
+
+    required = {
+        "id",
+        "text",
+        "expected_category",
+        "expected_urgent",
+        "expected_action_requested",
+    }
+
+    if not isinstance(cases, list) or not cases:
+        raise ValueError("evaluation_cases.json 必须是非空数组")
+
+    for index, case in enumerate(cases, start=1):
+        missing = required - case.keys()
+        if missing:
+            raise ValueError(f"第 {index} 条评估数据缺少：{sorted(missing)}")
+
+    return cases
+
+
+def predict(client: TypeSafeClient, case: dict) -> tuple[dict, str]:
+    response = client.system_one(
+        state={
+            "message": {
+                "id": case["id"],
+                "source": "evaluation",
+                "text": case["text"],
+            }
+        },
+        questions=QUESTIONS,
+    )
+
+    category = response.answers["category"]
+    urgency = response.answers["urgency"]
+    action = response.answers["action_requested"]
+
+    judgment = {
+        "category": category.choice,
+        "category_probabilities": dict(category.probabilities),
+        "category_confidence": category.confidence,
+        "urgency_score": urgency.score,
+        "urgency_confidence": urgency.confidence,
+        "action_requested_probability": action.noul,
+    }
+
+    record = {
+        "id": case["id"],
+        "source": "evaluation",
+        "text": case["text"],
+        "judgment": judgment,
+    }
+    routed = build_recommendation(record)
+
+    predicted_action = action.noul >= 0.5
+    predicted_urgent = urgency.score >= URGENT_THRESHOLD
+    automatic = routed["recommendation"]["queue"] != "manual_review"
+
+    result = {
+        **case,
+        "prediction": {
+            **judgment,
+            "urgent": predicted_urgent,
+            "action_requested": predicted_action,
+            "queue": routed["recommendation"]["queue"],
+            "automatic": automatic,
+        },
+        "correct": {
+            "category": category.choice == case["expected_category"],
+            "urgent": predicted_urgent == case["expected_urgent"],
+            "action_requested": (
+                predicted_action == case["expected_action_requested"]
+            ),
+        },
+    }
+    result["correct"]["all"] = all(result["correct"].values())
+    return result, response.model
+
+
+def ratio(numerator: int, denominator: int) -> float | None:
+    if denominator == 0:
+        return None
+    return round(numerator / denominator, 4)
+
+
+def calculate_metrics(results: list[dict]) -> dict:
+    total = len(results)
+    automatic = [item for item in results if item["prediction"]["automatic"]]
+
+    return {
+        "total_cases": total,
+        "category_accuracy": ratio(
+            sum(item["correct"]["category"] for item in results), total
+        ),
+        "urgency_accuracy": ratio(
+            sum(item["correct"]["urgent"] for item in results), total
+        ),
+        "action_accuracy": ratio(
+            sum(item["correct"]["action_requested"] for item in results), total
+        ),
+        "automatic_coverage": ratio(len(automatic), total),
+        "manual_review_rate": ratio(total - len(automatic), total),
+        "automatic_exact_match_accuracy": ratio(
+            sum(item["correct"]["all"] for item in automatic),
+            len(automatic),
+        ),
+    }
+
+
+def main() -> None:
+    cases = load_cases()
+    results = []
+    response_models = set()
+
+    with TypeSafeClient() as client:
+        for position, case in enumerate(cases, start=1):
+            print(f"[{position}/{len(cases)}] 正在评估 {case['id']}...")
+            result, response_model = predict(client, case)
+            results.append(result)
+            response_models.add(response_model)
+
+    report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "response_models": sorted(response_models),
+        "metrics": calculate_metrics(results),
+        "results": results,
+    }
+
+    RESULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with RESULTS_FILE.open("w", encoding="utf-8") as file:
+        json.dump(report, file, ensure_ascii=False, indent=2)
+
+    print(json.dumps(report["metrics"], ensure_ascii=False, indent=2))
+    print(f"完整结果：{RESULTS_FILE}")
+
+
+if __name__ == "__main__":
+    main()
+
+
+脚本把本次实际返回的 response.model 和运行时间写进报告。jev-latest 是会随官方更新而变化的别名；以后比较两次结果时，如果模型版本不同，就不能把差异全部归因于你修改了问题描述。
+
+脚本仍用 0.5 计算 Noul 的原始真假准确率，但自动路径使用第 6 篇的 0.35～0.65 复核区间。两者不冲突：前者用来观察判断方向，后者用来决定系统是否愿意自动处理。
+
+运行评估并验证报告
+
+先检查 JSON 和 Python 语法。
+
+macOS 或 Linux：
+
+python -m json.tool evaluation_cases.json
+python -m py_compile evaluate_dataset.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe -m json.tool evaluation_cases.json
+.\.venv\Scripts\python.exe -m py_compile evaluate_dataset.py
+
+
+确认当前终端已设置 TYPESAFE_API_KEY，再运行：
+
+macOS 或 Linux：
+
+python evaluate_dataset.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe evaluate_dataset.py
+
+
+它会产生十次真实 API 调用。实际指标取决于模型版本和返回结果，可能类似下面的形状，但不应照抄这些数字：
+
+{
+  "total_cases": 10,
+  "category_accuracy": 0.0,
+  "urgency_accuracy": 0.0,
+  "action_accuracy": 0.0,
+  "automatic_coverage": 0.0,
+  "manual_review_rate": 0.0,
+  "automatic_exact_match_accuracy": null
+}
+
+
+这里的 0.0 只是字段占位。当没有任何自动样例时，automatic_exact_match_accuracy 会是 null，而不是把除以零伪装成 0 分。
+
+用独立命令检查报告结构：
+
+macOS 或 Linux：
+
+python -c "import json; r=json.load(open('output/evaluation_results.json', encoding='utf-8')); assert r['metrics']['total_cases']==10; assert len(r['results'])==10; assert r['response_models']; print('evaluation report verified')"
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe -c "import json; r=json.load(open('output/evaluation_results.json', encoding='utf-8')); assert r['metrics']['total_cases']==10; assert len(r['results'])==10; assert r['response_models']; print('evaluation report verified')"
+
+
+看到 evaluation report verified，只能证明评估报告完整生成。接下来才是最重要的人工分析。
+
+先看错误样例，再看总分
+
+新建 inspect_errors.py：
+
+import json
+from pathlib import Path
+
+
+RESULTS_FILE = Path(__file__).resolve().parent / "output" / "evaluation_results.json"
+
+with RESULTS_FILE.open("r", encoding="utf-8") as file:
+    report = json.load(file)
+
+for item in report["results"]:
+    if item["correct"]["all"] and item["prediction"]["automatic"]:
+        continue
+
+    print("=" * 60)
+    print(item["id"], item["text"])
+    print(
+        "expected:",
+        item["expected_category"],
+        item["expected_urgent"],
+        item["expected_action_requested"],
+    )
+    print(
+        "predicted:",
+        item["prediction"]["category"],
+        item["prediction"]["urgent"],
+        item["prediction"]["action_requested"],
+    )
+    print(
+        "confidence:",
+        item["prediction"]["category_confidence"],
+        item["prediction"]["urgency_confidence"],
+        item["prediction"]["action_requested_probability"],
+    )
+    print("queue:", item["prediction"]["queue"])
+
+
+运行后，它只显示判断错误或进入人工复核的样例：
+
+macOS 或 Linux：
+
+python inspect_errors.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe inspect_errors.py
+
+
+分析时，先给错误分原因，而不是立即改提示：
+
+标签定义问题：feedback 与 other 的边界在人看来也不清楚；
+输入信息不足：单条留言无法判断是否真的紧急；
+问题说明问题：Score 等级没有覆盖某种常见情形；
+阈值问题：方向基本正确，但落在人工复核区间；
+模型局限：问题和上下文已经清楚，仍频繁错判。
+
+不同原因对应不同改法。缺少上下文时，重写十遍类别描述也不会凭空补出信息。
+
+用开发集改，用测试集验
+
+这十条数据太少，本篇只演示流程。如果继续完善项目，至少要把数据分成两部分：
+
+开发集：允许反复查看错误，用来修改问题描述和初步选阈值；
+测试集：在方案确定前不查看结果，只用来检查改动能否推广到新数据。
+
+如果每次都在同一批十条消息上调到全对，你可能只是记住了练习题。真实留言换一种表达，效果又会下降。
+
+一次改进循环应该是：
+
+固定一版数据与标注
+        ↓
+运行并保存基线报告
+        ↓
+检查错误类型
+        ↓
+一次只改一个主要因素
+        ↓
+在开发集重新运行
+        ↓
+确认改善后再跑未见过的测试集
+
+
+“一个主要因素”可以是补充 state 字段、重写某个 Choice 描述、调整一个 Score 等级，或者改变一个阈值。不要同时改问题、数据和阈值，否则分数变化后你无法知道哪项改动真正有效。
+
+怎样看待准确率与复核率的取舍
+
+假设两个方案的结果是：
+
+方案	自动覆盖率	自动样例全对率
+A	90%	82%
+B	55%	97%
+
+不能只看 97% 就断言 B 更好。如果人工复核很便宜，而误路由代价很高，B 可能合适；如果每天有几十万条低风险消息，45% 的复核率可能无法接受。
+
+阈值必须与具体动作绑定。自动加本地标签可以追求较高覆盖率；对外发消息应更保守；付款、删数据或批准权限则不能只靠模型置信度自动完成。
+
+当数据量增加后，还要分别查看各类别指标。总体分类准确率可能很好，但稀有的 billing 类别全部错了。若该类别风险更高，总体平均值会掩盖真正的问题。
+
+保存每次实验的最小记录
+
+至少保留：
+
+评估数据版本或文件哈希；
+问题定义和阈值；
+请求的模型别名与响应中的实际模型版本；
+运行日期；
+指标与逐条预测；
+本轮只改了什么。
+
+不要覆盖唯一一份 evaluation_results.json 后才想起比较。最简单的做法是把确认有价值的报告复制到一个带日期和说明的实验目录，例如：
+
+experiments/
+├── 2026-09-23-baseline/
+│   ├── evaluation_cases.json
+│   ├── evaluation_results.json
+│   └── notes.md
+└── 2026-09-24-category-descriptions-v2/
+    ├── evaluation_cases.json
+    ├── evaluation_results.json
+    └── notes.md
+
+
+这些是可审计的实验记录，不要把真实隐私数据提交到公开仓库。必要时只保存脱敏样例和汇总指标。
+
+完成本篇的验收
+
+确认你已经做到：
+
+evaluation_cases.json 在调用模型前就有人工期望标签；
+evaluate_dataset.py 能生成十条逐项预测和五项核心指标；
+报告保存了实际响应模型版本与运行时间；
+能区分准确率、自动覆盖率和人工复核率；
+已运行 inspect_errors.py，并按原因分析至少一个错误或复核样例；
+明白开发集用于改进，测试集用于最后验证；
+不会因为十条样例表现不错，就声称系统已经达到生产要求。
+
+下一篇是整套教程的收尾。我们会把目前的本地判断流水线接到几个明确的处理器上，并说明 Jev 放进 Agent 时究竟负责哪一步、又有哪些事情仍应交给 LLM、普通代码或人。
+
+评估报告应记录本次 URGENT_THRESHOLD 与其他门控阈值。改变策略后重新生成路由并复评；不要沿用旧结果，也不要把调参用例当独立保留测试集。

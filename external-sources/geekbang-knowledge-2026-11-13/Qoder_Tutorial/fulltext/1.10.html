@@ -1,0 +1,385 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>这张表把本教程涉及的、以及日常最常用的命令汇总到一起，方便你日后随手翻查。<strong>不用背</strong>——忘了就回来查，或者在 Qoder 里敲 <code>/help</code> 和 <code>/</code>（看弹出的命令列表），效果一样。</p>
+<h2 id="wiki-h-0">在终端里启动 / 恢复 Qoder</h2>
+<p>这些是你在<strong>系统终端</strong>（不是对话框里）敲的命令：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>qoder</code></td>
+<td>在当前目录启动 Qoder</td>
+</tr>
+<tr>
+<td><code>qoder --version</code></td>
+<td>查看版本</td>
+</tr>
+<tr>
+<td><code>qoder update</code></td>
+<td>升级到最新版</td>
+</tr>
+<tr>
+<td><code>qoder -r</code></td>
+<td>列出历史会话，选一个恢复（继续以前的对话）</td>
+</tr>
+<tr>
+<td><code>qoder -r &lt;会话id&gt;</code></td>
+<td>直接恢复指定 id 的会话</td>
+</tr>
+<tr>
+<td><code>qoder mcp add &lt;名字&gt; -- &lt;命令&gt;</code></td>
+<td>添加一个 MCP 服务，例：<code>qoder mcp add playwright -- npx -y @playwright/mcp@latest</code></td>
+</tr>
+<tr>
+<td><code>qoder mcp list</code></td>
+<td>查看已安装的 MCP 服务</td>
+</tr>
+<tr>
+<td><code>qoder mcp remove &lt;名字&gt;</code></td>
+<td>删除某个 MCP 服务</td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-1">在对话框里敲的斜杠命令</h2>
+<p>进入 Qoder 后，在对话输入框里敲下面这些 <code>/</code> 命令。</p>
+<h3 id="wiki-h-2">会话管理</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/new</code></td>
+<td>开一段全新对话</td>
+</tr>
+<tr>
+<td><code>/clear</code></td>
+<td>清空当前上下文（人还留在本会话）</td>
+</tr>
+<tr>
+<td><code>/compact</code></td>
+<td>把冗长历史压缩成摘要，给上下文瘦身</td>
+</tr>
+<tr>
+<td><code>/continue</code></td>
+<td>接着上一次的对话继续</td>
+</tr>
+<tr>
+<td><code>/resume</code></td>
+<td>从历史会话列表里挑一个恢复</td>
+</tr>
+<tr>
+<td><code>/rename</code></td>
+<td>给当前对话改名</td>
+</tr>
+<tr>
+<td><code>/branch</code></td>
+<td>从当前对话分叉出一条新对话</td>
+</tr>
+<tr>
+<td><code>/export</code></td>
+<td>导出/保存整段对话</td>
+</tr>
+<tr>
+<td><code>/rewind</code></td>
+<td>打开检查点列表，撤销回到某个节点（可只恢复对话 / 只恢复文件 / 两者都恢复）</td>
+</tr>
+<tr>
+<td><code>/quit</code></td>
+<td>退出 Qoder</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-3">模式与任务</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/plan</code></td>
+<td>进入计划模式：只读、只出方案、不改代码，等你批准</td>
+</tr>
+<tr>
+<td><code>/tasks</code></td>
+<td>查看当前任务清单</td>
+</tr>
+<tr>
+<td><code>/kanban</code></td>
+<td>以看板形式查看任务进度</td>
+</tr>
+<tr>
+<td><code>/goal</code></td>
+<td>设定一个目标</td>
+</tr>
+<tr>
+<td><code>/loop</code></td>
+<td>循环执行某类任务</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-4">模型与思考强度</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/model</code></td>
+<td>切换使用的模型</td>
+</tr>
+<tr>
+<td><code>/effort</code></td>
+<td>调整思考强度（难题调高、简单活调低）</td>
+</tr>
+<tr>
+<td><code>/fast</code></td>
+<td>偏向快速响应的挡位</td>
+</tr>
+<tr>
+<td><code>/context-window</code></td>
+<td>查看/管理上下文窗口</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-5">代码</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/diff</code></td>
+<td>查看本轮改了哪些地方</td>
+</tr>
+<tr>
+<td><code>/review</code></td>
+<td>对代码做一次审查</td>
+</tr>
+<tr>
+<td><code>/init</code></td>
+<td>扫描项目并生成/更新 <code>AGENTS.md</code> 项目约定</td>
+</tr>
+<tr>
+<td><code>/setup-github</code></td>
+<td>引导配置 GitHub 关联</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-6">工具与扩展</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/skills</code></td>
+<td>查看可用的 skills（技能）</td>
+</tr>
+<tr>
+<td><code>/agents</code></td>
+<td>查看/管理子代理</td>
+</tr>
+<tr>
+<td><code>/mcp</code></td>
+<td>查看 MCP 服务状态；<code>/mcp reload</code> 重新加载</td>
+</tr>
+<tr>
+<td><code>/memory</code></td>
+<td>查看记忆文件；<code>/memory manage</code> 编辑/删除记忆</td>
+</tr>
+<tr>
+<td><code>/tools</code></td>
+<td>查看可用工具</td>
+</tr>
+<tr>
+<td><code>/hooks</code></td>
+<td>查看/管理钩子（进阶）</td>
+</tr>
+<tr>
+<td><code>/plugins</code></td>
+<td>查看/管理插件（进阶）</td>
+</tr>
+<tr>
+<td><code>/marketplace</code></td>
+<td>逛技能/插件市场</td>
+</tr>
+<tr>
+<td><code>/commands</code></td>
+<td>查看自定义命令</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-7">常用内置 Skills（技能）</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/debug</code></td>
+<td>系统化排查 bug</td>
+</tr>
+<tr>
+<td><code>/verify</code></td>
+<td>验证改动是否真的成立、跑测试把关</td>
+</tr>
+<tr>
+<td><code>/simplify</code></td>
+<td>在不改变行为的前提下简化、整理代码</td>
+</tr>
+<tr>
+<td><code>/security-scan</code></td>
+<td>对代码做安全扫描</td>
+</tr>
+<tr>
+<td><code>/run</code></td>
+<td>把项目跑起来</td>
+</tr>
+<tr>
+<td><code>/remember</code></td>
+<td>把某条信息存进记忆</td>
+</tr>
+<tr>
+<td><code>/batch</code></td>
+<td>批量处理任务</td>
+</tr>
+<tr>
+<td><code>/mcp-config</code></td>
+<td>引导式配置 MCP 服务</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-8">账号与设置</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/permissions</code></td>
+<td>管理权限规则；标准权限名见第 3 章 3.8</td>
+</tr>
+<tr>
+<td><code>/settings</code></td>
+<td>打开设置</td>
+</tr>
+<tr>
+<td><code>/login</code> <code>/logout</code></td>
+<td>登录 / 登出</td>
+</tr>
+<tr>
+<td><code>/status</code></td>
+<td>查看当前状态</td>
+</tr>
+<tr>
+<td><code>/usage</code></td>
+<td>查看用量</td>
+</tr>
+<tr>
+<td><code>/help</code></td>
+<td>帮助（忘了能敲啥就敲它）</td>
+</tr>
+<tr>
+<td><code>/docs</code></td>
+<td>查看文档</td>
+</tr>
+<tr>
+<td><code>/shortcuts</code></td>
+<td>查看快捷键</td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-9">权限模式速记</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>行为</th>
+<th>建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>default</code></td>
+<td>每次改文件、跑命令前都问你</td>
+<td>新手期首选</td>
+</tr>
+<tr>
+<td><code>auto</code></td>
+<td>自动评估部分工具请求，具体受规则约束</td>
+<td>先查清本机授权</td>
+</tr>
+<tr>
+<td><code>accept_edits</code></td>
+<td>文件改动自动放行</td>
+<td>建立信任后提速</td>
+</tr>
+<tr>
+<td><code>dont_ask</code></td>
+<td>不交互询问；未获允许的请求可能被拒绝</td>
+<td>自动化前先验证规则</td>
+</tr>
+<tr>
+<td><code>bypass_permissions</code></td>
+<td>跳过权限审批</td>
+<td>本课程不需要</td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-10">关键文件位置速记</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>文件 / 目录</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;项目&gt;/AGENTS.md</code></td>
+<td>项目级约定（团队共享）</td>
+</tr>
+<tr>
+<td><code>~/.qoder/AGENTS.md</code></td>
+<td>用户级约定（对你所有项目生效）</td>
+</tr>
+<tr>
+<td><code>&lt;项目&gt;/.qoder/rules/</code></td>
+<td>更细粒度的规则文件</td>
+</tr>
+<tr>
+<td><code>&lt;项目&gt;/.qoder/agents/</code> 、<code>~/.qoder/agents/</code></td>
+<td>自定义子代理</td>
+</tr>
+<tr>
+<td><code>~/.qoder/skills/</code></td>
+<td>自定义 skills</td>
+</tr>
+<tr>
+<td><code>~/.qoder/settings.json</code></td>
+<td>用户级设置</td>
+</tr>
+<tr>
+<td><code>&lt;项目&gt;/.qoder/settings.json</code></td>
+<td>项目级设置（可共享）</td>
+</tr>
+<tr>
+<td><code>&lt;项目&gt;/.qoder/settings.local.json</code></td>
+<td>本地设置（优先级最高，不提交）</td>
+</tr>
+<tr>
+<td><code>&lt;项目&gt;/.mcp.json</code></td>
+<td>项目级 MCP 配置（可共享）</td>
+</tr>
+</tbody></table></div>
+<p>设置优先级（从高到低）：<strong>本地 &gt; 项目 &gt; 用户 &gt; 内置默认</strong>。</p>
+<blockquote>
+<p>说明：命令与路径以官方文档为准，新版本可能有增减。拿不准时，敲 <code>/help</code> 或查阅 <a href="https://docs.qoder.com">https://docs.qoder.com</a> 最靠谱。</p>
+</blockquote>
+</article>

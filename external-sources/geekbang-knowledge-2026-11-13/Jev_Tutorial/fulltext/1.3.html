@@ -1,0 +1,231 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：30～40 分钟<br>本篇目标：在 Playground 中完成一次判断，随后用 Python SDK 发起真实 API 请求，并通过代码确认返回值的类型和范围正确。</p>
+</blockquote>
+<p>上一篇把 Jev 理解成一个“能做模糊语义判断的函数”。这一篇不继续讲概念，我们直接把这个函数调用起来。</p>
+<p>你会先使用 Playground，确认自己的账号已经获得访问权限；然后建立一个干净的 Python 项目，安全地配置 API Key，运行 <code>first_call.py</code>。完成后，电脑里会留下后续 Decision Inbox 可以直接使用的项目目录。</p>
+<blockquote>
+<p>本文核对日期为 2026 年 9 月 23 日。Jev 刚刚发布不久，账号开放范围、控制台界面和 SDK 可能继续变化。遇到差异时，以 <a href="https://docs.typesafe.ai/introduction/quickstart">TypeSafe Quick Start</a> 和 <a href="https://docs.typesafe.ai/sdk/python">Python SDK 文档</a> 为准。</p>
+</blockquote>
+<h2 id="wiki-h-0">开始前准备什么</h2>
+<p>本篇需要：</p>
+<ul>
+<li>一个可以登录 TypeSafe 控制台的账号；</li>
+<li>一枚 TypeSafe API Key；</li>
+<li>可以访问 <code>api.typesafe.ai</code> 的网络；</li>
+<li>Python 3.10 或更高版本；</li>
+<li>一个代码编辑器和终端。</li>
+</ul>
+<p>先检查 Python。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python3 --version
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">--version</span>
+</code></pre><p>看到 <code>Python 3.10</code> 或更高版本即可继续。如果系统提示找不到命令，先从 <a href="https://www.python.org/downloads/">Python 官网</a> 安装当前受支持版本。Windows 安装时注意勾选将 Python 加入 PATH；如果 <code>python</code> 指向 Microsoft Store，但 <code>py</code> 可以正常显示版本，后面使用 <code>py</code> 即可。</p>
+<h2 id="wiki-h-1">先在 Playground 里验证账号</h2>
+<p>先用网页验证有两个好处：不需要区分操作系统，也能把“账号没有访问权限”和“本地代码写错了”分开。</p>
+<ol>
+<li>打开 <a href="https://console.typesafe.ai/">TypeSafe Playground</a>。</li>
+<li>登录账号。</li>
+<li>在页面中找到用于填写 <code>state</code> 的区域。</li>
+<li>输入下面这段状态：</li>
+</ol>
+<pre><code class="hljs language-text">I was charged twice for the same monthly subscription. Please help me check it today.
+</code></pre><ol start="5">
+<li>新增一个 Noul 问题，问题内容填写：</li>
+</ol>
+<pre><code class="hljs language-text">Does this message express urgency?
+</code></pre><ol start="6">
+<li>运行判断。</li>
+</ol>
+<p>你应该看到一个 0 到 1 之间的结果。数值越接近 1，表示模型越倾向于判断“这条消息表达了紧迫性”。具体数字可能随模型版本变化，不要把教程截图里的某个小数当作固定答案。</p>
+<p>这一步的成功标准只有三个：</p>
+<ul>
+<li>页面确实返回了结果，而不是登录或权限错误；</li>
+<li>返回值是一个概率，不是一段聊天回复；</li>
+<li>你能在页面上分清 <code>state</code> 与问题。</li>
+</ul>
+<p>如果控制台没有创建 API Key 的入口，或账号提示尚无访问权限，就暂时无法完成真实 API 调用。可以先阅读后续结构，但不要伪造调用结果。账号开放方式和控制台入口可能继续调整，以官方页面为准。</p>
+<h2 id="wiki-h-2">创建课程项目目录</h2>
+<p>不要把练习脚本随手放进桌面，也不要安装到系统 Python。我们建立一个独立目录和虚拟环境。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p ~/jev-course/decision-inbox
+<span class="hljs-built_in">cd</span> ~/jev-course/decision-inbox
+python3 -m venv .venv
+<span class="hljs-built_in">source</span> .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install typesafe-sdk
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\jev-course\decision-inbox"</span>
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\jev-course\decision-inbox"</span>
+py <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">--upgrade</span> pip
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install typesafe<span class="hljs-literal">-sdk</span>
+</code></pre><p>Windows 示例故意不要求激活虚拟环境，而是直接调用 <code>.venv</code> 中的 Python。这样即使 PowerShell 的脚本执行策略阻止 <code>Activate.ps1</code>，你也能继续学习。</p>
+<p>安装完成后验证 SDK。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -c <span class="hljs-string">"import typesafe_sdk; print('typesafe-sdk ready')"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-c</span> <span class="hljs-string">"import typesafe_sdk; print('typesafe-sdk ready')"</span>
+</code></pre><p>期望看到：</p>
+<pre><code class="hljs language-text">typesafe-sdk ready
+</code></pre><p>如果出现 <code>ModuleNotFoundError</code>，通常不是包名错了，而是运行脚本的 Python 与安装 SDK 的 Python 不是同一个。重新执行上面的显式路径命令，不要急着在系统环境里反复安装。</p>
+<h2 id="wiki-h-3">创建并保管 API Key</h2>
+<p>在 TypeSafe 控制台中进入 API Key 或开发者凭据区域，创建一枚用于课程练习的 Key。控制台的具体导航名称可能变化，但它应与 Playground 位于同一账号空间。</p>
+<p>Key 放入当前终端环境后，会被其启动的子进程继承。以下交互输入避免把真实值写入命令历史；不要将 Key 粘到 Agent 对话。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># bash/zsh 均可；输入不回显</span>
+<span class="hljs-built_in">printf</span> <span class="hljs-string">'API Key: '</span>
+<span class="hljs-built_in">stty</span> -<span class="hljs-built_in">echo</span>
+IFS= <span class="hljs-built_in">read</span> -r TYPESAFE_API_KEY
+<span class="hljs-built_in">stty</span> <span class="hljs-built_in">echo</span>
+<span class="hljs-built_in">printf</span> <span class="hljs-string">'\n'</span>
+<span class="hljs-built_in">export</span> TYPESAFE_API_KEY
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$secret</span> = <span class="hljs-built_in">Read-Host</span> <span class="hljs-string">"输入 API Key"</span> <span class="hljs-literal">-AsSecureString</span>
+<span class="hljs-variable">$ptr</span> = [<span class="hljs-type">Runtime.InteropServices.Marshal</span>]::SecureStringToBSTR(<span class="hljs-variable">$secret</span>)
+<span class="hljs-keyword">try</span> { <span class="hljs-variable">$env:TYPESAFE_API_KEY</span> = [<span class="hljs-type">Runtime.InteropServices.Marshal</span>]::PtrToStringBSTR(<span class="hljs-variable">$ptr</span>) }
+<span class="hljs-keyword">finally</span> { [<span class="hljs-type">Runtime.InteropServices.Marshal</span>]::ZeroFreeBSTR(<span class="hljs-variable">$ptr</span>); <span class="hljs-built_in">Remove-Variable</span> secret,ptr }
+</code></pre><p>这两种设置在关闭终端后都会失效，适合第一次练习。不要把真实 Key 写进 <code>first_call.py</code>、README、截图或 Git 仓库。</p>
+<p>检查变量是否存在时，不要完整打印 Key。macOS 或 Linux 可以看字符数量：</p>
+<pre><code class="hljs language-bash">python -c <span class="hljs-string">"import os; print('key loaded:', bool(os.getenv('TYPESAFE_API_KEY')))"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-c</span> <span class="hljs-string">"import os; print('key loaded:', bool(os.getenv('TYPESAFE_API_KEY')))"</span>
+</code></pre><p>期望看到：</p>
+<pre><code class="hljs language-text">key loaded: True
+</code></pre><p>它只能证明环境变量存在，不能证明 Key 有效。真正的认证验证要靠下一步 API 调用。</p>
+<h2 id="wiki-h-4">写下第一段调用代码</h2>
+<p>在 <code>decision-inbox</code> 目录中新建 <code>first_call.py</code>，写入下面的内容：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">from</span> typesafe_sdk <span class="hljs-keyword">import</span> Choice, Noul, Score, TypeSafeClient
+
+
+state = {
+    <span class="hljs-string">"message"</span>: (
+        <span class="hljs-string">"I was charged twice for the same monthly subscription. "</span>
+        <span class="hljs-string">"Please help me check it today."</span>
+    )
+}
+
+questions = {
+    <span class="hljs-string">"category"</span>: Choice(
+        instructions=<span class="hljs-string">"What is the main topic of `message`?"</span>,
+        criteria={
+            <span class="hljs-string">"billing"</span>: <span class="hljs-string">"Charges, invoices, payments, or refunds."</span>,
+            <span class="hljs-string">"technical"</span>: <span class="hljs-string">"A product feature is broken or unavailable."</span>,
+            <span class="hljs-string">"account"</span>: <span class="hljs-string">"Login, profile, or account access."</span>,
+            <span class="hljs-string">"other"</span>: <span class="hljs-string">"None of the other options fits."</span>,
+        },
+    ),
+    <span class="hljs-string">"urgency"</span>: Score(
+        instructions=<span class="hljs-string">"How urgent is the situation described in `message`?"</span>,
+        criteria=[
+            <span class="hljs-string">"No time pressure is expressed."</span>,
+            <span class="hljs-string">"The user would like a reasonably prompt response."</span>,
+            <span class="hljs-string">"The user describes immediate harm or a strict deadline."</span>,
+        ],
+    ),
+    <span class="hljs-string">"refund_requested"</span>: Noul(
+        instructions=<span class="hljs-string">"Does `message` explicitly request a refund?"</span>,
+    ),
+}
+
+<span class="hljs-keyword">with</span> TypeSafeClient() <span class="hljs-keyword">as</span> client:
+    response = client.system_one(
+        state=state,
+        questions=questions,
+    )
+
+category = response.answers[<span class="hljs-string">"category"</span>]
+urgency = response.answers[<span class="hljs-string">"urgency"</span>]
+refund_requested = response.answers[<span class="hljs-string">"refund_requested"</span>]
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"category:"</span>, category.choice)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"category probabilities:"</span>, category.probabilities)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"category confidence:"</span>, category.confidence)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"urgency score:"</span>, urgency.score)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"urgency confidence:"</span>, urgency.confidence)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"refund requested probability:"</span>, refund_requested.noul)
+
+<span class="hljs-comment"># 这些断言检查返回值能否被程序安全消费，</span>
+<span class="hljs-comment"># 不负责断言模型对这条消息的语义判断一定正确。</span>
+<span class="hljs-keyword">assert</span> category.choice <span class="hljs-keyword">in</span> {<span class="hljs-string">"billing"</span>, <span class="hljs-string">"technical"</span>, <span class="hljs-string">"account"</span>, <span class="hljs-string">"other"</span>}
+<span class="hljs-keyword">assert</span> <span class="hljs-number">0</span> &lt;= urgency.score &lt;= <span class="hljs-number">2</span>
+<span class="hljs-keyword">assert</span> <span class="hljs-number">0</span> &lt;= refund_requested.noul &lt;= <span class="hljs-number">1</span>
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">"response shape verified"</span>)
+</code></pre><p>这段代码做了三件不同的事：</p>
+<ul>
+<li><code>Choice</code> 从四个类别里选择一个；</li>
+<li><code>Score</code> 在三个有顺序的紧急程度等级之间评分；</li>
+<li><code>Noul</code> 判断留言是否明确要求退款。</li>
+</ul>
+<p>所有问题都看见同一份 <code>state</code>，但分别独立判断。代码随后读取结构化字段，而不是解析一段模型生成的 JSON 字符串。</p>
+<p>代码没有显式写模型名称。按当前官方 Quick Start，Python SDK 默认使用 <code>jev-latest</code>。别把教程写作时对应的具体版本号硬编码进第一次练习；如果以后需要稳定复现，再根据当时的官方 Models 文档决定是否固定版本。</p>
+<h2 id="wiki-h-5">运行并读懂结果</h2>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python first_call.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe first_call.py
+</code></pre><p>实际数字会变化，输出形状大致如下：</p>
+<pre><code class="hljs language-text">category: billing
+category probabilities: {'billing': ..., 'technical': ..., 'account': ..., 'other': ...}
+category confidence: ...
+urgency score: ...
+urgency confidence: ...
+refund requested probability: ...
+response shape verified
+</code></pre><p>不要只看 <code>category: billing</code>。至少观察三件事：</p>
+<ol>
+<li><code>probabilities</code> 是否包含你定义的全部类别；</li>
+<li><code>urgency.score</code> 是否落在 0 到 2 的范围内；</li>
+<li>“请帮我核对”是否真的等于“明确要求退款”。</li>
+</ol>
+<p>第三点没有唯一标准答案，它提醒我们：模型返回概率后，业务代码仍然需要决定多大概率才算“明确”，以及判断不清时是不是应该追问。</p>
+<p>最后的 <code>response shape verified</code> 是一次独立的程序检查。它不能证明语义判断正确，但证明了返回值满足我们准备让代码消费的基本范围。</p>
+<h2 id="wiki-h-6">做一次对照实验</h2>
+<p>把 <code>state</code> 中的留言改成：</p>
+<pre><code class="hljs language-python">state = {
+    <span class="hljs-string">"message"</span>: <span class="hljs-string">"Please refund the duplicate charge today."</span>
+}
+</code></pre><p>再次运行脚本，比较 <code>refund_requested.noul</code>。我们期望它比“请帮我核对”的版本更接近肯定判断。</p>
+<p>接着换成中文：</p>
+<pre><code class="hljs language-python">state = {
+    <span class="hljs-string">"message"</span>: <span class="hljs-string">"同一份月度会员被扣了两次，请今天退回重复扣款。"</span>
+}
+</code></pre><p>记录结果，但不要用这一个例子宣布“中文表现很好”或“中文不能用”。官方当前的 <a href="https://docs.typesafe.ai/models">Models 文档</a> 说明英语是主要训练语言，也是准确率最好的语言，其他语言需要用自己的内容验证。一个样本只能帮助你确认接口接受中文；第七篇会用多条人工标注数据评估实际表现。</p>
+<h2 id="wiki-h-7">最常见的几个失败</h2>
+<h3 id="wiki-h-8"><code>TYPESAFE_API_KEY</code> 未设置</h3>
+<p>如果提示缺少凭据，先重新运行本篇第四节的布尔检查。注意：在一个终端里设置的变量，不会自动出现在另一个已经打开的终端窗口中。</p>
+<h3 id="wiki-h-9">401 或 403</h3>
+<p>这通常表示 Key 无效、已撤销，或账号尚未获得对应访问权限。回到控制台检查，不要通过反复改代码绕过认证错误。</p>
+<h3 id="wiki-h-10"><code>ModuleNotFoundError: typesafe_sdk</code></h3>
+<p>确认安装命令与运行命令使用同一个虚拟环境。Windows 优先使用 <code>.venv\Scripts\python.exe</code> 的完整相对路径；macOS 和 Linux 确认命令行前面是否出现 <code>(.venv)</code>。</p>
+<h3 id="wiki-h-11">网络超时或无法连接</h3>
+<p>先用 Playground 判断是不是本地网络问题。如果网页可用而 Python 不可用，再检查代理、公司网络策略和本机证书。不要把代理账号或证书内容复制进公开求助信息。</p>
+<h3 id="wiki-h-12">示例属性不存在</h3>
+<p>Jev 和 SDK 仍然很新。如果官方 SDK 更新导致 <code>response.answers[...]</code> 等访问方式变化，先查看当前 <a href="https://docs.typesafe.ai/sdk/python">Python SDK 文档</a> 和安装版本，而不是同时尝试多个社区示例。可以查看当前安装版本：</p>
+<pre><code class="hljs language-bash">python -m pip show typesafe-sdk
+</code></pre><p>Windows 将 <code>python</code> 替换成 <code>.\.venv\Scripts\python.exe</code>。</p>
+<h2 id="wiki-h-13">结束练习后的 Key 处理</h2>
+<p>如果暂时不继续下一篇，可以清除当前终端中的环境变量。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">unset</span> TYPESAFE_API_KEY
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Remove-Item</span> Env:TYPESAFE_API_KEY
+</code></pre><p>后续练习仍可以在每次打开终端后临时设置环境变量。真实项目若改用系统密钥链、部署平台的 Secret 或本地 <code>.env</code>，原则也不变：Key 不进入源码，不写入教程数据，也不提交到 Git。</p>
+<h2 id="wiki-h-14">本篇验收</h2>
+<p>完成本篇后，项目目录里至少应该有：</p>
+<pre><code class="hljs language-text">decision-inbox/
+├── .venv/
+└── first_call.py
+</code></pre><p>同时确认：</p>
+<ul>
+<li>Playground 可以返回一次真实判断；</li>
+<li>SDK 已安装在项目虚拟环境中；</li>
+<li>API Key 从环境变量读取；</li>
+<li><code>first_call.py</code> 可以运行到 <code>response shape verified</code>；</li>
+<li>你知道“返回结构正确”不等于“语义判断正确”；</li>
+<li>真实 Key 没有写进脚本。</li>
+</ul>
+<p>下一篇会专门拆开 Choice、Score 和 Noul。我们不只看它们返回什么，还要学习怎样设计互不重叠的选项、可解释的等级和真正清楚的是非问题。</p>
+<p><code>unset TYPESAFE_API_KEY</code>／移除 env 变量只清理当前进程环境，不会清除历史，也无法撤回已被子进程读取的值。若此前直接写入过真实 Key，应按控制台流程撤销并重新创建。</p>
+</article>

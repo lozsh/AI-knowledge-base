@@ -1,0 +1,273 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本文属于《DeepSeek Harness 入门教程（实战版）》· 第五部分 · 排错与进阶</p>
+</blockquote>
+<h1>第 17 章　常见问题排查：先定位哪一层坏了</h1>
+<p>排查 Agent 产品最容易犯的错，是看到“任务失败”就立刻重装、换模型或放宽权限。DeepSeek Harness 同时包含界面、Host、Profile、模型 Provider、Agent 预设、工具、审批和项目代码；不同层的故障，表面上都可能只是“它没完成”。</p>
+<p>这一章不做一张越来越长的报错对照表，而是建立一条固定路径：</p>
+<pre><code class="hljs language-text">保留现场 → 确认失败层 → 做最小只读检查 → 只修一处 → 独立复验
+</code></pre><p>你会得到一份可以直接套用的排查模板，并能处理本教程主线最常见的阻塞：Desktop/CLI 启动、模型路线、权限审批、插件与 Profile、Skill/MCP、Goal/子智能体、Schedule/Headless，以及日报助手自身。</p>
+<h2 id="wiki-h-0">17.1 出错后先别做三件事</h2>
+<p>先不要：</p>
+<ol>
+<li>连续点击重试，制造多个相同任务、审批或定时任务；</li>
+<li>直接升级、重装或删除 Profile，把原始证据和可回退状态一起抹掉；</li>
+<li>把 API Key、完整配置 dump、崩溃日志或会话导出原样贴到公开渠道。</li>
+</ol>
+<p>先记录以下信息：</p>
+<ul>
+<li>使用 Desktop 还是 CLI/Web，操作系统与 CPU 架构；</li>
+<li>DSH 的完整版本号，包括 <code>alpha</code>、<code>beta</code> 或 <code>rc</code> 后缀；</li>
+<li>当前 Profile、Agent 预设、权限模式和工作区；</li>
+<li>最后一项成功操作，以及第一项失败操作；</li>
+<li>原始错误码、退出码、失败工具名和发生时间；</li>
+<li>是否能在“新任务 + Read Only + 最小提示词”中复现。</li>
+</ul>
+<p>“界面卡住了”信息太少；“<code>v0.1.7-rc.2</code> Desktop，标准模式、Read Only，新任务读取 <code>PROJECT.md</code> 时工具卡片返回某错误”才是可定位的问题。</p>
+<h2 id="wiki-h-1">17.2 用五层模型快速分流</h2>
+<p>从最外层往里查，每次只问一个问题：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>层</th>
+<th>最小检查</th>
+<th>能排除什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>应用/Host</td>
+<td>能否启动、打开设置、创建空任务</td>
+<td>安装、端口、Host 与界面故障</td>
+</tr>
+<tr>
+<td>模型路线</td>
+<td>新建 Read Only 任务，只让模型回复固定文字</td>
+<td>账号/API Provider、凭证、模型 ID</td>
+</tr>
+<tr>
+<td>Agent/工具</td>
+<td>查看执行轨迹与插件列表</td>
+<td>预设、工具注册、审批、插件加载</td>
+</tr>
+<tr>
+<td>工作区/权限</td>
+<td>读取一个已知文件，再尝试受控写入</td>
+<td>目录选错、沙箱、审批策略</td>
+</tr>
+<tr>
+<td>项目</td>
+<td>绕过 DSH，直接运行 <code>npm run check</code> 与 <code>npm test</code></td>
+<td>项目自身代码、配置与网络问题</td>
+</tr>
+</tbody></table></div>
+<p>最外层失败时，不要让内层背锅。例如 Desktop 根本没启动，就没有必要先改模型 Key；<code>npm test</code> 在系统终端已经失败，也不能先责怪 Agent 预设。</p>
+<h2 id="wiki-h-2">17.3 做一次五分钟健康检查</h2>
+<p>在没有故障时先知道“正常是什么样”，以后更容易比较。</p>
+<h3 id="wiki-h-3">第一步：记录版本</h3>
+<p>CLI/Web 路线在系统终端运行：</p>
+<pre><code class="hljs language-bash">node --version
+npm --version
+npx @deepseek-ai/dsh@0.1.7-rc.2 --version
+</code></pre><p>Windows PowerShell 找不到 <code>npx</code> 时使用 <code>npx.cmd</code>。Desktop 路线从应用菜单的“关于”或更新界面记录完整版本，不要拿系统里的全局 CLI 版本代替 Desktop 内置运行时版本。</p>
+<h3 id="wiki-h-4">第二步：验证最小模型请求</h3>
+<p>在 <code>daily-report</code> 工作区新建<strong>标准模式、Read Only</strong>任务，发送：</p>
+<pre><code class="hljs language-text">只回复 MODEL_OK，不调用工具，不解释。
+</code></pre><p>看到 <code>MODEL_OK</code> 只证明当前任务的模型路线可用，不证明文件工具或项目正常。</p>
+<h3 id="wiki-h-5">第三步：验证只读工具</h3>
+<p>再新建一个 Read Only 任务，发送：</p>
+<pre><code class="hljs language-text">只读取当前工作区的 PROJECT.md，并报告第一行标题。
+不要运行 Shell，不要访问网络，不要修改文件。
+</code></pre><p>核对执行轨迹中确实发生了文件读取，回答也与文件一致。最后绕过 DSH，在系统终端进入 <code>daily-report</code> 并运行：</p>
+<pre><code class="hljs language-bash">npm run check
+npm <span class="hljs-built_in">test</span>
+</code></pre><p>四项结果——版本、模型、只读工具、项目检查——构成你的健康基线。某次故障只破坏其中一项时，排查范围会立刻缩小。</p>
+<h2 id="wiki-h-6">17.4 Desktop 启动失败、白屏或反复恢复</h2>
+<p>先读原生错误弹窗，不要只记住“打不开”。当前 Desktop 在首次致命错误前会尝试写入 <code>crash-&lt;UTC 时间&gt;-&lt;source&gt;.log</code>；弹窗成功写入时会显示准确路径。macOS 的默认日志目录是 <code>~/Library/Logs/DeepSeek Harness</code>，Windows 位于该应用 <code>userData</code> 目录下的 <code>logs</code>。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/desktop/README.zh.md">Desktop 官方说明</a></p>
+<p>按以下顺序处理：</p>
+<ol>
+<li>记录弹窗中的 <code>source</code>、应用版本、运行时版本和首个错误；</li>
+<li>若错误含 <code>EADDRINUSE</code>，先完全退出其他 DSH 实例，再重启，不要先重装；</li>
+<li>若刚安装或启用第三方插件后才失败，使用原生恢复操作“停用第三方 bundle、备份 Profile patch 并重启”；</li>
+<li>只有应用能正常进入后，再使用菜单中的“检查更新”；不要用下载页上不明版本覆盖当前安装。</li>
+</ol>
+<p>原生恢复会保留已安装包，把 Desktop Profile 的 <code>cordis.patch.yml</code> 重命名为带时间戳的备份，并创建空 patch；Home 级 patch 不会随之重置。因此恢复后能启动，只能说明问题位于第三方 bundle 或 Desktop Profile patch，不能证明 Home 级配置一定正确。</p>
+<p>崩溃报告可能包含本机路径、Session ID、提示词、工具输出或第三方插件消息。分享前先复制一份并脱敏，不要直接编辑唯一原件。</p>
+<h2 id="wiki-h-7">17.5 CLI/Web 启动失败或浏览器打不开</h2>
+<p>先把“找不到命令”和“应用启动失败”分开。</p>
+<h3 id="wiki-h-8"><code>dsh</code> 找不到，但 <code>npx</code> 可用</h3>
+<p>这通常只是全局 PATH 问题。入门阶段直接验证：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --version
+npx @deepseek-ai/dsh@0.1.7-rc.2 --<span class="hljs-built_in">help</span>
+</code></pre><p>两条命令成功，就没有必要立刻修改全局 npm 前缀或使用管理员权限。后续继续用 <code>npx @deepseek-ai/dsh@0.1.7-rc.2 ...</code> 即可。</p>
+<h3 id="wiki-h-9">Web 报端口占用</h3>
+<p>保留原始错误，换一个明确的本地端口验证：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 web --port 3100 --no-open
+</code></pre><p>终端打印就绪地址后，手动打开 <code>http://127.0.0.1:3100</code>。如果新端口成功，故障在旧端口占用，不在模型或项目。不要为了远程访问把 Host 随意暴露到公网地址；远程场景回第 5 章使用 SSH 隧道。</p>
+<h3 id="wiki-h-10">Profile 组合失败</h3>
+<p>先在不启动应用的情况下检查有效配置：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --profile web --dump-config
+</code></pre><p><code>--dump-config</code> 失败时，错误通常已经指向 YAML、schema、模块解析或插件加载层。它成功也只证明配置可以组合，不保证运行时端口、网络和服务激活都成功。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.zh.md">CLI 行为参考</a></p>
+<p>如果需要把输出保存到文件，先假设里面含有本机路径、Provider 配置和凭证引用；不要把完整 dump 当成普通截图公开。</p>
+<h2 id="wiki-h-11">17.6 模型不回答：先区分账号路线与 API 路线</h2>
+<p>Desktop 登录账号模型与 API Key Provider 是两条独立入口。账号余额不足，不代表 API Key 失效；API Provider 的 401，也不代表登录账号异常。先看当前任务模型选择器使用的是哪条路线，再处理对应配置。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>症状</th>
+<th>最小检查</th>
+<th>修复方向</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>MISSING_CREDENTIAL</code></td>
+<td>“设置 → 模型”中凭证是否显示已设置</td>
+<td>为当前 Provider 保存凭证或修复环境变量引用</td>
+</tr>
+<tr>
+<td><code>INVALID_CREDENTIAL</code> / 401</td>
+<td>Provider、端点与凭证是否配套</td>
+<td>重新保存正确凭证；不要把 Key 发进对话</td>
+</tr>
+<tr>
+<td><code>UNKNOWN_MODEL</code></td>
+<td>当前任务选中的模型 ID 是否仍在 Provider 中</td>
+<td>选择已配置模型，或补回准确模型 ID</td>
+</tr>
+<tr>
+<td>模型发现返回 401</td>
+<td>端点的 <code>GET /models</code> 是否接受该凭证</td>
+<td>检查 Key；不支持模型发现时手动录入</td>
+</tr>
+<tr>
+<td>模型列表格式无法识别</td>
+<td>返回是否既无 <code>data</code> 数组也无 <code>models</code> 对象</td>
+<td>手动录入模型，不把“发现失败”当成“推理一定失败”</td>
+</tr>
+<tr>
+<td>只有某些中转模型失败</td>
+<td>协议与请求形状是否匹配</td>
+<td>核对 OpenAI/Anthropic/DeepSeek 协议与兼容设置</td>
+</tr>
+</tbody></table></div>
+<p>修复后一定<strong>新建 Read Only 任务</strong>，重新执行 17.3 的 <code>MODEL_OK</code>。旧任务可能仍绑定旧模型选择或已有失败上下文；只在旧消息上点重试，不能证明新配置已经用于新 Agent。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/guide/providers.zh.md#%E6%8E%92%E9%94%99">模型 Provider 官方排错</a></p>
+<h2 id="wiki-h-12">17.7 卡在审批、工具缺失或“明明允许却没执行”</h2>
+<p>审批是一次性的敏感操作决策，不是永久授权。<code>ask</code> 策略会等待应答，<code>never</code> 会直接拒绝；审批通道缺失或应答失败时也会失败关闭，而不是默认放行。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/interaction/user-approval/README.md">审批服务官方说明</a></p>
+<p>按症状判断：</p>
+<ul>
+<li><strong>界面有待审批卡片</strong>：先读动作、路径和理由，再允许或拒绝；</li>
+<li><strong>已经拒绝</strong>：该次请求不会因你后来改主意自动执行，让 Agent 重新提出具体操作；</li>
+<li><strong>没有卡片却返回 approval unavailable</strong>：检查当前 Profile 是否加载审批应答器，以及界面连接是否仍有效；</li>
+<li><strong>Read Only 下要求写文件</strong>：这是权限边界生效，不是工具损坏；换成 Workspace Write 之前先确认任务确实需要写；</li>
+<li><strong>工具完全不在轨迹中</strong>：检查 Agent 预设、插件作用域和新任务的工具列表，不要先放宽沙箱。</li>
+</ul>
+<p>如果只有一个动作被拦，不要把整场任务切到更宽权限。保持原权限，让 Agent 缩小操作范围或再次请求单次审批，通常更容易审查。</p>
+<h2 id="wiki-h-13">17.8 插件显示“已启用”，能力却不可用</h2>
+<p>“已启用”表示配置选择了它，不等于模块成功加载。打开“设置 → 插件 → 插件列表”，同时看：</p>
+<ul>
+<li>条目 ID 与完整包名；</li>
+<li>启用/停用状态；</li>
+<li>实际运行状态；</li>
+<li>加载错误；</li>
+<li>它属于 Profile、Agent 预设还是 Client 界面。</li>
+</ul>
+<p>第三方 bundle 加载失败时，插件管理页会保留条目和错误，允许停用或修复。诊断日志位于所选 Profile 的 <code>.plugin-manager/logs</code> 下；日志可能包含 registry、代理、路径和包管理器输出，分享前必须脱敏。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/boot/plugin-manager/README.md">插件管理器官方说明</a></p>
+<p>排查顺序：</p>
+<ol>
+<li>先停用最近新增或更新的第三方 bundle；</li>
+<li>按界面提示重启当前 Profile；</li>
+<li>在只读插件列表确认核心条目无加载错误；</li>
+<li>新建任务验证能力；</li>
+<li>仍失败时再查看诊断日志，不要连续重复安装。</li>
+</ol>
+<p>Desktop 与 CLI/Web Profile 的依赖、锁文件和启用选择相互独立。在 Desktop 中坏掉的插件，要在 Desktop 插件页或原生恢复里处理；运行 <code>dsh plugin --profile web</code> 不会修复 Desktop。</p>
+<h2 id="wiki-h-14">17.9 Skill 找不到，或 MCP 工具没有出现</h2>
+<h3 id="wiki-h-15">Skill 找不到</h3>
+<p>先检查四项：</p>
+<ol>
+<li>项目级路径是否为 <code>.dsh/skills/&lt;name&gt;/SKILL.md</code>；</li>
+<li>frontmatter 是否同时有合法的 <code>name</code> 与 <code>description</code>；</li>
+<li><code>name</code> 是否使用 kebab-case，并与调用名一致；</li>
+<li>新建任务后，输入 <code>/name</code> 是否出现内联建议。</li>
+</ol>
+<p>Skill 文件存在但没有被发现，优先检查路径和 frontmatter；已经被发现但行为没遵守，才检查描述是否触发、是否显式调用，以及正文规则是否互相冲突。</p>
+<h3 id="wiki-h-16">MCP 工具没有出现</h3>
+<p>先确认 MCP Server 的启动命令在系统终端能运行，再检查当前 Profile 的配置和插件列表。工具出现时应带 Server 命名空间，例如 <code>mcp__daily_report_fs__...</code>；只看到一个泛化工具名，不能证明连到了预期 Server。</p>
+<p>最后做一正一反两个检查：</p>
+<ul>
+<li>在已授权目录中读取或写入一个练习文件；</li>
+<li>尝试访问授权目录外的无敏感测试路径，确认被拒绝。</li>
+</ul>
+<p>正向失败通常指向进程、配置或路径；反向竟然成功则是权限边界过宽，不能因为“工具能用”就验收通过。具体步骤回第 12 章。</p>
+<h2 id="wiki-h-17">17.10 Goal、子智能体、Schedule 与 Headless 看起来“不工作”</h2>
+<p>这四种机制的停顿原因不同，先看它们各自的状态入口。</p>
+<h3 id="wiki-h-18">Goal 没继续</h3>
+<p>用 <code>/goal</code> 查看 phase、Round 和剩余轮数。<code>paused</code> 需要用户明确恢复；达到 Round 上限不会偷偷扩容；Host 或进程重启后也不能把“持久状态”误解为“后台一定仍在运行”。先恢复，再观察下一 Round 是否启动。</p>
+<h3 id="wiki-h-19">子智能体没有结果</h3>
+<p>打开父任务顶部的子级目录，确认子任务究竟是运行中、需要输入、失败还是已完成。父 Agent 说“我已委派”不是独立证据；没有子会话或工具轨迹时，先检查当前预设是否真的包含 <code>subagent</code> 工具。</p>
+<h3 id="wiki-h-20">定时任务没触发</h3>
+<p>依次检查 Schedule 插件是否启用、任务是否活动、下一次时间与 <code>Asia/Shanghai</code> 是否正确、原 Session 是否仍可恢复、Desktop/Web Host 是否正在运行。不要在没看任务列表和投递记录前重复创建同名任务。</p>
+<h3 id="wiki-h-21">Headless 没有输出或脚本误判成功</h3>
+<p>默认模式在首个非空推理增量前可能静默。自动化需要进度时用 <code>--json</code>，但仍要同时检查进程退出码：<code>0</code> 表示轮次完成，<code>1</code> 表示中止或错误；有 <code>final</code> 事件也不保证运行成功。详细边界回第 15 章。</p>
+<h2 id="wiki-h-22">17.11 日报助手失败：先绕过 Agent</h2>
+<p>进入 <code>daily-report</code> 目录，按成本从低到高运行：</p>
+<pre><code class="hljs language-bash">npm run check
+npm <span class="hljs-built_in">test</span>
+</code></pre><ul>
+<li><code>npm run check</code> 失败：先修 <code>sources.json</code> 或配置解析，不要访问网络；</li>
+<li><code>npm run check</code> 成功、<code>npm test</code> 失败：问题在代码或测试回归；</li>
+<li>两者都成功、<code>npm start</code> 失败：再检查真实数据源、网络、代理、速率限制和输出文件权限；</li>
+<li>系统终端成功、Agent 中失败：回到工作区、权限、Shell 工具和审批层。</li>
+</ul>
+<p>只有前两项成功且你接受真实外部请求时，才运行：</p>
+<pre><code class="hljs language-bash">npm start
+</code></pre><p><code>npm start</code> 会访问配置的数据源并覆盖 <code>daily-report.md</code>，不是普通只读诊断。不要为了确认 DSH 是否在线就拿它当第一条探针。</p>
+<h2 id="wiki-h-23">17.12 把证据交给 Agent，而不是让它猜</h2>
+<p>需要 DSH 帮忙分析时，在<strong>新的 Read Only 任务</strong>中使用下面模板：</p>
+<pre><code class="hljs language-text">请只诊断，不修改文件、不安装软件、不改变配置、不访问外部网络。
+
+环境：
+- 操作系统与架构：&lt;填写&gt;
+- DSH 入口与完整版本：&lt;Desktop 或 CLI/Web；填写版本&gt;
+- Profile / Agent 预设 / 权限：&lt;填写&gt;
+- 工作区：&lt;只写目录名，必要时隐藏上级路径&gt;
+
+现象：
+- 最后一项成功操作：&lt;填写&gt;
+- 第一项失败操作：&lt;填写&gt;
+- 原始错误码或退出码：&lt;填写&gt;
+- 是否能在新任务复现：&lt;填写&gt;
+
+请输出：
+1. 最可能失败层及依据；
+2. 两个最小只读检查，按顺序列出；
+3. 每个检查的预期结果与下一分支；
+4. 当前证据不足时，明确还缺什么。
+</code></pre><p>粘贴日志前删除 API Key、Authorization 头、Cookie、账号标识、完整本机路径和私有仓库地址。脱敏时保留错误码、时间、版本、失败阶段和调用顺序，否则日志会安全但失去诊断价值。</p>
+<h2 id="wiki-h-24">17.13 什么时候应该回退，而不是继续试</h2>
+<p>遇到以下情况先停：</p>
+<ul>
+<li>修复动作要求删除整个 Harness Home、Profile 或工作区；</li>
+<li>不清楚一条管理员或 <code>sudo</code> 命令会改哪些文件；</li>
+<li>第三方插件来源、构建脚本或兼容版本无法确认；</li>
+<li>日志显示凭证可能已经进入对话、脚本或公开仓库；</li>
+<li>同一个写操作被重复执行，无法确认是否已经部分成功；</li>
+<li>修复需要扩大到工作区之外，但当前没有明确授权。</li>
+</ul>
+<p>优先回退最近一项可识别变更：停用新插件、恢复 Profile patch 备份、切回已知模型、改用新任务、撤销项目差异。不要把“重装一切”当作通用回退方案。</p>
+<h2 id="wiki-h-25">17.14 本章验收</h2>
+<p>请确认你现在能够：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">用“应用 → 模型 → Agent/工具 → 权限/工作区 → 项目”五层模型定位问题；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">完成版本、最小模型、只读工具与项目命令四项健康检查；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">从 Desktop 原生弹窗找到崩溃报告，而不是先删除配置；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">区分账号模型问题与 API Provider 问题；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">区分审批拒绝、审批通道不可用与工具根本不存在；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">判断插件“已启用”与“已成功加载”不是一回事；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">分别检查 Skill、MCP、Goal、子智能体、Schedule 和 Headless 的状态入口；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">用 <code>npm run check</code>、<code>npm test</code>、<code>npm start</code> 的顺序判断日报助手失败层；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能生成一份不含凭证、但保留版本和错误码的诊断材料；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">在修复后用新任务或独立命令复验，而不是只相信原任务的文字结论。</li>
+</ul>
+<p>排错的目标不是“让红色提示消失”，而是知道哪一层恢复了、用什么证据证明、是否引入了新的权限或副作用。下一章会把本教程已经覆盖的能力与尚未展开的进阶方向分开，给出学完之后的继续学习路线。</p>
+<hr>
+<p>← 上一章：案例七：把经验沉淀到项目、Skill 与 Profile　|　回目录　|　下一章：进阶学习路线：从“跟着做”到独立完成任务 →</p>
+</article>

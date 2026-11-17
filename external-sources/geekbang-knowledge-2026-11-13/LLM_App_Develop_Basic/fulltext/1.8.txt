@@ -1,0 +1,224 @@
+同样是生成三张复习卡，打开思考模式后，回答会不会更准确？如果等待明显变长，最后却只得到半份 JSON，又该怪模型、网络，还是预算设置？
+
+上一课的校验器让我们有了比较的起点。我们可以先看卡片是否齐全、引用是否存在，再人工核查答案。本篇在这个基础上加入模式切换、输出预算和实验记录，让“这个设置好像更好”变成可以回看依据的判断。
+
+你会得到一个每次只执行一轮请求的卡片工具，以及一个只读本地记录的报告脚本。可以完全离线练习配置与失败处理；只有你自行决定使用账户时，才执行真实对照调用。本篇没有在线测评结果，不会预先宣布哪个档位胜出。
+
+环境继续使用 Python 3.11+、openai==3.24.0、DeepSeek 官方 Chat Completions API。参数核实日期为 2026 年 10 月 4 日，模型为 deepseek-flash；本课小项目继续保留 4096 的教学预算上限，不是模型的最大输出能力。
+
+把三个不同的控制量分开
+
+想象你请人根据笔记制作卡片。“是否花更多步骤推敲”“最多能写多少”“我愿意等待多久”，是三个不同的问题。API 里也要分别处理。
+
+控制量	本篇对应设置	它不能保证什么
+是否思考、思考强度	thinking开关；reasoning_effort	不保证一定答对，也不保证找回笔记里不存在的信息
+生成预算	max_tokens	不保证一定用满，不等于最终答案的汉字数
+客户端超时设置	timeout_seconds	不是模型生成预算，也不是远端费用的硬截止时间
+
+当前官方思考模式文档列出 low、high、max 三个强度，默认开启思考、默认强度为 high。本教程自己的卡片入口仍默认关闭思考，保持前几课行为明确。两种默认值属于不同层次，不矛盾。DeepSeek：思考模式开关与强度
+
+API 的档位名称不能直接套用聊天软件或 Code Agent 界面的档位。一个工具上的“Ultra”可能经过自己的参数映射，也可能对应完全不同的模型。本篇只传当前接口文档明确列出的值，不把名称相似当成语义相同。
+
+思考可以帮助处理需要比较、推导和检查约束的任务，但不能凭空补出证据。我们的 Q3 问“这套 RAG 系统实测平均响应时间是多少毫秒”，原笔记没有测量数据。正确输出仍应是缺少信息；思考更久后编出更精确的数字，反而是任务失败。
+
+最终正文与思考内容分别在哪里
+
+在本篇使用的接口中，message.content 是最终正文，思考内容位于同级的 message.reasoning_content。卡片校验器仍然只解析 content，不把两个字符串拼起来。DeepSeek：思考模式输入输出字段
+
+原因很直接：我们要求最终正文是一个 JSON 对象，思考片段未必是 JSON，也不是已经核查过的卡片。即使思考字段里出现看似完整的答案，只要最终正文为空或结束原因是 length，当前程序就不会把它当成合格交付。
+
+返回的思考文字也不能充当正确性证明。它可能遗漏条件或包含错误，仍要用原始笔记检查最终结论。本课保存 SDK 导出的整个响应，可能包含这部分内容；报告只摘取参数、状态、用量和时间，不在终端展开思考文本。
+
+本任务每次都是独立的两条消息，没有工具调用，也不回放旧思考内容。不要把它直接改造成带工具的多轮 Agent 后，仍照搬所有消息处理规则；官方文档对携带工具的情况另有回传要求。
+
+预算不足为什么不只是“少写两句话”
+
+max_tokens 是生成长度预算。思考也是生成开销的一部分，不能把这个值理解成专门为最后那份卡片 JSON 预留的字数。开启思考后，原来够用的小预算可能不再够用；是否如此，需要查看结束状态和实际用量，而不是凭回答可见长度猜测。DeepSeek：生成预算与用量字段
+
+一个常见的失败形态是：响应里有思考片段，最终 content 为空或只写出 JSON 的前半截，finish_reason 为 length。此时应先记为未完成。提高预算只是可能的下一步，不是自动接受残缺数据的理由。
+
+预算更大也不代表每次必然多花同样的费用。它提供更大的生成空间，实际生成量由此次请求决定；费用需要结合平台用量、价格和缓存等规则计算，第 09 篇再展开。本篇不将 Token 上限换算成一个虚构的账单数字。
+
+同样，超时不能简单解读为“60 秒后远端一定停止生成”。本项目把 60 秒传给 SDK/HTTP 客户端，它参与网络超时处理；这不是整条业务流程严格的墙钟上限。发生超时后，请求也可能已经在远端处理，不能擅自认定没有消耗。
+
+用临时参数切换，不反复改配置文件
+
+下载 lesson-07 完整代码包，解压后与 lesson-06 并列保存，进入 lesson-07 目录。本篇继续保留旧聊天入口 main.py，新参数只作用于 cards.py。
+
+首次准备，macOS / Linux：
+
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cp config.example.json config.json
+.venv/bin/python cards.py --check
+
+
+Windows PowerShell：
+
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item config.example.json config.json
+.\.venv\Scripts\python.exe cards.py --check
+
+
+只有 python 命令的 Windows 环境用它替换 py -3。已有配置不要覆盖；环境问题仍参考第 02 篇。默认配置是模型 deepseek-flash、预算 1024、超时 60 秒。
+
+新增两个命令行参数：--thinking off|low|high|max 和 --budget 数字。不指定前者时是 off；不指定后者时读取配置中的 max_tokens。覆盖值只在本次进程里生效，不写回 config.json。
+
+先预演两组请求。以下都是本地操作，不读取密钥：
+
+macOS / Linux：
+
+.venv/bin/python cards.py --dry-run --thinking off --budget 4096
+.venv/bin/python cards.py --dry-run --thinking high --budget 4096
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe cards.py --dry-run --thinking off --budget 4096
+.\.venv\Scripts\python.exe cards.py --dry-run --thinking high --budget 4096
+
+
+第一组应包含 thinking: {"type":"disabled"}，不传 reasoning_effort。第二组应包含 thinking: {"type":"enabled"} 与 reasoning_effort: "high"。两组都为非流式、JSON Object、4096 预算，且笔记、问题和提示完全相同。
+
+配套 structured_client.py 中的请求函数如下：
+
+def request_options(settings, messages):
+    options = {
+        "model": settings["model"],
+        "messages": messages,
+        "stream": False,
+        "max_tokens": settings["max_tokens"],
+        "response_format": {"type": "json_object"},
+        "extra_body": {"thinking": {"type": "disabled" if settings.get("thinking", "off") == "off" else "enabled"}},
+    }
+    if settings.get("thinking", "off") != "off":
+        options["reasoning_effort"] = settings["thinking"]
+    return options
+
+
+这里在关闭思考时省略强度字段，避免同时表达互相冲突的要求。thinking 通过 SDK 的 extra_body 传入，强度用 reasoning_effort。代码没有为了追求“稳定”额外塞入采样参数；固定请求也不能保证每次输出逐字一致。
+
+离线演示新增的“思考后截断”情况
+
+macOS / Linux：
+
+.venv/bin/python cards.py --demo --thinking high --budget 4096
+.venv/bin/python report.py
+.venv/bin/python report.py --include-demo
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe cards.py --demo --thinking high --budget 4096
+.\.venv\Scripts\python.exe report.py
+.\.venv\Scripts\python.exe report.py --include-demo
+
+
+演示先运行上一课的正确样例和错误引文，再追加一个人为构造的响应：思考字段有一小段文字，正文为空，结束原因为 length。第三组应显示：
+
+未通过：回答没有以 stop 正常结束，不解析为卡片。
+
+
+整个演示按预期完成时退出码为 0。这只验证程序会不会拦截残缺结果，不证明 high + 4096 真实调用必然截断；演示无论选择什么档位，都会运行同一组预置情况。
+
+本次产生三组、共九个 request/response/result 文件。打开第三组结果，应该看到 status: response_rejected、finish_reason: length、cards: null，并且 experiment.simulated 为 true。
+
+report.py 默认排除演示。如果你尚未做过真实请求，它会提示“没有可展示的实验记录”，这并不表示平台用量为零。加上 --include-demo 后，可以看到三份记录，elapsed_seconds 和 Token 统计都为 null。演示运行当然消耗了本地时间，但它没有测量真实模型，因此不把这点本地耗时放进性能对照。
+
+报告只读取本课脚本旁的 records，不联网、不取密钥，也不计算价格。缺少实验字段的旧聊天记录会跳过；损坏或无法解析的记录会提示文件名。
+
+读懂一份实验记录
+
+每轮仍使用同一个随机 ID 保存请求、SDK 响应与校验结果。请求和结果增加 experiment 信息；结果还增加本地等待时间和响应返回的模型标识。
+
+字段	用途与边界
+experiment.started_at	创建实验记录时的UTC时间，帮助定位运行批次
+experiment.task_sha256	对完整messages计算的指纹；提示或笔记改变会改变它
+requested_model、returned_model	请求模型名与响应报告的模型名；不保证暴露精确权重版本
+thinking、max_tokens、timeout_seconds	本次实际采用的设置，包含临时覆盖值
+elapsed_seconds	本地等待send调用返回或抛异常的时长；演示为null
+status、finish_reason	规则结果与接口结束原因，失败轮也要看
+usage	SDK响应中的用量对象，未得到时保留null
+
+指纹用于核对任务是否相同，不是加密。原请求仍保存了全部笔记，不能因为出现了哈希值就放心公开。模式和预算不在任务指纹里，而在单独字段中，便于比较“同一任务、不同参数”。
+
+计时使用 time.perf_counter() 前后作差。它适合测量经过的时长；本课范围是发出调用到 SDK 返回/失败，包含网络、服务端等待和处理、SDK 解析，不包含前面的密钥输入、请求文件保存及后面的本地校验、结果保存。Python：perf_counter
+
+因此，这个值不是“模型纯推理时间”，也不是首字延迟。本课非流式请求并没有测量第一段正文何时出现。失败请求若仍能保存结果，也会记录等了多久；不应只统计成功的快请求，把超时轮从体验分析中消失。
+
+报告从 usage 中摘出 prompt_tokens、completion_tokens 与 completion_tokens_details.reasoning_tokens。思考 Token 是输出统计的细分，不能再加到 completion_tokens 上重复算一次；字段没有返回时保留 null，不能用 reasoning_content 的字符数补造 Token 数。DeepSeek：用量统计字段
+
+如果某次记录没有思考用量细分，最多只能说“未取得细分数据”，不能立刻断定模型没有消耗思考 Token。读报告时也要回看 request，确认开关实际发成了什么。
+
+怎样做一轮小规模对照
+
+若你只想掌握机制，到这里已经可以完成本课。需要自行比较真实表现时，以下两条命令会各发送一次可能计费的请求；不含自动循环，也不默认把四个档位全部跑一遍。
+
+macOS / Linux：
+
+.venv/bin/python cards.py --thinking off --budget 4096
+.venv/bin/python cards.py --thinking high --budget 4096
+.venv/bin/python report.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe cards.py --thinking off --budget 4096
+.\.venv\Scripts\python.exe cards.py --thinking high --budget 4096
+.\.venv\Scripts\python.exe report.py
+
+
+每次都会单独隐藏输入 Key，完成一轮后退出；没有自动充值、重试或查找个人凭据。4096 是方便观察的小实验预算，不是经过测评得到的最优值，更不能保证高强度任务一定够用。
+
+先在报告中确认两份记录的任务指纹、模型、预算和超时相同，再打开各自的卡片。按下面的表手工记下结果，空格由你的实际运行填写：
+
+记录ID	模式/预算	是否正常结束	规则是否通过	Q1/Q2是否符合原文	Q3是否正确报缺失	等待秒数	输出Token/思考Token
+自己填写	off / 4096	待观察	待观察	待审核	待审核	待记录	待记录
+自己填写	high / 4096	待观察	待观察	待审核	待审核	待记录	待记录
+
+“规则通过”只能填代码已经检查的部分，不能替代后面的两个内容审核格。报告中的 semantic_review 因而固定提醒人工审核，不会根据模式名称自动打分。
+
+一次快、一次慢不足以说明稳定差异。网络、服务负载、输入缓存以及模型输出波动都会影响观察。若确有必要并接受额外费用，可在相近时间交替重复少量请求；保留失败轮，区分不同任务和预算，再看结果是否一致。这个小练习不是严谨的模型排名。
+
+如果关闭思考已经准确完成三张简单卡片，而开启后只增加等待和用量，你有理由为这个任务保留关闭。如果某个模式在更复杂笔记上反复减少遗漏，也仍应核对收益是否值得。结论的适用范围是你的任务与样本，不能扩大成“某种模式永远最好”。
+
+一次只改一个因素，但要理解这个限制
+
+比较 off / 1024 和 high / 4096，同时改了模式与预算。如果第二组成功了，你无法区分是思考模式起作用，还是预算原本就不够。因此前面的初次对照使用相同预算。
+
+不过，相同总预算也不等于两种模式拥有相同的最终正文空间。开启思考后，生成资源分配会不同。如果出现 length，当前实验更像是在比较“给定预算下能否完成”，不能直接判断哪种模式的能力上限更高。
+
+继续排查时，先固定模式，再比较预算，例如先预演：
+
+macOS / Linux：
+
+.venv/bin/python cards.py --dry-run --thinking high --budget 1024
+.venv/bin/python cards.py --dry-run --thinking high --budget 4096
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe cards.py --dry-run --thinking high --budget 1024
+.\.venv\Scripts\python.exe cards.py --dry-run --thinking high --budget 4096
+
+
+这两条不会付费，只确认实际参数。是否去掉 --dry-run 真正执行，要根据自己的需求和账户预算决定。若现有小上限仍不够，先缩短任务、选择较低强度或减少问题；不要让教程替你无边界地加大预算。
+
+再做一个纸面判断：报告显示这次卡片 API 等了 2 秒，是否可以把 Q3 改答“RAG 系统实测平均为2000毫秒”？不可以。这只是一次卡片生成调用的本地等待时间，既没有测试那套 RAG 系统，也不是多次平均，更不在提供给模型的笔记里。测量对象和问题对象必须一致。
+
+几个常见误判
+现象	先检查与解释
+high结果更长，所以肯定更好	回到题目、引用和缺失信息审核；长度不是质量指标
+thinking开启但最终JSON为空	看finish_reason、content和预算；不要拿reasoning_content顶替答案
+high用量没有reasoning_tokens	保留未知，核对原始usage与实际请求；不要填0或按字数估算
+report没有输出实验	默认排除demo，也只读lesson-07的records；用--include-demo验证路径
+预算设置报错	本课命令限制1—4096，属于教学限制；无效参数不会触发请求
+等待很久后失败	本次失败也应进入观察；超时不等于远端没计费，不自动重发
+预演改了high，重跑却是off	临时参数不写配置；每次真实运行要带上需要的参数
+
+本篇建立了一个比较设置的基本顺序：先固定任务和检查标准，再核对实际请求，最后同时看质量、等待和用量。下一篇会处理真实网络环境中不可避免的失败，把认证、余额、限流和服务异常分开，再决定哪些情况值得有限重试。
+
+上一篇：结构化输出与验证 · 本部分大纲 · 完整代码包 · 运行说明
+
+验证范围：Python 3.11.8、openai 3.24.0，20项离线检查通过，包含上一课13项边界回归和新增模式、计时、报告检查。实际SDK使用模拟HTTP；未进行付费API调用，没有真实质量、延迟或费用对照数据。Windows / Linux命令未实机执行。

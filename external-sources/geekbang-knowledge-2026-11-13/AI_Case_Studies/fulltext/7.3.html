@@ -1,0 +1,140 @@
+<!DOCTYPE html><meta charset="utf-8"><article><div class="wiki-callout"><strong>一句话成果</strong>：过去半年多，菜鸟内部 AI Coding 贡献率从约 10% 提升至 90% 以上，但编码自动化并未带来同等幅度的需求交付提速。为此，菜鸟开始将探索范围从 Vibe Coding 扩展到需求端到端托管交付，并尝试用通用 Agent、Plugin、Playbook 和云端沙箱构建企业级交付体系。</div><hr>
+<blockquote>
+<p>在 2026 年 AICon 全球人工智能开发与应用大会上海站上，菜鸟网络研发总监郭凤钊分享了菜鸟在 AI 研发效能领域的实践。</p>
+<p>过去半年多，菜鸟内部 AI Coding 贡献率从约 10% 提升至 90% 以上，但编码自动化并未带来同等幅度的需求交付提速。为此，菜鸟开始将探索范围从 Vibe Coding 扩展到需求端到端托管交付，并尝试用通用 Agent、Plugin、Playbook 和云端沙箱构建企业级交付体系。</p>
+<p>本次分享涵盖菜鸟 AI Coding 的推广过程、需求托管交付 Agent 的技术方案、产品规模化推广的思考，以及 AI 研发效能的度量方法。</p>
+</blockquote>
+<p><img class="wiki-lazy-img" alt="郭凤钊在 AICon 大会现场做分享，背景屏幕上配有 AI 能带来的变化主题插画。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-speaker.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1" src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-speaker.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c&amp;x-oss-process=image/quality,q_85/format,webp"></p>
+<h2 id="wiki-h-0">从 10% 到 90%：AI Coding 的普及只是起点</h2>
+<p>菜鸟大规模推广 AI Coding，大约始于 2025 年 10 月。当时，大多数开发者并不相信 AI Coding 能够真正处理企业内部的工程问题。很多人的判断是：AI 可以完成从 0 到 1 的新项目，但企业内部面对的是大量存量代码，其中不乏历史包袱沉重、结构复杂的系统，AI 是否还能胜任，需要打一个问号。</p>
+<p>因此，早期真正愿意研究 Prompt、Coding Rules 和各种最佳实践的，只是少数对 AI Coding 有热情的开发者。更多人尝试几次，发现效果不理想，便放弃了。当时业界已经出现了一些实践，例如通过 Prompt 和 Rules 约束代码生成、让 AI 遵循 TDD、在编码前先生成 Plan，以及后来逐渐演进出的 SDD 等模式，但尚未形成广泛共识。</p>
+<p>当时，菜鸟的 AI Coding 贡献率约为 10%。我们设定的目标是：半年后达到 20%，挑战 50%。这里所说的 AI Coding 贡献率，是指提交到代码仓库中的 AI 生成代码行数，占整体提交代码行数的比例。半年多以后，这一指标已经超过 90%，部分团队接近 100%。</p>
+<p><strong>从约 10% 到 90% 以上，实际增长速度远超预期。</strong>回顾这一过程，我认为主要有三个因素发挥了作用。</p>
+<p><img class="wiki-lazy-img" alt="菜鸟 AI Coding 贡献率从 10% 提升至 90% 以上的关键结果与三项核心因素：SOTA 模型持续升级、Coding Agent 快速迭代，以及菜鸟推行 AI Coding 的四大策略。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-adoption-curve.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>第一，SOTA 模型的能力持续提升。从 Opus 4.5、Sonnet 4.5 开始，模型版本不断迭代，基础能力的进步直接抬高了 AI Coding 的上限。</p>
+<p>第二，Coding Agent 快速发展。从早期工具到 Cursor、Claude Code、Codex 等产品，Coding Agent 进入激烈竞争阶段，开发者可以把更多真实任务交给 AI，而不再只是生成代码片段。</p>
+<p>第三，是企业内部的推广策略。菜鸟主要做了四件事：</p>
+<ol>
+<li>找到高度认可 AI Coding、愿意持续探索的开发者，由他们担任 AI 布道师，研究并推广最佳实践。</li>
+<li>引入市场上成熟的 Coding Agent。菜鸟内部曾有一个约 10 人的团队开发 Copilot，但市场演进太快，小团队很难与专业产品公司竞争，因此后来选择引入市场化工具。</li>
+<li>对团队和个人维度的 AI Coding 贡献率进行度量和公开展示。</li>
+<li>与安全团队联合，识别并防范 AI Coding 带来的代码与数据安全风险。</li>
+</ol>
+<p>在这些因素共同作用下，菜鸟的 AI Coding 贡献率在 2026 年二三月达到 50%，随后继续上升，平均值超过 90%。但新的问题很快出现：<strong>AI Coding 贡献率大幅提高，并不意味着需求交付周期会等比例缩短。</strong></p>
+<h2 id="wiki-h-1">从由『人』主导转变为由『Agent』主导</h2>
+<p><img class="wiki-lazy-img" alt="需求交付全链路演示：AI Coding 参与的需求相比未使用的，变更周期仅缩短 10% 左右；编码仅占约 30% 时间，剩余流程对 Agent 并不友好且各步骤需人工触发。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-delivery-chain.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>我们比较了有 AI 参与和没有 AI 参与的需求，发现二者的需求变更周期只相差约 10%。相对于 90% 以上的 AI Coding 贡献率，这个结果显然不够理想。</p>
+<p>背后主要有三个原因。</p>
+<p>首先，编码只是需求交付链路中的一个环节。需求从澄清开始，还要经历技术方案设计、测试用例生成、代码编写、编译、测试和部署等阶段。即使编码实现 100% 自动化，它在整体交付周期中占用的时间可能也只有 30% 左右。</p>
+<p>其次，编码之外的许多步骤尚未被 AI 托管，原有研发系统和流程对 Agent 也不够友好，无法像 Vibe Coding 一样迅速实现自动化。</p>
+<p>第三，阶段之间仍然依赖人来推动。一个阶段完成后，需要工程师确认结果、切换工具并发起下一步。如果工程师正在处理其他任务，整个流程就会停下来。</p>
+<p><strong>只要流程仍由人主导，人的注意力和时间就是端到端交付的瓶颈。</strong></p>
+<p>基于这一判断，我们开始探索需求的端到端托管交付：从需求澄清开始，一直执行到代码部署至预发环境，由 Agent 主导流程，工程师只在必要节点参与确认。</p>
+<p>首先要解决的是运行环境问题：托管交付 Agent 应该运行在本地、普通云端环境，还是云端沙箱？</p>
+<p>本地环境符合开发者习惯，但云端沙箱有两个明显优势。一是可以提供 <strong>7×24 小时</strong>的运行环境，不会因开发者关闭电脑而中断任务；二是更有利于企业经验共享。如果最佳实践只存在于某个人的头脑和电脑里，其他团队很难复用。最终，我们选择在云端沙箱中构建托管交付的运行环境。</p>
+<p>接下来，是如何构建托管交付 Agent。</p>
+<h3 id="wiki-h-2">长程任务的关键，不只是把 Skill 串起来</h3>
+<p>在企业内部，我们看到过四类常见方案。</p>
+<p>第一类是使用 Workflow，把需求澄清、技术方案生成、测试用例生成和代码生成等节点编排起来。问题在于，需求交付流程很长。如果将所有节点都写进 Workflow，流程很快就会变得难以维护，也缺少灵活性。</p>
+<p>第二类是从头定制一套托管交付 Agent。菜鸟在 2025 年 4 月也曾启动过类似项目，使用 Spring AI 开发专用 Agent，但投入成本很高。企业内部不同团队的研发流程并不完全一致，兼容这些差异会进一步增加开发和维护成本。同时，AI Coding 的模式和最佳实践迭代很快，自研系统很难长期保持先进性。</p>
+<p>第三类是把各个研发步骤做成 Skill，再由工程师在本地逐一调用。例如，将编写单元测试封装成一个 Skill，完成后再人工触发下一个 Skill。这提高了单个步骤的效率，却没有改变人作为流程瓶颈的问题。</p>
+<p>第四类是用一个 Prompt 或 Skill 编排其他所有 Skill。简单场景下，这种方式可以工作，但面对复杂的长程任务时，很容易触碰上下文窗口的边界。即使模型提供了约 100 万 Token 的上下文窗口，真正可用于任务的信息空间也没有看上去那么充裕。Coding Agent 的 System Prompt、历史会话、工具定义、工具调用结果以及读取的文件内容，都会占用上下文。</p>
+<p>随着执行轮次增加，任务可能遭遇三类问题。</p>
+<p><img class="wiki-lazy-img" alt="长程任务的上下文挑战已超越 Skills 的能力边界：上下文腐烂、上下文耗尽、上下文焦虑，以及 Anthropic 的 Harness 设计原则与通用 Agent 的上下文操作策略。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-context-challenge.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>第一是上下文腐烂，即 Context Rot。上下文中混入大量无关信息后，模型对关键信息的关注能力会明显下降。</p>
+<p>第二是上下文耗尽。Anthropic 曾举过一个例子：如果直接要求基于 Claude Code SDK 完成一个完整的 Claude Code 官方网站，任务可能执行到一半就耗尽上下文。即使进行压缩，留下的现场也未必足以支持下一个 Agent 可靠接手。</p>
+<p>第三是“上下文焦虑”。当模型接近上下文上限时，可能提前宣告任务完成。开发者有时会看到模型声称“已经完整实现”，但检查代码后，却发现核心功能并没有完成。</p>
+<p>因此，处理长程任务时，需要先拆解功能清单，再增量推进：每次只执行一个步骤，完成后检查真实产物，不能只相信模型反馈。</p>
+<p>通用 Agent 通常会通过新建会话、压缩上下文、使用 Subagent 隔离上下文、回退或继续执行等方式管理上下文。仅靠 Skill 无法解决这些问题，因为 Skill 本身就运行在上下文中，无法从外部管理自己的上下文。</p>
+<h3 id="wiki-h-3">用 Plugin 管理上下文，用 Playbook 描述企业流程</h3>
+<p>菜鸟的方案是使用 Plugin。</p>
+<p><img class="wiki-lazy-img" alt="Plugins 四类组件：Skill、Subagent、Hooks、CLI，以及 Playbook.md 描述长流程任务执行流程的示例。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-plugin-playbook.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>Plugin 能够承载 Skill、Subagent、Hooks、MCP 和 CLI 等组件，并提供版本管理和分发能力。从上下文管理的视角看，这些组件对应着不同的管理方式：</p>
+<ul>
+<li>Skill 用于渐进式加载知识和操作方法；</li>
+<li>Subagent 创建独立上下文，在内部闭环执行任务，只把结果返回给主 Agent；</li>
+<li>Hooks 在特定事件前后确定性地执行脚本，避免模型因上下文过长而遗忘必须执行的操作；</li>
+<li>CLI 可以通过 <code>--help</code> 等方式逐步发现命令，无须在任务开始时加载所有命令定义。</li>
+</ul>
+<p>我们也观察到，CLI 正在替代一部分原本使用 MCP 的场景，原因之一正是它更节省上下文。</p>
+<p>在菜鸟的方案中，企业研发任务会被封装成 Skill，再与 Subagent、Hooks 等组件一起放进 Plugin。但 Claude Code 等通用 Agent 并不了解企业内部如何完成一次需求交付，也不知道各步骤之间的关系。</p>
+<p>因此，我们又引入了 Playbook，用自然语言描述企业内部的需求交付流程。例如：</p>
+<ul>
+<li>Task 1：需求澄清；</li>
+<li>Task 2：技术方案生成；</li>
+<li>Task 3：测试用例生成；</li>
+<li>Task 4：代码实现及后续流程。</li>
+</ul>
+<p>Playbook 会通过 Skill 转换成 <code>todo.json</code>，再由 Executor 循环执行。整个流程运行在云端沙箱中，底层由 Claude Code 等通用 Agent 提供 Harness。此时，它不只承担编码任务，还可以完成需求澄清、技术方案生成和部署。</p>
+<p><strong>菜鸟的整体方案可以概括为：通用 Agent 提供 Harness，Plugin 承载能力，Playbook 描述流程，</strong><code>todo.json</code> <strong>保证长程任务的确定性执行。</strong></p>
+<p>不同业务团队可以维护自己的 Skill 和 Playbook，并将其打包到 Plugin 中。平台由此能够按照各业务团队定义的流程执行任务，不必在平台层硬编码所有差异。</p>
+<h3 id="wiki-h-4">为什么选择 <code>todo.json</code>，而不是 <code>todo.md</code></h3>
+<p><img class="wiki-lazy-img" alt="用 todo.json 解决长程任务下的确定性执行：todo.json 示例与 Executor 执行循环（Agent Loop）流程图，包含任务调度、人工确认与回退、Gate 校验、Artifact 依赖。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-todo-json.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>Manus 等 Agent 的早期设计中，会使用 <code>todo.md</code> 管理长程任务：先生成任务列表，每完成一项就划掉一项。Playbook 在一定程度上承担了类似作用，但企业需求交付的状态更加复杂。例如，在生成技术方案前，Agent 必须检查需求澄清文档是否已经生成。如果前置产物不存在，就应该返回需求澄清阶段，而不是继续执行。</p>
+<p>选择 <code>todo.json</code>，首先是因为 Markdown 容易被模型直接改写。Agent 可能凭空增加任务，也可能删除原有任务。其次，Markdown 待办列表通常只能区分“完成”和“未完成”，很难准确描述 Pending、In Progress、Skipped、Failed 等状态。</p>
+<p>JSON 能够提供更强的结构化约束。我们规定 Agent 每次只能选择序号最小的未完成任务，只能修改任务状态、开始时间和结束时间，不能修改其他字段，更不能增加或删除任务。</p>
+<p>执行过程大致如下：</p>
+<ol>
+<li>从 <code>todo.json</code> 中定位序号最小的未完成任务；</li>
+<li>检查前置任务和必要产物是否已经完成；</li>
+<li>将当前任务标记为 In Progress；</li>
+<li>调用对应的 Skill 或 Subagent；</li>
+<li>检查任务输出是否真实存在并满足条件；</li>
+<li>更新任务状态，继续执行下一项。</li>
+</ol>
+<p>代码编译和部署适合放进 Subagent，因为主 Agent 不关心中间输出，只需要知道任务是否成功，以及失败原因。其他需要主流程持续使用上下文的任务，则可以通过 Skill 执行。</p>
+<p>在需求澄清或技术方案生成阶段，流程还会进入 Waiting for Human 状态，通过 <code>AskUserQuestion</code> 请求工程师确认。确认后，Agent 继续执行后续步骤，形成一个持续运行的 Agent Loop，直到最后一个任务结束。</p>
+<p>随着模型能力继续提升，这层 Harness 未来可能进一步简化。届时，也许只需要使用 Markdown 描述流程，模型就能可靠执行。但在当前阶段，结构化状态和确定性约束仍然不可或缺。</p>
+<h3 id="wiki-h-5">用户在哪里，托管交付 Agent 就应该在哪里</h3>
+<p>在产品形态上，我们坚持一个核心理念：<strong>用户在哪里，托管交付 Agent 就应该在哪里。</strong>菜鸟没有要求用户进入独立的 Agent 平台，而是把能力嵌入现有需求管理系统。</p>
+<p><img class="wiki-lazy-img" alt="菜鸟产品设计理念：左侧 Agent 控制和对话区域、中间人工 Review 区域、右侧执行进展；托管交付先确定代码仓库、设计阶段 human-in-the-loop、引导式选择题、中间产物持久化、多轮对话支持回退。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-product-design.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>界面由三个区域组成：左侧是 Agent 控制和对话区域，中间是人工 Review 区域，右侧展示执行进展。</p>
+<p>过去由工程师或产品经理编写的 PRD，现在可以由 Agent 生成，再由人在中间区域 Review。交互方式也尽量避免要求用户编写复杂 Prompt，而是参考 Superpowers 的 Brainstorming Skill，通过 A、B、C 选择题引导用户补充信息。</p>
+<p>需求交付并不总是线性流程。有时任务已经部署到预发环境，团队才发现遗漏功能，或者实现不符合预期，需要回到需求澄清或技术方案设计阶段。因此，我们引入了 Round 的概念，允许一次需求经历多轮澄清和执行，并在不同阶段之间回退。</p>
+<p>所有中间产物都会被持久化。Hooks 会监听 <code>todo.json</code> 的变化，一旦检测到新的中间产物，便调用脚本将其写入数据库。用户无须登录云端沙箱，就能在需求管理界面查看执行进展和产物。</p>
+<p>云端沙箱也降低了使用门槛。任务启动时，系统会初始化沙箱并克隆用户选择的代码仓库。用户不需要在本地安装 JDK、Maven 或 Claude Code，也不需要准备开发环境。</p>
+<p>菜鸟的需求托管交付能力于 2026 年 5 月上线。上线后的最近 30 天内，平台已经交付 100 多个需求。数量还不算大，但已经验证了这条路径能够走通。</p>
+<p>一个有意思的现象是，PMO、产品经理和技术运营等非技术岗位，也开始通过这一平台交付生产环境代码。这些代码主要面向内部提效工具。过去，他们需要等待研发排期；现在，一些影响范围有限、失败成本可控的内部需求，可以自行完成交付。</p>
+<h2 id="wiki-h-6">如何更大范围推广托管交付</h2>
+<p>完成 Demo 之后，我们面临的新挑战是如何扩大托管交付的使用范围。</p>
+<p>平台团队很容易从“还应该增加什么能力”的角度思考产品，但平台具备某项能力，并不等于用户需要它。</p>
+<p>托管交付早期瞄准的是验证成本较低、一个人能够闭环的小需求。这类需求相对简单，可以快速暴露流程问题，适合验证技术方案。但真正推广时，用户会问：“为什么我要使用云端托管交付，而不是直接在本地使用 Claude Code 或 Codex？”仅仅告诉用户云端 Agent 能够 7×24 小时运行、代表未来趋势，不足以让他们改变工作方式。</p>
+<p>《与运气竞争》中提出了 Jobs to Be Done 理论：用户“雇佣”一个产品，是为了完成某项任务。“雇佣”意味着成本。即使企业内部工具免费，用户仍然需要投入学习和操作精力；如果工具无法完成任务，还要切回原来的方式。</p>
+<p>沿着这一思路，我们认为，托管交付的黄金场景不是所有需求，而是那些<strong>开发者不愿意做、却又不得不做的小需求</strong>。</p>
+<p><img class="wiki-lazy-img" alt="托管交付的黄金场景：开发者不愿意做、又不得不做的小需求，分为工单类、体验类和重复类需求；新技术要先在某个细分场景成为 No.1，才可能跨越鸿沟。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-golden-scenarios.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>第一类是工单类需求，例如 MySQL 相关修改、安全工单、FastJSON 漏洞升级以及线上 NPE 异常修复。这些问题通常很小，但如果专门为此开启一个完整迭代，成本又过高。</p>
+<p>第二类是体验优化需求，例如增加按钮、调整表格尺寸或修改交互细节。这些工作必须完成，但对很多工程师来说吸引力有限。</p>
+<p>第三类是重复性需求，例如简单 CRUD、协议转换等。菜鸟接入第三方服务商时，需要把对方提供的能力转换成菜鸟内部网关可以调用的协议。这类任务重复度高，开发者通常也不愿意反复手工处理。如果 Agent 能够自动完成这些工作，相当于为开发者增加了一个帮手，接受阻力会小得多。</p>
+<p>这类场景还有一个天然优势：它们往往能够直接确定需要修改的应用和代码仓库。GitHub 之所以能成为天然的 A-to-A 协作平台，是因为 Issue 本身就属于特定代码仓库。一个 Agent 提交 Issue，另一个 Agent 修复问题并创建 Merge Request，任务边界非常明确。</p>
+<p>企业内部的一般业务需求则不同。用户提出需求后，往往还要依赖专家经验判断涉及哪些应用。工单、安全问题和异常日志通常已经带有应用信息，因此更适合直接交给 Agent。</p>
+<p>理想状态是，Agent 每天主动发现并完成一批此类任务，再通知工程师：“这个问题已经修复，请确认是否合并和发布。”此时，托管交付不再是另一个开发工具，而是一个直接完成待办工作的 Agent。</p>
+<p>《跨越鸿沟》提出，新技术从早期市场走向主流市场时，必须先在一个细分领域打透。对托管交付而言，这些开发者不愿意做、又不得不做的小需求，就是当前最值得突破的场景。</p>
+<h2 id="wiki-h-7">AI 研发效能不能只看代码贡献率</h2>
+<p>当 AI Coding 贡献率达到 80% 或 90% 后，仍然要回答老板和 CEO 的问题：So what？</p>
+<p>为了回答这个问题，我们研究了研发效能度量框架的演进。</p>
+<p>较早期的 DORA 框架从四个维度度量交付流水线的质量和效率：部署频率、变更前置时间、变更失败率和服务恢复时间。它关注交付速度和质量，但没有回答团队目标是否真正达成。</p>
+<p>换句话说，DORA 更关注是否正确地完成了一件事，却不一定关注团队做的是不是正确的事、是否创造了业务价值。</p>
+<p>2021 年提出的 SPACE 框架进一步扩展了评价维度，包括研发满意度、质量与效率、工作活动分布、协同效能，以及效率与心流等。它更加全面，但每个维度下又有大量指标，最终可能形成一个大而全的体系，团队仍然不知道应该优先优化什么。</p>
+<p>2023 年，业界开始更多讨论 DevEx，即开发者体验。DevEx 主要关注心流、反馈闭环和认知负荷，希望通过消除开发过程中的摩擦点提升效率。</p>
+<p>反馈闭环尤其重要。大模型能力提升后，前端工程师往往更早感受到冲击，一个原因就是前端的反馈闭环很短。输入 Prompt、增加按钮或修改页面后，结果可以立即呈现，验证成本很低；后端开发的反馈链路通常更长。一次修改可能引入性能问题或其他 Bug，仅通过代码表面很难发现。反馈闭环越短、认知负荷越低，开发者越容易进入心流，效率也越容易提升。</p>
+<p>但 DevEx 同样存在局限：<strong>体验改善不一定等于效能提升。</strong>在 AI 时代，团队可能为了提高 AI Coding 贡献率，持续与 AI 进行大量没有实际价值的对话。指标上涨了，业务产出却没有增加。</p>
+<p><img class="wiki-lazy-img" alt="北极星目标与多维度观测指标：组织牵引指标、古德哈特定律、多维度指标相互制衡，以及研发效能的冰山图。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.3-north-star-metrics.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>因此，我们认为仍然需要一个北极星指标，从“多、快、好、省”的角度回答 AI 带来了什么变化。例如：</p>
+<ul>
+<li>单位周期内，人均交付的需求数量是否增加；</li>
+<li>需求整体交付周期是否明显缩短；</li>
+<li>工单数和故障数是否下降，代码质量是否提升。</li>
+</ul>
+<p>对于非技术岗位，特别是需要向管理层解释 AI 价值时，北极星指标能够提供清晰牵引。</p>
+<p>但只有一个北极星指标也不够。<strong>当一个指标变成唯一目标时，它往往就不再是一个好指标。</strong>因此，还需要设置检查指标，相互佐证和制衡。</p>
+<p>例如，人均交付需求数增加时，需要检查需求拆分的颗粒度是否变小。如果团队只是把原来的一个需求拆成多个更小的需求，数字虽然上涨，实际产出并没有变化。评估交付周期时，同样需要排除需求规模变化带来的影响。最后还要认识到，研发效能度量就像一座冰山。水面之上是能够统计的指标，水面之下则是组织架构、技术架构、业务阶段和组织文化。</p>
+<p>根据康威定律，系统架构与组织架构密切相关。企业所处的业务阶段不同，适用的效能指标也会不同。大量影响研发效率的因素无法直接量化，因此，指标不应被当作绝对答案，而应当用于观察趋势、发现摩擦点并推动优化。</p>
+<h2 id="wiki-h-8">结语</h2>
+<p>回顾菜鸟从 AI Coding 到需求托管交付 Agent 的实践，我想总结四个判断。</p>
+<p>第一，企业推动 AI Coding 落地，可以先抓住“三板斧”：<strong>使用先进模型、选择好用的 Coding Agent、对关键指标进行度量和公开展示。</strong></p>
+<p>第二，要让 Agent 完成需求交付这样的长程任务，可以采用<strong>通用 Agent 作为 Harness、Plugin 承载能力、Playbook 描述流程</strong>的组合，并通过结构化任务状态保证执行的确定性。</p>
+<p>第三，完成一个新产品之后，必须回到用户视角，理解用户愿意“雇佣”它完成什么任务。只有把具体场景做透，产品才有机会跨越从早期尝试到规模化应用之间的鸿沟。</p>
+<p>第四，研发效能度量的目的不是追求好看的数字，而是发现交付过程中的摩擦点。<strong>用北极星指标提供方向，用多维检查指标相互制衡，再结合组织和业务背景观察趋势，才能接近 AI 创造的真实价值。</strong></p>
+<p>嘉宾介绍：</p>
+<p><strong>郭凤钊，</strong>菜鸟网络研发总监，菜鸟 AI 研发效能负责人 / 架构师，负责研发效能、稳定性与 FinOps 体系，双 11 等大促技术 PM。专注于 AI 赋能企业研发效能的实践与落地，是菜鸟内部 AI 技术布道的核心推动者。鲲鹏会杭州会员。</p>
+</article>

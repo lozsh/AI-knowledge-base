@@ -1,0 +1,225 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>历史搜索的规格已经写好了，Git检查点也建立了。现在对Kimi Code说“按规格实现”，是不是就可以等它交付？</p>
+<p>还差一个会明显影响成败的决定：这次改动应该在哪里发生，以及每做到哪一步就停下来检查。如果Agent同时改页面、查询、模型接入和数据格式，最后即使看到了搜索框，也很难判断它是否顺手破坏了其他流程。</p>
+<p>本篇把这次需求拆成三个检查点：先做好只读查询，再接上网页，最后验证完整流程。最终得到一个能搜索当前浏览器会话历史问题的笔记助手。应用继续使用DeepSeek官方API，Kimi Code只是开发工具；搜索本身不调用模型。</p>
+<p>下载完整材料与代码 · 分步开发任务 · 实现状态说明 · 上一篇：Git与检查点</p>
+<blockquote>
+<p>核实日期：2026年10月4日。作者提供的reference是手工参考实现，已完成本地离线存储、HTTP与回归检查，不是Kimi实际生成记录。没有真实Kimi或DeepSeek请求，没有Windows实机或浏览器视觉测试。读者使用Kimi开发可能消耗自己的工具额度，运行本篇离线检查不需要模型密钥。</p>
+</blockquote>
+<h2 id="wiki-h-0">拆任务要拆出可以判断的结果</h2>
+<p>“先读代码、再写代码、最后测试”是一种时间安排，却没有说明任何一步的交付结果。更有用的拆法是让每一步都有明确输入、输出和检查方法。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>检查点</th>
+<th>交付结果</th>
+<th>修改范围</th>
+<th>怎样证明完成</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A：历史查询</td>
+<td>给定owner与关键词，返回记录和截断提示</td>
+<td>storage.py</td>
+<td>临时数据库中的固定案例得到约定ID</td>
+</tr>
+<tr>
+<td>B：网页接线</td>
+<td>搜索框、清空、列表与错误反馈可用</td>
+<td>web_app.py、templates/web.html</td>
+<td>HTTP请求返回正确列表、状态码与转义内容</td>
+</tr>
+<tr>
+<td>C：集成回归</td>
+<td>新搜索与旧预览、生成、计划共存</td>
+<td>原则上只修复发现的问题</td>
+<td>搜索、证据统计、原有验收全部通过</td>
+</tr>
+</tbody></table></div>
+<p>A完成时，网页还可以没有搜索框，但我们能单独证明查询结果正确。B完成时，也不能只看搜索框存在，还要验证页面传给查询的身份来自当前会话。C把前两个小步放回整个应用里检查。</p>
+<p>这三个检查点让失败变得容易定位：查询就漏了旧记录，先查A；存储结果正确但页面显示错误，先查B；搜索正常而旧生成流程坏了，结合C的失败和diff找意外改动。</p>
+<h2 id="wiki-h-1">架构边界从真实请求出发</h2>
+<p>“架构”不必一开始就意味着微服务或几十个目录。对这个个人项目，先说明每一层负责什么已经很有价值。</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-1" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 736px;" viewBox="4 4 736 224" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-1{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-1 .error-icon{fill:#552222;}#wiki-mermaid-1 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-1 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-1 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-1 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-1 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-1 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-1 .marker{fill:#666;stroke:#666;}#wiki-mermaid-1 .marker.cross{stroke:#666;}#wiki-mermaid-1 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-1 p{margin:0;}#wiki-mermaid-1 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-1 .cluster-label text{fill:#333;}#wiki-mermaid-1 .cluster-label span{color:#333;}#wiki-mermaid-1 .cluster-label span p{background-color:transparent;}#wiki-mermaid-1 .label text,#wiki-mermaid-1 span{fill:#000000;color:#000000;}#wiki-mermaid-1 .node rect,#wiki-mermaid-1 .node circle,#wiki-mermaid-1 .node ellipse,#wiki-mermaid-1 .node polygon,#wiki-mermaid-1 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-1 .rough-node .label text,#wiki-mermaid-1 .node .label text,#wiki-mermaid-1 .image-shape .label,#wiki-mermaid-1 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-1 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-1 .rough-node .label,#wiki-mermaid-1 .node .label,#wiki-mermaid-1 .image-shape .label,#wiki-mermaid-1 .icon-shape .label{text-align:center;}#wiki-mermaid-1 .node.clickable{cursor:pointer;}#wiki-mermaid-1 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-1 .arrowheadPath{fill:#333333;}#wiki-mermaid-1 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-1 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-1 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-1 .edgeLabel p{background-color:white;}#wiki-mermaid-1 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-1 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-1 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-1 .cluster text{fill:#333;}#wiki-mermaid-1 .cluster span{color:#333;}#wiki-mermaid-1 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-1 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-1 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-1 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-1 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-1 .icon-shape,#wiki-mermaid-1 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-1 .icon-shape p,#wiki-mermaid-1 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-1 .icon-shape .label rect,#wiki-mermaid-1 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-1 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-1 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-1 .node .neo-node{stroke:#999;}#wiki-mermaid-1 [data-look="neo"].node rect,#wiki-mermaid-1 [data-look="neo"].cluster rect,#wiki-mermaid-1 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-1 [data-look="neo"].node path{stroke:url(#wiki-mermaid-1-gradient);stroke-width:1px;}#wiki-mermaid-1 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-1 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-1 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-1_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-1_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,123.99999999999999L176.92893218813452,123.99999999999999Q184,123.99999999999999 184,116.92893218813451L184,76.57106781186548Q184,69.5 191.07106781186548,69.5L200,69.5" id="wiki-mermaid-1-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 81.1716537475586 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTY0LCJ5IjoxMjMuOTk5OTk5OTk5OTk5OTl9LHsieCI6MTg0LCJ5IjoxMjMuOTk5OTk5OTk5OTk5OTl9LHsieCI6MTg0LCJ5Ijo2OS41fSx7IngiOjIwNCwieSI6NjkuNX1d" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M356,50.49999999999999L374.4166666666667,50.49999999999999Q376,50.49999999999999 376,48.91666666666666L376,48.91666666666666Q376,47.33333333333333 377.5833333333333,47.33333333333333L392,47.33333333333333" id="wiki-mermaid-1-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 33.973602294921875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzU2LCJ5Ijo1MC40OTk5OTk5OTk5OTk5OX0seyJ4IjozNzYsInkiOjUwLjQ5OTk5OTk5OTk5OTk5fSx7IngiOjM3NiwieSI6NDcuMzMzMzMzMzMzMzMzMzN9LHsieCI6Mzk2LCJ5Ijo0Ny4zMzMzMzMzMzMzMzMzM31d" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M548,60L584,60" id="wiki-mermaid-1-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ4LCJ5Ijo2MH0seyJ4Ijo1ODgsInkiOjYwfV0=" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M396,72.66666666666666L377.5833333333333,72.66666666666666Q376,72.66666666666666 376,71.08333333333333L376,71.08333333333333Q376,69.5 374.4166666666667,69.5L360,69.5" id="wiki-mermaid-1-L_C_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 33.97360610961914 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_B_0" data-points="W3sieCI6Mzk2LCJ5Ijo3Mi42NjY2NjY2NjY2NjY2Nn0seyJ4IjozNzYsInkiOjcyLjY2NjY2NjY2NjY2NjY2fSx7IngiOjM3NiwieSI6NjkuNX0seyJ4IjozNTYsInkiOjY5LjV9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M356,88.5L368.9289321881345,88.5Q376,88.5 376,95.57106781186548L376,168.26226552146787Q376,175.33333333333334 383.0710678118655,175.33333333333334L392,175.33333333333334" id="wiki-mermaid-1-L_B_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 113.50505828857422 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_E_0" data-points="W3sieCI6MzU2LCJ5Ijo4OC41fSx7IngiOjM3NiwieSI6ODguNX0seyJ4IjozNzYsInkiOjE3NS4zMzMzMzMzMzMzMzMzNH0seyJ4IjozOTYsInkiOjE3NS4zMzMzMzMzMzMzMzMzNH1d" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M396,192.66666666666666L280,192.66666666666666L191.07106781186548,192.66666666666666Q184,192.66666666666666 184,185.59559885480118L184,148.4044011451988Q184,141.33333333333331 176.92893218813452,141.33333333333331L168,141.33333333333331" id="wiki-mermaid-1-L_E_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 270.0050048828125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_A_0" data-points="W3sieCI6Mzk2LCJ5IjoxOTIuNjY2NjY2NjY2NjY2NjZ9LHsieCI6MjgwLCJ5IjoxOTIuNjY2NjY2NjY2NjY2NjZ9LHsieCI6MTg0LCJ5IjoxOTIuNjY2NjY2NjY2NjY2NjZ9LHsieCI6MTg0LCJ5IjoxNDEuMzMzMzMzMzMzMzMzMzF9LHsieCI6MTY0LCJ5IjoxNDEuMzMzMzMzMzMzMzMzMzF9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"></g><g class="nodes"><g class="node default" id="wiki-mermaid-1-flowchart-A-0" data-look="neo" transform="translate(88, 132.66666666666666)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>浏览器提交关键词</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-B-1" data-look="neo" transform="translate(280, 69.5)"><rect class="basic label-container" style="" x="-76" y="-48" width="152" height="96"></rect><g class="label" style="" transform="translate(-60, -36)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>首页路由：接收参数与取得会话身份</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-C-3" data-look="neo" transform="translate(472, 60)"><rect class="basic label-container" style="" x="-76" y="-48" width="152" height="96"></rect><g class="label" style="" transform="translate(-60, -36)"><rect></rect><foreignObject width="120" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>存储方法：隔离owner并匹配历史问题</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-D-5" data-look="neo" transform="translate(660, 60)"><path d="M0,13.382899628252789 a72,13.382899628252789 0,0,0 144,0 a72,13.382899628252789 0,0,0 -144,0 l0,61.38289962825279 a72,13.382899628252789 0,0,0 144,0 l0,-61.38289962825279" class="basic label-container outer-path" style="" transform="translate(-72, -44.07434944237918)"></path><g class="label" style="" transform="translate(-60, -4)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>本地SQLite</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-E-9" data-look="neo" transform="translate(472, 184)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>模板：展示列表与反馈</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-1-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-1-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-1-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>这条搜索路径没有经过模型API。不要因为项目叫“AI笔记助手”，就让每个功能都多调一次模型。</p>
+<p>首页路由知道HTTP请求是什么，也能读取会话；存储方法知道记录放在哪里、怎样选择；模板只需要知道要显示哪些条目。将这些职责分开，就不会让模板一边生成HTML，一边打开数据库；也不会让存储方法为了知道owner而偷偷读取浏览器请求。</p>
+<p>本次规则很小，存储方法可以同时完成查询与匹配。不必为了看起来“分层完整”，立即新增service、repository、controller三个目录。等规则被多个入口复用或明显复杂，再考虑抽出独立业务函数。边界的价值在于减少相互依赖，不在于文件越多越专业。</p>
+<p>本课还有几个明确保留的边界：<code>api_client.py</code>负责模型连接；原生成路由负责确认后生成；<code>storage.py</code>里已有的claim/finish负责操作状态；计划方法负责保存复习安排。这些与本次搜索无关，不应随实现搜索被重写。</p>
+<h2 id="wiki-h-2">准备起点，并先见到一次有意义的失败</h2>
+<p>解压到新目录，进入<code>lesson-04</code>。<code>starter</code>等于第02篇project，也等于第03篇starter/project；它有证据统计，没有搜索。<code>reference</code>是本篇完成参考。两个目录均有38个应用文件，差异只有三个文件。</p>
+<p><code>SEARCH_SPEC.md</code>和<code>search-cases.json</code>保留第02篇原稿，其中“未实现”描述的是当时阶段。当前两个快照的状态另记在<code>IMPLEMENTATION_STATUS.md</code>，不要把参考实现已经通过的结果自动套到自己的starter上。</p>
+<p>主线在新的starter里练习，不覆盖第03篇仓库。若你已经在自己的旧仓库连续开发，可以审阅三个文件的差异再移植，保留原<code>.git</code>和运行数据；不要整包替换一个已经有个人修改的项目。</p>
+<p>需要Python3.11或以上。在<code>lesson-04</code>目录建立环境，不必激活：</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r starter/requirements.txt
+.venv/bin/python verify_search.py starter --stage store
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> starter/requirements.txt
+.\.venv\Scripts\python.exe verify_search.py starter <span class="hljs-literal">--stage</span> store
+</code></pre><p>本篇沿用已经固定的openai 3.24.0与Flask 3.1.3，不新增依赖。安装依赖需要网络，但测试不发送模型请求。这里的首次失败是预期的：starter还没有<code>search_history</code>。看到缺少该方法与看到依赖缺失不同，先把环境错误处理好，才能把功能失败当作可靠起点。</p>
+<p>按第03篇方法给新的starter建立基线，再开任务分支。以下命令在<code>lesson-04</code>执行；只有新解压、没有私人文件的副本才使用这组初始化步骤：</p>
+<pre><code class="hljs language-bash">git -C starter init -b main
+git -C starter config --<span class="hljs-built_in">local</span> user.name <span class="hljs-string">"Course Learner"</span>
+git -C starter config --<span class="hljs-built_in">local</span> user.email <span class="hljs-string">"learner@example.invalid"</span>
+git -C starter add .
+git -C starter diff --staged --name-only
+git -C starter commit -m <span class="hljs-string">"chore: record history search baseline"</span>
+git -C starter switch -c history-search
+</code></pre><p>提交前检查清单是那38个源码与教学文件，没有配置、data或虚拟环境。已有自己的仓库时不重复初始化、不要覆盖署名，直接检查状态后创建自己的任务分支。</p>
+<h2 id="wiki-h-3">先约定接口，避免页面和查询各猜一套</h2>
+<p>步骤A新增的方法是：</p>
+<pre><code class="hljs language-python">Store.search_history(owner, keyword=<span class="hljs-string">""</span>)
+</code></pre><p>输入是调用者明确传入的owner和一个关键词字符串。输出包含三个字段：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>keyword</td>
+<td>去两端空白后的原关键词，供页面回显</td>
+</tr>
+<tr>
+<td>items</td>
+<td>已排序、最多50条的原操作字典</td>
+</tr>
+<tr>
+<td>truncated</td>
+<td>是否存在第51条匹配，用来提示缩小关键词</td>
+</tr>
+</tbody></table></div>
+<p>保留原操作字典，使页面仍能使用其中的id、created_at、mode、state和payload.questions。没有必要为了一个搜索框改造数据库结构或重写所有历史链接。</p>
+<p>这里采用一个小接口约定，配套检查也按它调用。若你选择另一种函数名或返回结构，需要同步调整调用处和测试适配层，但不能借此改掉“只搜问题、当前会话、先匹配再限制”等用户规则。<strong>实现接口可以协商，行为要求要保持明确。</strong></p>
+<p>输入不合法时抛出ValueError；合法但没有匹配时返回空列表。两者必须分开，否则81字符输入与真正没找到结果都会显示“没有匹配”，用户无法知道该怎样修正。</p>
+<h2 id="wiki-h-4">步骤A：只实现存储查询</h2>
+<p>如果使用Kimi，先在<code>lesson-04</code>启动<code>kimi --plan</code>，要求它读取规格与starter的三个相关文件，给出检查点计划，不立即修改。当前官方文档与本机2.0.2帮助均支持该参数；规划模式仍不等于系统只读隔离。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html">Kimi Code命令文档</a></p>
+<p>审阅后退出规划会话，运行普通<code>kimi</code>，重新提供规格路径、工作目录和步骤A任务，不假设新会话记住旧计划。完整请求在TASK.md。重点是：<strong>只改starter/storage.py，查询检查通过后停止，不顺手做页面。</strong></p>
+<p>不用Kimi的读者可以手工加入下面的方法，位置在Store类的<code>history</code>之后、<code>claim</code>之前。它与reference完全一致：</p>
+<pre><code class="hljs language-python">    <span class="hljs-keyword">def</span> <span class="hljs-title function_">search_history</span>(<span class="hljs-params">self, owner, keyword=<span class="hljs-string">""</span></span>):
+        <span class="hljs-string">"""Literal question search for one owner; no model calls or writes."""</span>
+        require(<span class="hljs-built_in">isinstance</span>(keyword, <span class="hljs-built_in">str</span>), <span class="hljs-string">"关键词必须是字符串。"</span>)
+        keyword = keyword.strip()
+        require(<span class="hljs-built_in">len</span>(keyword) &lt;= <span class="hljs-number">80</span>, <span class="hljs-string">"关键词去除两端空白后不能超过80个字符。"</span>)
+        needle = keyword.casefold()
+        matches = []
+        <span class="hljs-keyword">with</span> <span class="hljs-variable language_">self</span>.connection() <span class="hljs-keyword">as</span> db:
+            rows = db.execute(
+                <span class="hljs-string">"SELECT * FROM operations WHERE owner=? ORDER BY created_at DESC, id DESC"</span>, (owner,))
+            <span class="hljs-keyword">for</span> row <span class="hljs-keyword">in</span> rows:
+                item = <span class="hljs-variable language_">self</span>.unpack(row)
+                question = item[<span class="hljs-string">"payload"</span>][<span class="hljs-string">"questions"</span>][<span class="hljs-number">0</span>][<span class="hljs-string">"text"</span>]
+                <span class="hljs-keyword">if</span> needle <span class="hljs-keyword">in</span> question.casefold():
+                    matches.append(item)
+                    <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(matches) == <span class="hljs-number">51</span>:
+                        <span class="hljs-keyword">break</span>
+        <span class="hljs-keyword">return</span> {<span class="hljs-string">"keyword"</span>: keyword, <span class="hljs-string">"items"</span>: matches[:<span class="hljs-number">50</span>], <span class="hljs-string">"truncated"</span>: <span class="hljs-built_in">len</span>(matches) &gt; <span class="hljs-number">50</span>}
+</code></pre><p>它先检查类型，去两端空白，再检查原字符串长度；接着用<code>casefold()</code>做不区分大小写的匹配。这保留了“先判断80字符，再做大小写归一化”的规格。<code>casefold</code>可能让某些字符展开，例如德语ß；本课也检查了这个边界。<a href="https://docs.python.org/3.11/library/stdtypes.html#str.casefold">Python字符串方法</a></p>
+<p>owner作为SQL参数传入，不拼接成查询字符串。Python sqlite3支持这种占位符绑定方式；本方法只有SELECT，连接沿用项目已有管理方式。<a href="https://docs.python.org/3.11/library/sqlite3.html">Python sqlite3文档</a></p>
+<p>为什么SQL中没有<code>LIMIT 50</code>？因为它限制的是候选记录，还没有完成关键词匹配。会话C最旧的“旧资料针”就在最近50条之外，提前限制会漏掉它。</p>
+<p>参考实现先让SQLite把本人记录排序，再逐条匹配，累计到第51条匹配就停，返回前50条并标记还有更多。对本课固定排序规则，先排序再过滤与先过滤再排序得到的结果一致；关键是<strong>上限施加在匹配之后</strong>。第51条只用于判断是否截断，不表示已经数出了全部匹配数量。</p>
+<p>这也有代价：匹配很稀疏时，可能检查本人全部记录；SQLite本身也要处理排序。适合教学规模，不代表已经解决大规模历史检索的性能问题。后续要优化，先测数据规模与耗时，再考虑索引或搜索结构，不能用漏结果换取表面上的快。</p>
+<p>在<code>lesson-04</code>运行存储阶段检查：</p>
+<pre><code class="hljs language-bash">.venv/bin/python verify_search.py starter --stage store
+</code></pre><p>Windows将解释器换成<code>.\.venv\Scripts\python.exe</code>。预期两个测试方法通过，其中第一个逐一执行第02篇12个案例，另一个检查Unicode归一化与非法输入类型。这个脚本真正创建临时SQLite并调用查询方法，已经不同于第02篇只检查JSON材料结构的audit脚本。</p>
+<p>然后运行<code>git -C starter diff -- storage.py</code>。确认只有查询方法新增，审阅通过再暂存这个文件并提交。此时不要把“查询通过”写成“网页搜索已完成”。</p>
+<h2 id="wiki-h-5">步骤B：接上HTTP入口和展示</h2>
+<p>接下来让Agent只改首页逻辑与历史区域，或者对照reference手工完成。首页处理函数改为：</p>
+<pre><code class="hljs language-python"><span class="hljs-meta">    @app.get(<span class="hljs-params"><span class="hljs-string">"/"</span></span>)</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">home</span>():
+        <span class="hljs-keyword">try</span>:
+            keywords = request.args.getlist(<span class="hljs-string">"q"</span>)
+            require(<span class="hljs-built_in">len</span>(keywords) &lt;= <span class="hljs-number">1</span>, <span class="hljs-string">"请只提交一个关键词。"</span>)
+            result = store.search_history(session[<span class="hljs-string">"owner"</span>], keywords[<span class="hljs-number">0</span>] <span class="hljs-keyword">if</span> keywords <span class="hljs-keyword">else</span> <span class="hljs-string">""</span>)
+        <span class="hljs-keyword">except</span> ValueError <span class="hljs-keyword">as</span> exc:
+            <span class="hljs-keyword">return</span> page(history=[], show_history=<span class="hljs-literal">True</span>, search_keyword=<span class="hljs-string">""</span>, search_error=<span class="hljs-built_in">str</span>(exc),
+                        history_truncated=<span class="hljs-literal">False</span>), <span class="hljs-number">400</span>
+        <span class="hljs-keyword">return</span> page(history=result[<span class="hljs-string">"items"</span>], show_history=<span class="hljs-literal">True</span>, search_keyword=result[<span class="hljs-string">"keyword"</span>],
+                    history_truncated=result[<span class="hljs-string">"truncated"</span>])
+</code></pre><p><code>q</code>来自URL查询参数，例如<code>/?q=rag</code>；owner来自已经验证的服务器会话。即使有人提交<code>/?q=rag&amp;owner=B</code>，也不能用那个owner替换当前身份。重复提交两个q会返回400，因为第一版约定只接受一个关键词。</p>
+<p>路由把校验失败转换成明确的400响应，不偷偷截断输入，也不启动模型回答。正常结果则交给模板，路由不自己拼接HTML。</p>
+<p>模板只替换原来的历史区域，完整替换内容见<code>reference/templates/web.html</code>中<code>{% if show_history %}</code>开始的section。它包含一个GET表单：</p>
+<pre><code class="hljs language-html"><span class="hljs-tag">&lt;<span class="hljs-name">form</span> <span class="hljs-attr">method</span>=<span class="hljs-string">"get"</span> <span class="hljs-attr">action</span>=<span class="hljs-string">"{{ url_for('home') }}"</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">label</span> <span class="hljs-attr">for</span>=<span class="hljs-string">"history-q"</span>&gt;</span>关键词（只搜本浏览器会话的问题）<span class="hljs-tag">&lt;/<span class="hljs-name">label</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">input</span> <span class="hljs-attr">id</span>=<span class="hljs-string">"history-q"</span> <span class="hljs-attr">name</span>=<span class="hljs-string">"q"</span> <span class="hljs-attr">value</span>=<span class="hljs-string">"{{ search_keyword }}"</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">p</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-name">button</span> <span class="hljs-attr">type</span>=<span class="hljs-string">"submit"</span>&gt;</span>搜索<span class="hljs-tag">&lt;/<span class="hljs-name">button</span>&gt;</span> <span class="hljs-tag">&lt;<span class="hljs-name">a</span> <span class="hljs-attr">href</span>=<span class="hljs-string">"{{ url_for('home') }}"</span>&gt;</span>清空关键词<span class="hljs-tag">&lt;/<span class="hljs-name">a</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">p</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">form</span>&gt;</span>
+</code></pre><p>后面分别显示错误、当前关键词、截断提示、记录列表或无结果提示。记录仍链接到原<code>show_preview</code>路由，由原逻辑区分预览和结果。不要另开一个绕过owner检查的新结果入口。</p>
+<p>这里没有依赖HTML的maxlength来执行80字符限制：前端限制可能被绕过，而且浏览器与Python对某些字符的计数并不相同。权威检查放在后端；页面收到错误后让用户缩短关键词。</p>
+<p>模板保留自动转义，不给用户输入加<code>safe</code>。Flask通过render_template渲染<code>.html</code>模板时默认启用自动转义，输入<code>&lt;script&gt;</code>应显示为文字，而不是变成脚本标签。<a href="https://flask.palletsprojects.com/en/stable/templating/">Flask模板文档</a></p>
+<p>为什么不用原来的<code>{% if history %}</code>控制整个区域？空列表为假，若仍这样写，无记录时连搜索框和“没有匹配的问题”都会消失。<code>show_history</code>单独表示“现在是应该展示历史搜索的首页”，把页面是否显示与是否有结果分开。</p>
+<p>完成后运行：</p>
+<pre><code class="hljs language-bash">.venv/bin/python verify_search.py starter --stage web
+</code></pre><p>预期四个HTTP测试方法通过，包含原12案例的页面检查，以及重复参数、HTML转义、会话隔离、无业务写入、旧链接和快照等检查。Flask测试客户端可以在不启动监听服务器的情况下发送请求、检查响应；它验证后端与模板集成，不等于已经完成真实浏览器视觉测试。<a href="https://flask.palletsprojects.com/en/stable/testing/">Flask测试文档</a></p>
+<p>查看<code>git -C starter diff -- web_app.py templates/web.html</code>。如果模型客户端、生成确认或数据库schema也被改了，先让Agent解释原因，通常应收回超出本次边界的修改。审阅通过后，只提交这两个文件。</p>
+<h2 id="wiki-h-6">步骤C：既要新功能正确，也要旧能力还在</h2>
+<p>在<code>lesson-04</code>运行完整检查。macOS/Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python verify_search.py starter
+.venv/bin/python verify_preview.py starter
+.venv/bin/python starter/acceptance.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe verify_search.py starter
+.\.venv\Scripts\python.exe verify_preview.py starter
+.\.venv\Scripts\python.exe starter/acceptance.py
+</code></pre><p>三组预期分别为6、5、10个测试方法通过。第一组含存储和HTTP两层各12个规格案例，不要把subTest的案例数与最外层“Ran 6 tests”混为矛盾。检查reference时，把命令中的starter换成reference即可。</p>
+<p>这些验证分别回答不同问题：</p>
+<ul>
+<li>搜索是否遵守原约定，特别是旧记录、其他会话和字面符号。</li>
+<li>已有预览是否仍显示正确的片段数、字符数，并保留资料快照。</li>
+<li>原检索、生成确认、计划、重复操作、重启读取和源码打包是否仍通过。</li>
+</ul>
+<p>搜索测试还让生成函数一旦被调用就报错，并比较重复搜索前后完整operations/plans记录。它不仅观察“页面没出现新卡片”，还验证了两个关键副作用边界。初次建立会话和Cookie更新仍按旧程序运行，不把它们误认为新建问答。</p>
+<p>作者对reference实际运行了上述三组检查；未改动starter的搜索检查按预期失败。测试不读取你已有的数据库，而是在临时目录放入作者构造记录。这里的通过不证明模型回答质量、网络连通性或高并发性能。</p>
+<h2 id="wiki-h-7">自己打开页面，体验完整的一步</h2>
+<p>自动检查通过后，再用自己的工作副本体验一次。在<code>lesson-04</code>运行：</p>
+<pre><code class="hljs language-bash">.venv/bin/python starter/run_local.py init
+.venv/bin/python starter/run_local.py serve
+</code></pre><p>Windows仍使用<code>.\.venv\Scripts\python.exe</code>替换解释器。只想看参考版本就把两处starter换成reference。init只创建缺失的非秘密配置；serve会在所选项目中初始化自己的data。不要加<code>--live</code>，本课无需真实API。</p>
+<p>浏览器打开<code>http://127.0.0.1:8765</code>。刚启动没有历史时，应看到搜索框与“本会话没有匹配的问题”。先按默认值建立一次预览，不必生成，再返回首页搜索“RAG”：默认问题包含这个词，应能找到刚刚的ready记录。点击链接仍打开原预览，证据统计保留。</p>
+<p>把关键词改成“根本不存在的字符串”，应显示无匹配；点击“清空关键词”，恢复最近记录。开一个没有原Cookie的新浏览器会话，不能看到刚才那条问题。注意普通浏览器新标签页通常仍共享原会话，不能拿它当隔离测试。</p>
+<p>完成后回终端按Ctrl+C停止服务。页面上沿用的“第16篇”标识来自第三部分最终项目，本次没有顺手改文案品牌；它不会影响搜索行为。查看Git状态时，config和data应被忽略，确认三个源码文件之外没有意外变更。</p>
+<h2 id="wiki-h-8">常见卡点，以及什么时候该重新拆任务</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>优先定位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>报缺少search_history</td>
+<td>是否仍在未修改的starter，或改到了reference/别的副本</td>
+</tr>
+<tr>
+<td>存储通过，页面12案例失败</td>
+<td>首页是否调用新方法，模板是否使用返回字段，空列表是否隐藏了整个区域</td>
+</tr>
+<tr>
+<td>旧资料针查不到</td>
+<td>是否在关键词过滤前使用了LIMIT 50或复用了旧history结果</td>
+</tr>
+<tr>
+<td><code>%</code>搜出所有记录</td>
+<td>是否改成了未经处理的LIKE通配符规则</td>
+</tr>
+<tr>
+<td>81字符返回空列表而非错误</td>
+<td>后端是否校验并返回400，而非吞掉输入错误</td>
+</tr>
+<tr>
+<td>查询别人owner就显示其记录</td>
+<td>是否误把URL参数当成身份；必须回到session来源</td>
+</tr>
+<tr>
+<td>手工页面为空，但测试通过</td>
+<td>测试使用临时构造数据，不会往你的运行数据库插入57条记录</td>
+</tr>
+<tr>
+<td>新搜索通过，原10项失败</td>
+<td>先读首个失败与diff，不通过修改旧测试掩盖意外行为变化</td>
+</tr>
+</tbody></table></div>
+<p>如果步骤A已经复杂到解释不清“匹配、排序、读取”分别在做什么，就可以再拆成纯规则函数和数据库适配；如果只是三个返回字段，先保持小而直观。拆任务不是预先猜出所有代码细节，而是让每个阶段的结果可以单独检查。</p>
+<p>最后做一个判断：Agent建议为了搜索增加向量库、切换模型、重做登录，是否应立刻批准？先用当前规格说明它们解决什么尚未满足的问题。当前关键词检索并不需要这些变化；真正新增需求时，再作为独立任务安排。</p>
+<p>本篇交付的是能工作的搜索，以及一条“规则—查询—页面—回归”的开发路径。下一篇把项目入口、长期约定、单次任务与进度记录分开保存，让新一轮Agent能够理解这个项目，而不用每次重新讲一遍所有背景。</p>
+</article>

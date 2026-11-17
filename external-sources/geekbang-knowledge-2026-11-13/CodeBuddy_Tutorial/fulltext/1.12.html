@@ -1,0 +1,21 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">11.1 Plan：确认后再实施</h2>
+<p>在 billkit 的干净副本进入 Plan，请助手分析新增 CSV 导出的接口、影响文件与测试，先不实施。确认方案后退出 Plan，明确只授权第一步。工具限制以当前权限配置为准，提示词“不要写”本身不是安全沙箱。验收是计划与实际 diff 一致，不能只看回答。</p>
+<h2 id="wiki-h-1">11.2 子代理：给审查者最小工具</h2>
+<p>把 materials-cbc/06-power-features/agents/code-reviewer.md 复制到 .codebuddy/agents/。模板仅允许 Read、Grep、Glob，不允许 Bash(git:*)；git reset、restore、clean 都可改文件。父流程先生成 diff 供审查，子代理返回文件、位置、触发条件和证据。实际创建／调用入口以本机 /agents 帮助为准；未出现代理时先检查加载目录与 frontmatter。</p>
+<h2 id="wiki-h-2">11.3 Skill：保存重复验收步骤</h2>
+<p>把配套 skills/billkit-check 复制到 .codebuddy/skills/，检查 SKILL.md 的 description 与测试入口。请求一次账单合同审查，核对是否读取规则、运行实际测试并如实报告已知失败。Skill 是可复用任务说明，不会自动赋予缺失权限，也不能保证模型每次严格执行；外部测试才是完成证据。</p>
+<h2 id="wiki-h-3">11.4 Hook：先独立测脚本，再接入</h2>
+<p>把配套 hooks/guard_command.py 放到 .codebuddy/hooks/。它是保守教学示例：所有 Bash 调用都阻断，非 Bash 允许；非法 JSON 返回 2，不默认放行。不使用“包含 /tmp 就允许删除”或字符串黑名单模拟完整 shell 安全边界。</p>
+<p>在 .codebuddy/settings.json 合并（不要覆盖已有设置）：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"hooks"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"PreToolUse"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"matcher"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Bash"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"hooks"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span><span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"command"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"command"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"python3 .codebuddy/hooks/guard_command.py"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"timeout"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">15</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>命令在项目根目录验证。Windows 或 python3 不存在时，将 command 改为已验证的解释器路径，按实际 Hook shell 转义；先手动输入有效事件测试，再启动 CodeBuddy。该示例依据 CLI Hook 的退出码协议：0 继续，2 阻断并反馈 stderr。其他非零不应被当作同等安全阻断。</p>
+<p>验收三项：Bash 事件返回 2；非 Bash 返回 0；坏 JSON 返回 2。接入后请求一条无害的 echo，确认确实被拦截；测试结束移除这一教学 Hook 才能继续需要 Bash 的练习。它没有限制其他工具、MCP、网络和系统权限，不把它宣传成完整沙箱。</p>
+<p>参考：<a href="https://www.codebuddy.cn/docs/cli/hooks">CodeBuddy Code 文档</a>。若版本字段变化，先按同一版本文档调整并重做三项验收。</p>
+</article>

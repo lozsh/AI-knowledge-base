@@ -1,0 +1,167 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你想让复习助手不再只读文字笔记：拍一张白板照片，上传一段课堂录音，再问“老师最后把第二章复习改到哪天，要带什么？”</p>
+<p>这时，答案可能藏在被划掉的日期、指向某行的箭头，以及一句“刚才那个时间作废”中。把所有材料简单转成一长段文字，有时够用，有时会丢掉决定答案的信息。</p>
+<p>多模态模型扩展了模型能够接触的信号，但“支持图片、音频、视频”并不是一个完整的能力说明。本篇解释这些信号怎样进入模型、怎样建立联系，以及为什么输入格式被支持，仍不等于任务能可靠完成。</p>
+<p>下面的截图内容、音视频片段、向量长度、预算和延迟均为教学构造；没有上传实际媒体或进行模型实测。涉及论文架构时以对应版本为准，资料观察基准为 2026 年 10 月 3 日。</p>
+<h2 id="wiki-h-0">模态是什么：同一件事可以通过不同信号表达</h2>
+<p><strong>模态，Modality</strong>，可以理解为信息的表达形式或感知渠道，例如文字、图像、声音。视频则把连续画面、时间顺序以及可能存在的音轨放在一起。</p>
+<p>这些形式包含的信息并不完全相同。一份转写能保留讲话内容，却可能没有记录谁指着哪张图；一张截图能保留版面，却没有拍摄之后发生的口头更正。</p>
+<p>先构造一张白板照片，用文字说明它的可见内容：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th>白板上的内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>第一行</td>
+<td>第二章：周五被划掉，旁边改写为周六</td>
+</tr>
+<tr>
+<td>第二行</td>
+<td>第三章：周五</td>
+</tr>
+<tr>
+<td>右下角</td>
+<td>“带错题清单”，有箭头指向第一行</td>
+</tr>
+</tbody></table></div>
+<p>如果提取过程只输出“第二章 周五 周六 第三章 周五 带错题清单”，字大体都在，关系却丢了：哪个日期作废？清单对应哪一章？</p>
+<p>多模态任务常常不仅要求识别内容，还要保留<strong>内容之间的空间、时间和指代关系</strong>。对复习助手来说，“第二章现在周六复习，带错题清单”比单纯抄出所有字符更接近用户需要。</p>
+<h2 id="wiki-h-1">图片怎样进入模型：像素、图块与视觉表示</h2>
+<p>计算机里的图片首先是像素数值。第 01 篇的文字分词器不能仅凭一个图片文件名，就把其中的白板内容变成可用信息；应用必须真正提供图片数据，并由支持图像的处理路径读取。</p>
+<p>一种常见路线是把图片切成小图块，称为 <strong>Patch</strong>，再把每块变成向量。Vision Transformer（ViT）的原始研究展示了用图块序列进行图像识别的方式。<a href="https://arxiv.org/abs/2010.11929">《An Image is Worth 16×16 Words》</a></p>
+<h3 id="wiki-h-2">一个图块计数算例</h3>
+<p>假设图片已经被处理为 224×224 像素，每块为 16×16，不重叠、不填充：</p>
+<pre><code class="hljs language-text">每边图块数 = 224÷16 = 14
+总图块数 = 14×14 = 196
+</code></pre><p>若每个像素有红、绿、蓝三个通道，一块原始数据包含 <code>16×16×3=768</code> 个数值。模型可以通过学习到的变换，把它映射为所需维度的向量，并利用位置等信息继续处理。</p>
+<p>如果图片变成 448×448，图块大小不变，数量就是 <code>28×28=784</code>。每边扩大两倍，图块数变成四倍。这解释了为什么提高图像细节往往需要更多处理资源。</p>
+<p>但 <strong>196 个图块不等于某个 API 必然收费 196 个 Token</strong>。真实模型可能先缩放、分块裁剪、合并或压缩视觉表示，还可能加入特殊位置。视觉序列长度与接口计费口径要分别核实。</p>
+<h3 id="wiki-h-3">怎样接到语言模型上</h3>
+<p>以早期 LLaVA 的方案为例，视觉编码器先提取图像特征，再用可训练的投影层把它们转换到语言模型能够接收的表示维度，与文字指令共同参与回答生成。<a href="https://arxiv.org/html/2304.08485v2">《Visual Instruction Tuning》</a></p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-14" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 936px;" viewBox="4 4 936 152" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-14{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-14 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-14 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-14 .error-icon{fill:#552222;}#wiki-mermaid-14 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-14 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-14 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-14 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-14 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-14 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-14 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-14 .marker{fill:#666;stroke:#666;}#wiki-mermaid-14 .marker.cross{stroke:#666;}#wiki-mermaid-14 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-14 p{margin:0;}#wiki-mermaid-14 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-14 .cluster-label text{fill:#333;}#wiki-mermaid-14 .cluster-label span{color:#333;}#wiki-mermaid-14 .cluster-label span p{background-color:transparent;}#wiki-mermaid-14 .label text,#wiki-mermaid-14 span{fill:#000000;color:#000000;}#wiki-mermaid-14 .node rect,#wiki-mermaid-14 .node circle,#wiki-mermaid-14 .node ellipse,#wiki-mermaid-14 .node polygon,#wiki-mermaid-14 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-14 .rough-node .label text,#wiki-mermaid-14 .node .label text,#wiki-mermaid-14 .image-shape .label,#wiki-mermaid-14 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-14 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-14 .rough-node .label,#wiki-mermaid-14 .node .label,#wiki-mermaid-14 .image-shape .label,#wiki-mermaid-14 .icon-shape .label{text-align:center;}#wiki-mermaid-14 .node.clickable{cursor:pointer;}#wiki-mermaid-14 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-14 .arrowheadPath{fill:#333333;}#wiki-mermaid-14 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-14 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-14 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-14 .edgeLabel p{background-color:white;}#wiki-mermaid-14 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-14 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-14 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-14 .cluster text{fill:#333;}#wiki-mermaid-14 .cluster span{color:#333;}#wiki-mermaid-14 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-14 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-14 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-14 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-14 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-14 .icon-shape,#wiki-mermaid-14 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-14 .icon-shape p,#wiki-mermaid-14 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-14 .icon-shape .label rect,#wiki-mermaid-14 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-14 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-14 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-14 .node .neo-node{stroke:#999;}#wiki-mermaid-14 [data-look="neo"].node rect,#wiki-mermaid-14 [data-look="neo"].cluster rect,#wiki-mermaid-14 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-14-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-14 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-14 [data-look="neo"].node path{stroke:url(#wiki-mermaid-14-gradient);stroke-width:1px;}#wiki-mermaid-14 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-14 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-14 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-14-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-14 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-14 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-14-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-14 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-14-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-14 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-14_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-14_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-14_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-14_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-14_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-14_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-14_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-14_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-14_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-14_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-14_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-14_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,36L200,36" id="wiki-mermaid-14-L_I_V_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_I_V_0" data-points="W3sieCI6MTY0LCJ5IjozNn0seyJ4IjoyMDQsInkiOjM2fV0=" data-look="neo" marker-end="url(#wiki-mermaid-14_flowchart-v2-pointEnd-margin)"></path><path d="M356,36L392,36" id="wiki-mermaid-14-L_V_P_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_V_P_0" data-points="W3sieCI6MzU2LCJ5IjozNn0seyJ4IjozOTYsInkiOjM2fV0=" data-look="neo" marker-end="url(#wiki-mermaid-14_flowchart-v2-pointEnd-margin)"></path><path d="M356,124L392,124" id="wiki-mermaid-14-L_Q_T_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_Q_T_0" data-points="W3sieCI6MzU2LCJ5IjoxMjR9LHsieCI6Mzk2LCJ5IjoxMjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-14_flowchart-v2-pointEnd-margin)"></path><path d="M548,36L560.9289321881345,36Q568,36 568,43.071067811865476L568,64.26226552146785Q568,71.33333333333333 575.0710678118655,71.33333333333333L584,71.33333333333333" id="wiki-mermaid-14-L_P_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 62.00506591796875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_P_M_0" data-points="W3sieCI6NTQ4LCJ5IjozNn0seyJ4Ijo1NjgsInkiOjM2fSx7IngiOjU2OCwieSI6NzEuMzMzMzMzMzMzMzMzMzN9LHsieCI6NTg4LCJ5Ijo3MS4zMzMzMzMzMzMzMzMzM31d" data-look="neo" marker-end="url(#wiki-mermaid-14_flowchart-v2-pointEnd-margin)"></path><path d="M548,124L560.9289321881345,124Q568,124 568,116.92893218813452L568,95.73773447853213Q568,88.66666666666666 575.0710678118655,88.66666666666666L584,88.66666666666666" id="wiki-mermaid-14-L_T_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 62.00505065917969 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_T_M_0" data-points="W3sieCI6NTQ4LCJ5IjoxMjR9LHsieCI6NTY4LCJ5IjoxMjR9LHsieCI6NTY4LCJ5Ijo4OC42NjY2NjY2NjY2NjY2Nn0seyJ4Ijo1ODgsInkiOjg4LjY2NjY2NjY2NjY2NjY2fV0=" data-look="neo" marker-end="url(#wiki-mermaid-14_flowchart-v2-pointEnd-margin)"></path><path d="M740,80L776,80" id="wiki-mermaid-14-L_M_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_M_A_0" data-points="W3sieCI6NzQwLCJ5Ijo4MH0seyJ4Ijo3ODAsInkiOjgwfV0=" data-look="neo" marker-end="url(#wiki-mermaid-14_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"></g><g class="nodes"><g class="node default" id="wiki-mermaid-14-flowchart-I-0" data-look="neo" transform="translate(88, 36)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>白板照片</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-14-flowchart-V-1" data-look="neo" transform="translate(280, 36)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>视觉编码器</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-14-flowchart-P-3" data-look="neo" transform="translate(472, 36)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>连接或投影模块</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-14-flowchart-Q-4" data-look="neo" transform="translate(280, 124)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>文字问题</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-14-flowchart-T-5" data-look="neo" transform="translate(472, 124)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>文字表示</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-14-flowchart-M-7" data-look="neo" transform="translate(664, 80)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>多模态条件下的模型计算</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-14-flowchart-A-11" data-look="neo" transform="translate(856, 80)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>文字回答</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-14-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-14-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-14-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>这张图是一类架构示意，不是所有多模态模型的内部结构。还有其他融合方式，例如让语言计算通过交叉注意力读取视觉特征。</p>
+<p>这里常说的“视觉 Token”，可能是连续的特征向量，不一定是第 01 篇那种能在文字词表里查到的整数 ID。图片也不必先完整翻译成一段中文，才能参与后续计算。</p>
+<h2 id="wiki-h-4">图像与文字怎样对应：对齐需要学习</h2>
+<p>把两个向量放在一起，并不自动让模型知道哪个图案对应哪个词。模型需要通过数据与训练目标学习关系。</p>
+<p>CLIP 的经典做法是使用图文配对数据，分别编码图像与文字，学习提高匹配配对的相似度、区分不匹配的配对。这可以帮助实现“用文字找到相关图片”等任务。<a href="https://arxiv.org/abs/2103.00020">《Learning Transferable Visual Models From Natural Language Supervision》</a></p>
+<p>例如，训练材料里有白板图片及其描述，也有猫的图片及其描述。模型通过许多配对获得跨模态联系，并不是程序员逐张写规则“白色矩形一定是白板”。</p>
+<p>但图文相似度学习与生成详细答案仍是不同任务。判断“这张图更像课程安排而不是菜单”，不等于已经学会读清小字、理解删除线、定位箭头，再回答某章的最新安排。</p>
+<p>因此，多模态助手还可以使用图像、问题与回答组成的指令数据，学习根据视觉内容完成任务。早期 LLaVA 便区分了视觉与语言的特征连接训练，以及后续的视觉指令微调。<a href="https://arxiv.org/html/2304.08485v2">LLaVA 的训练设计</a></p>
+<p>这里的“对齐”主要指不同信号的表示与语义建立联系，与第 06 篇“更符合人类偏好”的对齐不是同一个具体训练目标。两者都可以出现在一个助手的训练流程里。</p>
+<p>即便完成了这些训练，模糊小字、特殊版式或不熟悉的图表仍可能失败。会描述图片整体场景，不能自动证明能够逐字抄录整张表格。</p>
+<h2 id="wiki-h-5">声音怎样进入模型：波形不只是转写文字</h2>
+<p>数字音频可以表示为随时间变化的采样值。假设一段单声道录音长 10 秒，采样率为每秒 16000 次：</p>
+<pre><code class="hljs language-text">采样点数 = 10×16000 = 160000
+若每点用 16 位保存：原始载荷 = 160000×2 = 320000 字节
+</code></pre><p>这是未压缩采样数据的简化计算，不包含文件头，也不是 MP3 等压缩文件大小，更不是模型的音频 Token 数量。</p>
+<p>音频模型可以把波形变为频谱等特征，描述不同时间段里各频率成分的强弱，再交给神经网络处理。Whisper 的原始架构使用 log-Mel 频谱作为编码器输入，再由解码器生成文字等输出。<a href="https://arxiv.org/html/2212.04356v1">《Robust Speech Recognition via Large-Scale Weak Supervision》</a></p>
+<p>你不必先学会计算频谱。此处要理解的是：声音可以先成为保留时间结构的数值表示，而不是一开始就变成汉字。</p>
+<h3 id="wiki-h-6">转写能解决什么，可能丢掉什么</h3>
+<p><strong>ASR，自动语音识别</strong>，主要把讲话内容转成文字。若任务只是整理老师明确说出的复习日期，一份准确转写可能已经足够。</p>
+<p>但录音还可能包含停顿、重叠讲话、声音事件或不同人的发言。一条纯文本“对，就这个”如果没有上下文和说话时刻，无法说明“这个”对应哪张幻灯片。转写漏掉“不”字，也可能直接反转安排。</p>
+<p>某些直接处理音频的模型能够利用文字之外的声学信息，但也不应该把“声音里听起来犹豫”当成已经查明的真实心理。对教程中的复习任务，优先记录可以核对的讲话内容、时间和不清晰处。</p>
+<p><strong>TTS，语音合成</strong>，则从文字等条件生成声音。ASR 与 TTS 的方向相反；一个模型擅长转写，并不说明它同时能自然地说话。</p>
+<h2 id="wiki-h-7">视频理解：关键在于时间和跨模态关系</h2>
+<p>视频可以看成一系列带时间顺序的画面，但模型未必逐帧查看原始文件。常见处理会抽帧、缩放、压缩表示，再结合音轨和时间信息。</p>
+<p>假设 10 秒视频原本每秒 30 帧，共有 300 帧。教学流程只在 <code>0、0.5、1.0……9.5</code> 秒取画面，一共 20 帧。</p>
+<p>如果“第二章改周六”的字幕仅在 4.2 秒到 4.4 秒之前出现，那么 4.0 秒和 4.5 秒两张抽样画面都可能没有它。即便后续语言模型再强，也不能可靠还原根本没有进入输入的内容。</p>
+<p>把抽帧提高到每秒 10 帧，在这个特定构造中会取到 4.2、4.3 秒的画面，有机会保留字幕；这不代表任何短事件都不会遗漏，画面清晰度和识别能力仍需检查。Gemini 的官方视频文档也提供视频片段与采样帧率的处理设置，说明这些选择确实属于应用输入处理的一部分。<a href="https://ai.google.dev/gemini-api/docs/video-understanding">Gemini 视频处理文档</a></p>
+<h3 id="wiki-h-8">“这部分”指哪里，需要把声画对上</h3>
+<p>再构造一个片段：4 秒时老师指向第二章的框，5 秒时手移到第三章；“只复习这部分”出现在 4 秒附近。若把两张画面倒序、丢掉时间戳，再把转写放在最后，模型就更难确定指代对象。</p>
+<p>时间关系需要在表示或输入组织中保留。Qwen2.5-Omni 的技术报告给出了一种使用时间位置信息连接音视频的设计；这说明声画同步是需要专门处理的机制，不是上传文件后自然就不会错。<a href="https://arxiv.org/html/2503.20215v1">Qwen2.5-Omni 技术报告</a></p>
+<p>应用保存证据时，也应保留“哪个文件、哪个时间段、哪一帧或区域”，而不只保存一句模型摘要。这样才能返回原片段核对是否听错、看错，或把前后两个安排混在一起。</p>
+<p>模型生成的时间戳本身也需要检查。它写出“00:04”不意味着一定完成了精确定位，尤其在输入只提供稀疏画面时。</p>
+<h2 id="wiki-h-9">原生多模态与组合流程：看信息在哪一步流动</h2>
+<p>一个语音助手可能采用这样的组合流程：</p>
+<pre><code class="hljs language-text">录音 → ASR 转写 → 文字模型生成回答 → TTS 朗读
+</code></pre><p>每个组件完成明确任务，转写也容易查看和纠错。代价是：如果中间只传递纯文字，未写进文字的声学信息就不会自动传到后面的文字模型。</p>
+<p>另一类系统让同一个多模态模型直接接收音频或视觉表示，联合处理并生成所需输出。这常被称为“原生多模态”或“端到端”能力，但这些名称不能代替架构和接口说明。</p>
+<p>端到端也不等于内部只有一个没有分工的网络。Qwen2.5-Omni 的报告同时介绍了多模态编码器，以及负责理解与文字生成的 Thinker、负责语音生成的 Talker；这些部分通过内部表示协作。<a href="https://arxiv.org/html/2503.20215v1">Qwen2.5-Omni 架构说明</a></p>
+<p>因此，选择时更有用的问题是：模型实际接收的是原始信号的编码，还是上一组件生成的文本？哪些关系保留了？发生错误时能否定位并重新处理？</p>
+<p>对白板日期提取，OCR（光学字符识别，把图中的字提取出来）加文字模型可能足够；若删除线和箭头决定意义，就需要能够保留版面关系的提取或视觉理解。对录音整理，ASR 加文字模型也有价值；若任务必须同时知道说话时指向哪个区域，则要额外保留和结合画面。</p>
+<p>这不是“组合一定落后、原生一定正确”的排名。结构选择取决于任务需要的信息，以及你能否验证整条流程。</p>
+<h2 id="wiki-h-10">理解与生成，是两张不同的能力清单</h2>
+<p>能接收图片，不代表能输出图片；能回答关于视频的问题，也不代表能生成连贯视频。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>任务</th>
+<th>输入</th>
+<th>输出</th>
+<th>需要的能力</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>读取白板安排</td>
+<td>图片与问题</td>
+<td>文字或字段</td>
+<td>图像内容与版面理解</td>
+</tr>
+<tr>
+<td>生成复习插图</td>
+<td>文字描述</td>
+<td>图片</td>
+<td>图像生成</td>
+</tr>
+<tr>
+<td>整理课堂录音</td>
+<td>音频与要求</td>
+<td>文字</td>
+<td>听清内容并完成整理</td>
+</tr>
+<tr>
+<td>语音答疑</td>
+<td>音频</td>
+<td>语音</td>
+<td>音频理解、回答与声音生成</td>
+</tr>
+<tr>
+<td>找到视频中的更正</td>
+<td>视频与问题</td>
+<td>时间段及依据</td>
+<td>内容理解与时间定位</td>
+</tr>
+</tbody></table></div>
+<p>图像生成可以采用第一部分介绍过的扩散路线。潜在扩散模型先在压缩的表示空间中生成，再解码为图像；这与视觉编码器读图回答的方向不同。<a href="https://arxiv.org/abs/2112.10752">《High-Resolution Image Synthesis with Latent Diffusion Models》</a></p>
+<p>声音输出也需要把生成的表示变成可播放的波形；仅让文字模型输出“你好”两个字，还没有完成语音合成。不同系统可以使用不同生成机制，不能假设所有媒体都只是按同一种文字词表逐字输出。</p>
+<p>对你的项目，应该逐项确认输入格式、输出格式与任务，而不是看到“多模态”三个字就把表里全部打勾。</p>
+<h2 id="wiki-h-11">长音视频和实时交互，仍然受预算限制</h2>
+<p>模型能够处理很长的多模态上下文，已经有系统研究，例如 Gemini 1.5 的技术报告讨论了长视频和长音频任务。但报告中的特定检索或问答结果，不等于任意长视频的所有细节都能被完整理解。<a href="https://arxiv.org/abs/2403.05530">Gemini 1.5 技术报告</a></p>
+<p>除了第 08 篇讲的“放得下”与“用得好”，还要检查预处理究竟保留了什么。把半小时录音变成两百字摘要，后续回答依据的是这两百字，不能假装仍然随时掌握原录音所有细节。</p>
+<h3 id="wiki-h-12">一个纯教学预算</h3>
+<p>假设某个自定义教学系统把每张选中画面压缩成 128 个视觉位置；20 帧就是 2560 个位置。再假设文字占 800、音频表示占 400、预留输出占 600，则：</p>
+<pre><code class="hljs language-text">总预算 = 20×128 + 800 + 400 + 600 = 4360
+</code></pre><p>如果处理上限是 6000，在这个假设下可以放入。若选中帧数翻倍为 40，其余不变，总量就是 6920，超过上限 920。</p>
+<p>这不是任何服务的计费公式。不同模态可能有不同编码、压缩与限制，甚至不能这样简单共用一个计数。算例只说明：更密集画面、更细图像与更长声音，都可能与上下文和计算预算竞争。</p>
+<p>可行的处理思路是先按主题或时间分段，找出相关片段，再读取足够细的原始证据。与 RAG 一样，需要保留来源、边界和必要上下文；过度压缩可能恰好删掉一句更正。</p>
+<h3 id="wiki-h-13">实时还要处理“什么时候开口”</h3>
+<p>语音聊天除了模型计算，还要经历采集与判断用户是否说完、处理输入、生成第一段声音、启动播放。假设从用户说完开始计时，完成采集与判停还需 0.20 秒，后面三个阶段串行分别花 0.15、0.40、0.25 秒，总等待就是 1.00 秒。真实系统可能重叠处理，不能总把所有阶段完整相加。</p>
+<p>过早判断用户说完，可能截断一句“周五……不，周六”；等太久又让对话显得迟钝。支持流式输入或输出，也不自动意味着支持随时打断、双向同时说话，以及打断后正确更新上下文。这些都是具体的系统行为。</p>
+<h2 id="wiki-h-14">给笔记助手做一次可检查的任务设计</h2>
+<p>不需要立即安装工具，可以先把第一节白板案例的预期结果写出来：</p>
+<pre><code class="hljs language-text">问题：第二章现在安排在什么时候，需要带什么？
+预期：周六；带错题清单。
+依据：第一行周五被划掉并改为周六；右下角箭头指向第一行。
+无法确定：具体年月日、几点开始，因为白板没有提供。
+</code></pre><p>然后准备几种变化：照片缩小到小字模糊；只裁出日期却去掉章节名；箭头被遮挡；音频说“照片是旧的，第二章安排取消”；视频只给不包含更正字幕的抽帧。</p>
+<p>检查的重点不是模型是否每次都给出一个日期，而是它能否正确区分可见证据、信息缺失和有效更正。遮挡后应保留不确定性；明确的后续取消应改变结论；仅仅没有在抽样帧里看到更正，不足以证明原视频里没有更正。</p>
+<p>可要求应用把答案拆成“结论、证据位置、仍不确定的内容”。位置可以是页码与区域，也可以是录音时间段。这些是可核对的输出要求，不是模型自称“看清楚了”的保证。</p>
+<h2 id="wiki-h-15">理解检查</h2>
+<p><strong>1. 一张 448×448 的图片按 16×16 切块，图块数变成 224×224 时的几倍？</strong></p>
+<p>分别为 784 与 196，是四倍。这是假设没有缩放、重叠和额外处理的图块数，不是通用 API Token 数。</p>
+<p><strong>2. CLIP 能判断图文相关，就等于能详细回答图中所有问题吗？</strong></p>
+<p>不等于。图文匹配、细字识别、空间关系和指令回答是不同能力，需要各自检查。</p>
+<p><strong>3. 10 秒、每秒 16000 次采样的单声道录音，有多少采样点？就是多少 Token 吗？</strong></p>
+<p>160000 个采样点。它们经过特征提取或编码后才成为模型输入表示，不能直接当作 160000 个音频 Token。</p>
+<p><strong>4. 每 0.5 秒取一帧，能否保证看到 4.2—4.4 秒之间的字幕？</strong></p>
+<p>不能。本篇从 0 秒开始的采样只覆盖 4.0 和 4.5 秒，可能完全漏掉这段字幕。</p>
+<p><strong>5. “端到端多模态”是否说明模型内部没有编码器等模块，并且所有模态都能输入输出？</strong></p>
+<p>不是。端到端系统仍可包含不同组件；支持哪些输入、输出与交互能力，要分别确认。</p>
+<p><strong>6. 20 帧的构造预算为 4360，增加到 40 帧后，在 6000 上限下能否放下？</strong></p>
+<p>总量变成 6920，超出 920。可以调整读取范围或表示，但须检查是否丢掉任务所需证据；不能只为压缩而删除关键更正。</p>
+<hr>
+<p>多模态给应用增加了可用证据，也增加了识别、对齐、压缩和定位的环节。设计时先问“答案依赖哪些信号与关系”，再决定怎样把这些信息交给模型，并保留可以返回核对的出处。</p>
+<p>下一篇《结构化输出、工具调用与 Agent：模型怎样参与真实操作》，将从理解资料走向生成可处理的字段和操作请求，解释模型输出怎样接上实际程序。</p>
+<p>上一篇：蒸馏、量化与推理优化 · 返回第二部分大纲</p>
+</article>

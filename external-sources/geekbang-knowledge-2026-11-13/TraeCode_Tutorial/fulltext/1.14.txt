@@ -1,0 +1,17 @@
+本篇只保留本课程已使用的入口，配置全文见第 9 章，不再重复旧 YAML、-p/--print 或 IDE Hook 配置。
+
+用途	入口
+版本、帮助	traecli --version；traecli --help
+交互	traecli
+非交互	traecli exec
+只读调查	--sandbox read-only
+工作区写入	--sandbox workspace-write
+profile	-p / --profile
+事件日志	exec --json（JSONL）
+最终答复文件	exec -o 文件
+扩展	/plugins、/skills、/mcp
+配置	~/.trae/traecli.toml
+
+参数无法识别时保留版本和 help，再对照同代官方文档；不把旧版示例的一半拼进 2.0。权限错误先核对所需操作和实际沙箱，测试失败先读退出码及日志，不能统一通过扩大权限解决。
+
+参考：当前官方参数。

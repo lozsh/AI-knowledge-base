@@ -1,0 +1,241 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与练习时间：30～40 分钟<br>本篇目标：分清 Agent 内部的工具调用循环与 Loop Engineering 管理的多次运行，判断一个任务应该由人处理、交给一次 Agent 运行，还是设计成一个有边界的循环。</p>
+</blockquote>
+<p>你大概做过这样的事：把任务交给编码 Agent，等它修改、测试、修错，再根据结果补一句提示。第二天又来一个相似任务，于是重复同样的交接和检查。</p>
+<p>如果这些任务足够多，很容易产生一个诱人的想法：写个定时器，不断调用 Agent，失败就再试，直到成功。</p>
+<p>问题也从这里开始。它怎样知道自己真的有进展？重启后从哪里继续？同一个错误出现三次时，是继续消耗 Token，还是停下来？测试被 Agent 改弱之后，“全部通过”还可信吗？遇到需要产品判断或高风险权限的任务，又由谁接手？</p>
+<p>Loop Engineering 关心的不是怎样让循环转起来，而是怎样让它在正确的时候继续，在不该继续的时候结束。</p>
+<h2 id="wiki-h-0">先承认：这是一个正在形成的术语</h2>
+<p>Loop Engineering 还不是一套已经定型的行业标准。IBM 在 2026 年 7 月发布的介绍中，把它描述为设计迭代式 Agent 工作流的实践：系统围绕目标反复行动、观察和调整，而不是每一步都等待人重新提示。<a href="https://www.ibm.com/think/topics/loop-engineering">IBM 概念说明</a></p>
+<p>一项 2026 年的探索性研究则梳理了当时的公开实践，发现较稳定的共同元素包括：触发 Agent 运行、机器可检查的停止条件、持久状态、独立验证者、Token 或时间预算，以及明确的人类升级点。作者也强调，这一领域仍缺少充分的实证研究，不能把流行说法直接当成成熟结论。<a href="https://arxiv.org/abs/2608.21884">探索性研究</a></p>
+<p>因此，这套教程不会把某个脚本或某家产品包装成“标准答案”。我们采用一个够具体、也方便检验的工作定义：</p>
+<blockquote>
+<p>Loop Engineering，是对多次 Agent 运行之间的触发、任务选择、状态传递、结果验证、预算、重试、隔离、停止和人工升级进行工程化设计。</p>
+</blockquote>
+<p>这一定义里最重要的词不是“循环”，而是“多次运行之间”。</p>
+<h2 id="wiki-h-1">先分清四个容易混在一起的层次</h2>
+<p>同一个 Agent 工作过程里，往往同时存在 Prompt、Context、Harness 和 Loop。它们会配合，但解决的问题不同。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>层次</th>
+<th>主要问题</th>
+<th>例子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Prompt Engineering</td>
+<td>这一轮怎样把目标说清楚</td>
+<td>“修复搜索为空的问题，不要改数据文件”</td>
+</tr>
+<tr>
+<td>Context Engineering</td>
+<td>当前决策前应该让模型看到什么</td>
+<td>选择相关代码、错误日志和产品规则</td>
+</tr>
+<tr>
+<td>Harness Engineering</td>
+<td>一次运行怎样行动、观察并验证</td>
+<td>文件工具、终端、浏览器、测试、权限与仓库说明</td>
+</tr>
+<tr>
+<td>Loop Engineering</td>
+<td>多次运行怎样接力、恢复并结束</td>
+<td>触发器、任务队列、持久状态、预算、重试和升级</td>
+</tr>
+</tbody></table></div>
+<p>可以把 Harness 想成一名 Agent 上班时使用的工作台，把 Loop 想成安排多次轮班的调度与控制系统。工作台不好用，增加轮班次数只会更快地产生混乱；只有单次运行已经能理解项目、使用工具和读取验证结果，外部循环才有可靠基础。</p>
+<p>这也是为什么本教程的 Issue Garden 不从一个空仓库开始。课程会提供一份具备基础说明、测试、诊断和权限边界的 ShelfCare 快照。没有学过 Harness Engineering 也能直接开始，但我们不会假设一个完全没有验证能力的项目适合自动循环。</p>
+<h2 id="wiki-h-2">“Agent 自己反复调用工具”还不是本教程的 Loop</h2>
+<p>现代编码 Agent 在一次任务里，本来就会多次调用模型和工具。OpenAI 当前的 Agent Runner 文档把一次 SDK <code>run</code> 视为一个应用层 turn：Runner 调用模型，执行工具或处理交接，再把结果送回模型，直到得到最终输出、需要审批或遇到其他真实停止点。<a href="https://developers.openai.com/api/docs/guides/agents/running-agents">OpenAI Agent Runner 文档</a></p>
+<p>一次运行内部可能是这样：</p>
+<pre><code class="hljs language-text">模型规划
+  -&gt; 读取文件
+  -&gt; 模型决定修改
+  -&gt; 写文件
+  -&gt; 模型决定测试
+  -&gt; 运行测试
+  -&gt; 模型观察结果并修复
+  -&gt; 返回最终回答
+</code></pre><p>虽然这里也在循环，但它仍属于一次 Agent 运行：共享同一段会话状态，由 Agent 的 Runner 决定何时结束。</p>
+<p>本教程要搭的是它外面的控制循环：</p>
+<pre><code class="hljs language-text">触发器发现任务
+  -&gt; 外部 Runner 选择一个任务
+  -&gt; 启动一次 Agent 运行
+  -&gt; 收集退出码、Diff 和报告
+  -&gt; 独立运行验证器
+  -&gt; 保存本轮状态
+  -&gt; 决定完成、再试、换策略、等人或停止
+  -&gt; 必要时再启动下一次 Agent 运行
+</code></pre><p>这两层不要混为一谈。Agent 内部工具调用次数很多，不代表它已经具备跨进程恢复、全局预算、任务去重和人工升级；外部 Runner 能重复启动 Agent，也不代表单次运行里的工具、上下文和验证已经设计好。</p>
+<p>后面的课程统一使用两个术语：</p>
+<ul>
+<li><strong>一次运行（run）</strong>：从外部 Runner 启动 Agent，到它返回或中止；</li>
+<li><strong>一轮（round）</strong>：外部循环围绕一个任务完成“启动运行、收集结果、独立验证、保存状态和作出下一步决定”的完整过程。</li>
+</ul>
+<p>一个任务可以经历多轮，每轮内部又可能包含许多次模型与工具交互。</p>
+<h2 id="wiki-h-3">最小可用循环必须包含什么</h2>
+<p>把 Loop Engineering 压缩到最小，至少要回答六个问题。</p>
+<h3 id="wiki-h-4">1. 目标：这一轮究竟要改变什么</h3>
+<p>“继续改进项目”不是目标。一个可循环处理的任务应该足够小，并且有稳定标识，例如：</p>
+<pre><code class="hljs language-text">issue-001：修复搜索框输入全角空格时无法匹配书名的问题
+</code></pre><p>稳定 ID 用来去重和恢复；明确范围用来防止 Agent 把一次维护任务扩展成整库重写。</p>
+<h3 id="wiki-h-5">2. 动作：本轮允许 Agent 做什么</h3>
+<p>动作不仅是“调用模型”。还包括允许读取哪些文件、能否写代码、可以运行哪些命令、是否能访问网络，以及结果是否允许提交或发布。</p>
+<p>Issue Garden 默认只允许修改本地实验副本、运行项目已有检查和查看 Git Diff。它不会自动合并、部署或访问真实外部服务。</p>
+<h3 id="wiki-h-6">3. 观察：怎样知道这一轮发生了什么</h3>
+<p>至少要保留：Agent 退出状态、修改文件、验证输出、耗时和本轮报告。只有最终一句“已完成”，无法支持下一轮判断。</p>
+<h3 id="wiki-h-7">4. 验证：谁来判断结果是否满足目标</h3>
+<p>Agent 可以自查，但不能把它的自述当成唯一证据。循环需要在 Agent 运行结束后，由外部 Runner 执行受保护的测试、规则检查和 Diff 审查。</p>
+<h3 id="wiki-h-8">5. 调整：失败后为什么值得再来一轮</h3>
+<p>重试应该有新的信息或新的策略，例如补充缺失日志、缩小任务，或用干净上下文重新开始。如果输入、上下文和做法都不变，只是再次发送同一句提示词，那不叫纠偏，只是在碰运气。</p>
+<h3 id="wiki-h-9">6. 停止：什么时候不再启动下一轮</h3>
+<p>至少要包括：任务验证通过、达到最大轮次、耗尽时间或费用预算、连续出现相同失败、缺少必要信息、触发权限边界，以及人主动取消。</p>
+<p>把它们连起来，才是一条完整控制链：</p>
+<pre><code class="hljs language-text">目标 -&gt; 动作 -&gt; 观察 -&gt; 验证 -&gt; 调整 -&gt; 继续或停止
+</code></pre><p>其中“人工处理”不是循环失败，而是一种正常终态。工程化系统的可靠性，常常体现在它知道什么时候不应该继续自动做。</p>
+<h2 id="wiki-h-10">为什么 <code>while true</code> 不够</h2>
+<p>下面这段伪代码确实会重复调用 Agent：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">while</span> <span class="hljs-literal">True</span>:
+    result = run_agent(<span class="hljs-string">"继续修复项目，直到测试通过"</span>)
+    <span class="hljs-keyword">if</span> tests_pass():
+        <span class="hljs-keyword">break</span>
+</code></pre><p>它没有回答几个关键问题：</p>
+<ul>
+<li>进程重启后，之前尝试了什么；</li>
+<li><code>tests_pass()</code> 检查的是可信基线，还是 Agent 刚刚改弱的测试；</li>
+<li>Agent 连续三次犯同一个错误时如何停止；</li>
+<li>一轮修改了 80 个文件时是否仍可接受；</li>
+<li>测试本身不稳定时，怎样区分环境错误与逻辑错误；</li>
+<li>任务需要产品判断或额外权限时，由谁接手；</li>
+<li>两个 Runner 同时拿到同一任务时，怎样防止重复修改；</li>
+<li>已经成功的副作用会不会在重试中执行第二次。</li>
+</ul>
+<p>真正的工程工作大多发生在循环体之外：契约、状态、验证、锁、预算、审批和恢复。循环语法只负责重复。</p>
+<p>同样，给上面代码加一个 <code>max_retries = 5</code> 也只解决了“最多转几次”，没有解决每次为什么值得转、结果是否可信，以及停止后留下什么证据。</p>
+<h2 id="wiki-h-11">哪些任务值得循环化</h2>
+<p>一个任务满足下面四个条件时，才更像合适的 Loop 候选：</p>
+<ol>
+<li><strong>会重复出现。</strong> 不是只发生一次的临时工作；</li>
+<li><strong>每轮可以缩小。</strong> 能拆成短小、相对独立的任务；</li>
+<li><strong>结果可以验证。</strong> 有测试、规则、结构化检查或清楚的人工审核点；</li>
+<li><strong>失败可以控制。</strong> 修改可隔离、可恢复，不会一次错误就产生不可逆后果。</li>
+</ol>
+<p>少一个条件，不代表绝对不能自动化，但需要更强的人类控制。例如“每天整理低风险依赖更新”很适合形成循环；“自动决定并执行生产数据库删除”即便反复出现，也不该因为频率高就交给无人值守 Agent。</p>
+<p>可以用这个简化判断顺序：</p>
+<pre><code class="hljs language-text">任务是否重复？
+  否 -&gt; 人或一次 Agent 运行通常足够
+  是
+  ↓
+能否拆成有明确结束条件的小任务？
+  否 -&gt; 先重写任务，不要急着循环
+  是
+  ↓
+是否有独立验证和可控失败面？
+  否 -&gt; 先补 Harness 与审核点
+  是 -&gt; 值得设计一个有预算的 Loop
+</code></pre><h2 id="wiki-h-12">先做一次任务分类练习</h2>
+<p>暂时不要写代码。先为下面六个场景选择“人处理”“一次 Agent 运行”或“工程化 Loop”。最好先自己判断，再看后面的解释。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>你的选择</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>把一个函数改名，并修复所有引用</td>
+<td></td>
+</tr>
+<tr>
+<td>每晚扫描本地任务队列，处理一个有测试的小缺陷</td>
+<td></td>
+</tr>
+<tr>
+<td>决定是否删除生产环境中的过期客户数据</td>
+<td></td>
+</tr>
+<tr>
+<td>第一次为个人网站重写首页文案</td>
+<td></td>
+</tr>
+<tr>
+<td>每周检查依赖更新，测试通过后生成待审核分支</td>
+<td></td>
+</tr>
+<tr>
+<td>需求只有“让产品更好用”，没有验收标准</td>
+<td></td>
+</tr>
+</tbody></table></div>
+<p>一种合理答案是：</p>
+<ul>
+<li>函数改名和首次文案任务通常交给一次 Agent 运行，人最终检查即可；</li>
+<li>每晚处理小缺陷、每周准备依赖更新具备重复、小范围和可验证特征，适合 Loop；</li>
+<li>删除生产客户数据需要高风险业务与合规判断，应由人控制，Agent 最多提供清单和建议；</li>
+<li>“让产品更好用”连一个可执行任务都还不是，应该先由人澄清目标，而不是让循环不断自行发明工作。</li>
+</ul>
+<p>这里没有按任务名字机械分类。“依赖更新”也可能涉及破坏性迁移，“文案修改”也可能形成大量低风险、可审阅的重复任务。真正决定方案的是边界、验证和失败代价。</p>
+<h2 id="wiki-h-13">贯穿项目 Issue Garden 怎样工作</h2>
+<p>后面的课程使用 <code>Issue Garden</code>：给 ShelfCare 增加一个本地维护循环。ShelfCare 是个人藏书管理小应用，已经具备基础项目说明、检查命令和权限边界；Issue Garden 则负责组织多次 Agent 运行。</p>
+<p>最终结构大致如下：</p>
+<pre><code class="hljs language-text">本地任务队列
+  -&gt; 触发器发现待处理任务
+  -&gt; Runner 获取锁并选择一项
+  -&gt; 读取 loop.yaml 和持久状态
+  -&gt; Agent 适配器启动一次运行
+  -&gt; 外部验证器检查测试、Diff 和任务契约
+  -&gt; 事件日志与状态文件记录证据
+  -&gt; 决策器输出：
+       completed / retry / needs_input / blocked / stopped
+</code></pre><p>为了让每位读者都能先验证控制逻辑，课程最初使用一个确定性的模拟 Agent。它不会真的写复杂代码，却能稳定重现“成功”“信息不足”和“越过权限”三种路径。单轮 Runner 跑通后，再把适配器换成你已经安装的命令行 Agent。</p>
+<p>这不是回避真实 Agent。恰恰相反：如果循环只有连接某个在线模型时才能测试，我们就很难知道错误来自 Agent、网络，还是控制逻辑。先把 Loop 自身变成可重复验证的程序，再接入不确定的执行者，排错会简单得多。</p>
+<p>最终综合实战会提供三类任务：</p>
+<ol>
+<li>测试可以明确验证的小缺陷，循环应完成并产出候选修改；</li>
+<li>缺少关键信息的模糊需求，循环应停止并请求补充；</li>
+<li>超出权限边界的任务，循环应拒绝继续并说明触发了哪条规则。</li>
+</ol>
+<p>结果只进入本地待审核区，不自动合并到 <code>main</code>，更不会部署。</p>
+<h2 id="wiki-h-14">写下你的第一张 Loop 候选卡</h2>
+<p>现在选一个你真的会重复处理的任务，先写成一张候选卡。可以放在课程笔记中，不需要提交到任何项目。</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># Loop 候选卡</span>
+
+<span class="hljs-bullet">-</span> 任务名称：
+<span class="hljs-bullet">-</span> 触发方式：手动 / 定时 / 事件
+<span class="hljs-bullet">-</span> 输入从哪里来：
+<span class="hljs-bullet">-</span> 每轮最多处理什么：
+<span class="hljs-bullet">-</span> 可以自动执行的动作：
+<span class="hljs-bullet">-</span> 必须人工批准的动作：
+<span class="hljs-bullet">-</span> 独立验证方式：
+<span class="hljs-bullet">-</span> 成功条件：
+<span class="hljs-bullet">-</span> 立即停止条件：
+<span class="hljs-bullet">-</span> 最大轮次或时间：
+<span class="hljs-bullet">-</span> 失败后怎样恢复：
+<span class="hljs-bullet">-</span> 为什么它比一次 Agent 运行更合适：
+</code></pre><p>用 Issue Garden 填写时，关键条目可以是：</p>
+<pre><code class="hljs language-text">任务名称：本地小缺陷维护
+触发方式：先手动，后续再增加定时或文件事件
+输入：tasks/inbox/ 中一条结构化任务
+每轮范围：只处理一个任务，不超过约定修改文件数
+自动动作：读取仓库、修改实验分支、运行本地验证
+人工批准：外部网络、扩大权限、合并、发布、破坏性命令
+独立验证：任务验收 + npm run check + Diff 规则
+成功条件：所有受保护验证通过并生成候选结果
+停止条件：预算耗尽、相同失败重复、信息不足、越权或人工取消
+</code></pre><p>检查你的候选卡。如果“独立验证方式”只能写成“让 Agent 自己判断”，或者“立即停止条件”完全为空，就先不要实现循环。下一篇会把这些文字升级成机器可读取、启动前就能检查的契约。</p>
+<h2 id="wiki-h-15">常见误解</h2>
+<h3 id="wiki-h-16">已经有定时任务，算不算 Loop Engineering</h3>
+<p>定时器只回答“何时启动”。如果每次启动后不读取持久状态、不验证结果，也没有预算、停止和人工升级，它只是重复执行器。触发机制是 Loop 的一部分，不是全部。</p>
+<h3 id="wiki-h-17">Agent 自己会测试和修错，还需要外部 Loop 吗</h3>
+<p>一次任务能在一个运行中完成，就不需要为了概念完整再包一层 Loop。外部循环适合跨运行、跨时间或跨任务的工作，并负责单次 Agent 不适合拥有的全局状态和控制权。</p>
+<h3 id="wiki-h-18">只要设置最大重试次数就安全了吗</h3>
+<p>不是。最大轮次能限制一种资源消耗，却不能防止错误副作用、弱化测试、重复处理、读取敏感信息或多个任务相互覆盖。后面的课程会分别处理这些边界。</p>
+<h3 id="wiki-h-19">没有做过 Harness Engineering 能继续吗</h3>
+<p>可以。课程会提供具备基本 Harness 的项目快照。你仍然需要理解一个原则：Loop 会放大单次运行的能力，也会放大单次运行的缺陷。若验证、权限和运行入口本身不可靠，应该先修 Harness，而不是增加重试。</p>
+<h3 id="wiki-h-20">所有任务最终都应该自动闭环吗</h3>
+<p>不应该。产品判断、合规审批、高风险外部操作和目标本身不清楚的任务，都应该保留人类决策。一个能明确输出 <code>needs_input</code> 或 <code>blocked</code> 的循环，比假装什么都能自动解决的循环更可靠。</p>
+<h2 id="wiki-h-21">本篇留下了什么</h2>
+<p>到这里，你应该能画出两层循环：一次 Agent 运行内部的模型—工具循环，以及外部 Runner 管理多次运行的控制循环。你也有了一张 Loop 候选卡，里面至少写清任务、验证、预算和停止条件。</p>
+<p>下一篇，我们会把 Issue Garden 的这些边界写进 <code>loop.yaml</code>。在第一次调用 Agent 之前，Runner 就应该能拒绝缺少验证器、没有预算或不存在停止条件的配置——先让循环拥有契约，再让它开始转动。</p>
+</article>

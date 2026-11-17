@@ -1,0 +1,48 @@
+在 Codex CLI 输入 / 可查看当前版本真正支持的命令；界面与命令可能随版本更新。
+
+会话与任务
+命令	用途
+/new	开始一个新任务
+/rename	给当前任务改名
+/resume	恢复历史任务
+/fork	基于当前历史创建分支任务
+/side	开启不打断主线的旁支讨论
+/compact	压缩长上下文，保留继续工作所需信息
+/status	查看目录、模型、权限和上下文状态
+/ps	查看正在运行的进程或任务
+/stop	停止当前会话启动的后台终端；不等于暂停 Goal 或取消当前模型回合
+/exit	退出 CLI
+规划与目标
+命令	用途
+/plan	进入规划模式，先设计再实施
+/goal <目标>	创建或设置长期目标
+/goal	查看目标状态
+/goal edit	编辑当前目标
+/goal pause	暂停目标
+/goal resume	恢复目标
+/goal clear	清除目标
+项目与审查
+命令	用途
+/init	为当前项目生成或建议 Agent 说明
+/mention <文件>	把文件加入当前上下文
+/diff	查看本轮或工作区变化
+/review	对 Git 变更做代码审查
+/debug-config	检查配置来源与最终值
+/permissions	查看或调整当前权限模式
+扩展能力
+命令	用途
+/skills	查看和调用 Skills
+/plugins	查看插件
+/apps	查看或连接 Apps
+/mcp	查看 MCP 连接和工具
+/mcp verbose	查看更详细的 MCP 状态
+/agent	查看或切换 Agent
+/subagents	查看子 Agent（若当前版本提供）
+三个容易混淆的命令
+/new：从空白上下文开始另一件事；
+/fork：带着共同历史探索另一条方案；
+/side：临时调查旁支问题，之后回到主线。
+
+如果只是补充当前任务的新要求，直接输入消息即可，不必新建会话。
+
+需要暂停持续目标时用 /goal pause；中断当前回合按界面显示的取消快捷键操作，并检查任务状态。三者分别验收，不互相替代。

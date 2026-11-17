@@ -1,0 +1,319 @@
+预计用时：40～55 分钟
+本篇目标：在独立的 MealCraft 缺陷实验中，按“确认基线 → 只读复现 → 定位根因 → 最小修复 → 回归验证”的顺序修复一个稳定故障，并理解 /rewind 与 Git 的边界。
+
+原稿假设读者的项目“可能”存在分数错误，但不同实现得到的结果不同。本篇改用课程提供的确定性缺陷层：它会让 1/2 和 1 1/2 无法缩放，同时保证整数、小数和文字用量仍然正常。
+
+实验在 mealcraft-fraction-lab 中进行，不修改第 6 篇通过验收的主 mealcraft。
+
+开始状态
+
+你需要：
+
+已完成第 6 篇，或至少能访问课程的三个 MealCraft 素材目录；
+Git、Python 3.11+ 和 Claude Code 可用；
+~/claude-code-course/mealcraft-fraction-lab 尚不存在；
+知道修订版教程根目录的实际路径。
+
+本篇的故障不是从你的个人实现中猜出来的。实验目录由参考 1.0、固定测试和一个缺陷覆盖层组合而成。
+
+创建不会影响主项目的缺陷实验
+
+设置教程根目录变量；占位符必须替换。
+
+macOS、Linux 或 WSL2：
+
+export COURSE_SOURCE="/替换为实际路径/claude-code-tutorial-v0.2"
+test -f "$COURSE_SOURCE/exercise-assets/mealcraft/fraction-bug-overlay/BUG_SCENARIO.md"
+cd ~/claude-code-course
+test ! -e mealcraft-fraction-lab
+mkdir mealcraft-fraction-lab
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/plan-starter/." mealcraft-fraction-lab/
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/implementation-kit/." mealcraft-fraction-lab/
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/reference-1.0-overlay/." mealcraft-fraction-lab/
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/fraction-bug-overlay/." mealcraft-fraction-lab/
+cd mealcraft-fraction-lab
+git init
+
+
+Windows PowerShell：
+
+$CourseSource = "C:\替换为实际路径\claude-code-tutorial-v0.2"
+if (-not (Test-Path "$CourseSource\exercise-assets\mealcraft\fraction-bug-overlay\BUG_SCENARIO.md")) { throw "缺陷素材路径错误" }
+Set-Location "$HOME\claude-code-course"
+if (Test-Path mealcraft-fraction-lab) { throw "mealcraft-fraction-lab 已存在，请先检查旧目录" }
+New-Item -ItemType Directory mealcraft-fraction-lab | Out-Null
+Copy-Item "$CourseSource\exercise-assets\mealcraft\plan-starter\*" -Destination mealcraft-fraction-lab -Recurse
+Copy-Item "$CourseSource\exercise-assets\mealcraft\implementation-kit\*" -Destination mealcraft-fraction-lab -Recurse
+Copy-Item "$CourseSource\exercise-assets\mealcraft\implementation-kit\.gitignore" -Destination mealcraft-fraction-lab
+Copy-Item "$CourseSource\exercise-assets\mealcraft\reference-1.0-overlay\*" -Destination mealcraft-fraction-lab -Recurse
+Copy-Item "$CourseSource\exercise-assets\mealcraft\fraction-bug-overlay\*" -Destination mealcraft-fraction-lab -Recurse
+Set-Location mealcraft-fraction-lab
+git init
+
+
+复制顺序不能改变：缺陷覆盖层必须最后复制，才能用有回归的 mealcraft/scaling.py 替换参考实现。
+
+用两种证据确认缺陷基线
+
+先运行专用状态检查。
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_fraction_lab.py --expect-bug
+
+
+Windows PowerShell：
+
+py scripts/verify_fraction_lab.py --expect-bug
+
+
+预期输出：
+
+PASS: 已复现确定性回归；分数字符串未缩放，其他样例正常
+
+
+这个检查确认“目标故障存在、非目标样例正常”，但它不是修复验收。接着运行原来的完整测试：
+
+macOS、Linux 或 WSL2：
+
+python3 -m unittest discover -s tests -v
+
+
+Windows PowerShell：
+
+py -m unittest discover -s tests -v
+
+
+预期运行 13 个测试，其中恰好 3 个失败：
+
+test_scaling_returns_copy_and_preserves_source
+test_mixed_fraction_scales
+test_simple_fraction_scales
+
+
+典型实际值分别是 1/2 或 1 1/2，而预期值是 1 或 3。如果失败数量或名称不同，实验状态已经偏离，不要继续修；重新检查复制顺序和 Diff。
+
+保存“已知有缺陷”的 Git 基线
+
+缺陷基线本身值得保存，因为它让后续 Diff 只显示修复。
+
+git add .
+git status --short
+git diff --cached --check
+git commit -m "create deterministic fraction regression lab"
+
+
+如果提交因 Git 身份缺失而失败，先为这个练习仓库配置你自己的常用署名和邮箱，再重试；不要为了教程填写虚假身份，也不必修改全局配置：
+
+git config user.name "替换为你的常用署名"
+git config user.email "替换为你的邮箱"
+git commit -m "create deterministic fraction regression lab"
+
+
+这两个值只写入当前仓库。提交成功时，git status --short 应没有输出。
+
+只让 Claude 复现，不允许先改代码
+
+从实验根目录启动：
+
+claude
+
+
+保持 Manual 模式，发送：
+
+阅读 BUG_SCENARIO.md、mealcraft/scaling.py、mealcraft/recipes.py 和相关测试。
+
+先不要修改任何文件：
+1. 运行 scripts/verify_fraction_lab.py --expect-bug；
+2. 只运行三个预期失败的测试；
+3. 对每个失败写出输入、预期值、实际值和调用路径；
+4. 找出最小根因，说明为什么整数、小数和文字仍然正常；
+5. 提议最小修复及可能受影响的边界。
+
+不要修改测试、检查器、菜谱、HTTP 服务或前端。
+
+
+三个聚焦测试可以用一条命令运行。
+
+macOS、Linux 或 WSL2：
+
+python3 -m unittest \
+  tests.test_scaling.ScaleAmountTests.test_simple_fraction_scales \
+  tests.test_scaling.ScaleAmountTests.test_mixed_fraction_scales \
+  tests.test_recipes.RecipeTests.test_scaling_returns_copy_and_preserves_source -v
+
+
+Windows PowerShell：
+
+py -m unittest tests.test_scaling.ScaleAmountTests.test_simple_fraction_scales tests.test_scaling.ScaleAmountTests.test_mixed_fraction_scales tests.test_recipes.RecipeTests.test_scaling_returns_copy_and_preserves_source -v
+
+
+预期三个测试都失败。Claude 的根因说明应建立在代码与失败证据上，而不是只复述用户报告。
+
+理解根因后再批准修复
+
+确认分析后，你应能自己解释：当前实现只用十进制解析器处理字符串，所以 2 与 1.5 可计算，而包含 / 或空格的分数字符串被当成不可计算文字原样返回。
+
+现在发送：
+
+只修改 mealcraft/scaling.py，实施最小修复。
+
+要求：
+- 支持整数、小数、简单分数 a/b 和带整数分数 w a/b；
+- 分母为 0 或不可解析文字继续原样返回；
+- 使用精确有理数计算，避免二进制浮点噪声；
+- 整数结果不显示 .0，非整数结果使用约分后的分数或带整数分数；
+- 保留 base_servings 与 target_servings 的现有校验；
+- 不修改其他文件。
+
+修改后先运行三个聚焦测试，再停下来汇报。不要执行 git commit。
+
+
+检查权限提示中的目标文件必须只有 mealcraft/scaling.py。如果 Claude 申请修改测试或把错误隐藏成永远返回原文，拒绝并要求回到最小范围。
+
+预期三个聚焦测试全部通过。
+
+从局部证据扩展到完整回归
+
+先运行专用的修复状态检查。
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_fraction_lab.py --expect-fixed
+
+
+Windows PowerShell：
+
+py scripts/verify_fraction_lab.py --expect-fixed
+
+
+预期输出：
+
+PASS: 分数回归已修复，非目标样例保持正常
+
+
+再运行全部 13 个测试：
+
+macOS、Linux 或 WSL2：
+
+python3 -m unittest discover -s tests -v
+
+
+Windows PowerShell：
+
+py -m unittest discover -s tests -v
+
+
+预期 Ran 13 tests 和 OK。最后运行真实服务器发布检查：
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_release.py
+
+
+Windows PowerShell：
+
+py scripts/verify_release.py
+
+
+预期发布检查通过且源菜谱哈希不变。发布检查需要在 127.0.0.1 临时监听一个随机端口；若被安全软件阻止，只允许当前 Python 进程的本机回环连接。
+
+做一次用户可见的手工复现
+
+启动实验服务器：
+
+macOS、Linux 或 WSL2：
+
+python3 app.py --host 127.0.0.1 --port 8000
+
+
+Windows PowerShell：
+
+py app.py --host 127.0.0.1 --port 8000
+
+
+浏览器打开 http://127.0.0.1:8000/：
+
+打开“香菇拌面”，从 2 人份切到 4 人份，生抽应为 1 勺；
+打开“清蒸鱼片”，从 2 人份切到 4 人份，蒸鱼豉油应为 3 勺；
+打开“番茄炒蛋”，盐仍为“适量”。
+
+按 Ctrl+C 停止服务器。自动测试证明函数契约，浏览器操作证明用户实际路径也使用了修复后的逻辑。
+
+用 /rewind 体验一次可恢复试验
+
+修复通过后，让 Claude 做一个明确会被拒绝的临时实验：
+
+这是一次临时显示实验：只修改 mealcraft/scaling.py，让所有可计算结果固定显示两位小数。修改后只运行 test_integer_scales_without_decimal_suffix，并停下来。不要改测试。
+
+
+预期 test_integer_scales_without_decimal_suffix 失败，因为得到类似 4.00 而不是 4。确认这次修改由 Claude 的文件编辑工具完成后，输入：
+
+/rewind
+
+
+也可以在空输入框按两次 Esc 打开 Rewind 菜单。选择恢复到临时显示实验之前的代码状态；不要回退已经完成的真正分数修复。
+
+恢复后重新运行：
+
+git diff --check
+python3 scripts/verify_fraction_lab.py --expect-fixed
+python3 -m unittest discover -s tests -v
+
+
+Windows 将两条 python3 改为 py。
+
+Checkpoint 只可靠跟踪 Claude 文件编辑工具产生的改动。Bash 命令、手工编辑、外部程序和部分 Subagent 的改动不一定能被 /rewind 恢复，因此它不是 Git 的替代品。
+
+审查最小 Diff 并提交
+
+输入 /diff，并在外部终端运行：
+
+git status --short
+git diff --check
+git diff -- mealcraft/scaling.py
+git diff -- tests scripts data static app.py
+
+
+最后一条命令应没有输出。最终修复只应修改 mealcraft/scaling.py；课程测试、检查器、菜谱、前端和服务器都保持缺陷基线状态。
+
+提交：
+
+git add mealcraft/scaling.py
+git commit -m "fix fractional ingredient scaling regression"
+git status --short
+
+
+预期工作区干净。此提交与缺陷基线之间的 Diff 就是一份可审查、可回退的最小修复记录。
+
+本篇验收清单
+缺陷实验位于独立目录，主 mealcraft 未被修改；
+--expect-bug 通过，完整测试稳定出现指定 3 个失败；
+Claude 在第一次分析时没有修改文件；
+根因解释能说明为何十进制正常、分数字符串失败；
+最终只修改 mealcraft/scaling.py；
+--expect-fixed、13 个单测和发布检查全部通过；
+浏览器中的简单分数、带整数分数和文字用量均符合预期；
+完成一次可观察失败的临时实验，并用 /rewind 恢复；
+Git 中保留已知缺陷基线和最小修复记录。
+关键排错
+
+--expect-bug 没有通过：最常见原因是复制顺序错误，参考 scaling.py 覆盖了缺陷文件。重新建一个新实验目录，并确保 fraction-bug-overlay 最后复制。
+
+完整测试不是恰好 3 个失败：检查当前 Python 工作目录、测试数量和 git status；不要在未知状态上继续修复。
+
+局部测试通过但发布检查失败：查看失败的是 HTTP 详情、服务器启动还是源哈希。不要扩大到重写前端；先确认 scaled_recipe 是否仍调用同一 scale_amount。
+
+/rewind 没恢复临时改动：检查该改动是否由 Bash、外部编辑器或其他 Agent 产生。使用 git diff 定位，并从修复提交或已知 Diff 手工恢复；不要假设 Checkpoint 覆盖一切。
+
+本篇小结
+
+可靠调试不是“看见报错就让 Claude 修”，而是先保存可重复基线，用聚焦测试证明现象和调用路径，再做最小修改，最后扩大到全套测试、真实服务器和用户操作。/rewind 适合短期试验，Git 负责可审查的长期历史。
+
+下一篇回到通过验收的 MealCraft，系统区分权限模式、规则与操作系统 Sandbox，并用导出功能验证真正的路径边界。
+
+官方参考：
+
+Checkpointing
+Interactive mode
+Common workflows

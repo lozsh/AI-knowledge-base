@@ -1,0 +1,188 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>上一章我们学会了 Skill——用一份 Markdown 就能给 Kimi 加能力，这是最"轻"的扩展方式。Kimi Code 还有四种更"重"的扩展机制：<strong>子代理、MCP、Hooks、插件</strong>。新手期可以暂时不用它们，但你早晚会遇到需要它们的场景，这一章先把地图给你，每种都配一个能上手的小实战。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>机制</th>
+<th>一句话理解</th>
+<th>什么时候用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>子代理</td>
+<td>让它"分身"，并行处理独立子任务</td>
+<td>大规模调查、多方案对比、不想污染主会话上下文</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td>接入外部工具和服务的标准协议</td>
+<td>想让它操作自带工具之外的东西（数据库、内部系统、第三方服务）</td>
+</tr>
+<tr>
+<td>Hooks</td>
+<td>"每当 X 发生，就自动跑这个脚本"</td>
+<td>安全拦截、完成提醒、自动检查</td>
+</tr>
+<tr>
+<td>插件</td>
+<td>把 Skill / agent / MCP 等打包成可安装的单元</td>
+<td>团队内分发工作流，安装官方或第三方扩展</td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-0">10.1 子代理：让它学会"分身"</h2>
+<p>到目前为止，一直是一个 Kimi 在和你对话。其实每个会话背后是一个<strong>主代理</strong>，它还可以把聚焦的子任务<strong>派给子代理</strong>（sub-agent）去做。</p>
+<p>子代理的关键特性是<strong>上下文隔离</strong>：它只看到主代理写给它的任务描述，看不到你们的对话历史；它干活时的中间过程（搜索、读文件的记录）也不会倒灌回主对话，只有最终结论会回来。这带来两个好处——主会话的上下文保持干净，多个子代理还可以<strong>并行</strong>工作、互不干扰。</p>
+<p>Kimi Code 内置了三种子代理，开箱即用：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>子代理</th>
+<th>特点</th>
+<th>适合</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>coder</code></td>
+<td>默认的全能型，能读写文件、跑命令</td>
+<td>具体的开发任务</td>
+</tr>
+<tr>
+<td><code>explore</code></td>
+<td><strong>只读</strong>，专门探索代码库，绝不修改文件</td>
+<td>"先摸清情况"的调查类任务</td>
+</tr>
+<tr>
+<td><code>plan</code></td>
+<td>只做方案设计，连 shell 都不能跑</td>
+<td>架构设计、实施规划</td>
+</tr>
+</tbody></table></div>
+<p>多数时候，主代理会根据任务复杂度和子任务的独立性，自己判断什么时候该派子代理。你也可以直接在对话里点名：</p>
+<pre><code>先派一个 explore 子代理，摸清这个项目里和数据读写相关的文件，只调查不修改
+</code></pre><p>每次派遣会以审批请求的形式出现（<code>/yolo</code> 模式下自动批准），你能看到它给子代理写的任务描述。</p>
+<p>来个实战，体会"分身并行"的感觉：</p>
+<pre><code>我要做两件事，派两个子代理并行处理：
+<span class="hljs-bullet">1.</span> 用 explore 分析这个项目的数据流：数据从哪进、怎么存、怎么渲染到页面
+<span class="hljs-bullet">2.</span> 联网调研 30 种常见食物的热量参考值，整理成清单，为扩充 foods.js 做准备
+最后把两份结论汇总给我
+</code></pre><p>它会同时启动两个子代理——一个在本地只读分析代码，一个联网做调研——然后汇总两份报告。如果让主代理串行做，耗时取决于任务长度、启动和汇总开销，不能预设翻倍。</p>
+<p>两个提醒：一是<strong>每个子代理都独立消耗额度</strong>，简单任务没必要分身，主代理自己干更经济；二是子代理<strong>继承主代理的权限规则</strong>，你批准过的"始终允许"对它们同样生效，不需要重新批准。</p>
+<p>本章以 10.2 的一个 MCP 连接为必做；子代理、Hooks 和插件制作是选读。每次只增加一个能力，验证成功后再继续。</p>
+<p>MCP 前先运行 <code>node --version</code>、<code>npx --version</code>。没有 Node 时按 Node.js 官方安装说明安装后重开终端。创建 kimi-mcp-lab 目录并放一个 hello.txt，配置中的占位绝对路径必须替换；Windows JSON 路径写作 <code>C:\\Users\\你的用户名\\kimi-mcp-lab</code>。连接后先列工具，再读取 hello.txt，最后在授权范围内创建 probe.txt 并由终端核对内容；连接图标正常不等于工具调用成功。</p>
+<h2 id="wiki-h-1">10.2 MCP：接上外部世界的工具</h2>
+<p>Kimi 自带的工具（读写文件、跑命令、联网搜索）已经很全，但总有覆盖不到的角落：查公司内部系统的数据、操作某个 SaaS 服务、读一个特殊格式的存储……<strong>MCP（Model Context Protocol，模型上下文协议）</strong>就是为此而生的开放标准——外部进程或服务按这个协议暴露工具，Kimi Code 作为客户端连上去，那些工具就和内置工具一样供它调用。</p>
+<p><strong>三种连接方式</strong>：stdio（CLI 在本地启动一个子进程，适合本地命令行工具）、HTTP（连接一个已在运行的远程服务）、SSE（旧式协议，新服务优先用 HTTP）。</p>
+<p><strong>配置写在哪里</strong>：一个 <code>mcp.json</code> 文件，分两级——用户级 <code>~/.kimi-code/mcp.json</code>（对所有项目生效），项目级 <code>&lt;项目&gt;/.kimi-code/mcp.json</code>（只对当前仓库生效，同名条目覆盖用户级）。也可以在会话里输入 <code>/mcp-config</code> 用交互界面增删改，输入 <code>/mcp</code> 查看各服务器的连接状态。</p>
+<p>来配一个最小的例子（官方示例的文件系统服务，需要机器上有 Node 环境的 <code>npx</code>；没有的话读懂原理即可）：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"mcpServers"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"filesystem"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"command"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"npx"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"args"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"-y"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"@modelcontextprotocol/server-filesystem"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"/ABSOLUTE/PATH/kimi-mcp-lab"</span><span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>把它写进 <code>~/.kimi-code/mcp.json</code>，然后<strong>新开一个会话</strong>（改配置对已经打开的会话不生效），输入 <code>/mcp</code> 就能看到 filesystem 服务已连接。之后 Kimi 就能调用 <code>mcp__filesystem__read_file</code> 这类工具读写已明确创建的 kimi-mcp-lab 练习目录中的文件——注意 MCP 工具的命名规律是 <code>mcp__&lt;服务器名&gt;__&lt;工具名&gt;</code>，审批面板里看到这个名字，你就知道它来自哪个外部服务。</p>
+<p><strong>安全上的四条纪律</strong>，请务必记住：</p>
+<ul>
+<li>只连接你信任来源的 MCP 服务；</li>
+<li>项目级 <code>mcp.json</code> 里的 stdio 服务会<strong>在会话启动时执行本地命令</strong>——打开含有项目级 MCP 配置的陌生仓库时，Kimi 会弹出信任提示并列出将启动的命令，看清楚再点信任；</li>
+<li>审批 MCP 工具调用时，留意工具名和参数是否合理；高风险工具（写文件、执行命令）保持手动批准，别用 <code>mcp__*</code> 通配符一次性放行；</li>
+<li><code>/yolo</code> 模式下 MCP 工具调用会<strong>自动批准</strong>——只有你完全信任所连接的服务时才敢这么用。</li>
+</ul>
+<h2 id="wiki-h-2">10.3 Hooks：事件驱动的自动触发</h2>
+<p>第 8 章的定时任务是"到点触发"，<strong>Hooks 则是"出事触发"</strong>：你预先告诉 CLI"每当某个事件发生，就自动运行这个脚本"，脚本在你的本机执行，里面写什么都行。</p>
+<p>典型用途有三类：<strong>安全拦截</strong>（它执行 shell 命令前，脚本检查有没有危险操作，有就拦下）、<strong>完成提醒</strong>（后台任务完成时弹个系统通知叫你回来）、<strong>自动检查</strong>（每次你发消息时，自动往上下文里附加当前 git 分支之类的背景信息）。</p>
+<p>配置写在 <code>~/.kimi-code/config.toml</code> 的 <code>[[hooks]]</code> 数组里，每条规则四个字段：</p>
+<ul>
+<li><code>event</code>：事件名（必填）；</li>
+<li><code>matcher</code>：可选的正则，过滤事件目标（比如只匹配某个工具）；</li>
+<li><code>command</code>：要执行的命令（必填）；</li>
+<li><code>timeout</code>：超时秒数，可选，默认 30 秒。</li>
+</ul>
+<p>常用事件挑几个认识一下：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>事件</th>
+<th>触发时机</th>
+<th>能否拦截</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>PreToolUse</code></td>
+<td>工具调用之前</td>
+<td>能</td>
+</tr>
+<tr>
+<td><code>PostToolUse</code></td>
+<td>工具成功执行之后</td>
+<td>不能（纯观察）</td>
+</tr>
+<tr>
+<td><code>Stop</code></td>
+<td>模型即将结束当前回合</td>
+<td>能</td>
+</tr>
+<tr>
+<td><code>UserPromptSubmit</code></td>
+<td>你发送消息时</td>
+<td>能</td>
+</tr>
+<tr>
+<td><code>Notification</code></td>
+<td>后台任务状态变化</td>
+<td>不能</td>
+</tr>
+<tr>
+<td><code>SubagentStop</code></td>
+<td>子代理完成时</td>
+<td>不能</td>
+</tr>
+</tbody></table></div>
+<p>脚本的返回规则很简单：<strong>退出码 0 表示放行，2 表示拦截</strong>（拦截原因通过 stderr 传给 Kimi），其他退出码、超时、崩溃都默认放行——这种"出错也放行"的设计叫 fail-open。所以 Hooks 适合做提醒和轻量拦截，<strong>不要把它当成唯一的安全屏障</strong>，真正的高危操作还是要靠权限审批。</p>
+<p>实战一个立刻用得上的：让它改完代码后自动提醒我们跑测试。在 <code>~/.kimi-code/config.toml</code> 里加：</p>
+<pre><code class="hljs language-toml"><span class="hljs-section">[[hooks]]</span>
+<span class="hljs-attr">event</span> = <span class="hljs-string">"PostToolUse"</span>
+<span class="hljs-attr">matcher</span> = <span class="hljs-string">"Write|Edit"</span>
+<span class="hljs-attr">command</span> = <span class="hljs-string">"echo '提醒：代码有改动——如果动了 calc.js，请打开 tests.html 跑一遍测试'"</span>
+</code></pre><p><code>matcher</code> 里的 <code>Write|Edit</code> 是正则，匹配"写入文件"和"编辑文件"两类工具。脚本的 stdout 会附加到上下文里，所以这句提醒 Kimi 自己也看得到——它收到提醒后，很可能主动就把测试跑了。保存配置后<strong>新开一个会话</strong>生效。</p>
+<p>如果想做拦截（比如拦下包含 <code>rm -rf</code> 的命令），思路是：监听 <code>PreToolUse</code>、<code>matcher</code> 设为 <code>Bash</code>，脚本从 stdin 读事件 JSON、检查命令内容，发现危险就 <code>exit 2</code>。完整的示例脚本在官方文档的 <a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html">Hooks</a> 页面里有，需要时照抄改造即可。</p>
+<h2 id="wiki-h-3">10.4 插件：把能力打包带走</h2>
+<p>Skill 是一个文件，只能静静躺在你的目录里。如果想把一套工作流<strong>分享给别人</strong>——团队成员、其他项目的自己——就需要<strong>插件</strong>：把 Skill、自定义 agent、MCP 服务声明、Hooks 等打包成一个可安装的单元。</p>
+<p><strong>先看管理界面。</strong> 在会话里输入 <code>/plugins</code>，打开插件管理器，四个标签页用 Tab 切换：Installed（已安装）、Official（官方插件）、Curated（精选第三方）、Custom（从 URL 安装）。也可以用命令直接操作：<code>/plugins install &lt;路径或URL&gt;</code> 安装、<code>/plugins list</code> 查看、<code>/plugins remove &lt;id&gt;</code> 删除。改动插件后，运行 <code>/reload</code> 或 <code>/new</code> 才会生效。</p>
+<p><strong>官方插件值得知道</strong>，目前有三个，都能在 Official 标签页直接安装：</p>
+<ul>
+<li><strong>Kimi Datasource</strong>：用自然语言查询金融行情、宏观经济、企业信息、学术论文、法律法规等专业数据（消耗会员额度）；</li>
+<li><strong>Kimi Browser Extension</strong>：让 AI 驱动你自己的浏览器完成网页任务（还需在浏览器里装配套扩展）；</li>
+<li><strong>Kimi Computer Use</strong>：让 AI 直接操作你的桌面应用（macOS / Windows）。</li>
+</ul>
+<p><strong>再动手打一个自己的插件</strong>，把第 9 章做的 weekly-review 技能包装起来。目录结构：</p>
+<pre><code class="hljs language-text">weekly-review-plugin/
+├── kimi.plugin.json
+└── skills/
+    └── weekly-review/
+        └── SKILL.md      ← 第 9 章写好的那个文件，复制过来
+</code></pre><p><code>kimi.plugin.json</code> 的内容：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"weekly-review"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"version"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1.0.0"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"description"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"体重管理周回顾工作流"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"skills"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"./skills/"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"interface"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"displayName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Weekly Review"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"shortDescription"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"体重管理周回顾工作流"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>然后在会话里运行 <code>/plugins install ./weekly-review-plugin</code>（换成你的实际路径），<code>/plugins list</code> 确认安装成功，再 <code>/new</code> 开个新会话，<code>/skill:weekly-review</code> 就能用了——只不过这次它是以"插件提供的技能"的身份出现的。</p>
+<p>两个注意事项：本地安装时插件会被<strong>复制</strong>到 <code>~/.kimi-code/plugins/managed/</code>，之后修改源目录不生效，要重新安装；插件目前是<strong>用户级</strong>安装，对所有项目生效。</p>
+<p>理清 Skill 和插件的关系：<strong>Skill 是内容，插件是包装和分发方式</strong>。自己用，写 Skill 就够；要给别人用，就打成插件。</p>
+<h2 id="wiki-h-4">本章小结</h2>
+<p>这一章我们补齐了 Kimi Code 的扩展版图：</p>
+<ul>
+<li><strong>子代理</strong>：主代理可以把独立子任务派给 <code>coder</code> / <code>explore</code> / <code>plan</code>，上下文隔离、可并行，但每个子代理独立消耗额度；</li>
+<li><strong>MCP</strong>：通过 <code>mcp.json</code>（用户级/项目级）接入外部工具服务，工具名形如 <code>mcp__服务__工具</code>；改配置要新开会话，安全四纪律别忘；</li>
+<li><strong>Hooks</strong>：在 <code>config.toml</code> 的 <code>[[hooks]]</code> 里配置"事件 → 脚本"，退出码 0 放行、2 拦截、出错默认放行（fail-open）；适合做提醒和轻量拦截；</li>
+<li><strong>插件</strong>：把 Skill 等打包成可安装单元，<code>/plugins</code> 管理，官方有 Datasource、浏览器扩展、Computer Use 三个插件；我们也把 weekly-review 打成了插件。</li>
+</ul>
+<p>到这里，"怎么让 Kimi 更顺手"这个话题就讲透了。下一章我们换个"战场"：把 Kimi 装进你的编辑器（VS Code、Zed、JetBrains），以及用 API Key 接入第三方工具。</p>
+</article>

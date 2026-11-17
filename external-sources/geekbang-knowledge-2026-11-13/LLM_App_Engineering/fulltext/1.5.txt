@@ -1,0 +1,257 @@
+历史搜索的规格已经写好了，Git检查点也建立了。现在对Kimi Code说“按规格实现”，是不是就可以等它交付？
+
+还差一个会明显影响成败的决定：这次改动应该在哪里发生，以及每做到哪一步就停下来检查。如果Agent同时改页面、查询、模型接入和数据格式，最后即使看到了搜索框，也很难判断它是否顺手破坏了其他流程。
+
+本篇把这次需求拆成三个检查点：先做好只读查询，再接上网页，最后验证完整流程。最终得到一个能搜索当前浏览器会话历史问题的笔记助手。应用继续使用DeepSeek官方API，Kimi Code只是开发工具；搜索本身不调用模型。
+
+下载完整材料与代码 · 分步开发任务 · 实现状态说明 · 上一篇：Git与检查点
+
+核实日期：2026年10月4日。作者提供的reference是手工参考实现，已完成本地离线存储、HTTP与回归检查，不是Kimi实际生成记录。没有真实Kimi或DeepSeek请求，没有Windows实机或浏览器视觉测试。读者使用Kimi开发可能消耗自己的工具额度，运行本篇离线检查不需要模型密钥。
+
+拆任务要拆出可以判断的结果
+
+“先读代码、再写代码、最后测试”是一种时间安排，却没有说明任何一步的交付结果。更有用的拆法是让每一步都有明确输入、输出和检查方法。
+
+检查点	交付结果	修改范围	怎样证明完成
+A：历史查询	给定owner与关键词，返回记录和截断提示	storage.py	临时数据库中的固定案例得到约定ID
+B：网页接线	搜索框、清空、列表与错误反馈可用	web_app.py、templates/web.html	HTTP请求返回正确列表、状态码与转义内容
+C：集成回归	新搜索与旧预览、生成、计划共存	原则上只修复发现的问题	搜索、证据统计、原有验收全部通过
+
+A完成时，网页还可以没有搜索框，但我们能单独证明查询结果正确。B完成时，也不能只看搜索框存在，还要验证页面传给查询的身份来自当前会话。C把前两个小步放回整个应用里检查。
+
+这三个检查点让失败变得容易定位：查询就漏了旧记录，先查A；存储结果正确但页面显示错误，先查B；搜索正常而旧生成流程坏了，结合C的失败和diff找意外改动。
+
+架构边界从真实请求出发
+
+“架构”不必一开始就意味着微服务或几十个目录。对这个个人项目，先说明每一层负责什么已经很有价值。
+
+浏览器提交关键词
+
+首页路由：接收参数与取得会话身份
+
+存储方法：隔离owner并匹配历史问题
+
+本地SQLite
+
+模板：展示列表与反馈
+
+这条搜索路径没有经过模型API。不要因为项目叫“AI笔记助手”，就让每个功能都多调一次模型。
+
+首页路由知道HTTP请求是什么，也能读取会话；存储方法知道记录放在哪里、怎样选择；模板只需要知道要显示哪些条目。将这些职责分开，就不会让模板一边生成HTML，一边打开数据库；也不会让存储方法为了知道owner而偷偷读取浏览器请求。
+
+本次规则很小，存储方法可以同时完成查询与匹配。不必为了看起来“分层完整”，立即新增service、repository、controller三个目录。等规则被多个入口复用或明显复杂，再考虑抽出独立业务函数。边界的价值在于减少相互依赖，不在于文件越多越专业。
+
+本课还有几个明确保留的边界：api_client.py负责模型连接；原生成路由负责确认后生成；storage.py里已有的claim/finish负责操作状态；计划方法负责保存复习安排。这些与本次搜索无关，不应随实现搜索被重写。
+
+准备起点，并先见到一次有意义的失败
+
+解压到新目录，进入lesson-04。starter等于第02篇project，也等于第03篇starter/project；它有证据统计，没有搜索。reference是本篇完成参考。两个目录均有38个应用文件，差异只有三个文件。
+
+SEARCH_SPEC.md和search-cases.json保留第02篇原稿，其中“未实现”描述的是当时阶段。当前两个快照的状态另记在IMPLEMENTATION_STATUS.md，不要把参考实现已经通过的结果自动套到自己的starter上。
+
+主线在新的starter里练习，不覆盖第03篇仓库。若你已经在自己的旧仓库连续开发，可以审阅三个文件的差异再移植，保留原.git和运行数据；不要整包替换一个已经有个人修改的项目。
+
+需要Python3.11或以上。在lesson-04目录建立环境，不必激活：
+
+macOS/Linux：
+
+python3 -m venv .venv
+.venv/bin/python -m pip install -r starter/requirements.txt
+.venv/bin/python verify_search.py starter --stage store
+
+
+Windows PowerShell：
+
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r starter/requirements.txt
+.\.venv\Scripts\python.exe verify_search.py starter --stage store
+
+
+本篇沿用已经固定的openai 3.24.0与Flask 3.1.3，不新增依赖。安装依赖需要网络，但测试不发送模型请求。这里的首次失败是预期的：starter还没有search_history。看到缺少该方法与看到依赖缺失不同，先把环境错误处理好，才能把功能失败当作可靠起点。
+
+按第03篇方法给新的starter建立基线，再开任务分支。以下命令在lesson-04执行；只有新解压、没有私人文件的副本才使用这组初始化步骤：
+
+git -C starter init -b main
+git -C starter config --local user.name "Course Learner"
+git -C starter config --local user.email "learner@example.invalid"
+git -C starter add .
+git -C starter diff --staged --name-only
+git -C starter commit -m "chore: record history search baseline"
+git -C starter switch -c history-search
+
+
+提交前检查清单是那38个源码与教学文件，没有配置、data或虚拟环境。已有自己的仓库时不重复初始化、不要覆盖署名，直接检查状态后创建自己的任务分支。
+
+先约定接口，避免页面和查询各猜一套
+
+步骤A新增的方法是：
+
+Store.search_history(owner, keyword="")
+
+
+输入是调用者明确传入的owner和一个关键词字符串。输出包含三个字段：
+
+字段	含义
+keyword	去两端空白后的原关键词，供页面回显
+items	已排序、最多50条的原操作字典
+truncated	是否存在第51条匹配，用来提示缩小关键词
+
+保留原操作字典，使页面仍能使用其中的id、created_at、mode、state和payload.questions。没有必要为了一个搜索框改造数据库结构或重写所有历史链接。
+
+这里采用一个小接口约定，配套检查也按它调用。若你选择另一种函数名或返回结构，需要同步调整调用处和测试适配层，但不能借此改掉“只搜问题、当前会话、先匹配再限制”等用户规则。实现接口可以协商，行为要求要保持明确。
+
+输入不合法时抛出ValueError；合法但没有匹配时返回空列表。两者必须分开，否则81字符输入与真正没找到结果都会显示“没有匹配”，用户无法知道该怎样修正。
+
+步骤A：只实现存储查询
+
+如果使用Kimi，先在lesson-04启动kimi --plan，要求它读取规格与starter的三个相关文件，给出检查点计划，不立即修改。当前官方文档与本机2.0.2帮助均支持该参数；规划模式仍不等于系统只读隔离。Kimi Code命令文档
+
+审阅后退出规划会话，运行普通kimi，重新提供规格路径、工作目录和步骤A任务，不假设新会话记住旧计划。完整请求在TASK.md。重点是：只改starter/storage.py，查询检查通过后停止，不顺手做页面。
+
+不用Kimi的读者可以手工加入下面的方法，位置在Store类的history之后、claim之前。它与reference完全一致：
+
+    def search_history(self, owner, keyword=""):
+        """Literal question search for one owner; no model calls or writes."""
+        require(isinstance(keyword, str), "关键词必须是字符串。")
+        keyword = keyword.strip()
+        require(len(keyword) <= 80, "关键词去除两端空白后不能超过80个字符。")
+        needle = keyword.casefold()
+        matches = []
+        with self.connection() as db:
+            rows = db.execute(
+                "SELECT * FROM operations WHERE owner=? ORDER BY created_at DESC, id DESC", (owner,))
+            for row in rows:
+                item = self.unpack(row)
+                question = item["payload"]["questions"][0]["text"]
+                if needle in question.casefold():
+                    matches.append(item)
+                    if len(matches) == 51:
+                        break
+        return {"keyword": keyword, "items": matches[:50], "truncated": len(matches) > 50}
+
+
+它先检查类型，去两端空白，再检查原字符串长度；接着用casefold()做不区分大小写的匹配。这保留了“先判断80字符，再做大小写归一化”的规格。casefold可能让某些字符展开，例如德语ß；本课也检查了这个边界。Python字符串方法
+
+owner作为SQL参数传入，不拼接成查询字符串。Python sqlite3支持这种占位符绑定方式；本方法只有SELECT，连接沿用项目已有管理方式。Python sqlite3文档
+
+为什么SQL中没有LIMIT 50？因为它限制的是候选记录，还没有完成关键词匹配。会话C最旧的“旧资料针”就在最近50条之外，提前限制会漏掉它。
+
+参考实现先让SQLite把本人记录排序，再逐条匹配，累计到第51条匹配就停，返回前50条并标记还有更多。对本课固定排序规则，先排序再过滤与先过滤再排序得到的结果一致；关键是上限施加在匹配之后。第51条只用于判断是否截断，不表示已经数出了全部匹配数量。
+
+这也有代价：匹配很稀疏时，可能检查本人全部记录；SQLite本身也要处理排序。适合教学规模，不代表已经解决大规模历史检索的性能问题。后续要优化，先测数据规模与耗时，再考虑索引或搜索结构，不能用漏结果换取表面上的快。
+
+在lesson-04运行存储阶段检查：
+
+.venv/bin/python verify_search.py starter --stage store
+
+
+Windows将解释器换成.\.venv\Scripts\python.exe。预期两个测试方法通过，其中第一个逐一执行第02篇12个案例，另一个检查Unicode归一化与非法输入类型。这个脚本真正创建临时SQLite并调用查询方法，已经不同于第02篇只检查JSON材料结构的audit脚本。
+
+然后运行git -C starter diff -- storage.py。确认只有查询方法新增，审阅通过再暂存这个文件并提交。此时不要把“查询通过”写成“网页搜索已完成”。
+
+步骤B：接上HTTP入口和展示
+
+接下来让Agent只改首页逻辑与历史区域，或者对照reference手工完成。首页处理函数改为：
+
+    @app.get("/")
+    def home():
+        try:
+            keywords = request.args.getlist("q")
+            require(len(keywords) <= 1, "请只提交一个关键词。")
+            result = store.search_history(session["owner"], keywords[0] if keywords else "")
+        except ValueError as exc:
+            return page(history=[], show_history=True, search_keyword="", search_error=str(exc),
+                        history_truncated=False), 400
+        return page(history=result["items"], show_history=True, search_keyword=result["keyword"],
+                    history_truncated=result["truncated"])
+
+
+q来自URL查询参数，例如/?q=rag；owner来自已经验证的服务器会话。即使有人提交/?q=rag&owner=B，也不能用那个owner替换当前身份。重复提交两个q会返回400，因为第一版约定只接受一个关键词。
+
+路由把校验失败转换成明确的400响应，不偷偷截断输入，也不启动模型回答。正常结果则交给模板，路由不自己拼接HTML。
+
+模板只替换原来的历史区域，完整替换内容见reference/templates/web.html中{% if show_history %}开始的section。它包含一个GET表单：
+
+<form method="get" action="{{ url_for('home') }}">
+<label for="history-q">关键词（只搜本浏览器会话的问题）</label>
+<input id="history-q" name="q" value="{{ search_keyword }}">
+<p><button type="submit">搜索</button> <a href="{{ url_for('home') }}">清空关键词</a></p></form>
+
+
+后面分别显示错误、当前关键词、截断提示、记录列表或无结果提示。记录仍链接到原show_preview路由，由原逻辑区分预览和结果。不要另开一个绕过owner检查的新结果入口。
+
+这里没有依赖HTML的maxlength来执行80字符限制：前端限制可能被绕过，而且浏览器与Python对某些字符的计数并不相同。权威检查放在后端；页面收到错误后让用户缩短关键词。
+
+模板保留自动转义，不给用户输入加safe。Flask通过render_template渲染.html模板时默认启用自动转义，输入<script>应显示为文字，而不是变成脚本标签。Flask模板文档
+
+为什么不用原来的{% if history %}控制整个区域？空列表为假，若仍这样写，无记录时连搜索框和“没有匹配的问题”都会消失。show_history单独表示“现在是应该展示历史搜索的首页”，把页面是否显示与是否有结果分开。
+
+完成后运行：
+
+.venv/bin/python verify_search.py starter --stage web
+
+
+预期四个HTTP测试方法通过，包含原12案例的页面检查，以及重复参数、HTML转义、会话隔离、无业务写入、旧链接和快照等检查。Flask测试客户端可以在不启动监听服务器的情况下发送请求、检查响应；它验证后端与模板集成，不等于已经完成真实浏览器视觉测试。Flask测试文档
+
+查看git -C starter diff -- web_app.py templates/web.html。如果模型客户端、生成确认或数据库schema也被改了，先让Agent解释原因，通常应收回超出本次边界的修改。审阅通过后，只提交这两个文件。
+
+步骤C：既要新功能正确，也要旧能力还在
+
+在lesson-04运行完整检查。macOS/Linux：
+
+.venv/bin/python verify_search.py starter
+.venv/bin/python verify_preview.py starter
+.venv/bin/python starter/acceptance.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe verify_search.py starter
+.\.venv\Scripts\python.exe verify_preview.py starter
+.\.venv\Scripts\python.exe starter/acceptance.py
+
+
+三组预期分别为6、5、10个测试方法通过。第一组含存储和HTTP两层各12个规格案例，不要把subTest的案例数与最外层“Ran 6 tests”混为矛盾。检查reference时，把命令中的starter换成reference即可。
+
+这些验证分别回答不同问题：
+
+搜索是否遵守原约定，特别是旧记录、其他会话和字面符号。
+已有预览是否仍显示正确的片段数、字符数，并保留资料快照。
+原检索、生成确认、计划、重复操作、重启读取和源码打包是否仍通过。
+
+搜索测试还让生成函数一旦被调用就报错，并比较重复搜索前后完整operations/plans记录。它不仅观察“页面没出现新卡片”，还验证了两个关键副作用边界。初次建立会话和Cookie更新仍按旧程序运行，不把它们误认为新建问答。
+
+作者对reference实际运行了上述三组检查；未改动starter的搜索检查按预期失败。测试不读取你已有的数据库，而是在临时目录放入作者构造记录。这里的通过不证明模型回答质量、网络连通性或高并发性能。
+
+自己打开页面，体验完整的一步
+
+自动检查通过后，再用自己的工作副本体验一次。在lesson-04运行：
+
+.venv/bin/python starter/run_local.py init
+.venv/bin/python starter/run_local.py serve
+
+
+Windows仍使用.\.venv\Scripts\python.exe替换解释器。只想看参考版本就把两处starter换成reference。init只创建缺失的非秘密配置；serve会在所选项目中初始化自己的data。不要加--live，本课无需真实API。
+
+浏览器打开http://127.0.0.1:8765。刚启动没有历史时，应看到搜索框与“本会话没有匹配的问题”。先按默认值建立一次预览，不必生成，再返回首页搜索“RAG”：默认问题包含这个词，应能找到刚刚的ready记录。点击链接仍打开原预览，证据统计保留。
+
+把关键词改成“根本不存在的字符串”，应显示无匹配；点击“清空关键词”，恢复最近记录。开一个没有原Cookie的新浏览器会话，不能看到刚才那条问题。注意普通浏览器新标签页通常仍共享原会话，不能拿它当隔离测试。
+
+完成后回终端按Ctrl+C停止服务。页面上沿用的“第16篇”标识来自第三部分最终项目，本次没有顺手改文案品牌；它不会影响搜索行为。查看Git状态时，config和data应被忽略，确认三个源码文件之外没有意外变更。
+
+常见卡点，以及什么时候该重新拆任务
+现象	优先定位
+报缺少search_history	是否仍在未修改的starter，或改到了reference/别的副本
+存储通过，页面12案例失败	首页是否调用新方法，模板是否使用返回字段，空列表是否隐藏了整个区域
+旧资料针查不到	是否在关键词过滤前使用了LIMIT 50或复用了旧history结果
+%搜出所有记录	是否改成了未经处理的LIKE通配符规则
+81字符返回空列表而非错误	后端是否校验并返回400，而非吞掉输入错误
+查询别人owner就显示其记录	是否误把URL参数当成身份；必须回到session来源
+手工页面为空，但测试通过	测试使用临时构造数据，不会往你的运行数据库插入57条记录
+新搜索通过，原10项失败	先读首个失败与diff，不通过修改旧测试掩盖意外行为变化
+
+如果步骤A已经复杂到解释不清“匹配、排序、读取”分别在做什么，就可以再拆成纯规则函数和数据库适配；如果只是三个返回字段，先保持小而直观。拆任务不是预先猜出所有代码细节，而是让每个阶段的结果可以单独检查。
+
+最后做一个判断：Agent建议为了搜索增加向量库、切换模型、重做登录，是否应立刻批准？先用当前规格说明它们解决什么尚未满足的问题。当前关键词检索并不需要这些变化；真正新增需求时，再作为独立任务安排。
+
+本篇交付的是能工作的搜索，以及一条“规则—查询—页面—回归”的开发路径。下一篇把项目入口、长期约定、单次任务与进度记录分开保存，让新一轮Agent能够理解这个项目，而不用每次重新讲一遍所有背景。

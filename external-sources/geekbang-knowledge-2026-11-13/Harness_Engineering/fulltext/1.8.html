@@ -1,0 +1,175 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与操作时间：45～60 分钟<br>本篇目标：为 ShelfCare 增加一组可运行的仓库护栏，亲眼看到一次越过数据访问层的修改被挡住，并分清自动规则、人工审批和安全沙箱各自负责什么。</p>
+</blockquote>
+<h2 id="wiki-h-0">配套代码说明</h2>
+<p>本篇加入 <code>assets/lesson-07-guardrails/</code>，把前几篇“写在文档里的边界”升级成能失败的机器检查：</p>
+<pre><code class="hljs language-text">lesson-07-guardrails/
+├── policy/
+│   └── repository-policy.json  # 机器可读的规则参数
+├── scripts/
+│   ├── guard.js                 # 规则执行器：七类检查
+│   ├── check.js                 # check 中并入 guard 阶段
+│   └── setup.js                 # 必需文件清单加入 policy、guard
+├── docs/GUARDRAILS.md           # 自动操作 / 需审批 / 禁止捷径 三分法
+├── .gitignore                   # 第一层敏感文件保护
+└── package.json                 # 新增 npm run guard，并入 check
+</code></pre><p>各文件实现的功能：</p>
+<ul>
+<li><strong>policy/repository-policy.json</strong> 是“参数与逻辑分离”的关键：它存放 <code>runtimeRoots</code>（生产运行代码范围）、<code>allowedDataReaders</code>（只允许 <code>src/library.js</code> 读数据）、<code>allowedDependencies</code>（空列表=不加依赖）、<code>sensitiveFileNames/Extensions</code>、<code>maxChangedFiles</code>(12)、<code>maxJavaScriptLines</code>(300)、<code>forbiddenPackageScriptFragments</code>（<code>rm -rf</code>、<code>git reset --hard</code>、<code>curl</code>、<code>wget</code> 等）。这些阈值可以改，但应由评审而非执行者为了过关去放宽。</li>
+<li><strong>scripts/guard.js</strong> 依次跑七类检查并打印稳定名称：<code>architecture boundary</code>（用正则检查运行时代码是否绕过 <code>src/library.js</code> 直读 <code>data/books.json</code>）、<code>dependency allowlist</code>、<code>sensitive files</code>、<code>package scripts</code>、<code>file size preference</code>、<code>change scope</code>（改动文件数 + 受保护文件与 <code>baseRef</code> 比较）。它刻意<strong>不扫描</strong> <code>tests/</code>、<code>acceptance/</code> 和检查脚本本身，因为测试读固定样本是合理的，误报会让人习惯性忽略护栏。</li>
+<li><strong>scripts/check.js</strong> 把 <code>guard</code> 并进通用检查，<code>npm run check</code> 会自动执行它；<strong>setup.js</strong> 相应把 <code>policy/</code>、<code>guard.js</code>、<code>GUARDRAILS.md</code> 纳入必需文件清单。</li>
+<li><strong>docs/GUARDRAILS.md</strong> 用三分法划清边界：可自动做（读仓库、改任务内文件、跑文档命令）、必须审批（加依赖、外网、凭据、部署、破坏性命令）、禁止捷径（改数据/测试/策略来伪造完成）。</li>
+<li><strong>.gitignore</strong> 是第一层敏感文件保护，减少误提交 <code>.env</code>、私钥的机会。</li>
+</ul>
+<p>本篇最诚实的一处判断体现在代码与文档的配合上：<code>guard.js</code> 能拦住“绕层访问”，但它自己也在这个仓库里、能被拥有写权限的 Agent 修改。因此文档明确写着——“仓库护栏不是安全沙箱”，真正的安全边界要交给可信 CI、主分支保护和工具级权限。逻辑上，<code>guard</code> 是“动作后检查”（改了不合规就失败），而更严格的系统级权限是“动作前拦截”，两者别混为一谈。</p>
+<p>前几篇已经让 Agent 知道项目怎么工作，也让它能够启动、观察和验证应用。不过，“知道规则”不等于“必然遵守规则”。</p>
+<p>比如 <code>docs/ARCHITECTURE.md</code> 已经写明：服务端应该通过 <code>src/library.js</code> 读取数据。Agent 仍可能为了快速完成任务，直接在 <code>server.js</code> 里读取 <code>data/books.json</code>。功能也许能跑，测试甚至可能通过，但项目里从此出现两条数据访问路径。等缓存、校验或存储方式变化时，其中一条很容易被漏掉。</p>
+<p>这不是多写一句“请严格遵守架构”就能稳定解决的。真正重要的边界，需要从文字提醒升级为能失败的检查。</p>
+<h2 id="wiki-h-1">架构文档和架构检查并不重复</h2>
+<p>同一条规则通常需要两个版本。</p>
+<p>文档解释为什么：</p>
+<pre><code class="hljs language-text">server.js -&gt; src/library.js -&gt; data/books.json
+</code></pre><p>可执行检查回答有没有违反：</p>
+<pre><code class="hljs language-text">运行时代码中，只有 src/library.js 可以直接读取 data/books.json。
+</code></pre><p>只有检查，没有文档，Agent 看到失败后不知道设计意图；只有文档，没有检查，违规修改仍可能混进结果。两者配合才完整。</p>
+<p>也不是所有偏好都值得变成硬规则。变量名是否“好看”、两个相近函数是否应该合并，往往需要上下文判断；数据访问层不能被绕过、凭据不能进入仓库、验收契约不能被任务代码偷偷改写，则适合机器执行。</p>
+<p>一个实用判断是：如果违反某条规则会造成明确、重复而且代价较高的问题，就值得自动检查；如果它高度依赖情境，保留为评审项更合适。</p>
+<h2 id="wiki-h-2">加入仓库护栏</h2>
+<p>确认第六篇的改动已经提交，工作区没有遗留文件：</p>
+<pre><code class="hljs language-bash">git status --short --branch
+git <span class="hljs-built_in">log</span> -1 --oneline
+</code></pre><p>然后复制本篇资产。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R ../assets/lesson-07-guardrails/. .
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> ..\assets\lesson<span class="hljs-literal">-07-guardrails</span>\* .
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Force</span> ..\assets\lesson<span class="hljs-literal">-07-guardrails</span>\.gitignore .
+</code></pre><p>本次主要增加这些文件：</p>
+<pre><code class="hljs language-text">policy/repository-policy.json   机器可读的规则参数
+scripts/guard.js                规则执行器
+docs/GUARDRAILS.md              自动权限与人工审批边界
+.gitignore                      第一层敏感文件保护
+</code></pre><p><code>package.json</code> 新增 <code>npm run guard</code>，<code>npm run check</code> 也会自动执行它。<code>AGENTS.md</code>、架构和开发文档同步加入了入口与边界，避免出现“脚本已经变了，说明还停在旧版本”的情况。</p>
+<p>先运行：</p>
+<pre><code class="hljs language-bash">npm run setup
+npm run guard
+</code></pre><p>预期最后看到：</p>
+<pre><code class="hljs language-text">[guard] architecture boundary
+[guard] dependency allowlist
+[guard] sensitive files
+[guard] package scripts
+[guard] file size preference
+[guard] change scope
+[guard] All guardrails passed.
+</code></pre><p>这些输出刻意使用稳定的检查名称。Agent 不必阅读整段脚本，也能知道失败属于架构、依赖、安全还是修改范围。</p>
+<h2 id="wiki-h-3">策略文件到底约束了什么</h2>
+<p>打开 <code>policy/repository-policy.json</code>，会看到当前项目最值得保护的几项不变量。</p>
+<h3 id="wiki-h-4">1. 数据访问方向</h3>
+<p><code>runtimeRoots</code> 指定生产运行代码范围，<code>allowedDataReaders</code> 只允许 <code>src/library.js</code> 读取 <code>data/books.json</code>。<code>server.js</code> 和浏览器代码必须通过既有边界拿数据。</p>
+<p>这里特意没有扫描 <code>tests/</code>、<code>acceptance/</code> 和环境检查脚本。测试读取固定样本是合理行为，而生产请求绕过访问层不是。规则越精确，误报越少，团队才不会习惯性忽略它。</p>
+<p>在真实数据库项目中，同样的思路可以变成：Controller 不能直接依赖数据库客户端，领域模块不能反向导入 Web 层，跨模块访问只能经过公开接口。实现手段可能是 lint 规则、依赖图检查或架构测试，原则没有变化。</p>
+<h3 id="wiki-h-5">2. 依赖和团队偏好</h3>
+<p>ShelfCare 目前不需要第三方包，所以 <code>allowedDependencies</code> 是空列表。Agent 如果随手安装一个依赖，护栏会要求先评审，而不是默认接受。</p>
+<p>JavaScript 文件当前还设置了 300 行上限。它不是宇宙真理，只是一个团队偏好：文件明显膨胀时，先拆分或解释原因。与其在提示词里反复说“保持文件短小”，不如把项目认可的阈值写在同一个策略文件里。</p>
+<p>这些参数都可以改，但不应该由执行功能任务的 Agent 为了通过检查而自行放宽。策略变更和产品代码变更是两类决策。</p>
+<h3 id="wiki-h-6">3. 敏感文件与危险脚本</h3>
+<p>护栏会拒绝 <code>.env</code>、私钥和 <code>credentials.json</code> 一类文件；<code>.gitignore</code> 同时减少误提交的机会。<code>package.json</code> 脚本中出现 <code>rm -rf</code>、<code>git reset --hard</code> 或下载命令时也会失败。</p>
+<p>这不是完整的安全扫描。它只挡住项目已知、容易发生的错误。真正的密钥检测、依赖漏洞检查和系统权限隔离仍需要专门工具。</p>
+<h3 id="wiki-h-7">4. 受保护输入和修改规模</h3>
+<p>标签筛选任务的契约与产品规则会和 <code>main</code> 比较。执行功能任务时，如果它们发生变化，护栏要求停止并评审。一次变更默认最多触及 12 个文件，超过后也不会假装什么都没发生，而是要求拆分任务或扩大评审范围。</p>
+<p>文件数量不是代码质量指标。这个阈值保护的是“任务边界”，防止一个小需求悄悄扩展成仓库级重构。</p>
+<h2 id="wiki-h-8">亲手制造一次架构违规</h2>
+<p>现在验证护栏不是摆设。在 <code>public/</code> 下临时新建 <code>direct-data-access.js</code>，内容如下：</p>
+<pre><code class="hljs language-js"><span class="hljs-keyword">const</span> fs = <span class="hljs-built_in">require</span>(<span class="hljs-string">"node:fs"</span>);
+
+<span class="hljs-keyword">const</span> books = <span class="hljs-title class_">JSON</span>.<span class="hljs-title function_">parse</span>(fs.<span class="hljs-title function_">readFileSync</span>(<span class="hljs-string">"../data/books.json"</span>, <span class="hljs-string">"utf8"</span>));
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(books.<span class="hljs-property">length</span>);
+</code></pre><p>这段代码本身也不适合浏览器运行，我们只是用它模拟一个最直白的“绕过数据访问层”修改。执行：</p>
+<pre><code class="hljs language-bash">npm run guard
+</code></pre><p>预期命令以非零状态退出，并明确指出：</p>
+<pre><code class="hljs language-text">[guard] ERROR: public/direct-data-access.js reads data/books.json directly; use src/library.js instead.
+[guard] Guardrails failed.
+</code></pre><p>这次失败给 Agent 的信息足够具体：违规文件是哪一个，越过了什么边界，应该走哪一层。它不需要猜测“架构不合规”究竟指什么。</p>
+<p>删除这个临时文件。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">rm</span> public/direct-data-access.js
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Remove-Item</span> public\direct<span class="hljs-literal">-data-access</span>.js
+</code></pre><p>重新运行：</p>
+<pre><code class="hljs language-bash">npm run guard
+</code></pre><p>现在应该恢复为 <code>All guardrails passed</code>。如果仍然失败，不要先修改策略；根据第一条 <code>ERROR</code> 检查临时文件是否真的删除，以及本篇开始前是否已有其他未提交改动。</p>
+<h2 id="wiki-h-9">哪些操作可以自动做，哪些必须停下来问</h2>
+<p>代码规则只能约束仓库内容，无法代替权限设计。<code>docs/GUARDRAILS.md</code> 因此还给操作分了三类。</p>
+<p>Agent 可以自行读取仓库、修改任务范围内的文件、运行文档列出的本地命令、查看 Git 状态和 Diff。这些动作可逆，影响也局限在实验仓库。</p>
+<p>下列动作必须获得批准：</p>
+<ul>
+<li>访问外部网络或向外部服务写数据；</li>
+<li>读取仓库之外的文件，使用凭据或扩大系统权限；</li>
+<li>安装依赖、修改策略或产品契约；</li>
+<li>改动持久数据、部署、发布、合并或重写 Git 历史；</li>
+<li>执行破坏性或难以恢复的命令。</li>
+</ul>
+<p>如果任务确实需要其中一项，正确行为不是永远拒绝，而是停下来说明：需要做什么、为什么需要、会影响哪里，以及最小需要什么授权。</p>
+<p>这张权限表的价值在于把“自主工作”与“无限权限”分开。Harness 的目标是减少不必要的人类接管，不是取消所有人工决策。</p>
+<h2 id="wiki-h-10">可执行约束不是安全沙箱</h2>
+<p>还有一个很容易被忽略的事实：如果 Agent 能编辑整个仓库，它通常也能编辑 <code>scripts/guard.js</code> 和策略文件。因此，本地护栏更像高质量的护栏和反馈机制，而不是不可绕过的安全边界。</p>
+<p>在团队项目里，关键检查应该再由可信 CI 执行，并结合：</p>
+<ul>
+<li>主分支保护和必要评审；</li>
+<li>对策略、测试与部署文件的所有者审核；</li>
+<li>最小权限的凭据和隔离运行环境；</li>
+<li>网络、文件系统和外部写操作的工具级限制。</li>
+</ul>
+<p>换句话说，仓库规则负责告诉 Agent 什么改动不合格；系统级权限负责限制它根本不能做什么。两者不要混为一谈。</p>
+<h2 id="wiki-h-11">让 Agent 先读边界，再开始工作</h2>
+<p>可以把下面的任务交给你的编码 Agent：</p>
+<pre><code class="hljs language-text">请先阅读 AGENTS.md，以及与架构和护栏有关的文档。暂时不要修改代码。
+告诉我：
+1. 运行时代码读取藏书数据必须经过哪一个模块；
+2. 哪些操作可以自行执行，哪些必须先申请批准；
+3. 完成功能修改前要运行哪些通用检查；
+4. 如果 npm run guard 失败，你会怎样处理，而不是怎样绕过它。
+请引用对应文件和命令。
+</code></pre><p>合格回答应该定位到 <code>src/library.js</code>、<code>docs/GUARDRAILS.md</code>、<code>npm run guard</code> 与 <code>npm run check</code>，并明确表示不会为了变绿而弱化策略。</p>
+<p>这一步看起来没有产出代码，却能确认 Harness 已经把边界交付给 Agent。若它仍只复述通用安全常识，没有引用仓库事实，先修复知识入口，不要立刻把真实任务交给它。</p>
+<h2 id="wiki-h-12">做一次完整复验</h2>
+<p>运行通用检查：</p>
+<pre><code class="hljs language-bash">npm run setup
+npm run check
+</code></pre><p><code>check</code> 中应该出现 <code>repository guardrails</code> 阶段，最后仍是：</p>
+<pre><code class="hljs language-text">[check] All checks passed.
+</code></pre><p>标签功能尚未实现，因此任务专用验收依旧应该失败：</p>
+<pre><code class="hljs language-bash">npm run accept:tag-filter
+</code></pre><p>这两个结果并不矛盾。通用检查证明现有应用与仓库规则健康；红色验收证明下一篇要完成的标签功能还没有被伪造出来。</p>
+<p>最后审查改动：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --check
+git diff --<span class="hljs-built_in">stat</span>
+git diff -- .gitignore AGENTS.md package.json scripts policy docs
+</code></pre><p>重点确认：<code>guard</code> 已进入 <code>check</code>，策略没有包含真实凭据，受保护的验收文件和产品规则没有改动，临时的违规文件也已经删除。</p>
+<p>提交：</p>
+<pre><code class="hljs language-bash">git add .gitignore AGENTS.md package.json scripts policy docs
+git commit -m <span class="hljs-string">"chore: enforce repository guardrails"</span>
+git status --short --branch
+</code></pre><h2 id="wiki-h-13">常见阻塞</h2>
+<h3 id="wiki-h-14">guard 说修改文件超过 12 个</h3>
+<p>先用 <code>git status --short</code> 和 <code>git diff --stat</code> 确认是否混入了上一项任务。若是，先分支或提交前一项改动；若当前任务本来就需要更大范围，拆分任务或请评审者明确批准调整阈值。不要静默改成一个很大的数字。</p>
+<h3 id="wiki-h-15">guard 说受保护文件不同于 main</h3>
+<p>检查 <code>git diff main -- acceptance/tag-filter.contract.js docs/PRODUCT_RULES.md</code>。如果只是误改，恢复那两处；如果产品契约真的改变，暂停功能实现，让契约变更单独评审。</p>
+<h3 id="wiki-h-16">我的默认分支不叫 main</h3>
+<p>将 <code>policy/repository-policy.json</code> 的 <code>baseRef</code> 改成真实基线分支，并把这次策略调整纳入评审。临时也可以先创建课程约定的 <code>main</code> 分支，但不要让检查长期指向不存在的基线。</p>
+<h3 id="wiki-h-17">创建 .env 后为什么 guard 直接失败</h3>
+<p>这是预期行为。真实凭据应放在仓库之外，或由受控的密钥机制在运行时注入。若项目需要环境变量模板，只提交不含秘密的 <code>.env.example</code>。</p>
+<h3 id="wiki-h-18">正常实现被架构规则误报</h3>
+<p>先确认实现是否真的绕过了 <code>src/library.js</code>。如果架构已经有充分理由改变，不要在业务文件中藏一个技巧绕过正则；同时更新架构文档、策略和检查，并单独评审这项设计决定。</p>
+<h2 id="wiki-h-19">本篇留下了什么</h2>
+<p>ShelfCare 现在不只“写着一些规则”，而是拥有一条能失败的约束链：</p>
+<pre><code class="hljs language-text">架构与安全意图
+  -&gt; policy/repository-policy.json
+  -&gt; npm run guard
+  -&gt; npm run check
+  -&gt; 可信 CI 与人工评审
+</code></pre><p>它保护的是少数关键不变量，不替 Agent 决定每个函数怎么写。下一篇我们会回到第二篇完全相同的标签筛选任务，让 Agent 在完整 Harness 中独立完成它，再比较前后两次的过程、结果和人工接管次数。</p>
+<h2 id="wiki-h-20">验证计数与检查失败</h2>
+<p><code>git status --porcelain=v1 -z --untracked-files=all</code> 按文件列出未跟踪目录，脚本同时处理带空格的文件名和重命名前后路径。请在副本的 <code>public/new/</code> 创建超过 <code>maxChangedFiles</code> 数量的文件，预期 guard 失败。基线不存在、Git 读取失败时同样失败；先修正 policy.baseRef 或提交基线，不能把“跳过检查”当通过。</p>
+</article>

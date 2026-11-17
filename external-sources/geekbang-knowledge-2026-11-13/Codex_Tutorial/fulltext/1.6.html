@@ -1,0 +1,264 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：35 分钟<br>本篇目标：把一个模糊想法整理成明确需求，让 Codex 先调查、提问和规划，再决定如何实现。</p>
+</blockquote>
+<p>上一篇我们创建了 <code>PROJECT_BRIEF.md</code>，里面只有几条简单信息：TaskFlow 是一个本地命令行任务管理工具，第一阶段支持添加、查看和完成任务。</p>
+<p>这些信息足够表达方向，却不足以直接开发。我们还不知道用什么语言、任务保存在哪里、命令长什么样、出错时如何处理，以及怎样判断第一版已经完成。</p>
+<p>如果现在直接说“帮我把 TaskFlow 写出来”，Codex 也许能做出一个能运行的版本，但它需要替你做很多决定。那些决定未必符合你的真实需求。</p>
+<p>这一篇先不写代码。我们要做的是把想法变成一份可以执行和验收的计划。</p>
+<h2 id="wiki-h-0">确认项目仍处于正确状态</h2>
+<p>进入 <code>taskflow</code> 目录。</p>
+<h3 id="wiki-h-1">macOS、Linux 或 WSL2</h3>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/codex-course/taskflow
+git status
+</code></pre><h3 id="wiki-h-2">Windows PowerShell</h3>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\codex-course\taskflow"</span>
+git status
+</code></pre><p>如果上一篇创建了 Git 提交，工作区应该是干净的。如果没有提交，应该只看到 <code>PROJECT_BRIEF.md</code>。</p>
+<p>确认文件存在：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">ls</span>
+</code></pre><p>Windows PowerShell 也可以使用 <code>ls</code>，它是 <code>Get-ChildItem</code> 的别名。</p>
+<p>你应该能看到：</p>
+<pre><code class="hljs language-text">PROJECT_BRIEF.md
+</code></pre><h2 id="wiki-h-3">检查 Python 环境</h2>
+<p>为了让示例在不同系统上尽量简单，TaskFlow 1.0 使用 Python 标准库开发，不安装第三方依赖。</p>
+<h3 id="wiki-h-4">macOS、Linux 或 WSL2</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash">python3 --version
+</code></pre><h3 id="wiki-h-5">Windows</h3>
+<p>先运行：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">--version</span>
+</code></pre><p>如果 <code>py</code> 不存在，再尝试：</p>
+<pre><code class="hljs language-powershell">python <span class="hljs-literal">--version</span>
+</code></pre><p>建议使用 Python 3.11 或更高版本。看到 <code>Python 3.x.x</code> 就说明命令可用。</p>
+<p>如果系统没有 Python，请从 <a href="https://www.python.org/downloads/">Python 官方网站</a> 安装 Python 3。Windows 安装界面中要留意“Add Python to PATH”选项。安装完成后关闭并重新打开终端，再检查版本。</p>
+<p>本教程后续命令约定如下：</p>
+<ul>
+<li>macOS、Linux、WSL2 使用 <code>python3</code>；</li>
+<li>Windows 优先使用 <code>py</code>，没有 <code>py</code> 时使用 <code>python</code>。</li>
+</ul>
+<h2 id="wiki-h-6">什么样的任务值得先规划</h2>
+<p>并不是所有任务都需要 Plan 模式。修改一个错别字、解释一个函数、调整一条错误提示，直接做通常更快。</p>
+<p>下面这些任务更适合先规划：</p>
+<ul>
+<li>需求中存在多种合理实现；</li>
+<li>修改会跨越多个文件或模块；</li>
+<li>需要先理解现有项目；</li>
+<li>有兼容性、安全或数据迁移要求；</li>
+<li>任务会持续较长时间；</li>
+<li>你希望先审查方案，再决定是否允许修改。</li>
+</ul>
+<p>TaskFlow 虽然不大，但这是我们第一次建立完整项目，正适合用 Plan 模式练习。</p>
+<h2 id="wiki-h-7">在只读模式下进入 Plan 模式</h2>
+<p>从项目目录启动 Codex：</p>
+<pre><code class="hljs language-bash">codex --sandbox read-only --ask-for-approval on-request
+</code></pre><p>进入后输入：</p>
+<pre><code class="hljs language-text">/plan
+</code></pre><p>Codex 会进入 Plan 模式（在界面右下角可以看到 Plan mode）。在这个模式中，它可以调查现有上下文、提出问题并整理方案，但重点是规划，而不是直接实现。</p>
+<p>你也可以把任务直接写在 <code>/plan</code> 后面。不过第一次练习时，先单独进入模式，更容易观察状态变化。</p>
+<h2 id="wiki-h-8">先给出一段故意不够完整的需求</h2>
+<p>输入：</p>
+<pre><code class="hljs language-text">我想把当前目录里的 TaskFlow 做成一个真正可以使用的命令行任务管理工具。
+请先阅读 PROJECT_BRIEF.md，然后规划第一版怎么做。
+</code></pre><p>这是一个很常见的需求表达，但仍然缺少大量信息。观察 Codex 的反应：</p>
+<ul>
+<li>它是否先读取了 <code>PROJECT_BRIEF.md</code>；</li>
+<li>它是否发现技术方案和验收标准尚未确定；</li>
+<li>它是否提出澄清问题；</li>
+<li>它是否直接假设了很多细节。</li>
+</ul>
+<p>Codex 有可能会弹出一些选项让你选择，你可以根据下面的约束来针对性地答复它：</p>
+<pre><code class="hljs language-text">第一版按下面的要求规划：
+
+1. 使用 Python 3.11 或更高版本，只使用标准库，不安装第三方依赖。
+2. 程序入口为项目根目录下的 taskflow.py。
+3. 任务保存在 JSON 文件中，默认路径为 data/tasks.json。
+4. 命令格式统一为：
+   python taskflow.py --data &lt;数据文件&gt; &lt;子命令&gt; [参数]
+5. 第一版只支持三个子命令：
+   - add &lt;任务标题&gt;
+   - list
+   - done &lt;任务ID&gt;
+6. 每条任务至少包含整数 ID、标题、完成状态和创建时间。
+7. 数据文件不存在时按空任务列表处理，并在第一次写入时自动创建父目录。
+8. 测试统一放在 tests/，使用 unittest 和临时目录，不能读写用户真实的 data/tasks.json。
+9. 暂时不要实现删除、修改、截止日期、标签、网络同步和图形界面。
+10. 先输出计划，不要创建或修改文件。
+</code></pre><p>如果 Codex 立刻给出实现方案，却没有询问关键问题，可以继续说：</p>
+<pre><code class="hljs language-text">先不要确定实现方案。请列出会明显影响项目结构、用户操作方式和验收结果的问题，
+最多问我 6 个。不要询问无关紧要的偏好。
+</code></pre><p>一个好的规划过程，不是问题越多越好，而是优先解决那些会改变方案的问题。</p>
+<h2 id="wiki-h-9">把关键选择明确下来</h2>
+<p>接下来，计划生成后，Codex 会询问你接下来怎么处理。当前界面通常有三个选项：</p>
+<ul>
+<li><strong>Yes, implement this plan</strong>：退出 Plan 模式，保留当前上下文，并开始执行刚刚确认的计划；</li>
+<li><strong>Yes, clear context and implement</strong>：先清理前面的对话上下文，再带着最终计划进入执行；</li>
+<li><strong>No, stay in Plan mode</strong>：暂不执行，继续留在 Plan 模式补充或修改计划。</li>
+</ul>
+<p>如果计划中还有规则没说清楚，选择 <strong>No, stay in Plan mode</strong>，继续追问。</p>
+<p>这里我们为了统一学习进度，建议选择“No，stay in plan mode”（在其他场景下，如果它给出的方案已经足够令你满意，你可以选择让它直接实施方案）。</p>
+<p>然后请它按第五节十条约束确认尚未决定的接口：固定 taskflow.py 入口、全局 --data 参数、tests/ 目录和错误退出码。已有答案不再整段重发；有变动只提交差异，并要求计划同步更新。</p>
+<h2 id="wiki-h-10">定义“完成”是什么样子</h2>
+<p>功能列表只能说明“要做什么”，还不能说明“怎样算做完”。继续告诉 Codex：</p>
+<pre><code class="hljs language-text">请把下面这些验收条件加入计划：
+
+- 添加任务后，JSON 文件中出现一条新任务；
+- 连续添加任务时，ID 递增；
+- list 能清楚区分未完成和已完成任务；
+- done 能按 ID 将任务标记为完成；
+- 对不存在的 ID 执行 done 时，程序给出明确错误并返回非零退出码；
+- 空任务列表不会报错，而是显示友好提示；
+- 所有自动测试通过；
+- README 同时给出 macOS/Linux/WSL2 与 Windows 示例；
+- 最后实际运行一遍 add、list、done，报告运行结果。
+
+请根据现有目录和这些条件，给出分步骤实施计划。每一步都写明会修改哪些文件，以及如何验证。
+</code></pre><p>现在，Codex 获得了四类关键信息：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>信息</th>
+<th>本次内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>目标</td>
+<td>创建可以使用的 TaskFlow 1.0</td>
+</tr>
+<tr>
+<td>上下文</td>
+<td><code>PROJECT_BRIEF.md</code> 和当前空项目</td>
+</tr>
+<tr>
+<td>限制</td>
+<td>Python 标准库、三个子命令、不做扩展功能</td>
+</tr>
+<tr>
+<td>完成标准</td>
+<td>测试、手动操作和文档全部通过</td>
+</tr>
+</tbody></table></div>
+<p>这是以后编写 Codex 任务描述时最值得保留的结构。</p>
+<h2 id="wiki-h-11">检查 Codex 给出的计划</h2>
+<p>一份适合执行的计划通常应该接近下面的结构：</p>
+<ol>
+<li>检查现有项目和 Python 环境。</li>
+<li>设计任务数据格式和存储函数。</li>
+<li>实现 <code>add</code>、<code>list</code>、<code>done</code> 三个子命令。</li>
+<li>使用临时目录编写测试。</li>
+<li>编写 README 和运行示例。</li>
+<li>执行自动测试。</li>
+<li>完成一次端到端手动验证。</li>
+<li>审查最终差异。</li>
+</ol>
+<p>不要求 Codex 的表述与这里完全一致，但要检查几个问题。</p>
+<h3 id="wiki-h-12">1. 每一步能否独立验证</h3>
+<p>“实现整个项目”不是一个好步骤，因为失败后很难知道问题在哪里。“实现存储层并运行相关测试”更容易检查。</p>
+<h3 id="wiki-h-13">2. 有没有超出第一版范围</h3>
+<p>如果计划加入数据库、Web 界面、账号系统、插件架构或复杂打包流程，说明方案已经过度设计。</p>
+<p>可以直接纠正：</p>
+<pre><code class="hljs language-text">第一版不需要扩展架构。请去掉数据库、插件系统、网络能力和打包发布，
+保留能够完成三个命令的最小结构。
+</code></pre><h3 id="wiki-h-14">3. 有没有验证步骤</h3>
+<p>如果计划只写“完成代码”，却没有自动测试和手动运行，任务就缺少验收闭环。</p>
+<h3 id="wiki-h-15">4. 是否保护测试数据</h3>
+<p>测试必须使用临时目录，不能修改正式的 <code>data/tasks.json</code>。这是计划中需要明确写出的边界。</p>
+<h3 id="wiki-h-16">5. 是否明确了预计修改的文件</h3>
+<p>第一版预计产生：</p>
+<pre><code class="hljs language-text">taskflow.py
+tests/test_taskflow.py
+README.md
+.gitignore
+PLAN.md
+</code></pre><p><code>data/tasks.json</code> 会在手动运行时生成，不应该在测试过程中提前写入真实数据。</p>
+<h2 id="wiki-h-17">让 Codex 把最终计划整理成可保存版本</h2>
+<p>当计划已经满足要求，输入：</p>
+<pre><code class="hljs language-text">请把最终计划重新整理一遍，要求：
+
+- 开头写清项目目标和本次范围；
+- 列出最终预计产生的文件；
+- 每个实施步骤包含“修改内容”和“验证方法”；
+- 单独列出不在第一版范围内的功能；
+- 最后给出完成检查清单；
+- 仍然不要修改文件。
+</code></pre><p>阅读最终计划。确认没有问题后，按“shift+tab”键退出 Plan 模式。</p>
+<p>由于当前 Codex 仍然以只读沙箱启动，需要先输入：</p>
+<pre><code class="hljs language-text">/permissions
+</code></pre><p>选择 <strong>Ask for approval</strong>。它允许 Codex 在当前工作区内写入，越过工作区或访问其他受限资源时会停下来请你确认。不要选择 <code>Full access</code>；本篇只需要写入 TaskFlow 项目目录。</p>
+<p>然后输入：</p>
+<pre><code class="hljs language-text">请把刚才确认的最终计划写入项目根目录的 PLAN.md。
+同时更新 PROJECT_BRIEF.md，使其包含已经确认的技术方案、命令格式、范围和验收条件。
+
+只修改这两个 Markdown 文件，不要创建程序代码。完成后重新读取两个文件，并说明它们是否一致。
+</code></pre><h2 id="wiki-h-18">检查规划文件</h2>
+<p>任务完成后输入：</p>
+<pre><code class="hljs language-text">/diff
+</code></pre><p>重点检查：</p>
+<ul>
+<li><code>PLAN.md</code> 是否完整记录实施顺序；</li>
+<li><code>PROJECT_BRIEF.md</code> 是否反映已经确认的需求；</li>
+<li>两个文件是否使用同样的命令格式；</li>
+<li>是否明确只使用 Python 标准库；</li>
+<li>是否明确测试不能读写真实数据；</li>
+<li>是否混入了尚未同意的功能；</li>
+<li>是否只修改了两个 Markdown 文件。</li>
+</ul>
+<p>发现不一致时，不要自己默默记住，直接让 Codex 修改文档。例如：</p>
+<pre><code class="hljs language-text">PLAN.md 使用的是 tasks.json，PROJECT_BRIEF.md 写成了 task.json。
+请统一为 data/tasks.json，并重新检查两个文件中的所有路径。
+</code></pre><h2 id="wiki-h-19">如何把模糊想法交给 Codex</h2>
+<p>以后遇到类似需求，可以复用下面的任务模板：</p>
+<pre><code class="hljs language-text">我想实现：&lt;目标&gt;。
+
+请先阅读：&lt;相关文件或目录&gt;。
+
+在开始修改前：
+1. 说明你对现状和目标的理解；
+2. 找出会影响方案的缺失信息；
+3. 最多向我提出 &lt;数量&gt; 个关键问题；
+4. 根据我的回答给出分步骤计划；
+5. 每一步说明涉及文件和验证方式。
+
+限制条件：
+- &lt;不能改变的内容&gt;
+- &lt;不在本次范围内的内容&gt;
+- &lt;技术或安全约束&gt;
+
+完成标准：
+- &lt;测试要求&gt;
+- &lt;行为要求&gt;
+- &lt;最终交付物&gt;
+
+在我确认计划前，不要修改文件。
+</code></pre><p>模板不需要每次逐字填写。任务越简单，提示词越可以缩短。它的价值在于提醒你：目标、上下文、边界和完成标准缺一不可。</p>
+<h2 id="wiki-h-20">保存规划结果</h2>
+<p>退出 Codex：</p>
+<pre><code class="hljs language-text">/exit
+</code></pre><p>回到终端后运行：</p>
+<pre><code class="hljs language-bash">git status
+git diff
+</code></pre><p>你应该看到 <code>PLAN.md</code> 和 <code>PROJECT_BRIEF.md</code> 的变化，不应该看到 Python 程序文件。</p>
+<p>确认无误后可以按 Q 退出，然后执行下面的提交命令：</p>
+<pre><code class="hljs language-bash">git add PROJECT_BRIEF.md PLAN.md
+git commit -m <span class="hljs-string">"docs: define TaskFlow 1.0 plan"</span>
+</code></pre><p>如果上一篇没有成功提交，可以把当前两个文档和之前的项目说明一起提交。提交信息不必与示例完全一致，但应能说明这一阶段完成了什么。</p>
+<h2 id="wiki-h-21">本篇完成检查</h2>
+<p>继续下一篇之前，请确认：</p>
+<ul>
+<li>Python 3 可以在终端中运行；</li>
+<li>你能进入和退出 Plan 模式；</li>
+<li>Codex 在规划阶段没有创建程序代码；</li>
+<li><code>PROJECT_BRIEF.md</code> 已包含明确需求和验收条件；</li>
+<li><code>PLAN.md</code> 已列出分阶段步骤和验证方式；</li>
+<li>第一版只包含 <code>add</code>、<code>list</code>、<code>done</code>；</li>
+<li>测试必须使用临时目录；</li>
+<li>计划中没有数据库、网络同步或图形界面；</li>
+<li>你已经用 <code>/diff</code> 检查规划文件。</li>
+</ul>
+<p>下一篇，我们会把这份计划交还给 Codex，让它逐步完成 TaskFlow 1.0，并亲自运行测试和三个核心命令。</p>
+<h2 id="wiki-h-22">参考资料</h2>
+<ul>
+<li><a href="https://learn.chatgpt.com/guides/best-practices">Codex 使用建议</a></li>
+<li><a href="https://learn.chatgpt.com/docs/prompting">Codex 提示词指南</a></li>
+<li><a href="https://learn.chatgpt.com/docs/developer-commands?surface=cli#slash-commands">Codex CLI 斜杠命令</a></li>
+</ul>
+</article>

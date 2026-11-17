@@ -1,0 +1,323 @@
+这一章做一件事：让 Agent 帮我们写出 habitlog add 子命令，并把"Plan Mode、权限模式、TUI 操作、pytest"四个核心东西用一遍。
+学完这一章，你会掌握 TUI 里最常用的一组操作，并第一次真正感受到"它真的在改我的项目"。
+
+5.1 这一章要达成什么
+在项目里建好 habitlog/cli.py，实现 add 子命令
+把数据存到 ~/.habitlog/data.json
+用 pytest 写一个最小的测试并跑通
+走完整流程：Plan → 实现 → 测试 → 自审 → commit
+
+完成后你可以从命令行执行：
+
+python -m habitlog add 读书 "读了 50 页"
+
+
+并看到一条打卡记录被写进 JSON 文件。
+
+5.2 前置：解释器与开发依赖
+
+确认 Python 3.10+，macOS/Linux 用 python3 -m venv .venv 后 source .venv/bin/activate；Windows 用 py -m venv .venv 后 .\.venv\Scripts\Activate.ps1。不能激活时直接使用该环境的 python.exe。以下 python 均指这个环境。
+
+python -m pip install pytest==8.4.2
+python -m pytest --version
+
+
+habitlog/__main__.py 内容：
+
+from .cli import main
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+验收 python -m habitlog --help 成功后再继续；没有入口时不能用 cli.py 文件存在代替此项验收。
+
+启动 进入 TUI
+
+确保在项目目录里：
+
+macOS / Linux / WSL2：
+
+cd ~/projects/habitlog
+mcode
+
+
+Windows PowerShell：
+
+Set-Location "$env:USERPROFILE\projects\habitlog"
+mcode
+
+
+TUI 启动后你应该看到：
+
+顶部是欢迎语 / 当前状态
+中间是输入框，光标在闪
+底部有快捷键提示
+
+如果还没登录，先 mcode login。
+
+5.3 先进入 Plan Mode
+
+TUI 里输入：
+
+/plan on
+
+
+回车。看到状态栏里出现 Plan Mode: on 之类的标识，说明进入了计划模式。
+
+Plan Mode（计划模式）的特点：
+
+Agent 不会直接动手改文件
+它会先给你讲"打算怎么改、改哪些文件、怎么验证"
+你确认后它才开始动手
+
+适合用在"目标稍微模糊、改动范围不确定、想先看方案"的场景。
+
+5.4 描述第一个功能
+
+输入框里写：
+
+请用 Python 实现 habitlog 的 add 子命令：
+
+- 命令格式：habitlog add <habit> [note]
+- 参数：
+  - habit: 必填，习惯名（字符串）
+  - note: 可选，本次打卡的备注
+- 行为：
+  - 把这次打卡追加到 ~/.habitlog/data.json
+  - data.json 的结构是 {"entries": [{"date": "YYYY-MM-DD", "habit": "...", "note": "..."}]}
+  - 如果 ~/.habitlog 目录不存在则创建
+  - 打印带日期，格式是当前本地时间 YYYY-MM-DD
+- 测试：
+  - 用 pytest 写测试，覆盖正常添加、缺 habit 参数报错两种情况
+- 约束：
+  - 运行时代码只用 Python 标准库；pytest 是开发依赖
+  - 入口在 habitlog/cli.py，提供 main()；必须创建 habitlog/__main__.py，从 .cli 导入 main 后以 SystemExit(main()) 调用，保证 python -m habitlog 可用。全局 --data 指定数据文件，add 支持 --date YYYY-MM-DD；测试只用临时目录，不能触碰真实 ~/.habitlog/data.json
+
+
+按回车提交。Agent 收到任务后会做几件事：
+
+阅读 AGENTS.md 了解项目约定
+列出它打算创建 / 修改的文件
+给出实现思路（数据怎么存、参数怎么解析、测试怎么写）
+等你确认
+
+如果 Agent 给了方案但还想让它细化，问一句：
+
+请补充：异常路径怎么处理？JSON 文件损坏怎么办？
+
+5.5 切到 Auto 权限，放手让 Agent 干活
+
+确认方案没问题，按 Alt+M 切权限到 Auto（你也会在状态栏看到 Permission: Auto）。
+
+四档权限回顾：
+
+模式	适合场景	注意事项
+Ask	日常开发、希望逐项确认	每个写文件 / 跑命令都要点确认
+Auto	常规任务、较顺畅的仓库协作	高风险操作仍可能询问
+Full access	已隔离、明确理解风险的工作区	跳过常规确认，谨慎使用
+Off	受控自动化环境	关闭权限模式前先确认运行边界
+
+教程默认日常开发用 Auto。如果你的环境里 Agent 一直在问要不要建文件，可以短暂切到 Auto 提高效率。
+
+5.6 让 Agent 开始实现
+
+TUI 里输入：
+
+确认方案，开始实现
+
+
+按回车。
+
+Agent 会按计划：
+
+创建 habitlog/__init__.py（让目录变成 Python 包）
+创建 habitlog/cli.py（主程序）
+创建 habitlog/__main__.py（模块执行入口）
+创建 tests/test_init.py 或类似测试文件
+
+过程中你会在 TUI 看到工具调用日志。如果它问了权限（比如默认开关 "写文件"），按提示确认即可。
+
+5.7 在 Agent 干活时插话：/steer 和 /queue
+
+Agent 跑起来后，有两种方式插话：
+
+steer 当前响应
+
+按 Enter（输入框为空时也按 Enter）→ 输入框获得焦点 → 写补充指令 → 回车。Agent 在当前轮里会参考你的补充。
+
+例：
+
+/steer 测试文件请用 tests/test_add.py 命名
+
+把后续指令排队
+
+按 Alt+Enter 把后续指令加入队列。当前轮跑完后，Agent 自动处理队列里的下一条。
+
+例（任务进行中按 Alt+Enter，然后输入）：
+
+实现完成后请跑 pytest 并贴出结果
+
+
+你可以用 /queue 查看队列里有哪些消息。
+
+习惯用法："现在最关心的"用 steer（让当前轮立刻考虑），"接下来要做的"用 queue（按顺序处理）。
+
+5.8 Agent 完成后：跑一次试试
+
+Agent 写完代码，会在 TUI 里汇报实现摘要。这时退出 TUI（/exit 或 Esc），回到普通终端。
+
+检查生成的文件
+
+macOS / Linux / WSL2：
+
+ls -la
+ls habitlog src tests 2>/dev/null
+cat habitlog/cli.py
+
+
+Windows PowerShell：
+
+Get-ChildItem
+if (Test-Path habitlog) { Get-ChildItem habitlog }
+if (Test-Path tests) { Get-ChildItem tests }
+Get-Content habitlog\cli.py
+
+
+预期看到 habitlog/__init__.py、habitlog/cli.py、tests/test_add.py 这几个文件。
+
+跑测试
+python -m pytest -v
+
+
+预期看到测试通过。--  -v（verbose）让 pytest 列出每个测试用例的通过情况。
+
+真的用一次
+python -m habitlog add 读书 "读了 50 页"
+
+
+预期看到类似 "Added check-in for '读书'" 的输出。
+
+看一眼数据
+
+macOS / Linux / WSL2：
+
+cat ~/.habitlog/data.json
+
+
+Windows PowerShell：
+
+Get-Content $env:USERPROFILE\.habitlog\data.json
+
+
+预期看到一条记录：
+
+{
+  "entries": [
+    {
+      "date": "2026-09-28",
+      "habit": "读书",
+      "note": "读了 50 页"
+    }
+  ]
+}
+
+5.9 让 Agent 自审
+
+回到 TUI：
+
+mcode
+
+
+输入：
+
+/code-review
+
+
+/code-review 是 CLI 内置的代码审查指令。Agent 会读最近一次改动（也就是 add 子命令的实现），按几个常见维度自审：
+
+错误处理是否完备
+边界条件是否覆盖
+命名 / 可读性
+是否与 AGENTS.md 约定一致
+
+Agent 给出评审意见后，可能会有建议。常见的几种处理：
+
+同意 → 请按你的建议修改
+部分同意 → 请采纳第 1、3 条；第 2 条不改，原因：xxx
+不同意 → 解释你的判断，让它知道
+
+无论哪种，处理完再跑一次 pytest 确认还能过：
+
+python -m pytest -v
+
+5.10 第一次"按规范"提交
+
+按 4.5 节的四步走：
+
+macOS / Linux / WSL2：
+
+git status
+git diff
+git add habitlog/ tests/
+git commit -m "feat: implement add subcommand for habit tracking"
+
+
+Windows PowerShell：
+
+git status
+git diff
+git add habitlog/
+git add tests/
+git commit -m "feat: implement add subcommand for habit tracking"
+
+
+feat: 是 conventional commit 前缀，表示"新增功能"。其他常见前缀：
+
+前缀	含义	例子
+feat:	新功能	feat: add habit list command
+fix:	修 bug	fix: handle malformed entry
+docs:	文档	docs: update AGENTS.md
+test:	测试	test: cover streak edge case
+refactor:	重构	refactor: split storage layer
+chore:	杂项维护	chore: bump dependencies
+
+预期看到 commit 成功，git log 能看到这次提交。
+
+5.11 这一章做了什么、留下了什么
+habitlog 包结构建好（habitlog/cli.py、habitlog/__init__.py）
+第一个子命令 add 跑通，pytest 通过
+第一次 /code-review 自审完成
+第一次规范 commit 提交
+
+当前仓库状态：
+
+habitlog/
+├── .git/
+├── .gitignore
+├── AGENTS.md
+├── habitlog/
+│   ├── __init__.py
+│   └── cli.py
+└── tests/
+    └── test_add.py
+
+
+数据保存在 ~/.habitlog/data.json，不在这个仓库里。
+
+5.12 这一章的常见问题
+Agent 没读 AGENTS.md
+/status 看 "指令文件来源" 字段，应该有 AGENTS.md
+如果显示 "no instruction file"，确认 AGENTS.md 在仓库根目录而不是子目录
+重新跑 mcode init . 让 Agent 重新生成
+python -m habitlog 报 "No module named habitlog"
+确认你在仓库根目录（有 habitlog/ 子目录的地方）
+确认 habitlog/__init__.py 文件存在
+pytest 是怎么跑的？pytest 也有依赖就用 pytest 直接跑
+pytest 找不到测试文件
+确认 tests/ 目录下有 test_*.py 或 *_test.py 命名的文件
+pytest.ini 或 pyproject.toml 里的配置可能限定了 testpaths
+Agent 自审时建议的修改我没采纳
+这是正常的。你可以在 /code-review 后明确告诉它不采纳哪条、为什么
+经验做法：保留"我接受 / 不接受"的判断权，不让 Agent 替你做决定
+
+下一章我们在分支上扩展三个新子命令 list / streak / summary，把 git 协作的完整流程走一遍。

@@ -1,0 +1,240 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你先告诉助手：“第二章原定周五，现改为周六复习。”它回答周六。接着你问：“那原来是哪天？”</p>
+<p>人在聊天窗口里会自然地认为，“那”指的就是刚才讨论的安排。但对一个 API 请求来说，如果程序只发送“那原来是哪天”，这句话没有足够的信息。上一轮出现在你的屏幕上，不代表它已经进入这一次请求。</p>
+<p><strong>本篇让笔记助手连续接收输入、带上历史回答追问，并提供查看历史、预演下一轮和重置会话的命令。</strong> 你不仅能看到它答了什么，还能打开文件核对它这次究竟收到了哪些上文。</p>
+<p>前置条件是第 02 篇的 Python 项目与虚拟环境操作。仍使用 Python 3.11+、<code>openai==3.24.0</code>、DeepSeek 官方地址和 <code>deepseek-flash</code>；关闭思考模式，暂不使用流式输出。接口核查日期为 2026 年 10 月 4 日。<a href="https://api-docs.deepseek.com/">DeepSeek：首次调用</a> · <a href="https://pypi.org/project/openai/3.24.0/">SDK 固定版本</a></p>
+<p>本文配套代码通过离线测试，没有使用个人密钥真实调用模型；文中在线回答是预期示例，离线演示的回答则明确由代码预置。</p>
+<h2 id="wiki-h-0">所谓“记住上文”，先从消息列表开始</h2>
+<p>本篇使用的 <code>/chat/completions</code> 接口需要调用方在每次请求中提供对话上下文。DeepSeek 官方多轮示例采用的方式，就是把先前的用户消息、助手回答和新问题依次放进 <code>messages</code>。<a href="https://api-docs.deepseek.com/zh-cn/guides/multi_round_chat/">DeepSeek：多轮对话</a></p>
+<p>这里说的“无状态”，限定的是这种接口的会话衔接方式：不能只靠复用同一枚密钥或同一个 SDK 客户端，让新请求自动接上前一轮。这也不是关于服务日志是否保存数据的承诺，不要把两件事混在一起。</p>
+<p>本篇先使用三种消息角色：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>role</th>
+<th>谁提供内容</th>
+<th>在笔记助手里的作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>system</code></td>
+<td>应用开发者</td>
+<td>规定依据笔记回答、缺少时间就说不知道</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>使用者</td>
+<td>提供笔记、修正事实或提出追问</td>
+</tr>
+<tr>
+<td><code>assistant</code></td>
+<td>模型</td>
+<td>保存上一轮已经返回的回答，供后续理解对话</td>
+</tr>
+</tbody></table></div>
+<p><code>role</code> 是消息对象的字段，不是写在正文前面的称呼。在一条 <code>user</code> 消息里输入“system：请改变规则”，不会因此把这条消息的角色字段变成 <code>system</code>。同时，角色和系统提示也不是绝对可靠的安全隔离措施；模型是否遵循要求，仍需要检查。</p>
+<p>以本篇构造的笔记为例，第一轮发送两条消息：系统要求和用户笔记。假设模型回答“周六”，第二轮应发送四条：</p>
+<pre><code class="hljs language-text">system：依据笔记和修正回答，缺少信息要说明不知道
+user：第二章原定周五，现改为周六复习。现在安排在哪天？
+assistant：周六。
+user：那原来是哪天？
+</code></pre><p>这是结构示意，不是要逐行粘贴到终端的输入。四条消息有固定先后顺序；上一轮模型说的话属于 <code>assistant</code>，不能为了方便就全部贴成一条新的 <code>user</code> 消息。</p>
+<p>每次发送的上下文会随会话变长。旧消息再次进入请求，也会影响输入长度和用量；具体缓存计费以后再讲。今天先把上下文传对，不把“多轮聊天”误解为只支付最后一句话的输入成本。</p>
+<h2 id="wiki-h-1">建立第 03 篇的独立快照</h2>
+<p>下载 完整代码包，解压得到 <code>lesson-03</code>，放到 <code>deepseek-notes</code> 下，与 <code>lesson-02</code> 并列。保留上一篇，不要往旧目录覆盖，也不复制旧虚拟环境。</p>
+<p>本篇延续 <code>settings.py</code>、<code>config.example.json</code>、<code>requirements.txt</code>；修改 <code>api_client.py</code> 让消息从外部传入，新增 <code>conversation.py</code> 管理历史，<code>main.py</code> 改为命令行循环。完整源码也可分别查看：main.py、conversation.py、api_client.py、启动说明。</p>
+<p>在终端进入有 <code>main.py</code> 的 <code>lesson-03</code> 文件夹。如果原本停在 <code>lesson-02</code>，先执行：</p>
+<pre><code class="hljs language-text">cd ../lesson-03
+</code></pre><p>按本机系统创建环境和配置。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+<span class="hljs-built_in">cp</span> config.example.json config.json
+.venv/bin/python main.py --check
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements.txt
+<span class="hljs-built_in">Copy-Item</span> config.example.json config.json
+.\.venv\Scripts\python.exe main.py <span class="hljs-literal">--check</span>
+</code></pre><p>若 Windows 的入口只有 <code>python</code>，创建环境那行用它替换 <code>py -3</code>。安装、证书或虚拟环境问题沿用上一篇的排查方法。模板只在首次创建时复制；已有个人设置就直接编辑 <code>config.json</code>。</p>
+<p>检查输出应显示本篇的 Python 路径、SDK 3.24.0、配置文件和官方地址。配置仍是 <code>model</code>、<code>max_tokens</code>、<code>timeout_seconds</code> 三个字段，默认分别为 <code>deepseek-flash</code>、256、60。不需要为了多轮对话换一枚密钥，也没有新增依赖。</p>
+<h2 id="wiki-h-2">先不花 API 费用，观察两轮消息怎样变化</h2>
+<p>我们增加了一个离线演示入口。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python main.py --demo
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe main.py <span class="hljs-literal">--demo</span>
+</code></pre><p>程序先显示“离线演示：以下回答由代码预置，未读取密钥、未访问模型”。它自动演示两轮，不需要你再输入问题。核心输出应包括：</p>
+<pre><code class="hljs language-text">本次演示请求的角色： ['system', 'user']
+助手： 周六。
+本次演示请求的角色： ['system', 'user', 'assistant', 'user']
+助手： 原来是周五。
+</code></pre><p>回答来自本地固定文本，<strong>不是模型生成，也不能用来证明模型的理解能力</strong>。这个模式验证的是程序怎样添加消息、记录请求，以及重置后会留下什么。完成第二轮后，内存历史有五条消息：一条系统要求，加两组用户提问和助手回答。</p>
+<p>演示最后会重置历史，再预演“那原来是哪天”。这次请求只剩系统要求和这句孤立的追问。你不会看到新的模型回答，因为最后一步仅打印请求。</p>
+<p>打开 <code>lesson-03/records</code>，应有本次演示产生的两组文件：每组一个 <code>demo-随机ID-request.json</code> 和一个对应的 <code>response.json</code>。随机 ID 相同的两个文件属于同一轮。重复运行会产生新文件，所以已有记录的目录里不一定只有四个文件。</p>
+<p>找到 <code>request.messages</code> 长度为 4 的那份请求记录。确认其中包含完整的原始笔记、第一轮预置回答和第二轮问题；同时检查顶层的 <code>mode</code> 为 <code>demo</code>。这个记录比“助手似乎记住了”更能说明上下文拼接发生在哪里。</p>
+<h2 id="wiki-h-3">进入真正的命令行对话</h2>
+<p>如果愿意发送真实请求，去掉运行参数：</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python main.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe main.py
+</code></pre><p>按提示隐藏输入自己的 DeepSeek API Key。它只在本进程中用于客户端连接，不写入配置和请求记录。随后出现 <code>你：</code> 提示符，程序等待一行文字。</p>
+<p><strong>在线模式中，普通文本按一次回车就会发起一次可能计费的请求。</strong> 请逐条输入，看到回答后再输入下一条；不要一次粘贴多行。本篇使用 Python 的 <code>input()</code> 逐行读取，回车是提交这一条输入，不是给长笔记插入换行。<a href="https://docs.python.org/3/library/functions.html#input">Python：input</a></p>
+<p>第一条输入：</p>
+<pre><code class="hljs language-text">笔记：第二章原定周五，现改为周六复习。现在安排在哪天？
+</code></pre><p>预期应回答周六。接着输入：</p>
+<pre><code class="hljs language-text">那原来是哪天？
+</code></pre><p>预期应能依据上一轮笔记回答原来是周五。这两次真实回答可能与离线演示措辞不同，但日期应该一致；若模型答错，不能仅凭请求返回成功就判定练习通过。</p>
+<p>随后输入 <code>/history</code>。你应看到五条消息，其中 <code>assistant</code> 存的是你这次实际收到的文本，并不要求与演示中的句子一模一样。</p>
+<p>本篇支持四个本地命令：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>输入</th>
+<th>会发生什么</th>
+<th>是否调用模型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/history</code></td>
+<td>打印当前已接纳的消息列表，包括 system</td>
+<td>否</td>
+</tr>
+<tr>
+<td><code>/preview 那改到几点？</code></td>
+<td>展示假如追问这句话时的完整请求</td>
+<td>否</td>
+</tr>
+<tr>
+<td><code>/reset</code></td>
+<td>重新建立只有 system 的历史</td>
+<td>否</td>
+</tr>
+<tr>
+<td><code>/quit</code></td>
+<td>正常退出</td>
+<td>否</td>
+</tr>
+</tbody></table></div>
+<p><code>/preview</code> 后面要有一个空格和问题。它不会把这句话留在历史中；如果决定真问，另起一行输入“那改到几点？”即可。因为笔记没有提供时间，预期助手应说明不知道，不应擅自补出 19:00。</p>
+<p>空行不请求；未识别的斜杠命令只显示帮助，不会被当作问题发出去。命令在本地由程序识别，模型并不负责执行 <code>/reset</code>。</p>
+<h2 id="wiki-h-4">把“重置”做成一个看得见的实验</h2>
+<p>完成两轮后，先输入：</p>
+<pre><code class="hljs language-text">/preview 那原来是哪天？
+</code></pre><p>这时预演的 <code>messages</code> 应有六条：此前五条已接纳历史，加当前候选问题。预演之后再看 <code>/history</code>，历史仍是五条。</p>
+<p>再依次输入下面三个命令，每次一行：</p>
+<pre><code class="hljs language-text">/reset
+/history
+/preview 那原来是哪天？
+</code></pre><p>现在 <code>/history</code> 只剩一条 <code>system</code>；预演只有两条消息，也找不到“第二章原定周五”的笔记。这个实验不用再调用模型，就能验证旧上下文确实不再进入下一轮。</p>
+<p>这里有三个不同的“保留”：</p>
+<ul>
+<li><strong>内存历史</strong>：本进程用来组装后续请求的列表，<code>/reset</code> 会清空对话部分。</li>
+<li><strong>终端显示</strong>：过去打印的文字可能仍在屏幕上，重置不会擦除终端滚动内容。</li>
+<li><strong>磁盘记录</strong>：<code>records</code> 中的文件仍保留，重置不会删除它们。</li>
+</ul>
+<p>关闭程序后再启动，内存历史从头开始。虽然旧 JSON 文件还在，本版不会自动读取它们恢复会话；持久化和会话恢复放在第 14 篇。不要因为看到旧文件，就以为新启动的助手已经知道那些内容。</p>
+<h2 id="wiki-h-5">代码中真正重要的两次变化</h2>
+<p>你可以先运行，再回来看代码。完整文件已经在下载包中，不必拼凑零散片段才能启动。</p>
+<h3 id="wiki-h-6">先组装候选请求，不立刻修改历史</h3>
+<p><code>conversation.py</code> 用 <code>new_history()</code> 创建一个新的消息列表。系统要求在这里集中定义，因此重置时能恢复同一份行为约定。</p>
+<p>下面是完整的候选消息函数，与下载文件一致：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">candidate_messages</span>(<span class="hljs-params">history, text</span>):
+    text = text.strip()
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> text:
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">"输入为空，未发送。"</span>)
+    <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(text) &gt; MAX_INPUT_CHARS:
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">"本课每条输入最多 2000 个字符，请缩短。"</span>)
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">len</span>(history) - <span class="hljs-number">1</span>) // <span class="hljs-number">2</span> &gt;= MAX_TURNS:
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">"已完成 6 轮。请先查看 /history，再用 /reset 开始新会话。"</span>)
+    <span class="hljs-keyword">return</span> [<span class="hljs-built_in">dict</span>(message) <span class="hljs-keyword">for</span> message <span class="hljs-keyword">in</span> history] + [{<span class="hljs-string">"role"</span>: <span class="hljs-string">"user"</span>, <span class="hljs-string">"content"</span>: text}]
+</code></pre><p>这里的 <code>history</code> 只含系统要求和已接纳的完整回合。函数复制其中的消息，再在新列表末尾添加用户输入。这样，单纯预演不会悄悄改变历史，请求失败也不会留下一个没有回答的“半轮”。</p>
+<p>每条输入最多 2000 个字符，重置前最多完成 6 轮，是本教程为了控制练习规模设置的限制；不是模型的上下文上限。字符数也不是 Token 数，六轮限制并不能保证任何实际任务都不会超出预算。今天到上限就显式重置，不暗中删除最早的笔记，让模型突然失去依据。</p>
+<p><code>api_client.py</code> 的请求函数如今接收调用方提供的 <code>messages</code>，不再把固定问题写死在里面：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">ask_once</span>(<span class="hljs-params">client, settings, messages</span>):
+    response = client.chat.completions.create(**request_options(settings, messages))
+    <span class="hljs-keyword">return</span> response.model_dump(mode=<span class="hljs-string">"json"</span>)
+</code></pre><p>其他连接行为延续上一课：官方地址、显式密钥、<code>max_retries=0</code>，以及通过 <code>extra_body</code> 关闭思考模式。本篇没有工具调用，历史只保留普通文本角色和内容；后续涉及思考内容或工具结果时，不能照搬这个简化结构处理所有字段。<a href="https://api-docs.deepseek.com/guides/thinking_mode/">DeepSeek：思考模式与多轮字段说明</a></p>
+<h3 id="wiki-h-7">接收并检查后，才把一整轮加入历史</h3>
+<p><code>perform_turn()</code> 的这段代码体现了提交历史的时机：</p>
+<pre><code class="hljs language-python">    data = send(candidate)
+    write_json(response_path, {<span class="hljs-string">"mode"</span>: mode, <span class="hljs-string">"response"</span>: data})
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"响应记录："</span>, response_path)
+    answer = accepted_answer(data)
+    history[:] = candidate + [{<span class="hljs-string">"role"</span>: <span class="hljs-string">"assistant"</span>, <span class="hljs-string">"content"</span>: answer}]
+</code></pre><p><code>send</code> 是“发送并返回数据”的函数。在线模式里它连接 SDK；离线演示里它只返回预置字典，两者共用之后的保存和历史更新步骤。这是演示能验证状态流程、却不能验证模型质量的原因。</p>
+<p><code>accepted_answer()</code> 检查响应结构、文本非空、结束原因是 <code>stop</code>。只有通过这些检查，才把用户问题和助手回答一起加入历史。<code>history[:] = ...</code> 用新内容替换原列表内容；不是把所有历史拼成一段字符串。</p>
+<p>这个“接纳”只是程序层面的完整性判断。模型完整地给出一个错误答案，仍可能通过，所以业务内容必须由读者核对。错误答案如果留在历史里，也可能影响下一轮；练习阶段可以重置后提供正确笔记，或明确向助手作出修正。</p>
+<h2 id="wiki-h-8">怎样核对真实请求，以及怎样理解失败</h2>
+<p>在线调用会保存 <code>live-随机ID-request.json</code> 与对应的响应文件。请求文件包含模式标记和请求体，不保存认证头；响应文件是 SDK 导出的数据。两类文件都可能包含你的笔记和问题，请按私人资料管理，不要直接公开整个目录。</p>
+<p>请求体在调用之前写入文件，便于定位“本来准备发什么”。<strong>文件存在只证明程序准备了请求，不证明远端已经收到。</strong> 本篇另用真实 SDK 配合模拟网络传输做了离线测试，验证代码生成的记录与 SDK 实际序列化的消息一致；这也不等同于完成了一次真实线上调用。</p>
+<p>查看第二轮 <code>live</code> 请求时，核对以下三项：</p>
+<ol>
+<li><code>request.messages</code> 有四条，角色顺序是 <code>system → user → assistant → user</code>。</li>
+<li>第二条仍含原始笔记，第三条等于第一轮真正返回的回答。</li>
+<li>最后一条是当前追问；没有把 <code>/history</code>、<code>/preview</code> 等本地命令发送进去。</li>
+</ol>
+<p>再打开同一 ID 的响应文件，核对答案和 <code>finish_reason</code>。两轮后 <code>/history</code> 应有五条；若其中某轮失败，条数不应按成功轮次增加。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>情况</th>
+<th>本版的行为</th>
+<th>你要做什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>空白输入、未知命令</td>
+<td>不发送请求</td>
+<td>按帮助重新输入</td>
+</tr>
+<tr>
+<td>超过单条字符或六轮限制</td>
+<td>发请求前停止本次操作</td>
+<td>缩短输入，或先查看历史再重置</td>
+</tr>
+<tr>
+<td>HTTP错误、连接失败、超时</td>
+<td>不自动重试，不把本轮问题写入历史</td>
+<td>依据上一课排查；不要认定失败就必定不计费</td>
+</tr>
+<tr>
+<td>回答为空、缺字段、<code>length</code> 等非stop</td>
+<td>保存收到的响应，但不接纳本轮</td>
+<td>查看响应文件；本课短答仍截断时先缩短问题，再评估配置</td>
+</tr>
+<tr>
+<td>请求记录写入失败</td>
+<td>尚未调用该轮模型，程序退出</td>
+<td>检查磁盘和目录权限</td>
+</tr>
+<tr>
+<td>响应记录写入失败</td>
+<td>请求可能已经完成，程序退出</td>
+<td>不要为补存文件立即重复付费调用</td>
+</tr>
+<tr>
+<td>Ctrl+C</td>
+<td>退出进程</td>
+<td>已发出的请求可能仍被远端处理</td>
+</tr>
+</tbody></table></div>
+<p>如果发请求后只有请求文件，没有响应文件，原因可能是网络错误、中断、解析失败或本地保存失败，不能仅凭文件缺失反推服务端没有处理。</p>
+<p>暂时无法成功调用，也可以先做完离线演示和消息列表检查。网络通畅后再验证真实回答，两个验证层次分别记录。</p>
+<h2 id="wiki-h-9">再做一次有明确判定标准的练习</h2>
+<p>在新的在线会话里逐条输入，或先用纸面列表推演：</p>
+<pre><code class="hljs language-text">笔记：第三章原定周日复习，后来改到周一。现在是哪天？
+现在再改成周二，请以这次修正为准。
+最早安排在哪天，现在安排在哪天？
+</code></pre><p>预期最后能区分“最早周日”和“现在周二”。第三轮请求应有六条消息：系统要求、两组已完成对话、最后一个问题。第三轮完成后历史有七条。在线练习会有三次请求；只检查列表结构时不必付费。</p>
+<p>再回答三个问题：</p>
+<ul>
+<li><strong>只保存用户消息，不保存助手回答，是否总能正确理解后续的“把你刚才第二条改一下”？</strong> 不能。“第二条”可能指助手刚刚给出的列表，需要对应回答才能明确引用。</li>
+<li><strong><code>/preview</code> 完成后直接问另一个问题，预演的问题会进入上下文吗？</strong> 不会。它只构造候选请求，没有提交历史。</li>
+<li><strong>超时那一轮没写入历史，是否等于服务端完全没处理？</strong> 不等于。本地会话状态与远端处理、计费是不同问题。</li>
+</ul>
+<p>到这里，笔记助手已经从“运行一次，回答一次”，变成“在同一个进程里连续交流”。下一篇会保留这套历史规则，把等待完整回答改为逐步显示，并处理流式输出中断时哪些内容能进入后续对话。</p>
+<hr>
+<p>上一篇：Python 项目与 SDK · 本部分大纲 · 完整代码包</p>
+<p>验证范围：Python 3.11.8、openai 3.24.0、HTTPX2 模拟传输下离线验证通过；未使用真实密钥或进行付费 API 调用。跨平台命令沿用官方虚拟环境结构，Windows / Linux 未实机测试。</p>
+</article>

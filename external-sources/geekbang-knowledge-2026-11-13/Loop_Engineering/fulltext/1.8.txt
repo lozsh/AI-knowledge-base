@@ -1,0 +1,357 @@
+预计阅读与练习时间：60～80 分钟
+本篇目标：让同一个 Dispatcher 接受手动、定时和事件三类触发，用单实例锁阻止重叠运行，并在独立 Git worktree 中生成候选，证明主工作区不会被 Agent 的代码改动污染。
+
+前六篇一直由我们手工运行命令，而且 Generator 直接修改 issue-garden-lab/。这便于学习控制逻辑，但不适合长期运行：定时器和文件事件可能同时到达，两次调度会争抢同一任务；失败候选还可能把主工作区留在半成品状态。
+
+这一篇把三个问题分开处理：
+
+Trigger：为什么现在值得检查队列
+Scheduler：同一时刻由谁取得运行权
+Workspace：候选改动发生在哪里
+
+
+触发器只负责“敲门”，不能绕过任务契约；调度器一次最多领取一项任务；候选代码在独立 worktree 中生成并验证，只把 patch 和报告送回主工作区供人审核。
+
+先把第 6 篇的终态保存下来
+
+第 6 篇结束时，issue-005 已完成并提交，issue-006 因连续相同失败进入 tasks/needs-input/，但这次队列移动尚未提交。先确认主代码没有额外 Diff：
+
+git diff -- src/search.mjs
+git status --short
+
+
+源代码 Diff 应为空，状态列表只应包含 issue-006 的队列移动。保存这个控制面终态：
+
+git add tasks
+git commit -m "chore: record publisher task needs input"
+git status --short
+
+
+最后一条命令应没有输出。创建 worktree 时，Git 会从当前 HEAD 复制一个独立工作目录；如果该提交没有包含前面课程的成果，隔离区也不会凭空拥有它们。
+
+加入 Dispatcher、锁和隔离 Worker
+
+从课程根目录复制本篇增量素材。
+
+macOS 或 Linux：
+
+cp -R assets/lesson-07-dispatch/. issue-garden-lab/
+cd issue-garden-lab
+source .venv/bin/activate
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force assets/lesson-07-dispatch/* issue-garden-lab
+Set-Location issue-garden-lab
+.\.venv\Scripts\Activate.ps1
+
+
+新增部件：
+
+tools/dispatch.py                    统一触发入口
+issue_garden/scheduler.py            单实例目录锁与事件校验
+issue_garden/dispatcher.py           选任务、建 worktree、收集候选
+issue_garden/isolated_worker.py      只在隔离目录运行 Generator 和 Verifier
+tasks/inbox/issue-007.json           图书标签搜索任务
+events/inbox/issue-007.json          受限事件示例
+acceptance/tag-search.test.mjs       标签搜索验收
+
+
+先运行控制面测试：
+
+python -m unittest discover -s loop_tests -p "test_*.py" -v
+
+
+预期十八项通过。本篇新增两项：第二个调度器无法取得已被占用的目录锁；事件入口只接受 task.created，不会把任意事件类型当作执行指令。
+
+提交课程代码和任务定义：
+
+git add .
+git commit -m "feat: add triggers and isolated dispatch"
+git status --short
+
+
+工作区应为空。后面创建的锁、worktree、候选 patch 和报告都位于已忽略的 .loop/，不会混进项目提交。
+
+三个触发入口，最终都只能进入同一个队列
+
+dispatch.py 支持三种触发来源：
+
+触发类型	适合什么情况	它能提供什么
+manual	调试、人工确认后运行	明确的人为启动时机
+schedule	每隔一段时间检查积压任务	固定时间窗口，不保证一定有任务
+event	新任务文件或外部事件到达	指向一个已存在任务的结构化通知
+
+它们不会获得三套不同权限。无论谁触发，Dispatcher 都要检查同一个 tasks/inbox/、同一个验证注册表和同一套预算。
+
+先使用 Dry Run，不创建 worktree、不移动任务。手动触发预演：
+
+python tools/dispatch.py --trigger manual --dry-run
+
+
+定时触发预演：
+
+python tools/dispatch.py --trigger schedule --dry-run
+
+
+两者都应返回：
+
+{
+  "decision": "planned",
+  "task_id": "issue-007",
+  "worktree": ".loop/worktrees/issue-007",
+  "side_effects": []
+}
+
+
+trigger 字段不同，但任务和计划工作区相同。Dry Run 的 side_effects 为空，独立检查：
+
+git status --short
+git worktree list
+
+
+Git 状态仍为空，worktree 列表只有主工作区。
+
+事件不能携带任意命令
+
+打开 events/inbox/issue-007.json，内容只有：
+
+{
+  "event_type": "task.created",
+  "task_id": "issue-007",
+  "occurred_at": "2026-09-24T00:00:00Z"
+}
+
+
+事件只指向队列里已经存在的稳定任务 ID。它不能提供 Shell 命令、验证入口、写入路径或 Agent Prompt。预演：
+
+python tools/dispatch.py \
+  --trigger event \
+  --event events/inbox/issue-007.json \
+  --dry-run
+
+
+Windows PowerShell 可以写成一行：
+
+python tools/dispatch.py --trigger event --event events/inbox/issue-007.json --dry-run
+
+
+应得到同一项 planned 结果。如果把 event_type 改成 run.shell，入口会以非零状态拒绝；它不会根据事件名字扩大能力。
+
+真实事件系统还应持久化并去重 event_id。本地示例依靠任务 ID 和队列终态避免同一任务再次领取，没有实现通用 Webhook 去重。
+
+单实例锁保护的是调度，不是整个世界
+
+Dispatcher 启动后会尝试创建：
+
+.loop/dispatch.lock/
+
+
+同一文件系统里，只有一个进程能成功创建不存在的目录。取得锁的进程会写入 owner.json，记录 PID、主机名和取得时间；第二个进程看到目录已存在，就返回：
+
+{
+  "decision": "stopped",
+  "reason": "already_running"
+}
+
+
+正常退出时，finally 会释放锁。Dry Run 之后检查，macOS 或 Linux：
+
+test ! -d .loop/dispatch.lock && echo "lock released"
+
+
+Windows PowerShell：
+
+if (-not (Test-Path .loop/dispatch.lock)) { "lock released" }
+
+
+应看到 lock released。
+
+目录锁解决“同一个本地项目里不要重叠调度”的问题。它不是跨机器分布式锁，也不能保护 Agent 访问数据库、网络或其他目录。多个主机共同消费一个远端队列时，应使用队列服务或数据库提供的租约与原子领取，而不是共享一个本地目录。
+
+先证明主工作区还没有标签搜索
+
+运行新的验收：
+
+node --test acceptance/tag-search.test.mjs
+
+
+测试应失败。书目有 tags: ["systems", "computer science"]，当前搜索文本只包含标题、作者和 ISBN。
+
+记住这个失败。稍后隔离 worktree 中的同一测试会通过，而主工作区仍会失败，这正是候选隔离是否生效的独立证据。
+
+手动调度一次隔离任务
+
+现在执行真实调度：
+
+python tools/dispatch.py --trigger manual
+
+
+成功输出的关键字段如下：
+
+{
+  "decision": "completed",
+  "reason": "isolated_candidate_verified",
+  "trigger": "manual",
+  "task_id": "issue-007",
+  "worktree": ".loop/worktrees/issue-007",
+  "patch": ".loop/candidates/issue-007/candidate.patch",
+  "report": ".loop/candidates/issue-007/report.json",
+  "worker_exit_code": 0
+}
+
+
+Dispatcher 实际做了五步：
+
+取得调度锁
+  -> 从 inbox 选择 issue-007
+  -> 从当前 HEAD 创建 detached Git worktree
+  -> 在 worktree 内生成并验证候选
+  -> 把 patch 与报告写回主工作区的 .loop/candidates/
+
+
+任务进入 tasks/done/，这里的 done 表示“候选已独立验证并等待审阅”，不是“已合并到主分支”，更不是“已发布”。
+
+用两个目录证明隔离确实存在
+
+先看 Git 注册的工作区：
+
+git worktree list
+
+
+应有两个条目：主工作区，以及 detached 状态的 .loop/worktrees/issue-007。
+
+在主工作区重新运行标签验收：
+
+node --test acceptance/tag-search.test.mjs
+
+
+它仍应失败。再进入候选 worktree 运行同一条测试。
+
+macOS 或 Linux：
+
+cd .loop/worktrees/issue-007
+node --test acceptance/tag-search.test.mjs
+cd ../../..
+
+
+Windows PowerShell：
+
+Set-Location .loop/worktrees/issue-007
+node --test acceptance/tag-search.test.mjs
+Set-Location ../../..
+
+
+候选 worktree 中应通过。两个目录来自同一个 Git HEAD，却有不同的未提交工作树：Agent 的标签搜索改动没有进入主目录。
+
+查看候选而不应用它：
+
+git apply --stat .loop/candidates/issue-007/candidate.patch
+git apply --check .loop/candidates/issue-007/candidate.patch
+python -m json.tool .loop/candidates/issue-007/report.json
+
+
+--stat 应只列出 src/search.mjs；--check 没有输出且退出码为 0，表示 patch 可以应用到当前主工作区，但它不会真的修改文件；报告应显示 tag-search 的三条验证命令通过、边界错误为空。
+
+再检查主工作区：
+
+git diff -- src/search.mjs
+git status --short
+
+
+源文件没有 Diff。Git 状态只显示 issue-007 从 inbox 移到 done，.loop/ 中的候选不会出现。
+
+审核后再清理 worktree
+
+本教程默认不自动应用候选。你可以保留 worktree继续检查，或在确认 patch 和报告均已保存后删除隔离目录。
+
+下面的命令会丢弃 worktree 中尚未提交的候选文件，只在你已经验证 .loop/candidates/issue-007/candidate.patch 非空且可读后执行：
+
+git worktree remove --force .loop/worktrees/issue-007
+git worktree prune
+git worktree list
+
+
+最后列表应只剩主工作区。--force 是必要的，因为候选 worktree 故意保留未提交 Diff；可恢复副本是主目录 .loop/candidates/issue-007/candidate.patch。
+
+任务终态可以提交，但候选代码仍不合并：
+
+git add tasks
+git commit -m "chore: record isolated tag-search candidate"
+git status --short
+
+
+工作区应干净，标签验收在主目录仍失败。这清楚地区分了三件事：候选已验证、候选已审核、候选已合并。自动化程度越高，越不应该把它们压成一个模糊的“完成”。
+
+怎样接入系统定时器
+
+Dispatcher 每次启动最多处理一个任务，然后退出。系统定时器负责“过一会儿再来看”，而不是让 Python 写一个永久 while true。
+
+macOS 或 Linux 可以使用现有的 cron、systemd timer 或平台调度器。以 cron 为例，先用 pwd 找到绝对路径，再把下面的占位符替换成你的实际路径：
+
+*/15 * * * * cd /绝对路径/issue-garden-lab && /绝对路径/issue-garden-lab/.venv/bin/python tools/dispatch.py --trigger schedule >> .loop/scheduler.log 2>&1
+
+
+它每 15 分钟检查一次。队列为空时 Dispatcher 返回 no_task 并结束，不会制造任务。cron 环境变量通常比交互终端少，所以要使用绝对 Python 路径和明确工作目录。
+
+Windows 可以打开“任务计划程序”，选择“创建基本任务”，依次填写：
+
+触发器：按你需要的间隔；
+操作：启动程序；
+程序或脚本：issue-garden-lab\.venv\Scripts\python.exe 的绝对路径；
+参数：tools\dispatch.py --trigger schedule；
+起始于：issue-garden-lab 的绝对路径。
+
+先把计划设为“仅在用户登录时运行”，手动点击“运行”并查看 .loop/scheduler.log 或任务历史。确认工作目录、Python 环境和权限都正确后，再决定是否允许无人值守。
+
+定时频率不是越高越好。间隔应该大于常见任务耗时，锁只是最后防线；如果每次都因 already_running 跳过，说明调度频率或任务粒度需要调整。
+
+常见阻塞
+提示 worktree_already_exists
+
+先运行：
+
+git worktree list
+
+
+如果该目录包含尚未审阅的候选，继续审阅，不要覆盖。如果 patch 已保存且决定放弃候选，再按上一节的 git worktree remove --force 清理。
+
+锁一直存在
+
+硬断电或强制结束进程可能来不及执行 finally。先查看：
+
+python -m json.tool .loop/dispatch.lock/owner.json
+
+
+确认记录的主机和 PID 已经没有运行中的 Dispatcher，再把整个锁目录改名保存现场，而不是直接假定它过期：
+
+macOS 或 Linux：
+
+mv .loop/dispatch.lock .loop/dispatch.lock.stale
+
+
+Windows PowerShell：
+
+Move-Item .loop/dispatch.lock .loop/dispatch.lock.stale
+
+
+若进程仍在运行，应先调查它为什么耗时过长。强行清锁会重新引入重叠调度。
+
+worktree 是不是安全沙箱
+
+不是。Git worktree 隔离代码目录和未提交 Diff，但仍共享 Git 对象库，也通常以同一个操作系统用户运行，拥有相同网络和本机文件权限。高风险或不受信任 Agent 还需要容器、沙箱、独立用户、只读挂载和网络策略。
+
+事件到达就能直接执行吗
+
+事件只触发一次队列检查。示例会校验事件类型与任务 ID，并要求对应任务已经在 inbox。不要把 Webhook 正文直接拼成命令或 Prompt；先认证来源、限制大小、解析为受控字段，再创建任务。
+
+本篇留下了什么
+
+Issue Garden 现在有了统一触发入口：手动、定时和事件只决定“何时检查”，不会改变任务权限；原子目录锁阻止本地重叠调度；每项候选在 detached Git worktree 中生成和验证，主工作区只接收报告、patch 和队列终态。
+
+下一篇，我们会在这个受控运行框架上补齐全局资源治理：除了每轮文件数和 Diff 行数，还要追踪任务总时长、Agent 运行次数、可选 Token/费用指标，以及真正需要人注意的通知，避免“安全地运行”变成“安全地烧预算”。
+
+修订后的边界验收
+
+candidate.patch 使用临时 Git 索引，以 HEAD 为基线收集已跟踪变化与未忽略的新文件，不修改真实索引。清理前用 git apply --stat 查看清单，并在干净副本执行 git apply --check；新增 src 文件必须出现在补丁中。

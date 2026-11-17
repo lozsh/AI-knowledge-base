@@ -1,0 +1,39 @@
+原文：《How Anthropic teams use Claude Code》部门版 PDF，共 23 页，本页面对应原文 P9-P10
+版本：PDF 由 Anthropic 于 2025-06-03 生成
+译本：v1.0，2026-11
+时效：内容为 2025 年 6 月版本，功能名与命令以官方文档为准
+版权：原文 © Anthropic。非官方中文译本，仅供学习交流。
+
+推理团队（Inference team）负责管理记忆系统（memory system）——在 Claude 读取你的提示词（prompt）并生成回复的过程中存储信息的那套系统。团队成员，尤其是刚接触机器学习的人，可以大量借助 Claude Code 来弥合这一知识差距、加快工作。
+
+Claude Code 的主要用例
+
+代码库理解与上手（Codebase comprehension and onboarding） —— 加入复杂代码库时，团队高度依赖 Claude Code 快速理解架构。他们不再手动搜索 GitHub 仓库，而是让 Claude 找出哪些文件调用了特定功能，几秒钟就能拿到结果，不必去问同事，也不必手动检索。
+
+覆盖边界情况的单元测试生成（Unit test generation with edge case coverage） —— 写完核心功能后，他们让 Claude 编写全面的单元测试。Claude 会自动补上遗漏的边界情况（edge case），几分钟内就完成通常要耗费大量脑力的工作，就像一个可供他们评审（review）的编码助手。
+
+机器学习概念解释（Machine learning concept explanation） —— 团队成员没有机器学习背景，靠 Claude 解释模型特有的函数和设置。原本要花一小时 Google 搜索并阅读文档，现在只需 10–20 分钟，研究时间减少了 80%。
+
+跨语言代码翻译（Cross-language code translation） —— 用不同编程语言测试功能时，他们说明想测什么，Claude 就用所需的语言（比如 Rust）写出逻辑，省去了仅为测试而学习新语言的必要。
+
+命令回忆与 Kubernetes 管理（Command recall and Kubernetes management） —— 与其记住复杂的 Kubernetes 命令，他们向 Claude 询问正确的语法，比如「how to get all pods or deployment status」，然后拿到基础设施工作所需的确切命令。
+
+团队影响
+
+机器学习（ML）概念学习提速（Accelerated ML concept learning） —— 研究时间减少了 80%——原本要花一小时 Google 搜索，现在只需 10–20 分钟。
+
+代码库导航更快（Faster codebase navigation） —— 几秒钟内就能找到相关文件、理解系统架构，不必去问同事。
+
+测试覆盖更全面（Comprehensive test coverage） —— Claude 自动生成带边界情况的单元测试，在保持代码质量的同时减轻了脑力负担。
+
+语言障碍消除（Language barrier elimination） —— 无需学会 Rust 这类不熟悉的语言，就能实现相应功能。
+
+来自推理团队的首要建议
+
+先测试知识库功能（Test knowledge base functionality first） —— 试着问各种问题，看 Claude 能否比 Google 搜索回答得更快。如果它更快、更准，那它就是对你工作流（workflow）很有价值的省时工具。
+
+从代码生成开始（Start with code generation） —— 给 Claude 具体指令，让它编写逻辑，然后核验正确性。这有助于在把它用于更复杂的任务之前，建立起对工具能力的信任。
+
+用它来写测试（Use it for test writing） —— 让 Claude 编写单元测试能显著减轻日常开发工作的压力。利用这一功能，无需花时间手动想通所有测试用例，也能保持代码质量。
+
+原文备注：memory system 全页统一译作「记忆系统」，避免与「内存」混淆。

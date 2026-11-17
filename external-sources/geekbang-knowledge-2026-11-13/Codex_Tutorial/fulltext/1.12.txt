@@ -1,0 +1,375 @@
+预计学习时间：55—70 分钟
+本篇目标：分清 Codex 扩展体系的几个层次，为 TaskFlow 创建并验证一个项目 Skill，再连接一个只读 MCP 服务完成最小练习。
+
+TaskFlow 2.0 已经完成。发布前，我们每次都要做同一组事情：看 Git 状态、跑完整测试、核对 README、检查是否混入运行数据，最后整理一份发布检查报告。
+
+当然可以把这些要求每次复制给 Codex，但更合适的做法是把它保存成 Skill。Skill 负责告诉 Codex“这套工作应该怎样重复执行”；如果以后还想把它连同外部工具一起分发给其他人，再把它包装成 Plugin；如果流程需要访问仓库之外的实时数据或执行外部动作，就通过 MCP 提供工具。
+
+这一篇不做扩展机制的百科全书，只完成两个能亲手验证的练习：
+
+为 TaskFlow 创建一个仓库级发布检查 Skill；
+给 Codex CLI 添加 OpenAI 官方的只读文档 MCP，并验证它确实能检索资料。
+先把几个层次摆正
+
+下面这张表不是按“高级程度”排序，而是按它们解决的问题区分：
+
+机制	解决的问题	TaskFlow 中的例子
+当前提示词	只约束这一次任务	“检查今天这次 Diff，不要改代码”
+AGENTS.md	规定这个项目长期遵守的工作方式	测试必须用临时目录，不碰真实任务数据
+Skill	保存一套可以反复触发的工作流程	每次发布前执行同一套验收并生成报告
+MCP server	向 Codex 暴露外部数据和可调用工具	查询文档、读取工单、操作获准的第三方服务
+Plugin	把 Skills、MCP 连接等能力包装成可发现、可安装的产品	给团队分发统一的发布检查与仓库工具
+App / connector	用户实际连接和使用的外部应用或交互能力	Gmail、Google Drive、Slack，或 MCP 返回的可视化界面
+
+这里有两个特别容易混淆的地方。
+
+第一，Skill 不是一个外部工具。它本质上是一组可复用的说明、参考资料、模板和可选脚本。Codex 先根据 Skill 的名称与描述判断是否适用，需要时再读取完整的 SKILL.md。官方说明见 Build skills。
+
+第二，Plugin 是安装和分发单位，不是和 Skill、MCP 并列的另一种执行协议。一个 Plugin 可以只有 Skills，也可以包含 MCP server，或者把二者组合起来。当前官方架构可参考 Plugin architecture。
+
+“App”通常指你实际连接和使用的外部服务，也常被称为 connector。当前 Codex CLI 中，/plugins 用来发现和管理插件，/apps 用来浏览当前可用的 Apps，并把 $app-slug 插入提示词，/mcp 则用来查看已经接入的 MCP server 与工具。三者是不同入口，不要把“安装插件”“选择 App”和“检查底层工具连接”混成一件事。
+
+一个实用判断顺序是：
+
+这条要求只用一次吗？直接写进提示词。
+它是当前仓库每次都要遵守的规则吗？写进 AGENTS.md。
+它是一套会被反复执行、有明确输入和输出的流程吗？做成 Skill。
+它需要实时访问外部系统吗？接 MCP。
+它要让别人方便安装，或把流程与连接一起交付吗？打包成 Plugin。
+为 TaskFlow 选择最小够用的方案
+
+这次“发布前检查”只需要读取仓库、运行现有命令并生成本地 Markdown 报告，不需要访问外部账户，也不需要自建服务。因此，仓库级 Skill 就够了。
+
+我们要创建的 Skill 叫 taskflow-release，它应当做到：
+
+阅读 AGENTS.md、README.md 和当前 Git 状态；
+检查本次 Diff 的范围；
+运行完整测试；
+核对 README 中的 CLI 用法；
+检查运行数据、缓存、密钥和个人绝对路径；
+生成 RELEASE_CHECK.md，把结果分成“通过、阻塞、提醒”；
+记录真正执行过的命令和观察到的证据。
+
+它明确不做这些事：
+
+不执行 git commit、git tag 或 git push；
+不发布版本；
+不修改业务代码来“顺手修复”检查结果；
+不删除文件；
+不读取项目目录之外的内容。
+
+边界写得越清楚，Skill 就越适合反复调用。否则“发布检查”很容易在某次运行中悄悄变成“修改、提交并发布”。
+
+确认 Skill 应该放在哪里
+
+在 TaskFlow 根目录启动 Codex。仓库级 Skill 的路径是：
+
+.agents/skills/taskflow-release/SKILL.md
+
+
+Codex 会从当前工作目录一路向仓库根目录查找 .agents/skills。因此，把 Skill 放在仓库根目录，团队成员克隆项目后也能获得同一套工作流；把它放进个人目录，则更适合跨项目使用的个人习惯。
+
+开始前，先在终端确认你位于项目根目录：
+
+git rev-parse --show-toplevel
+git status --short
+
+
+Windows PowerShell 中这两条 Git 命令相同。
+
+第一条应该输出 TaskFlow 仓库根路径。第二条可以出现上一课创建的 PLAN.md、STATUS.md 或 TaskFlow 2.0 改动，但不应该出现来源不明的文件。若工作区状态与你预期不一致，先弄清它们属于谁，再创建 Skill。
+
+用内置 Skill Creator 创建初稿
+
+在 TaskFlow 根目录运行 codex，然后输入：
+
+$skill-creator
+
+
+如果界面允许在同一条消息里带上要求，可以直接输入：
+
+$skill-creator 为当前 TaskFlow 仓库创建 taskflow-release Skill。
+
+保存到 .agents/skills/taskflow-release/SKILL.md。
+
+触发场景：用户要求对 TaskFlow 做发布检查、release check、发布前验收或发布就绪评估。
+
+流程：
+1. 阅读 AGENTS.md、README.md、PLAN.md、STATUS.md；
+2. 检查 git status 和未提交 Diff；
+3. 运行项目规定的完整测试；
+4. 核对 README 的命令、参数与当前 CLI；
+5. 检查密钥、个人绝对路径、真实运行数据和缓存；
+6. 生成 RELEASE_CHECK.md，包含“通过、阻塞、提醒、验证证据”四部分；
+7. 最终列出实际执行的命令、退出结果和未能验证的项目。
+
+边界：不修改业务代码，不删除文件，不提交、不打标签、不推送、不发布，不读取工作区之外的内容。发现问题只记录并给出最小建议。
+
+请保持 instruction-only，不添加脚本。先展示准备创建的结构和关键内容，再写入文件。
+
+
+这里选择 instruction-only，是因为现有 Git 和 Python 命令已经足以完成检查。只有当某项计算必须保证完全确定、或者需要复用一段稳定程序时，才值得增加 scripts/。不要为了让 Skill 看起来“更完整”而塞入没有必要的脚本。
+
+Skill Creator 可能追问触发条件、输出格式或存放范围。按照上面的边界回答即可。写入完成后，你应该看到类似结构：
+
+.agents/
+└── skills/
+    └── taskflow-release/
+        └── SKILL.md
+
+
+若当前版本没有 $skill-creator，也可以让 Codex 按同一路径手动创建。最小 SKILL.md 必须包含 frontmatter：
+
+---
+name: taskflow-release
+description: Run a TaskFlow release check and create RELEASE_CHECK.md when the user asks for release readiness, release check, or 发布前验收. Do not publish or modify business code.
+---
+
+# TaskFlow release check
+
+Follow the repository instructions, inspect the current changes, run verification, and create an evidence-based release report.
+
+
+name 是调用名称；description 同时负责告诉 Codex“什么时候应该考虑使用它”。描述不能只写“TaskFlow 工具”，而要包含触发场景和重要边界。
+
+先审查 Skill 本身，再运行它
+
+Skill 是会影响 Agent 行为的指令文件。即使它由内置创建器生成，也应该像审查代码一样打开查看。
+
+在 Codex 中输入：
+
+请只审查 .agents/skills/taskflow-release/SKILL.md，不要执行这个 Skill，也不要修改文件。
+
+检查：
+1. name 与 description 是否能准确触发；
+2. 输入、步骤和输出是否明确；
+3. 是否引用了真实存在的项目文件与测试命令；
+4. 是否明确禁止提交、推送、发布和业务代码修改；
+5. 是否有“全面检查”“确保高质量”这类无法验收的空话。
+
+请给出逐项结论和证据位置。
+
+
+也可以在另一个终端查看实际内容：
+
+git diff -- .agents/skills/taskflow-release/SKILL.md
+
+
+如果这是一个全新未跟踪文件，git diff 默认可能不显示内容。此时先用下面的命令确认文件存在，再直接打开它：
+
+git status --short
+
+
+macOS、Linux 或 WSL 可用：
+
+sed -n '1,240p' .agents/skills/taskflow-release/SKILL.md
+
+
+Windows PowerShell 可用：
+
+Get-Content .agents\skills\taskflow-release\SKILL.md
+
+
+合格的 Skill 应该让你能回答三个问题：什么请求会触发、按什么顺序执行、什么证据才算完成。
+
+显式调用一次，验证完整闭环
+
+Codex 通常会自动发现 Skill 的变化；如果 /skills 中没有出现，退出后从 TaskFlow 根目录重新启动 Codex。
+
+先输入：
+
+/skills
+
+
+在列表中找到 taskflow-release，确认路径指向当前仓库的 .agents/skills/taskflow-release/SKILL.md。然后显式调用：
+
+$taskflow-release 请对当前 TaskFlow 2.0 做一次发布检查。只生成 RELEASE_CHECK.md，不修改业务代码，不提交、不打标签、不推送、不发布。
+
+
+执行过程中，留意 Codex 是否：
+
+先读取项目指导和当前 Diff；
+使用 TaskFlow 真实的测试命令；
+对高风险命令仍遵守现有审批与沙箱设置；
+只生成报告，没有为了消除阻塞而修改业务代码；
+把无法验证的事项标成未知，而不是默认通过。
+
+完成后不要只接受“发布检查通过”的总结。打开报告，并在终端检查文件变化：
+
+git status --short
+git diff --stat
+
+
+再打开 RELEASE_CHECK.md。macOS、Linux 或 WSL：
+
+sed -n '1,260p' RELEASE_CHECK.md
+
+
+Windows PowerShell：
+
+Get-Content .\RELEASE_CHECK.md
+
+
+报告至少应包含：
+
+检查时的 Git 状态与修改范围；
+完整测试命令和观察到的结果；
+README 与当前命令的一致性结论；
+对敏感信息、真实数据、缓存和本机路径的检查；
+明确的阻塞项与提醒项；
+没有自动提交或发布的说明。
+
+最后独立验证 Skill 有没有越界：
+
+git status --short --untracked-files=all
+git diff --name-only
+git diff --cached --name-only
+
+
+正常情况下，新出现的文件应该主要是 Skill 本身和 RELEASE_CHECK.md。如果业务代码也发生变化，先查看 Diff；除非你明确授权，否则这次运行就没有遵守边界。
+
+再测一次“该触发”和“不该触发”
+
+显式调用成功，只能证明 Skill 可以运行，还不能证明它会在合适的时候运行。
+
+开一个新会话，先用不带 $ 的自然语言请求：
+
+请对 TaskFlow 做一次发布前验收，生成检查报告，但不要发布或修改业务代码。
+
+
+Codex 应该能根据 description 匹配到这个 Skill。然后再测试一个不应触发的请求：
+
+请解释 stats 命令的完成率怎样计算。只解释，不修改文件。
+
+
+第二个请求不需要完整发布检查。如果 Codex 仍加载并执行了 taskflow-release，通常说明 description 写得过宽；如果第一个请求没有触发，则可能是描述缺少“发布检查、发布前验收、release readiness”等明确触发词。
+
+修改 Skill 后不必不断增加规则。优先修复三类问题：
+
+触发错了：改 description；
+执行顺序或边界错了：改正文指令；
+输出难以核对：改报告结构和完成证据。
+Plugin 是把能力交付给别人
+
+当前 taskflow-release 跟仓库一起使用，直接放在 .agents/skills 最简单。如果以后你有多个项目都需要同一套发布流程，或者还要把团队的 MCP 工具一起安装，就可以考虑打包成 Plugin。
+
+当前 Codex CLI 可以在交互界面中输入：
+
+/plugins
+
+
+插件浏览器会显示可用市场、已安装状态和插件详情。也可以退出交互界面，在终端查看当前 CLI 支持的管理命令：
+
+codex plugin --help
+codex plugin list
+
+
+本教程不要求你为了完成练习而安装任意第三方插件。你可以打开一个插件详情页，练习检查下面这些信息：
+
+发布者和来源是谁；
+它包含 Skills、MCP 工具、browser extension 还是 hooks；
+是否需要登录外部服务；
+请求读取和写入什么数据；
+是否有比安装完整插件更小的实现方式。
+
+如果决定安装，完成安装或连接后应新开一个会话，让新能力进入会话的工具和 Skill 列表。插件中的 MCP 工具仍受外部服务授权、Codex 沙箱和审批策略约束；“安装成功”不等于它拥有所有权限。当前产品说明见 Plugins。
+
+用一个只读 MCP 理解“工具连接”
+
+Skill 解决的是“怎样做”，MCP 解决的是“能调用什么”。为了避免一上来就授权邮箱或云盘，我们连接 OpenAI 官方的文档 MCP。它只能搜索和读取官方开发者文档，不会替你调用 OpenAI API。
+
+先退出正在运行的 Codex。在系统终端执行：
+
+codex mcp add openaiDeveloperDocs --url https://developers.openai.com/mcp
+
+
+然后验证配置：
+
+codex mcp list
+
+
+列表中应该出现名为 openaiDeveloperDocs 的服务及其 URL。它的配置会写入 Codex 配置；Codex CLI、桌面端和 IDE 扩展在同一台 Codex host 上会共享这份 MCP 配置。官方示例见 Docs MCP。
+
+重新进入 TaskFlow 目录并启动 Codex：
+
+codex
+
+
+输入：
+
+/mcp
+
+
+你应该能看到已经连接的服务器及可用工具。接着提交一个与项目相关、但不会修改文件的请求：
+
+请使用 openaiDeveloperDocs MCP，查找 Codex 官方关于仓库级 Skills 加载位置的说明。
+
+回答三个问题：
+1. 仓库根目录的 Skill 放在哪里；
+2. Codex 怎样决定是否加载完整 SKILL.md；
+3. Skill 修改后没有出现时应该先做什么。
+
+请附上官方文档链接。不要修改项目文件。
+
+
+完成后检查两个层面：
+
+回答是否包含与你刚才实践一致的路径和触发机制；
+引用是否指向 OpenAI 官方文档，而不是模型凭记忆给出的泛泛结论。
+
+这就是 MCP 的最小闭环：添加连接 → 列出服务 → 在新会话中看到工具 → 明确要求使用 → 检查返回证据。
+
+如果 /mcp 中看不到它，按顺序检查：
+
+codex mcp list 是否真的列出该服务；
+添加后是否重新启动了 Codex；
+当前是否在同一台 Codex host 上；
+网络是否能访问该 HTTPS 地址；
+codex mcp --help 和 codex --version 是否与教程命令一致。
+
+这次 MCP 不需要 OAuth。连接其他服务时，可能还要执行 codex mcp login <server-name> 或在插件安装流程中完成授权。不要把令牌直接写进教程、提示词或 Git 仓库；需要令牌时，优先使用环境变量或官方授权流程。MCP 的配置方式和审批选项见 Model Context Protocol。
+
+如果只是练习、后续不想保留这个连接，可以退出 Codex 后执行：
+
+codex mcp remove openaiDeveloperDocs
+codex mcp list
+
+
+第二条命令中不再出现它，才说明清理完成。删除 MCP 配置不会删除我们刚才创建的项目 Skill，因为它们属于不同层次。
+
+怎样理解 Apps 与连接权限
+
+当你在插件目录里安装 Gmail、Google Drive、Slack 之类的能力时，用户感知上是在“连接一个 App”；在底层，它通常由插件提供可复用工作流，并通过 MCP 等机制暴露数据和动作。
+
+在 Codex CLI 中输入：
+
+/apps
+
+
+选择一个可用 App 后，Codex 会把类似 $app-slug 的引用插入输入框，你可以接着说明要查询什么或执行什么动作。如果列表中没有目标服务，先用 /plugins 检查对应插件是否已安装并启用，再检查账号方案、地区和组织策略；不要因为 /mcp 能看到某个 server，就推断 App 一定会出现在列表里。
+
+你不必为了使用而掌握全部实现细节，但必须分清三种授权：
+
+授权层次	它控制什么	使用前要看什么
+第三方账户授权	外部服务允许读取或写入哪些内容	OAuth 权限范围、账号、组织策略
+Codex 工具审批	某次工具调用是否需要你确认	是只读查询还是写入、发送、删除
+本机沙箱与文件权限	Codex host 可以访问哪些本地目录和命令	当前 sandbox、工作目录和额外授权
+
+一个插件已经连接账号，不代表每个动作都应该自动放行。尤其是发送消息、修改云文档、创建工单和删除内容，要保留清楚的最终确认。把只读查询和有外部副作用的动作分开，是使用 Apps 和 MCP 时最重要的习惯。
+
+最后用一张决策表收口
+你的需求	优先选择	原因
+这一次按指定格式检查 TaskFlow	提示词	没有复用价值
+TaskFlow 每次测试都不能碰真实数据	AGENTS.md	属于项目长期规则
+每次发布都执行同一套检查并生成报告	Skill	是可重复工作流
+查询实时工单、文档或服务状态	MCP	需要外部数据或动作
+把发布流程和团队工具交给多人安装	Plugin	需要打包、发现和分发
+在 Gmail、Drive、Slack 等服务里工作	App connection	需要选择 App，并授权对应外部账户
+
+如果只记住一句话，可以这样记：Skill 规定流程，MCP 提供工具，Plugin 负责交付；App 是你实际连接和使用的外部服务或交互体验。
+
+本篇小结
+
+这一篇，我们没有把所有扩展机制都做一遍，而是沿着 TaskFlow 的真实需要选择了最小方案：把发布检查做成仓库级 taskflow-release Skill，并通过显式调用、自然触发、反例和实际文件 Diff 验证它；随后连接一个只读 Docs MCP，观察外部工具怎样进入 Codex。
+
+现在 TaskFlow 不仅有项目规则，还有一套可以重复执行的发布检查流程。下一篇，我们会调用这套 Skill 做发布前审查，并学习如何把相互独立的代码、测试和文档调查交给多个 Agent，同时避免它们争抢同一份文件。

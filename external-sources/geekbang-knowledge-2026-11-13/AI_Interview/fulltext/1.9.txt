@@ -1,0 +1,173 @@
+LangChain / LangGraph / Spring AI 合并讲，只考设计思想，不考 API 细节。核心是理解"框架解决什么问题、什么时候该用、什么时候不该用"。
+
+91. LangChain 如何解决厂商锁定和状态管理？LCEL 管道和 LangGraph 怎么分工？
+
+直接答案：LangChain 解决三个问题：
+
+厂商锁定：统一接口（ChatModel、EmbeddingModel）屏蔽各家 API 差异，业务代码只依赖抽象。
+状态管理：通过 LangGraph 持久化管理多轮状态。
+编排：多步工作流的组合抽象。
+
+LCEL：声明式组合语法，用 | 管道把 Runnable 串起来（Prompt、Model、Parser、Retriever 都是 Runnable）。
+
+知识点讲解：
+
+| 管道的机制：像 Unix 管道，前一个 Runnable 的输出是下一个的输入，组成 RunnableSequence。它本质是函数组合的语法糖。
+LCEL vs LangGraph 的分工：LCEL 是"无环线性流程"（DAG 链）；LangGraph 是"有环、有状态、有分支"的图——线性流程用 LCEL，循环/分支/状态用 LangGraph。
+版本变化（时效性要点）：LangChain 1.0 后 Agent 跑在 LangGraph runtime，旧的 LLMChain、initialize_agent 已迁移到 langchain-classic——面试引用旧 API 会被识破。
+抽象的价值与代价：统一接口便于切换厂商，但会损失各家的差异化能力（结构化输出、工具调用的细微差异）。
+92. Chain 和 Agent 的区别是什么？什么时候用哪个？
+
+直接答案：核心区别在流程是否预先确定：
+
+Chain：固定确定的流水线，路径不变，可预测、易测试、延迟低、成本可控。
+Agent：动态循环，模型决定下一步，灵活但牺牲确定性和成本。
+
+选型：流程已知用 Chain；无法预知步骤用 Agent。
+
+知识点讲解：
+
+确定性的价值：Chain 的路径固定，所以可预测、易测试、易优化——生产环境里"可预测"本身就是巨大优势。
+Agent 的成本代价：路径不确定意味着多轮模型调用、成本不可控、可能死循环——所以"能用 chain 就不用 agent"。
+工具 docstring 就是 prompt 的一部分：Agent 场景下工具描述写清才能正确调用（衔接题 99）。
+面试金句："能用 chain 就不要用 agent"——体现对成本与确定性的判断，是区分"做过生产"和"只会 demo"的关键信号。
+93. LangGraph 是什么？核心概念有哪些？
+
+直接答案：LangGraph 是 LangChain 生态的低层编排运行时，把应用建模成有状态的有向图。核心概念四个：
+
+State：图中流动的共享对象（可定义 schema）。
+Nodes：执行工作的函数（可理解为图的顶点）。
+Edges：节点转换，含条件边（按状态决定下一步）。
+Reducers：定义同 key 多更新如何合并（如追加 vs 覆盖）。
+
+知识点讲解：
+
+Checkpointer 是魔法词：每步保存状态，支持暂停/恢复、时间旅行调试、故障恢复——这是"有状态"的关键。
+Human-in-the-Loop：节点里 interrupt() 暂停，人工审批后恢复——LangGraph 原生支持，是生产级 Agent 的刚需。
+和 LCEL 的分界：线性流程用 LCEL，循环/分支/状态用 LangGraph——判断标准是"图里有没有环、需不需要持久状态"。
+状态机的思想：LangGraph 本质是把 Agent 变成显式状态机，比"黑盒循环"更可控、可审计。
+94. Spring AI 相比直接调 SDK 有什么优势？
+
+直接答案：Spring AI 是 Spring 官方面向 Java 的 AI 框架，优势：
+
+统一抽象：ChatModel、EmbeddingModel、VectorStore 接口屏蔽厂商差异。
+内置能力：PromptTemplate、RAG、Function Calling、Advisor、流式开箱即用。
+融入 Spring 生态：DI、配置、监控、AOP 全复用。
+
+核心组件：ChatClient（门面）、ChatModel、Prompt/PromptTemplate、EmbeddingModel、VectorStore、ToolCallback/@Tool（Spring AI 2.x）。
+
+知识点讲解：
+
+ChatClient vs ChatModel：ChatClient 是门面（fluent API，面向业务），ChatModel 是底层抽象（面向协议）——门面提供便捷，抽象提供统一。
+兼容性对接：DeepSeek 等兼容 OpenAI 格式，用 OpenAI starter 即可对接，无需专门适配器。
+Spring 生态复用：鉴权（Spring Security）、配置（properties）、监控（Actuator）、声明式事务等基础设施都能复用，这是相对 Python 框架的差异化优势。
+Java 场景的定位：适合已有 Spring 技术栈的团队，把 AI 能力无缝融入现有 Java 应用。
+95. 用 Spring AI 实现 RAG 的流程？
+
+直接答案：分"离线准备"和"在线生成"两阶段：
+
+文档加载（DocumentReader）。
+切分（TokenTextSplitter）。
+向量化入库（EmbeddingModel + VectorStore.add）。
+检索 + 生成（similaritySearch + QuestionAnswerAdvisor 自动拼 prompt）。
+
+知识点讲解：
+
+QuestionAnswerAdvisor 的作用：把"检索 → 拼进 prompt → 生成"自动化，开发者不必手写拼接逻辑。
+切分粒度：要按语义边界切，加 overlap，否则语义断裂影响召回。
+阈值 + 元数据过滤：检索要设相似度阈值 + 元数据过滤（时间、类型），否则召回无关或过期内容。
+向量库选型：开发用 SimpleVectorStore（内存），生产用 PgVector（持久化）——这是"生产必须持久化"的体现。
+异常兜底：检索为空、模型异常都要有降级路径。
+96. Spring AI 的 Function Calling 原理？
+
+直接答案：模型提出工具调用，Spring AI 将请求映射到 Java 工具、执行并返回结果，模型可继续生成；一次任务可能产生零次、一次或多次工具循环。
+
+面向 Spring AI 2.x：使用 ToolCallback、@Tool 或 FunctionToolCallback。旧 FunctionCallback 和仅靠裸 Function Bean 的注册示例不作为当前用法。
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.tool.annotation.Tool;
+
+public class GreetingService {
+    static class GreetingTools {
+        @Tool(description = "生成指定姓名的问候语")
+        public String greet(String name) { return "你好，" + name; }
+    }
+    public String reply(ChatClient client) {
+        return client.prompt().user("调用工具向小明问好")
+            .tools(new GreetingTools()).call().content();
+    }
+}
+
+
+知识点讲解：
+
+版本敏感性：这是 Spring AI 2.x 的用法；旧版本用 FunctionCallback，面试时引用旧 API 会被识破。这是放入现有 Spring AI 2.x 项目的类，模型凭证和依赖需在项目中配置。
+工具描述影响选择质量但不保证调用：@Tool(description=...) 是模型判断"何时调用"的依据，但描述写得好也不保证模型一定调用。
+副作用工具需授权 + 幂等：有副作用的工具（写操作）必须有授权检查和幂等控制，不能因为"模型调用了"就执行。
+验证方式：检查实际工具调用日志，再验证输出——不能只看最终文本。
+
+参考：Spring AI 工具调用。
+
+97. 用框架（LangChain/Spring AI）和直接调 SDK，怎么选？
+
+直接答案：核心判断——框架解决的是"标准化和抽象"，代价是"学习成本和抽象泄漏"。
+
+用框架：多模型切换、复杂编排（多步、分支、状态、Agent）、需要统一抽象时。
+直接调 SDK：简单调用（一问一答）、追求极致可控和最低延迟、框架抽象反而成为负担时。
+
+知识点讲解：
+
+抽象泄漏的现实：框架无法完美屏蔽各厂商差异（结构化输出、工具调用、流式实现不同），过度依赖抽象会在切换时踩坑。
+面试金句："当抽象泄漏、增加延迟、或不如一层薄薄的 SDK 封装时，成熟团队会删掉多余的层。"
+现实主流：很多团队是"薄封装 + 直接 SDK"，只在编排复杂时才引入 LangGraph——框架不是必需品，是复杂度够高时的工具。
+决策依据：复杂度（编排需求）× 可移植性需求（要不要切换厂商）× 团队熟悉度。
+加分点：能说清"框架不是必需品，是复杂度够高时的工具"。
+98. Runnable 接口为什么是 LangChain 的"统一抽象"？它带来什么组合能力？
+
+直接答案：Runnable 是 LangChain 的统一接口——Prompt、Model、Parser、Retriever、整条 Chain 都是 Runnable，都实现 invoke/batch/stream/ainvoke 等方法。
+
+为什么重要：因为接口统一，任意两个组件都能用 | 拼接，且免费获得流式、批处理、异步能力，无需手写样板代码。
+
+知识点讲解：
+
+Runnable 是 LCEL 的基石："一切皆 Runnable"意味着组件可自由组合、可替换。
+组合子：
+RunnableParallel（并行执行多个分支，结果合并成 dict）。
+RunnablePassthrough（透传输入，用于保留原始输入到下游）。
+RunnableLambda（包装自定义函数，把普通函数变成 Runnable）。
+能力的一致性：因为接口统一，stream/batch/ainvoke 对所有组件一视同仁，这是"组合带来能力"的本质。
+可测试性：每个 Runnable 可独立测试，整条链也可测试。
+99. 各 Agent 框架的 Tool 抽象有何共性？工具描述写不好为什么模型就不调用？
+
+直接答案：各框架的 Tool 抽象本质相同——都是把一个普通函数"暴露"给模型调用，核心要素一致：
+
+名称 + 描述（模型靠它判断何时用）。
+参数 schema（模型靠它填参数）。
+实际执行逻辑。
+
+共同点：描述（docstring / @Tool(description = "...")）是 prompt 的一部分；框架负责把函数签名转成工具 schema；执行由框架/代码完成，模型只负责"决定调用 + 填参"。
+
+知识点讲解：
+
+跨框架的统一模型：函数 → schema → 模型决策 → 代码执行。理解这个通用模型，就能跨 LangChain、Spring AI、OpenAI SDK 迁移。
+为什么描述写不好就不调用：工具描述是模型唯一了解工具的渠道（它看不到你的代码），描述模糊 = 模型不知道何时用、怎么填参。
+描述的三个要点：什么时候用（触发条件）、干什么（功能）、参数含义（每个参数的语义和约束）。
+职责边界：模型只"决定调用 + 填参"，执行和校验由代码完成——这是防幻觉式调用的关键。
+面试加分点：能抽象出"工具 = 描述 + schema + 执行"这个跨框架通用模型。
+100. 一个 AI 应用框架的核心组件有哪些？你如何设计一个最小框架？
+
+直接答案：一个最小 AI 框架的核心组件，抽象出五个：
+
+模型抽象（Model）：统一各家 LLM 的调用接口（chat、stream、structured）。
+消息模型（Message）：统一的 system/user/assistant/tool 消息结构。
+工具抽象（Tool）：函数 → schema 的转换 + 调用执行。
+结构化输出（Structured Output）：schema → 合法 JSON 的保证。
+编排/状态（Orchestration）：多步流程、状态管理。
+
+知识点讲解：
+
+五个组件对应五个核心能力：调模型、传消息、装工具、拿结果、串流程。
+最小框架不做的事：不硬绑厂商、不过度抽象、不强加重编排（那是 LangGraph 的活）。
+抽象止于何处：框架的边界是"屏蔽差异、提供组合"，而不是"替开发者做业务决策"——过度抽象反而难维护。
+设计权衡：抽象每多一层，就多一层泄漏风险和学习成本，要克制。
+面试加分点：能说出"框架的边界——抽象该止于何处"。

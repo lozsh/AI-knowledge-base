@@ -1,0 +1,290 @@
+上一篇的脚本已经能问出“第二章改到哪天复习”。但如果明天换一台电脑，或者你开始做第二个项目，还能知道应该安装什么、修改哪里、用哪一个 Python 启动吗？
+
+现在先解决这个问题。本篇把第一次调用整理成一个有独立环境、依赖清单、配置文件和 SDK 客户端的小项目。 它仍然只回答同一个问题；先确认项目整理前后行为一致，下一篇再添加多轮对话。
+
+你需要上一篇准备好的 Python 3.11 或更新的稳定版。可以暂时没有 API 余额：安装依赖后，本篇的配置检查和请求预演都不调用模型。只有最后去掉预演参数，才会发送可能计费的请求。
+
+本文核查日期为 2026 年 10 月 4 日。代码在 Python 3.11.8、openai==3.24.0 上完成离线模拟测试，未使用个人密钥进行真实 API 测试。
+
+先弄清 SDK、环境和配置的分工
+
+上一版用 Python 标准库自己构造 HTTP 请求、把字典转成 JSON、读取返回字节。本篇引入 SDK（软件开发工具包），让这些通用工作由一个库完成。我们仍然负责选择消息、检查回答、保存结果。
+
+这里安装的 Python 包叫 openai，它是 OpenAI 官方提供的 SDK；DeepSeek 官方文档也给出了使用它连接 DeepSeek 的方式。库的名字不决定请求必须发给哪一家，客户端的服务地址、凭据和模型配置才决定本次调用的对象。OpenAI：SDK 文档 · DeepSeek：首次调用
+
+再看项目里的环境和文件分别负责什么：
+
+项目	本篇的作用	容易误解的地方
+.venv 虚拟环境	为这个项目保存 Python 包，与其他项目隔开	不会安装模型，也不是远程服务器
+requirements.txt	记录需要安装的第三方包及指定版本	文件本身不会自动安装任何东西
+config.json	保存模型名、输出预算等普通设置	不用于保存 API 密钥
+
+当一个项目需要新 SDK，另一个旧项目仍依赖老版本时，各自的虚拟环境能减少相互影响。你可以把它理解为每个项目有自己的工具箱；不是每做一个项目都要重装整台电脑。
+
+保留上一版，建立本篇目录
+
+下载 第 02 篇完整代码包，解压后得到 lesson-02 文件夹，将它放进上一篇的 deepseek-notes 文件夹。保留原来的 first_call.py 和响应文件。本篇的所有操作都在新文件夹里完成：
+
+deepseek-notes/
+├── first_call.py           上一篇保留
+├── responses/             上一篇产生的响应，如有
+└── lesson-02/              本篇终端所在位置
+    ├── main.py            启动入口、检查与结果保存
+    ├── api_client.py      SDK 客户端与一次请求
+    ├── settings.py        配置读取与校验
+    ├── config.example.json
+    ├── requirements.txt
+    ├── .gitignore
+    └── README.md
+
+
+如果你直接下载单个文件，请按这个结构保存：main.py、api_client.py、settings.py、配置模板、依赖清单、忽略规则、启动说明。以下代码讲解采用这些文件的原样摘录；下载包包含完整实现，无需自己补上省略的函数。
+
+用编辑器打开 lesson-02，在这个文件夹中打开终端。已经在 deepseek-notes 中的读者，可以执行：
+
+cd lesson-02
+
+
+随后用 macOS / Linux 的 ls，或 Windows PowerShell 的 Get-ChildItem，确认能看到 main.py 和 requirements.txt。如果只看到一个更深层的 lesson-02 文件夹，说明解压多包了一层，应进入真正有代码的那一层。
+
+创建环境，再往这个环境里安装包
+
+macOS / Linux：
+
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+
+
+Windows PowerShell：
+
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+
+如果 Windows 只有 python --version 能显示正确版本，第一行将 py -3 换成 python；创建成功后，第二行仍使用 .venv 中的解释器。
+
+第一行会创建 .venv 目录。第二行调用这个目录中的 Python，让它执行自己的包管理器 pip；-r 表示从指定文件读取依赖。安装需要联网下载软件包，但不会调用大模型。
+
+依赖文件只有一行：
+
+openai==3.24.0
+
+
+这里的 == 固定 SDK 版本，避免你跟做时恰逢 SDK 升级而得到另一套行为。该版本已在发布页核实并安装验证。它依赖的其他包仍由 pip 按约束解析，所以这份文件固定的是直接依赖，不是所有平台都完全相同的完整锁文件。openai 3.24.0 发布页 · pip：依赖文件
+
+安装结束后，执行独立检查。
+
+macOS / Linux：
+
+.venv/bin/python -m pip show openai
+.venv/bin/python -m pip check
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe -m pip show openai
+.\.venv\Scripts\python.exe -m pip check
+
+
+第一条应该显示 Version: 3.24.0，安装位置应落在本项目 .venv 中；第二条正常时显示 No broken requirements found.。这说明版本和已安装依赖关系符合检查要求，不代表远端 API 已经连通。
+
+本课故意直接写出虚拟环境解释器的路径，省去“我到底激活了哪个环境”的困惑。激活虚拟环境主要是调整当前终端的命令搜索路径，让 python 指向这个环境；并不是使用它的必要条件。即使重新打开终端，上面的明确路径也能工作。Python：虚拟环境与激活
+
+不要把自己的 .venv 压缩给别人。它含有本机路径和与平台相关的文件；别人应该根据依赖清单，在自己的电脑上重新创建。
+
+把普通配置保存下来
+
+在同一个 lesson-02 目录里复制模板。
+
+macOS / Linux：
+
+cp config.example.json config.json
+
+
+Windows PowerShell：
+
+Copy-Item config.example.json config.json
+
+
+这是首次创建时执行的命令。以后已经改过自己的配置，就直接编辑 config.json，不要再复制模板把改动覆盖掉。
+
+用文本编辑器打开新文件，内容如下：
+
+{
+  "model": "deepseek-flash",
+  "max_tokens": 256,
+  "timeout_seconds": 60
+}
+
+
+三个字段各做一件事：model 选择模型；max_tokens 限制输出 Token 数；timeout_seconds 配置客户端的网络超时。它不是端到端任务严格在 60 秒结束的承诺，网络连接、读取等阶段有各自的等待行为。
+
+这是 JSON 文件：字符串用英文双引号，数值不用引号，最后一个字段后面不加逗号，也不写 // 注释。请保存为 UTF-8。Python：JSON 支持
+
+settings.py 在发请求之前检查字段。本课将 max_tokens 限定为 1—4096、超时限定为 1—120 的整数，用来约束这个小练习；这些是示例程序自己的限制，不是 DeepSeek 的完整能力上限。 模型名只检查是否为非空字符串，能否调用仍要由官方服务确认。
+
+配置位置由下面两行确定：
+
+ROOT = Path(__file__).resolve().parent
+BASE_URL = "https://api.deepseek.com"
+
+
+__file__ 指当前源文件，parent 取它所在的文件夹。因此程序始终读取 settings.py 旁的 config.json，不是随便从启动终端的当前位置找一个同名文件。SDK 基础地址继续固定为 DeepSeek 官方地址，不让一个配置拼写错误把密钥发往别处。
+
+密钥仍沿用上一课的隐藏输入。本篇既不会从 config.json 读取密钥，也不会自动读取 .env。先把“可保存的设置”和“访问凭据”分清，不需要为了少粘贴一次密钥就再引入一个配置库。
+
+下载包中的 .gitignore 会在使用 Git 时忽略虚拟环境、本地配置、响应和可能存在的 .env 文件。它只是一组版本控制忽略规则，不会加密文件，也不会阻止网盘同步或清除已经提交过的秘密。当前配置虽然没有密钥，保留可分享的模板仍比把个人设置混进示例更清楚。
+
+看懂 SDK 替你做了哪一段工作
+
+下面是完整的 api_client.py，与代码包一致：
+
+"""The SDK sends Chat Completions requests to DeepSeek, not to OpenAI."""
+from openai import OpenAI
+from settings import BASE_URL
+
+
+def create_client(settings, key):
+    return OpenAI(
+        api_key=key,
+        base_url=BASE_URL,
+        timeout=settings["timeout_seconds"],
+        max_retries=0,
+    )
+
+
+def request_options(settings):
+    return {
+        "model": settings["model"],
+        "messages": [
+            {"role": "system", "content": "你是复习助手。仅依据用户提供的笔记回答；缺少信息就说明缺少。"},
+            {"role": "user", "content": "笔记：第二章原定周五，现改为周六复习。问题：现在安排在哪天？只回答日期表达，不补充几点。"},
+        ],
+        "stream": False,
+        "max_tokens": settings["max_tokens"],
+        "extra_body": {"thinking": {"type": "disabled"}},
+    }
+
+
+def ask_once(client, settings):
+    return client.chat.completions.create(**request_options(settings))
+
+
+先看 create_client()：它只是建立一个知道如何连接的客户端，真正的聊天请求在 ask_once() 内发生。api_key 显式使用本次输入的 DeepSeek 密钥；base_url 使用前面固定的官方地址，不需要 OpenAI 账户或 OpenAI 余额。
+
+再看 request_options()：消息与上一篇相同，非流式、关闭思考模式、输出上限也相同。这里新增的 extra_body 是 SDK 传递额外请求字段的入口。SDK 会把里面的 thinking 合并到实际请求 JSON 的顶层，不会把它包在一个名为 extra_body 的远端参数里。这是当前 DeepSeek 官方说明的写法。DeepSeek：通过 SDK 设置思考模式
+
+最后一行里的 ** 将字典展开为函数的命名参数。你可以把它理解成：字典里的 model 对应函数的 model=...，messages 对应 messages=...。把参数单独放进一个函数，是为了让预演与真实调用共用同一份输入，避免展示的内容与发出去的内容各写一套。
+
+max_retries=0 也值得留意：这个 SDK 对某些连接、限流和服务错误默认会重试。本课先显式关闭，让一次练习的请求次数容易判断；第 08 篇再设计有限重试。遇到超时，我们无法仅凭客户端异常判断服务是否已经处理，所以程序不会自行再发一次。SDK：重试与超时
+
+main.py 中真正调用的核心只有这几行：
+
+        with create_client(settings, key) as client:
+            response = ask_once(client, settings)
+        data = response.model_dump(mode="json")
+
+
+with 在调用后关闭客户端资源。返回值是 SDK 的响应对象，model_dump(mode="json") 把它导出成便于保存的字典。后续仍由我们检查 choices、回答文本和 finish_reason；SDK 不负责判定“周六”是不是正确答案。
+
+对应关系如下：
+
+上一篇自己处理	本篇对应位置
+拼请求地址和认证头	配置客户端，再调用聊天方法
+把 Python 字典转成请求 JSON	SDK 序列化，额外参数用 extra_body
+从 HTTP 读取 JSON	SDK 解析为响应对象，再导出字典
+检查回答、结束状态、保存文件	仍在 main.py 中完成
+
+协议兼容让连接代码可以复用，但不保证换一家服务后所有参数、工具或响应都相同。本课保持 DeepSeek 的 Chat Completions 调用方式，不能把其他教程里的模型名和接口直接混进来。
+
+从本地检查走到一次调用
+
+先运行不需要密钥的检查。
+
+macOS / Linux：
+
+.venv/bin/python main.py --check
+.venv/bin/python main.py --dry-run
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe main.py --check
+.\.venv\Scripts\python.exe main.py --dry-run
+
+
+--check 应显示解释器路径、SDK 版本、配置路径、服务地址和三个配置值，最后显示“检查通过；未读取密钥，未联网”。它检查的是本地环境与配置，不会验证密钥、余额或模型权限。
+
+--dry-run 应显示 POST https://api.deepseek.com/chat/completions 和请求 JSON。逐项核对：模型是 deepseek-flash；消息里第二章从周五改到周六；thinking 在顶层且为 disabled；max_tokens 是 256；没有密钥，也没有 extra_body 这一层。
+
+可以暂时断网再执行这两个模式，它们仍应成功。这能帮助你确认：安装软件包需要网络，检查已安装的项目不需要访问模型服务。
+
+如果准备执行真实请求，去掉 --dry-run：
+
+macOS / Linux：
+
+.venv/bin/python main.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe main.py
+
+
+这一步会在你输入自己的密钥后访问 DeepSeek，可能计费。输入时看不到字符是正常的。预期回答仍应是周六，结束原因应为 stop，并出现一个新响应文件路径。具体文字和用量以实际服务响应为准，本文没有把示意答案当作线上实测。
+
+本篇保存的是 SDK 解析后重新导出的 JSON。它可能带有 SDK 补充的空字段，不能视为 HTTP 原始响应字节逐字备份。验证任务时，打开 lesson-02/responses 的新文件，核对 choices[0].message.content、finish_reason 和 usage。它与上一篇的原始 JSON 文件可以有格式差异，关键内容应能对应。
+
+正常 stop、文件保存成功、答案依据正确，三件事分别检查。真实笔记可能包含私人内容，响应目录也需要按私人资料管理。
+
+用一个不收费的实验检验配置是否真的生效
+
+打开 config.json，把 max_tokens 从 256 改为 128，保存，然后再运行 --dry-run。请求 JSON 中也应变成 128。此时不必发送真实请求：这一步验证的是配置进入请求的路径，不是模型的生成质量。
+
+接着把 128 暂时写成带引号的 "128"，再运行 --check。预期应失败并显示配置读取失败，错误类型为 ValueError；因为程序要求整数，不接受数字字符串。恢复到 256，再检查通过。
+
+这次失败发生在读取密钥和发送请求之前。对初学者来说，这是一个有用的习惯：能在本地发现的配置错误，先在本地修正。
+
+如果想检查退出状态，在上一条命令执行完后立刻运行：
+
+macOS / Linux：
+
+echo $?
+
+
+Windows PowerShell：
+
+$LASTEXITCODE
+
+
+正常检查应为 0，上面的错误配置应为 1。不要先执行别的命令再查，否则你可能读到的是另一条命令的结果。
+
+最常见的卡点
+现象	原因与下一步
+No module named openai	很可能安装和运行用了不同的 Python。用本文 .venv 完整路径重新执行安装与 pip show，不要先往系统环境重复安装
+Linux 提示 ensurepip 或 venv 不可用	Ubuntu / Debian 通常需要 sudo apt install python3-venv；自行安装了特定 Python 时，使用该版本对应的 venv 包，然后重新创建环境
+PowerShell 提示不能执行激活脚本	本文不依赖激活脚本，直接调用 .\.venv\Scripts\python.exe 即可，无需为本课放宽脚本策略
+pip 下载失败或证书错误	检查网络、系统时间和可信证书配置；macOS 官方 Python 安装包可按上一课说明安装证书。不要用关闭 HTTPS 验证解决
+配置读取失败	确认 config.json 已从模板创建且位于脚本旁；检查双引号、逗号、字段名及整数类型，不要命名成 .json.txt
+--check 通过，真实调用却报 401 / 402	本地检查不验证账户。401 查密钥，402 查 DeepSeek 可用余额
+HTTP 400 / 422 或模型不存在	对照预演与官方文档；模型名非空不代表服务支持这个名字
+超时、429、500、503	本版停止且不自动重试；先判断网络、频率或服务状态，稍后再决定是否人工重试
+已收到响应，但保存失败	查项目目录写权限和磁盘空间；请求可能已经计费，不要为了保存问题立即再调用
+
+API 状态码解释以 DeepSeek 官方错误说明 为准。不要只看到 Python 包名就去另一个平台检查余额。
+
+做到这里，项目应该处在什么状态
+
+你现在应当有一份可保留的源代码快照、一份固定 SDK 版本的依赖清单，以及能通过本地检查的配置。关闭终端再打开，只要进入 lesson-02，仍然可以用 .venv 中的解释器运行 --check。
+
+用三个问题检查理解：
+
+换电脑时，复制 .venv 还是复制源码和依赖清单？ 复制源码、模板和依赖清单，在新电脑重建环境；必要的个人数据另行妥善迁移。
+SDK 叫 openai，这次应该输入谁的密钥？ DeepSeek。客户端明确连接 DeepSeek，调用的是它的模型服务。
+修改 config.example.json 后，运行设置会立即变化吗？ 不会。本程序实际读取的是 config.json；模板是给新环境创建配置用的。
+
+下一篇将在这套项目结构上增加交互循环和消息历史。到时每轮不再只回答写死的问题，而是接收你输入的笔记与追问，并让你看清下一轮究竟发送了哪些上下文。
+
+上一篇：第一次 API 调用 · 本部分大纲 · 完整代码包
+
+验证范围：已在独立虚拟环境安装指定 SDK，并通过真实 SDK 配合模拟网络传输检查请求、响应和失败边界；没有真实付费调用。Windows / Linux 命令依官方环境说明编写，未在这两种系统上实机执行。

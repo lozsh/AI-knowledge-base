@@ -1,0 +1,237 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>这一章介绍 CLI 的 Goal 机制：怎么让 Agent 跨多个 Turn 持续推进同一个目标，怎么用 token 预算控制，怎么用 <code>/compact</code> 压缩上下文。<br>学完这一章，你会习惯"长任务交给 Agent 持续推进"的姿势，而不是每条消息都从头讲。</p>
+</blockquote>
+<h2 id="wiki-h-0">9.1 这一章要达成什么</h2>
+<ul>
+<li>设定一个长目标（"为 habitlog 加金额单位支持"），用 <code>/goal</code> 创建</li>
+<li>让 Agent 跨多轮推进，期间不打断</li>
+<li>学会 <code>/goal pause</code> / <code>/goal resume</code> / <code>/goal edit</code> / <code>/goal clear</code></li>
+<li>学会 <code>/goal budget=50K</code> 设 token 预算</li>
+<li>学会 <code>/compact</code> 压缩历史</li>
+<li>结束时用 commit 收尾</li>
+</ul>
+<p>这一章是"AI Agent 协作"的进阶动作。学完你会发现：很多原本需要自己盯着的多步重构，其实可以让 Agent 自己跑。</p>
+<h2 id="wiki-h-1">9.2 Goal 是什么</h2>
+<p>Goal（目标）是 CLI 提供的"持续推进一个目标"机制：</p>
+<ul>
+<li>你设定一个目标（"完成 X，并保证 Y 测试通过"）</li>
+<li>Agent 在多个 Turn 里持续工作</li>
+<li>每个 Turn 完成后，Agent 检查目标是否达标</li>
+<li>没达标就继续推进，直到达标或遇到阻塞</li>
+<li>你可以中途暂停 / 恢复 / 编辑 / 清除</li>
+</ul>
+<p>适合什么场景：</p>
+<ul>
+<li>多步骤重构（"把金额显示统一为元，存储保持整数分，并保证现有测试通过"）</li>
+<li>数据迁移（"把所有旧数据从 v1 格式迁到 v2 格式"）</li>
+<li>跨多文件的修改（"为所有 CLI 命令加 <code>--json</code> 输出选项"）</li>
+</ul>
+<p>不适合什么场景：</p>
+<ul>
+<li>单一小改动（直接问 Agent 就行）</li>
+<li>需要人持续判断的事情（Goal 会自动推进，不能像 steer 那样细颗粒度控制）</li>
+</ul>
+<h2 id="wiki-h-2">9.3 一个适合 Goal 的任务：金额单位统一</h2>
+<p>我们给 habitlog 加一个"金额"概念：每次打卡可以附带金额（"读书花了 30 元买书"、"跑步花了 100 元买鞋"），输入和显示使用“元”，从第一版起存储为整数分 amount_cents，使用 Decimal 从输入字符串精确换算，最多两位小数；不在中途改变存储单位，并新增一个 <code>total</code> 子命令看某习惯累计花了多少。</p>
+<p>这是个典型的"跨多文件、多步骤、需要保证现有测试不破"的场景，适合用 Goal。</p>
+<h2 id="wiki-h-3">9.4 进 TUI，设 Goal</h2>
+<pre><code class="hljs language-bash">mcode
+</code></pre><p>先看一下当前没有 Goal：</p>
+<pre><code>/goal status
+</code></pre><p>预期输出："No active goal" 之类。</p>
+<p>然后新建 Goal：</p>
+<pre><code><span class="hljs-symbol">/goal</span> 为 habitlog 增加金额支持：每个打卡可以附带金额，输入与显示为人民币元，存储统一为整数分 amount_cents；新增 total <span class="hljs-symbol">&lt;habit&gt;</span> 子命令查某习惯累计金额；保证现有测试全部通过
+</code></pre><p>回车。Agent 收到 Goal，会讲方案，可能问你：</p>
+<ul>
+<li>现有数据要不要迁移？</li>
+<li>输入金额时用"元"还是"分"？</li>
+<li>浮点精度怎么处理？</li>
+</ul>
+<p>按你的实际判断回答。完成后 Goal 进入"active"状态。</p>
+<p>设置 token 预算（防止 Agent 跑飞）：</p>
+<pre><code>/goal <span class="hljs-attribute">budget</span>=50K
+</code></pre><p><code>50K</code> 表示 50,000 tokens（模型的文本计量单位，token 数越大代表文本越长、花费越高）。具体能跑多远取决于任务的复杂度。预算用尽 Agent 会暂停等你决策。</p>
+<blockquote>
+<p>经验值：<br>50K 只是本次演示的预算上限，不表示足够完成某一类任务。先运行一个小阶段，记录实际用量和失败重试，再决定后续预算。</p>
+</blockquote>
+<h2 id="wiki-h-4">9.5 让 Goal 自动推进</h2>
+<p>让 Agent 开始干活：</p>
+<pre><code>请按 <span class="hljs-keyword">Goal</span> 开始推进
+</code></pre><p>Agent 会：</p>
+<ol>
+<li>先看现有代码（<code>cli.py</code>、<code>AGENTS.md</code>、测试文件）</li>
+<li>设计数据格式变更（要不要给 entry 加 <code>amount</code> 字段）</li>
+<li>改代码、改测试</li>
+<li>跑 pytest 确认不破现有测试</li>
+<li>跑端到端验证</li>
+</ol>
+<p>过程中你不需要每一步都参与，Agent 会自己决定下一步。</p>
+<h3 id="wiki-h-5">不打断的两种方式</h3>
+<p><strong>观察，不动手</strong>：</p>
+<ul>
+<li>TUI 里盯着工具调用日志，看着 Agent 自己跑完每一轮</li>
+<li>除非它问问题，否则不需要在输入框敲东西</li>
+</ul>
+<p><strong>用 <code>/status</code> 看状态</strong>：</p>
+<ul>
+<li>Goal 在跑的时候，状态栏会显示当前进度</li>
+</ul>
+<h3 id="wiki-h-6">想中途插话？</h3>
+<ul>
+<li><strong>小调整</strong>：用 <code>/steer</code>，比如 <code>/steer 补充 0.10 元加 0.20 元等于 30 分的精度回归测试</code></li>
+<li><strong>大方向变更</strong>：用 <code>/goal edit</code> 编辑目标本身</li>
+<li><strong>暂停一下</strong>：<code>/goal pause</code></li>
+</ul>
+<h2 id="wiki-h-7">9.6 中途查看进度</h2>
+<p>跑了一会儿后查看 Goal 状态：</p>
+<pre><code>/goal status
+</code></pre><p>预期看到：</p>
+<ul>
+<li>目标当前进展（已完成的子任务、待办任务）</li>
+<li>已用 token / 总预算</li>
+<li>上次活动时间</li>
+</ul>
+<p>如果发现方向偏了，可以：</p>
+<pre><code>/goal <span class="hljs-keyword">edit</span>
+</code></pre><p>进入编辑器模式修改目标。修改后 Agent 会按新目标继续推进。</p>
+<h2 id="wiki-h-8">9.7 上下文长了：压缩</h2>
+<p>Agent 跑了几轮后，TUI 里的上下文会变长（每次工具调用结果、每次 Agent 回复都进上下文）。上下文过长会：</p>
+<ul>
+<li>让单轮变慢</li>
+<li>增加 token 消耗</li>
+<li>可能让模型"分心"，丢失早期的细节</li>
+</ul>
+<p>压缩：</p>
+<pre><code>/compact
+</code></pre><p><code>/compact</code> 会让 Agent 把当前上下文"压缩"成一个摘要，丢一些细节但保留关键信息。压缩后再继续，Agent 会按摘要继续推进。</p>
+<blockquote>
+<p>经验：</p>
+<ul>
+<li>跑了几轮后，主动 <code>/compact</code> 一次</li>
+<li>如果 <code>/status</code> 显示上下文已经很长，主动压缩</li>
+<li>压缩会消耗一些 token，但比让上下文无限增长划算</li>
+</ul>
+</blockquote>
+<h2 id="wiki-h-9">9.8 收尾</h2>
+<p>Goal 完成（或你决定停）的时候，看一下最终状态：</p>
+<pre><code>/goal status
+</code></pre><p>预期显示：</p>
+<ul>
+<li>Goal: 完成（或部分完成）</li>
+<li>已用 token: XX K / 50 K</li>
+<li>完成项 / 未完成项</li>
+</ul>
+<p>退出 TUI 回到普通终端。验证 Goal 的成果：</p>
+<pre><code class="hljs language-bash">python -m habitlog add 读书 --amount 30
+python -m habitlog total 读书
+python -m pytest -v
+</code></pre><p>预期：</p>
+<ul>
+<li><code>add</code> 可以带 <code>--amount</code> 参数</li>
+<li><code>total &lt;habit&gt;</code> 返回累计金额</li>
+<li>所有测试通过</li>
+</ul>
+<h3 id="wiki-h-10">提交</h3>
+<pre><code class="hljs language-bash">git status
+git diff
+git add habitlog/ tests/
+git commit -m <span class="hljs-string">"feat: add amount tracking with per-habit total command"</span>
+</code></pre><p>如果 Goal 的实现里改了 <code>AGENTS.md</code>，单独一次 commit：</p>
+<pre><code class="hljs language-bash">git add AGENTS.md
+git commit -m <span class="hljs-string">"docs: record amount conventions in AGENTS.md"</span>
+</code></pre><h2 id="wiki-h-11">9.9 清理 Goal</h2>
+<pre><code><span class="hljs-string">/goal</span> <span class="hljs-keyword">clear</span>
+</code></pre><p>清除当前 Goal。如果以后还有类似任务，再 <code>/goal</code> 创建。</p>
+<p>退出 TUI：</p>
+<pre><code>/<span class="hljs-keyword">exit</span>
+</code></pre><h2 id="wiki-h-12">9.10 这一章做了什么、留下了什么</h2>
+<ul>
+<li>第一次用 Goal 跑了一个跨多轮的重构</li>
+<li>学会了 <code>/goal</code> / <code>/goal status</code> / <code>/goal edit</code> / <code>/goal pause</code> / <code>/goal budget=</code> / <code>/goal resume</code> / <code>/goal clear</code></li>
+<li>学会了 <code>/compact</code> 压缩上下文</li>
+<li>仓库多了金额相关代码和测试</li>
+</ul>
+<p>仓库结构（增量）：</p>
+<pre><code>habitlog<span class="hljs-symbol">/</span>
+├── habitlog<span class="hljs-symbol">/</span>
+│   ├── __init__.py
+│   ├── cli.py
+│   ├── mcp_client.py
+│   └── amount.py        <span class="hljs-comment"># 新加：金额处理</span>
+└── tests<span class="hljs-symbol">/</span>
+    ├── ...
+    └── test_amount.py   <span class="hljs-comment"># 新加</span>
+</code></pre><h2 id="wiki-h-13">9.11 Goal 的边界</h2>
+<p>不是所有任务都适合 Goal：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>任务</th>
+<th>适合 Goal 吗</th>
+<th>替代方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单一小修改</td>
+<td>❌</td>
+<td>直接问 Agent</td>
+</tr>
+<tr>
+<td>多文件、多步骤重构</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>数据迁移</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>涉及业务判断</td>
+<td>❌</td>
+<td>拆成多个小任务，逐个决策</td>
+</tr>
+<tr>
+<td>需要持续人参与</td>
+<td>❌</td>
+<td>用 steer / queue 持续插话</td>
+</tr>
+<tr>
+<td>跨 Session 的工作</td>
+<td>✅</td>
+<td>Goal 可以跨 Session</td>
+</tr>
+</tbody></table></div>
+<p>边界规则：</p>
+<ul>
+<li><strong>Goal 不能替你做业务决策</strong>。如果任务里有"该用哪种方案"的开放决策，Goal 会问；如果该决策对业务有重大影响，你应该自己拍板</li>
+<li><strong>Goal 会持续花 token</strong>。预算用尽就停</li>
+<li><strong>Goal 的成功标准由你定义</strong>。Goal 完成 ≠ 业务成功，需要你自己跑测试 / 验收</li>
+</ul>
+<h2 id="wiki-h-14">9.12 这一章的常见问题</h2>
+<h3 id="wiki-h-15">Goal 跑偏了</h3>
+<ul>
+<li><code>/goal edit</code> 改目标，让它回到正轨</li>
+<li>或者 <code>/goal clear</code> 取消，自己手动拆任务</li>
+</ul>
+<h3 id="wiki-h-16">预算用尽了</h3>
+<ul>
+<li><code>/goal budget=100K</code> 追加预算</li>
+<li>或 <code>/goal clear</code> 取消，剩余部分自己手动跑</li>
+</ul>
+<h3 id="wiki-h-17">Goal 完成后我没看到总体满意</h3>
+<ul>
+<li>跑 <code>python -m pytest -v</code> 自己验证</li>
+<li>看 <code>git diff</code> 实际改了什么</li>
+<li>Goal 的"完成"是按它理解的目标完成的，可能和你心里想的不完全一致</li>
+</ul>
+<h3 id="wiki-h-18">上下文太长 / 单轮变慢</h3>
+<ul>
+<li><code>/compact</code></li>
+<li>长期跑的任务每 5-10 轮压缩一次</li>
+</ul>
+<p>下一章讲 Session 管理：怎么暂停、恢复、分叉、回退，怎么导出对话留档。</p>
+<h2 id="wiki-h-19">金额契约与旧记录</h2>
+<p>Goal 开始前确认整个计划使用 amount_cents，不能把改单位当小改动。旧记录没有金额时保持不变；已有 amount 元字段时先在独立副本备份，以 Decimal(str(value)) * 100 验证恰为整数后迁移并写 schemaVersion=2，非法或精度不明的值拒绝迁移并报告行号。验证 0.10 元＋0.20 元为 30 分、旧打卡记录仍可读、重复迁移不再乘 100；人工核对后才替换真实数据。</p>
+<p>token 预算只是试运行上限，不是任务估价。先做一个小阶段，记录实际模型、输入规模、消耗和失败重试，再决定下一阶段预算。</p>
+</article>

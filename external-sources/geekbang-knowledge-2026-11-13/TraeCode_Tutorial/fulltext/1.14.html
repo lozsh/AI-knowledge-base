@@ -1,0 +1,52 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>本篇只保留本课程已使用的入口，配置全文见第 9 章，不再重复旧 YAML、-p/--print 或 IDE Hook 配置。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>用途</th>
+<th>入口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>版本、帮助</td>
+<td>traecli --version；traecli --help</td>
+</tr>
+<tr>
+<td>交互</td>
+<td>traecli</td>
+</tr>
+<tr>
+<td>非交互</td>
+<td>traecli exec</td>
+</tr>
+<tr>
+<td>只读调查</td>
+<td>--sandbox read-only</td>
+</tr>
+<tr>
+<td>工作区写入</td>
+<td>--sandbox workspace-write</td>
+</tr>
+<tr>
+<td>profile</td>
+<td>-p / --profile</td>
+</tr>
+<tr>
+<td>事件日志</td>
+<td>exec --json（JSONL）</td>
+</tr>
+<tr>
+<td>最终答复文件</td>
+<td>exec -o 文件</td>
+</tr>
+<tr>
+<td>扩展</td>
+<td>/plugins、/skills、/mcp</td>
+</tr>
+<tr>
+<td>配置</td>
+<td>~/.trae/traecli.toml</td>
+</tr>
+</tbody></table></div>
+<p>参数无法识别时保留版本和 help，再对照同代官方文档；不把旧版示例的一半拼进 2.0。权限错误先核对所需操作和实际沙箱，测试失败先读退出码及日志，不能统一通过扩大权限解决。</p>
+<p>参考：<a href="https://docs.trae.cn/cli_command-line-parameters">当前官方参数</a>。</p>
+</article>

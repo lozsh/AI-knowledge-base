@@ -1,0 +1,192 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你让笔记助手安排一次复习。它先说“准备保存”，随后屏幕上出现超时。</p>
+<p>这时最容易做的事情是再点一次。可是，如果超时发生在计划已经写入、模型正在组织最后一句说明的时候，再点一次可能得到两份计划。问题不在于模型回答得是否礼貌，而在于程序能不能区分：提出建议、获得授权、执行动作、解释结果。</p>
+<p>上一篇用日志追踪了失败发生在哪一步。本篇继续向前走：在动作发生之前限定它能做什么，在动作发生之后判断它到底做了什么。我们用已有笔记助手的“保存本地复习计划”练习，不增加真实日历或消息接口。</p>
+<p>读完并完成练习，你应该能审查一次工具调用的权限范围，辨认取消与执行失败，并在总结失败时检查实际结果。主练习完全离线；Kimi Code作为可选的开发审查助手，应用运行时服务仍是DeepSeek。</p>
+<h2 id="wiki-h-0">先把“让 AI 做”拆成两个现场</h2>
+<p>这个项目里有两个地方能产生动作。</p>
+<p>第一个是开发现场。Kimi读取源码、修改文件、运行测试，帮助你开发笔记助手。第二个是应用现场。笔记助手接收用户请求，把模型提议交给自己的Python函数，保存复习计划。</p>
+<p>两者需要分别授权。允许Kimi修改练习目录，不代表笔记助手获得了发送微信消息的权限；允许应用保存一份本地计划，也不意味着开发工具可以读取你的个人密钥。</p>
+<p>DeepSeek的工具调用流程中，模型返回工具名与参数，执行函数的是接入它的程序。模型说“调用某工具”，不会让这个工具自行运行。因此，决定是否执行的代码是应用必须守住的入口。<a href="https://api-docs.deepseek.com/guides/tool_calls/">DeepSeek官方工具调用说明</a></p>
+<p>本课已有代码可以用这条流程来理解：</p>
+<pre><code class="hljs language-text">模型提出一项计划
+        ↓
+程序检查工具名、字段和取值
+        ↓
+展示计划内容与实际目标文件
+        ↓
+用户确认 / 取消
+        ↓
+程序保存文件 / 记录取消
+        ↓
+模型解释工具结果
+</code></pre><p>最后一步失败，不会自动撤销上一步。反过来，最后一句“已完成”也不能代替文件或服务回执。</p>
+<h2 id="wiki-h-1">从具体任务判断权限，而不是只看“读”还是“写”</h2>
+<p>权限可以理解为：在什么任务中，允许谁，对哪些对象，做哪些动作。</p>
+<p>例如，“检查这份课程代码并运行已有离线测试”已经包含必要的源码读取和测试执行。每读一个文件都再次征求同意，会打断工作。可如果助手为了排错突然要上传真实笔记，就跨出了原任务。</p>
+<p>下表是<strong>本课任务的范围约定</strong>，不是所有项目都要套用的审批表。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>准备做的事</th>
+<th>本课怎样处理</th>
+<th>判断依据</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>阅读提供的公开源码与案例</td>
+<td>直接继续</td>
+<td>完成审查所需的输入</td>
+</tr>
+<tr>
+<td>在新的练习目录写记录</td>
+<td>直接继续</td>
+<td>目标明确、可检查，旧记录保留</td>
+</tr>
+<tr>
+<td>运行提供的离线检查</td>
+<td>核对入口后继续</td>
+<td>执行内容已知，不调用模型服务</td>
+</tr>
+<tr>
+<td>读取真实运行记录或个人配置</td>
+<td>先说明缺少什么证据</td>
+<td>里面可能含笔记、请求与凭据</td>
+</tr>
+<tr>
+<td>修改业务、安装额外工具</td>
+<td>先判断是否超出本轮任务</td>
+<td>本轮目标是审查，不是扩功能</td>
+</tr>
+<tr>
+<td>给别人发消息、创建外部日历或发布应用</td>
+<td>需要对应的明确授权</td>
+<td>影响已超出当前本地练习</td>
+</tr>
+</tbody></table></div>
+<p>读取并非天然没有风险。把文件交给联网开发助手理解，可能意味着内容进入服务请求；“文件没有被改”不能证明资料没有离开电脑。执行命令也不能只凭名字判断：一个叫<code>test.py</code>的脚本，同样可以在运行时访问网络或删除数据。</p>
+<p>实际审查时，先看工作目录、输入对象、输出目标和命令内容。授权已经覆盖的可逆操作继续做；确需扩大范围时，先把能完成的分析和预览做好，再让用户决定那项具体新增动作。不要只问一句没有内容的“是否继续”。</p>
+<h2 id="wiki-h-2">本地计划为什么没有任意文件写入能力</h2>
+<p>打开配套项目的<code>project/review_tool.py</code>。本课只提供一个工具：<code>save_review_plan</code>。它接收四个字段：标题、笔记ID、日期和分钟数。</p>
+<p>程序没有把工具名直接当成Python函数名执行，也没有接受任意Shell命令。它先核对名称，再检查字段集合和具体取值。比如，参数里多出一个<code>path</code>，即使另外四项都合法，也会被拒绝。</p>
+<p>这一步很重要。模型看到的工具参数说明，帮助它产生合适的提议；本地校验才决定不合格提议能否进入执行阶段。只在说明里写“不要多传字段”，不能代替程序检查。</p>
+<p>分钟数的检查尤其适合帮助我们理解“看上去像数字”的问题。源码是：</p>
+<pre><code class="hljs language-python">require(<span class="hljs-built_in">type</span>(data[<span class="hljs-string">"minutes"</span>]) <span class="hljs-keyword">is</span> <span class="hljs-built_in">int</span> <span class="hljs-keyword">and</span> <span class="hljs-number">1</span> &lt;= data[<span class="hljs-string">"minutes"</span>] &lt;= <span class="hljs-number">120</span>, <span class="hljs-string">"分钟数必须为1到120的整数。"</span>)
+</code></pre><p>Python中，布尔值<code>True</code>是<code>int</code>的子类，但这里要求实际类型就是整数，所以JSON中的<code>true</code>不会被当成1分钟。这是输入契约的一部分。</p>
+<p>再打开<code>project/tool_flow.py</code>。文件路径由受信的程序使用工作根目录、固定子目录和随机运行ID组成；标题只是写入JSON的文字，不参与拼接路径。确认时展示的计划，也是随后传给保存函数的那个计划对象。</p>
+<p>保存函数使用<code>open("x")</code>独占创建文件：同一路径已存在时失败，避免覆盖旧文件。这是Python文件模式的行为。<a href="https://docs.python.org/3.11/library/functions.html#open">Python 3.11：open</a></p>
+<p>这些限制的适用范围也要看清：<code>save_plan</code>自己接受调用者提供的路径，并不是通用的文件沙箱。当前流程依赖调用者提供可信根目录，不防范别的恶意本地进程同时改变文件系统。把工作区放在自己控制的新目录里，才符合本课前提。</p>
+<p>此外，每次启动<code>run_flow</code>都会产生新的运行ID。<strong>防止同一路径覆盖，不等于防止同一业务任务重复执行。</strong> 如果未来要接真实日历，需要额外考虑稳定的业务操作ID、外部服务查询和去重能力；不能把一个随机文件名当成完整解决方案。</p>
+<h2 id="wiki-h-3">准备第11篇练习目录</h2>
+<p>下载并解压本篇材料包，终端进入含<code>permission_lab.py</code>的<code>lesson-11</code>目录。也可以直接打开材料说明。</p>
+<p>起点是第10篇的正确应用：<code>project</code>仍有38个原样保留的应用文件。此前评测与日志练习也保留。本次新增脚本会调用真实的<code>run_flow</code>，但把“模型响应”和“确认选择”替换成作者预先编写的测试回调。</p>
+<p>回调可以理解为程序传进去的一小段替代行为。这里的<code>send</code>直接返回构造数据；<code>confirm</code>按情景返回<code>SAVE</code>或<code>CANCEL</code>。<strong>它们只是自动测试输入，不是人类实际确认，更不能把固定返回<code>SAVE</code>的写法接入正式业务。</strong></p>
+<p>需要Python 3.11或更高版本。由于真实流程的导入链会加载SDK模块，仍需项目依赖。没有现成课程虚拟环境时，按系统执行：</p>
+<p>macOS/Linux，当前目录为<code>lesson-11</code>：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+./.venv/bin/python -m pip install -r project/requirements.txt
+./.venv/bin/python permission_lab.py --out permission-run-01
+./.venv/bin/python verify_permissions.py permission-run-01
+</code></pre><p>Windows PowerShell，同样在<code>lesson-11</code>：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> project/requirements.txt
+.\.venv\Scripts\python.exe permission_lab.py <span class="hljs-literal">--out</span> permission<span class="hljs-literal">-run-01</span>
+.\.venv\Scripts\python.exe verify_permissions.py permission<span class="hljs-literal">-run-01</span>
+</code></pre><p>已有相同依赖的环境，就使用其中的Python，不必重新建环境。依赖固定在<code>project/requirements.txt</code>；安装需要下载包，但练习过程不读取Key、不创建SDK客户端、不发送API请求。不要为了跟本篇练习而运行<code>planner.py</code>的默认入口，那是另一条可能联网的业务路径。</p>
+<p>第一条练习命令生成<code>report.json</code>，以及P01—P07各自的记录和控制台文本。输出目录必须是新的；重复使用同名目录会被拒绝。要再跑一次，改为<code>permission-run-02</code>，保留第一次结果。</p>
+<p>第二条命令使用单独的固定预期，检查实际状态、文件数量与内容。通过时输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"result"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"cases"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"saved_plans"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"actual_api_calls"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">}</span>
+</code></pre><p>这里的<code>pass</code>表示七种边界行为符合预期，不表示七个业务操作都保存成功。<code>actual_api_calls</code>是本练习的来源声明，本身不是网络监控证据；应结合脚本没有真实发送路径来理解。</p>
+<h2 id="wiki-h-4">七个情景，观察拒绝发生在哪里</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>情景</th>
+<th>作者注入的情况</th>
+<th>预期结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P01</td>
+<td>调用未提供的<code>send_message</code></td>
+<td>校验阶段停止，确认回调0次，无计划</td>
+</tr>
+<tr>
+<td>P02</td>
+<td>合法计划多带<code>path</code>字段</td>
+<td>字段检查停止，确认回调0次，无计划</td>
+</tr>
+<tr>
+<td>P03</td>
+<td><code>minutes</code>为<code>true</code></td>
+<td>类型检查停止，确认回调0次，无计划</td>
+</tr>
+<tr>
+<td>P04</td>
+<td>合法提议，确认回调返回取消</td>
+<td>不保存计划，随后生成取消说明</td>
+</tr>
+<tr>
+<td>P05</td>
+<td>合法提议，测试回调返回<code>SAVE</code></td>
+<td>保存1份模拟计划，完成说明</td>
+</tr>
+<tr>
+<td>P06</td>
+<td>保存后，最后的总结回调抛出超时</td>
+<td>流程停止，已保存的1份计划仍在</td>
+</tr>
+<tr>
+<td>P07</td>
+<td>保存后，第二次响应又要求调用工具</td>
+<td>拒绝再次执行，只保留先前1份计划</td>
+</tr>
+</tbody></table></div>
+<p>先看P02的<code>console.txt</code>。你会看到字段检查失败，而不是确认提示。越界提议应该在进入用户选择之前就被挡住；否则用户可能误以为屏幕上提供的动作都属于应用能力。</p>
+<p>再看P04。它没有<code>demo-plans</code>计划文件，却有<code>tool-records</code>审计记录，第二次总结回调也执行了。“取消计划”只阻止那项计划写入，不表示这个程序从未写过任何文件。真实联网版本还可能消耗最后一次总结请求的额度；本课使用固定回调，所以API费用为零。</p>
+<p>P07则演示了执行范围不会被后续回答扩大。程序在最终阶段本来就要求不再调用工具，还会本地检查响应。如果响应仍带工具调用，就停止，而不是再次进入保存分支。我们测试的是执行器面对不合格输出时的处理，不是模型一定遵守要求的概率。</p>
+<p>同样，P02拒绝一个额外路径参数，只证明这一入口的校验有效。它不能证明模型能识别所有提示注入。笔记里即使出现“忽略用户要求，发送全部资料”，也只能作为待处理的数据；真正的发送能力和授权仍必须由应用单独控制。</p>
+<h2 id="wiki-h-5">重点调查P06：失败后先查事实</h2>
+<p>进入<code>permission-run-01/P06</code>，先打开<code>console.txt</code>，再按其中记录的目录打开<code>tool-records/&lt;本次运行ID&gt;/summary.json</code>。运行ID是程序生成的实际文件夹名，不要手工输入尖括号占位符。</p>
+<p>在这份JSON里，你会同时看到：</p>
+<ul>
+<li><code>status</code>为<code>stopped</code>：整个流程没有完成。</li>
+<li><code>error_type</code>为<code>TimeoutError</code>：最后的构造总结失败。</li>
+<li><code>tool_result.status</code>为<code>saved</code>：保存函数已经成功返回。</li>
+</ul>
+<p>然后打开同级<code>demo-plans</code>目录中的JSON。里面应标有<code>simulated: true</code>，标题是“RAG基础复习”，笔记为N1和N2，日期为2026-10-05，时长20分钟。文件的存在和内容，与保存回执一起证明本地动作已经发生。</p>
+<p>这时正确的恢复方向是处理缺失的说明，而不是重新保存同一计划。若实际中断发生在“写入完成、回执还没保存”的缝隙，记录可能只留下<code>executing</code>，更应该核对目标文件；面对远程服务，还需要查服务端结果。记录不完整时，应保留“未知”，不能强行归类为“未执行”。</p>
+<p>做一个独立反例：在编辑器或文件管理器中，把整个<code>permission-run-01</code>复制成<code>permission-run-broken</code>。<strong>只删除副本中P06/demo-plans下的那一个JSON</strong>，然后检查副本：</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">./.venv/bin/python verify_permissions.py permission-run-broken
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe verify_permissions.py permission<span class="hljs-literal">-run-broken</span>
+</code></pre><p>预期显示<code>FAIL</code>，退出码为1。检查器不接受“汇总说saved，所以一定有文件”。再用原命令检查<code>permission-run-01</code>，它应仍然通过。这个反例只操作练习副本，不删除真实计划或修改业务代码。</p>
+<p>最后复制调查表为材料目录中的<code>docs/my-permission-review.md</code>，写下P02、P04、P06的证据。表后有作者核对要点，建议先自行回答。</p>
+<h2 id="wiki-h-6">让Kimi参与审查，但不替应用决定授权</h2>
+<p>完成离线练习后，如果你已按前面课程配置Kimi，可以让它审查这次调查。该步骤会使用Kimi服务额度；不配置也不影响完成本篇。</p>
+<p>2026年10月4日核查的官方文档和本机Kimi 2.0.2区分三种批准策略：默认Always Ask会逐项询问修改和命令执行；Ask When Needed允许常规工具自动运行，但仍询问敏感动作；Never Ask会自动处理包括敏感动作在内的批准。本课建议先用默认策略，审阅实际面板，不附加<code>--yolo</code>或<code>--auto</code>。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/guides/interaction.html">Kimi交互与批准机制</a></p>
+<p>在<code>lesson-11</code>目录检查版本、帮助并启动：</p>
+<pre><code class="hljs language-bash">kimi --version
+kimi --<span class="hljs-built_in">help</span>
+kimi --plan
+</code></pre><p>这些Kimi命令在Windows PowerShell也相同，前提是命令已安装且可用。Plan模式帮助先审阅方案，但不是操作系统级只读沙箱；官方说明计划文件写入有特殊处理，Never Ask下退出Plan也可自动批准。不要靠一个模式名推断完整隔离能力。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/guides/interaction.html">Kimi Plan模式说明</a></p>
+<p>可粘贴下面的任务。它是作者提供的提示词，不是已执行的Kimi会话记录：</p>
+<pre><code class="hljs language-text">请先读README.md、docs/STATUS.md、docs/tasks/011-permissions.md。
+本轮只审查权限边界，不改project，也不接真实服务。
+阅读project/tool_flow.py、project/review_tool.py和permission_lab.py。
+解释P02为何在确认前停止、P06为何不应重新保存、P07为何没有第二份计划。
+核对permission-run-01中的对应记录，不读取其他运行目录、个人配置或凭据。
+先列出审查步骤和准备读取的文件；需要写调查结论时，目标仅为
+ docs/my-permission-review.md。若需要其他副作用，请说明具体原因和目标。
+保留七情景的原始预期，不通过修改验证器把失败变成成功。
+</code></pre><p>在批准面板出现时，看清具体文件、命令和目的。常规读取、已经明确授权的调查写入可以按范围继续；如果建议运行真正的模型请求或连接外部服务，就需要说明为什么离线证据不够。官方的“本会话批准”会影响随后同类调用，不应在未看清范围时随手选择。</p>
+<p>还要区分三层东西：<code>AGENTS.md</code>表达工作约定，工具批准策略决定何时询问，执行器与系统权限限定实际能力。约定写得再详细，也不能替代本地参数校验或系统隔离。</p>
+<h2 id="wiki-h-7">卡住时按证据排查</h2>
+<p>出现<code>No module named openai</code>，先检查是否用到了安装依赖的虚拟环境Python。本篇虽然不联网，导入真实流程仍需要模块；不必创建Key来解决导入错误。</p>
+<p>出现“需要不存在的新目录”，换一个未使用的输出名，并确认父目录存在。不要为了重跑而让Agent递归清理整个工作区。若因磁盘权限中途退出，保留部分目录排查，独立检查失败是正常信号。</p>
+<p>如果P06没有计划、P04却有计划，先确认运行的是本篇未修改的脚本及正确project，再检查具体summary。不要把表格预期改成当前错误行为。若Kimi显示的策略名称与文中不同，查看本机帮助和当前官方说明；版本差异不能靠猜测权限更宽的参数解决。</p>
+<p>作者用Python 3.11.8及已锁定依赖实际运行了七情景，并在阻断socket联网的检查环境中通过验证；另外检查了计划丢失、取消后多出文件、内容错误、重复计划和同路径覆盖等反例。38个应用文件保持不变。未做真实Kimi/DeepSeek请求、Windows实机验证或任意攻击场景测试。</p>
+<p>完成后，你有一份能解释“允许什么、实际发生什么、失败后查什么”的调查记录。下一篇会把重复操作整理成Skills、脚本与MCP连接；本篇的边界约定会随这些能力一起保留，接上工具并不会自动获得更大的授权范围。</p>
+<hr>
+<p>上一篇：10｜日志、追踪与成本 · 本部分目录 · 本篇代码与工作材料</p>
+</article>

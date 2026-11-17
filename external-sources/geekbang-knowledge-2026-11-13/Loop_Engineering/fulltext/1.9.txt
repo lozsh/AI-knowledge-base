@@ -1,0 +1,413 @@
+预计阅读与练习时间：50～70 分钟
+本篇目标：为循环加入三道彼此独立的边界——资源预算、能力风险门和人工注意力路由；用三个离线案例验证它会正常收尾、因超预算停止，也会在外部写入发生前请求人工处理。
+
+上一篇解决了“什么时候运行、由谁运行、候选改动放在哪里”。但隔离 worktree 只保护代码工作区，它没有回答三个更现实的问题：
+
+一个任务最多可以调用几次 Agent、运行多久、消耗多少 Token 或费用？
+Agent 想访问网络、读取凭据或者写入外部系统时，谁有权放行？
+每次成功、重试和暂停都通知人，用户很快就会把通知全部关掉；究竟哪些状态值得立刻打扰？
+
+这三个问题不能合并成一个“预算”数字。我们会把它们分别实现为：
+
+资源预算：这项任务最多消耗多少计算资源
+风险边界：这项任务最多可以动到哪里
+注意力预算：什么情况值得马上叫人
+
+
+本篇示例依然完全离线。所谓“通知”只是写入本地 outbox，不会发送邮件或消息；费用只读取 Agent 适配器报告的值，不会调用真实模型，也不会硬编码某家厂商随时可能变化的价格。
+
+从第 7 篇的干净主工作区继续
+
+第 7 篇结束后，issue-007 的候选 patch 已保存在：
+
+.loop/candidates/issue-007/candidate.patch
+
+
+我们没有把它合并进主分支，并且已经移除了临时 worktree。因此主工作区中的标签搜索验收仍然失败，这是预期状态。先检查：
+
+git status --short
+git worktree list
+
+
+第一条命令应没有输出；第二条只应列出主工作区。然后从课程根目录复制本篇增量。
+
+macOS 或 Linux：
+
+cp -R assets/lesson-08-governance/. issue-garden-lab/
+cd issue-garden-lab
+source .venv/bin/activate
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force assets/lesson-08-governance/* issue-garden-lab
+Set-Location issue-garden-lab
+.\.venv\Scripts\Activate.ps1
+
+
+这次新增的文件不多：
+
+governance.yaml                         三类边界的策略
+issue_garden/governance.py              风险检查、预算账本和通知路由
+tools/governance_demo.py                离线演示入口
+governance_cases/completed.json         正常完成案例
+governance_cases/budget-exhausted.json  超预算案例
+governance_cases/risk-boundary.json     越过权限边界案例
+
+
+先运行全部 Python 测试：
+
+python -m unittest discover -s loop_tests -p "test_*.py" -v
+
+
+预期二十二项通过。本篇新增四项，分别检查成功任务进入摘要、超预算只生成一条去重通知、风险门先于 Agent 运行，以及缺失费用不能冒充零费用。
+
+把课程代码提交，避免后面的本地账本混入代码改动：
+
+git add .
+git commit -m "feat: add loop governance policies"
+git status --short
+
+
+最后一条命令应没有输出。.loop/ 已被忽略，稍后产生的账本和通知不会进入 Git。
+
+先读懂三类边界
+
+打开 governance.yaml。其中的默认策略是：
+
+budgets:
+  max_agent_runs_per_task: 3
+  max_wall_seconds_per_task: 1800
+  max_reported_input_tokens_per_task: 20000
+  max_reported_output_tokens_per_task: 8000
+  max_reported_cost_usd_per_task: 1.00
+  warning_at_fraction: 0.80
+  require_token_visibility: false
+  require_cost_visibility: false
+
+risk:
+  allowed_unattended_capabilities:
+    - workspace_read
+    - workspace_write
+    - local_test
+  human_approval_required:
+    - network_access
+    - secret_access
+    - external_write
+    - destructive_action
+
+资源预算不是只有费用
+
+本例同时记录五项指标：
+
+指标	它限制什么	为什么不能只看费用
+agent_runs	Agent 调用次数	免费或包月调用也可能原地循环
+wall_seconds	任务累计墙钟时间	工具卡住时，Token 可能几乎不增长
+input_tokens	适配器报告的输入量	上下文不断膨胀是常见失控信号
+output_tokens	适配器报告的输出量	防止一次生成无限扩张
+estimated_cost_usd	适配器报告的估算费用	方便在按量计费时设置硬上限
+
+真正接入 Agent 时，最好同时设置两层限制：在单次模型调用处设置最大输出等“单轮上限”，在循环账本中设置整项任务的“累计上限”。后者不能替代前者，因为事后记账只能阻止下一轮，无法收回刚刚已经消耗的资源。
+
+课程里的金额只是用于测试边界的示例值，不是模型价格建议。不同 Provider、模型、缓存策略和时间点的价格都可能不同。应由 Agent 适配器把实际用量或按当时价格算出的估值写入账本，而不是让 Runner 猜。
+
+风险边界限制的是能力，不是次数
+
+本地读写和运行本地测试可以无人值守；网络访问、读取真实凭据、写外部系统和破坏性操作必须先找人。这条规则即使预算还有很多也不会改变：
+
+“还能调用两次 Agent”
+不等于
+“可以替用户发布、删数据或使用生产密钥”
+
+
+因此风险检查必须发生在 Agent 运行之前。否则系统先做了外部写入，再把任务标成 blocked，控制就已经失效。
+
+注意力预算决定什么时候打扰人
+
+文件下半部分定义：
+
+attention:
+  immediate_reasons:
+    - needs_input
+    - permission_boundary
+    - budget_exhausted
+    - usage_visibility_required
+    - unsafe_resume
+  digest_decisions:
+    - completed
+  silent_reasons:
+    - no_task
+    - retry
+    - planned
+
+
+对应三条路线：
+
+路线	典型状态	处理方式
+立即通知	缺少输入、权限越界、预算耗尽、必要用量不可见、无法安全恢复	现在需要人做决定
+汇总通知	已完成并通过验证	放入日报或批次摘要
+静默记录	没有任务、已安排重试、Dry Run	写日志即可，不打断人
+
+“成功就立刻通知”听起来积极，任务一多却会制造通知疲劳。Loop Engineering 的目标不是让系统显得忙，而是把人的注意力留给确实需要判断的地方。
+
+边界应该在运行前、运行中和运行后各检查一次
+
+只在任务结束后读取总费用还不够。一套实际的 Runner 至少有三个检查点：
+
+运行前
+  -> 检查任务请求的能力
+  -> 检查剩余调用次数和剩余时间是否足够开始一轮
+
+单轮运行中
+  -> 由 Agent/Provider 限制单次输出、超时和工具权限
+
+运行后
+  -> 读取适配器报告的真实用量
+  -> 累加到账本
+  -> 决定完成、继续，还是禁止下一轮
+
+
+本篇的 governance_demo.py 专门演示“运行前风险门”和“运行后累计裁决”。它不是真实 Agent 适配器，所以三个 JSON 案例直接提供一次运行的用量报告。
+
+还有一个容易忽略的细节：指标缺失不等于零。若某个 CLI Agent 不报告费用，账本会把 estimated_cost_usd 记入 unavailable_metrics，而不是宣称这次调用花费为 0。你可以暂时允许费用不可见，也可以把 require_cost_visibility 改为 true，让不可观测本身成为阻塞原因。
+
+案例一：正常完成只进入摘要
+
+查看 governance_cases/completed.json：
+
+{
+  "task_id": "governance-completed",
+  "requested_capabilities": [
+    "workspace_read",
+    "workspace_write",
+    "local_test"
+  ],
+  "usage": {
+    "agent_runs": 1,
+    "wall_seconds": 38,
+    "input_tokens": 6200,
+    "output_tokens": 1300,
+    "estimated_cost_usd": null
+  },
+  "decision": "completed",
+  "reason": "verified"
+}
+
+
+运行：
+
+python tools/governance_demo.py \
+  --case governance_cases/completed.json
+
+
+Windows PowerShell 可以写成一行：
+
+python tools/governance_demo.py --case governance_cases/completed.json
+
+
+关键输出应为：
+
+{
+  "decision": "completed",
+  "reason": "verified",
+  "attention_route": "digest",
+  "notification": null
+}
+
+
+这里有两项值得单独核对。第一，完成任务没有写入即时通知 outbox：
+
+macOS 或 Linux：
+
+find .loop/notifications/outbox -type f 2>/dev/null
+
+
+Windows PowerShell：
+
+Get-ChildItem .loop/notifications/outbox -File -ErrorAction SilentlyContinue
+
+
+此时应没有输出，目录也可能尚不存在。第二，检查持久账本：
+
+python -m json.tool .loop/budgets/governance-completed.json
+
+
+你会看到 agent_runs 为 1、input_tokens 为 6200，同时：
+
+"unavailable_metrics": [
+  "estimated_cost_usd"
+]
+
+
+账本中的累计金额字段初始值仍是 0.0，但不能据此得出“这次免费”的结论。unavailable_metrics 才是可观测性事实：这次案例没有提供费用。
+
+案例二：超过资源预算，禁止下一轮
+
+第二个案例报告了 21500 个输入 Token 和 1.15 美元估算费用，分别超过示例上限 20000 和 1.00：
+
+python tools/governance_demo.py --case governance_cases/budget-exhausted.json
+
+
+命令会以退出码 2 结束。这不是程序崩溃，而是 Runner 用非零退出码告诉外层调度器“任务没有完成”。关键输出为：
+
+{
+  "decision": "stopped",
+  "reason": "budget_exhausted",
+  "usage": {
+    "exceeded": [
+      "input_tokens",
+      "estimated_cost_usd"
+    ]
+  },
+  "attention_route": "immediate"
+}
+
+
+如果终端只显示 JSON，不直观展示退出码，可以紧接着查看。
+
+macOS 或 Linux：
+
+echo $?
+
+
+Windows PowerShell：
+
+$LASTEXITCODE
+
+
+应为 2。再独立检查账本：
+
+python -m json.tool .loop/budgets/governance-budget.json
+
+
+ratios.input_tokens 应为 1.075，ratios.estimated_cost_usd 应为 1.15。比率超过 1 表示已越过硬上限；它们不会因为其他指标仍很低而相互抵消。
+
+这次还应出现一条本地通知。macOS 或 Linux：
+
+find .loop/notifications/outbox -type f -print
+
+
+Windows PowerShell：
+
+Get-ChildItem .loop/notifications/outbox -File
+
+
+打开列出的 JSON，内容只有任务 ID、终态、原因和必要的越界字段，没有完整 Prompt、原始日志或凭据。实际接入飞书、Slack 或邮件时，也应让消息通道读取这种最小化 payload，而不是把整个运行现场原样外发。
+
+测试用例还验证了相同的 task_id + reason 不会重复创建通知，而且已耗尽预算的任务不会再次入账。生产系统仍应为“用量事件”设置唯一 ID：只要任务尚未到达硬上限，同一份报告重复提交就仍可能重复累计。
+
+案例三：权限越界必须先于运行被挡住
+
+最后一个案例请求 external_write，代表向代码工作区之外的系统写入：
+
+python tools/governance_demo.py --case governance_cases/risk-boundary.json
+
+
+命令同样以退出码 2 结束，但原因不同：
+
+{
+  "decision": "blocked",
+  "reason": "permission_boundary",
+  "risk": {
+    "allowed": false,
+    "requires_approval": [
+      "external_write"
+    ]
+  },
+  "usage": {
+    "totals": {
+      "agent_runs": 0
+    }
+  },
+  "attention_route": "immediate"
+}
+
+
+agent_runs 仍为 0，是最重要的验证结果：风险门在执行前拦截了任务。因为没有运行，也就不会生成该任务的预算账本：
+
+macOS 或 Linux：
+
+test ! -f .loop/budgets/governance-risk.json \
+  && echo "blocked before execution"
+
+
+Windows PowerShell：
+
+if (-not (Test-Path .loop/budgets/governance-risk.json)) { "blocked before execution" }
+
+
+应看到 blocked before execution。outbox 中则多了一条 permission_boundary 通知，告诉人需要审批哪一项能力。
+
+审批不应该简单地把原任务改成“什么都能做”再自动重放。更稳妥的做法是让人确认目标、目标系统和可接受副作用，然后创建一个带明确授权范围的新任务，或者把外部写入拆成可审阅的人工步骤。旧任务及其拒绝记录应保留，便于审计。
+
+把这三道边界接回真正的循环
+
+本篇用独立工具讲清了策略，真正整合到第 7 篇 Dispatcher 时，可以按下面的顺序接入：
+
+Dispatcher 领取任务
+  -> 根据任务声明评估 requested_capabilities
+  -> 风险不允许：blocked + immediate
+  -> 检查账本中的剩余硬预算
+  -> 创建隔离 worktree
+  -> 运行一轮 Agent，并由适配器返回 usage
+  -> 把 usage 作为带唯一 ID 的事件入账
+  -> 执行独立验证
+  -> 完成：digest
+  -> 可重试且仍有预算：silent retry
+  -> 预算耗尽或需要输入：停止并 immediate
+
+
+有两条顺序不能颠倒：
+
+先检查能力，再启动 Agent。风险边界不能靠事后报告补救。
+先保存用量，再决定是否重试。否则进程恰好在两者之间中断，恢复后可能忘记已经消耗的预算。
+
+如果 Agent CLI 不能报告 Token 或费用，先使用可观测的调用次数与墙钟时间做硬限制，并在报告中明确标出未知项。不要通过估算字符数制造虚假的精确费用。等适配器可以稳定返回用量，再根据业务需要打开 require_token_visibility 或 require_cost_visibility。
+
+预算不是越小越安全，也不是越大越好
+
+预算频繁耗尽时，先判断任务是否过大，而不是立刻调高上限。一个任务如果需要十几轮才能说清目标，通常意味着它缺少可验证的中间结果，或者应该拆成多个独立任务。
+
+可以按下面的顺序调整：
+
+缩小任务范围，让一项任务只产生一个可验证结果。
+减少无关上下文，避免每轮重复加载大量历史。
+让失败签名触发重新规划或升级，避免同一种失败消耗剩余轮次。
+根据真实账本观察正常任务分布，再调整告警线和硬上限。
+
+warning_at_fraction: 0.80 表示到达上限的 80% 时进入警告区，但课程示例不会仅因警告停止。实际系统可以在警告出现后禁止开启一项昂贵的新动作，或者要求 Agent 先提交当前成果和剩余计划。
+
+常见阻塞与处理办法
+1. 费用一直显示为不可用
+
+先确认所用 Agent 或 Provider 是否真的返回用量。若不返回，保持 require_cost_visibility: false，同时用调用次数与总时长做硬边界；如果组织规定费用不可见就不得无人值守，则把它改为 true，让任务明确进入阻塞，而不是把未知记成零。
+
+2. 每次循环都收到很多消息
+
+检查是否把 retry、planned 或 no_task 放进了立即通知。它们应默认静默，只进入结构化日志。成功任务适合批量摘要；只有需要人作出决定的状态才立即通知。还应在消息出口增加去重键、冷却时间和批次合并。
+
+3. 风险任务明明“很简单”却被拒绝
+
+策略按能力和副作用判断，不按操作描述听起来是否简单判断。“把结果顺手发到线上表格”依然是外部写入。若确实需要自动执行，应由人明确授权目标系统、凭据范围、允许动作和有效期，而不是临时放开全部外部能力。
+
+4. 账本恢复后重复累计
+
+本地示例只演示累计和通知去重。生产适配器必须为每次用量报告生成稳定事件 ID，并在账本中拒绝重复 ID；写入仍应使用原子替换或事务。否则进程在“已记账、未写 checkpoint”之间中断，恢复后会重复计费。
+
+5. 达到时间预算时进程仍在运行
+
+总账本只能阻止下一轮。单轮执行还需要子进程超时、可取消的工具调用和退出后的清理逻辑。强制终止前先保存当前状态；对于外部副作用不明确的任务，恢复时进入 unsafe_resume，不要直接重放。
+
+本篇完成检查
+
+完成下面几项，就说明三类边界已经真正生效：
+
+二十二项 Python 测试通过；
+正常案例返回 completed，进入 digest，没有即时通知；
+正常案例费用为“不可用”，而不是伪装成零费用；
+超预算案例返回 budget_exhausted，账本准确列出两项越界指标；
+风险案例在 agent_runs = 0 时停止，没有先执行再阻塞；
+outbox 只包含需要人处理的预算和权限事件；
+所有实验仍然只写本地 .loop/，没有真实消息、网络请求和外部写入。
+
+现在，循环已经具备契约、状态、独立验证、失败升级、触发调度、隔离和三类治理边界。下一篇会把这些部件串成一次综合实战，用三个任务分别证明：它能够完成可验证的小缺陷、面对信息不足会求助、遇到越权动作会拒绝，而且每条路径都会明确结束。

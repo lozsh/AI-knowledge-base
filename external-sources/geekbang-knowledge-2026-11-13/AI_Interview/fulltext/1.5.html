@@ -1,0 +1,287 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>题量最大的一类，因为 RAG 是 AI 应用岗的"看家本领"。从流程、分块、检索、重排到评估、优化、GraphRAG，全链路覆盖。这里每一题都要求讲清"为什么这么设计"和"具体怎么落地"，而非复述概念。</p>
+</blockquote>
+<h3 id="wiki-h-0">39. RAG 的基本流程是什么？每一环节的"质量杠杆"分别是什么？</h3>
+<p><strong>直接答案</strong>：RAG 把大模型从"只靠参数记忆"变成"边检索边回答"，整体分三阶段，每阶段各有一个决定质量的关键杠杆：</p>
+<ol>
+<li><strong>索引（Indexing）</strong>：文档解析 → 切分（chunk）→ 每块生成 embedding → 写入向量库。这一阶段的杠杆是<strong>分块策略和解析质量</strong>——垃圾进垃圾出。</li>
+<li><strong>检索（Retrieval）</strong>：把 query 转成向量 → 在向量库做近似最近邻（ANN）召回 top-k。这一阶段的杠杆是<strong>召回率和排序精度</strong>，也是整个系统最容易出问题的地方。</li>
+<li><strong>生成（Generation）</strong>：把召回的 chunk 拼进 prompt → LLM 基于资料生成答案。这一阶段的杠杆是<strong>忠实度</strong>（答案是否被资料支撑）。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>为什么要分块（底层原理）</strong>：一是上下文窗口有限；二是<strong>embedding 的"语义稀释"效应</strong>——一个 embedding 向量只能表达"一个主题"，把整篇文档压成一个向量时，向量只捕捉到最泛化的主题，任何具体问题的相似度都会变低。切成小块后，每块聚焦一个具体语义，检索才精确。这是"分块"存在的根本原因，不是单纯为了塞进窗口。</li>
+<li><strong>embedding 是"冻结"在索引里的</strong>：一旦用模型 A 建了索引，query 也必须用模型 A，且换模型 = 全量重建索引。这决定了 embedding 选型是"源头锁死项"。</li>
+<li><strong>分块默认值</strong>：生产实践里，递归字符切分 512 token + 10%~20% 重叠是经过多个 benchmark 验证的可靠起点，先跑通再针对语料调优，不要一上来就上语义分块（贵且未必更好）。</li>
+<li><strong>加分点</strong>：能说出"RAG 的本质是参数记忆 vs 检索记忆的分工，检索质量是 RAG 效果的第一决定因素"。</li>
+</ul>
+<h3 id="wiki-h-1">40. 为什么纯向量检索不够用？混合检索 + 重排序如何补足？RRF 是怎么融合的？</h3>
+<p><strong>直接答案</strong>：向量（dense）检索擅长语义相似，但<strong>对"精确字面匹配"几乎失效</strong>——产品编号、错误码、版本号、人名、术语缩写这些"用户精确知道要找什么"的场景，dense 检索往往召回不到，因为 embedding 把罕见 token 压缩成了模糊的语义向量。</p>
+<p>两个关键增强：</p>
+<ul>
+<li><strong>混合检索（Hybrid Search）</strong>：并行跑"向量检索（dense）+ BM25 关键词检索（sparse）"，两条路召回合并。dense 补"改述、同义、多语言"，BM25 补"精确词、错误码、专有名词"。</li>
+<li><strong>重排序（Rerank）</strong>：用交叉编码器对召回的候选逐个精确打分，把最相关的提到最前，只送 top 几条给 LLM。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>RRF（Reciprocal Rank Fusion）是混合检索的标准融合算法</strong>，公式是 <code>score(d) = Σ 1/(k + rank_i(d))</code>，k 通常取 60。关键性质：<strong>它只用"排名"不用"分数"</strong>，所以不需要对 dense 和 sparse 两路的分数量纲做归一化，天然鲁棒。生产里 Weaviate、Qdrant、OpenSearch、Elasticsearch 都原生支持 hybrid + RRF。</li>
+<li><strong>双编码器 vs 交叉编码器的本质区别</strong>：bi-encoder（向量检索）把 query 和 doc <strong>分开编码</strong>，所以可以预先把 doc 存成向量、检索极快，但 query 和 doc 之间没有 token 级交互，精度受限；cross-encoder（rerank）把 query 和 doc <strong>拼在一起</strong>联合编码，attention 能在两者之间流动，精度高得多，但必须每次现场算，慢。所以标准链路是"bi-encoder 粗召回 50~100 → cross-encoder 精排取 top 5"。</li>
+<li><strong>实际收益</strong>：混合检索比纯 dense 通常提升 10%<del>20% 的 recall；rerank 在叠加 context 和 hybrid 后，能把检索失败率降约 67%（Anthropic contextual retrieval 的结论）。代价是 rerank 增加 100</del>300ms 延迟。</li>
+<li><strong>加分点</strong>：能说出"dense 补语义、BM25 补精确、RRF 只靠排名融合、cross-encoder 靠 token 交互精排"这条完整链路。</li>
+</ul>
+<h3 id="wiki-h-2">41. 如何评估一个 RAG 系统？为什么检索和生成必须分开评？</h3>
+<p><strong>直接答案</strong>：核心原则是<strong>把检索和生成拆开评</strong>，因为"答案错了"有两个完全不同的成因，混在一起就没法定位：</p>
+<ul>
+<li><strong>检索端指标</strong>：<code>recall@k</code>（正确块是否在前 k 个召回里）、<code>MRR</code>（正确块的平均排名倒数）、<code>nDCG@k</code>（考虑排序位置的质量）。回答"有没有把对的资料找出来"。</li>
+<li><strong>生成端指标</strong>：<strong>忠实度（faithfulness）</strong>——答案的每个论断是否被检索资料支撑（反幻觉）；<strong>答案相关性（answer relevance）</strong>——答案是否切题。回答"基于资料答得对不对"。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>为什么必须分开</strong>：recall@k 低 → 是检索问题（分块、embedding、召回、query 改写），此时改 prompt 是徒劳；faithfulness 低 → 是生成问题（prompt 约束、幻觉治理、温度），此时加检索也无济于事。分开评才能"对症下药"。</li>
+<li><strong>评估工具链</strong>：RAGAS 是常用框架，把 faithfulness、answer relevance、context precision/recall 都自动化；配一个 <strong>golden set</strong>（标注了正确答案和应召回文档的问题集）做回归基线。</li>
+<li><strong>评估节奏</strong>：语料每更新超过约 5% 文档就要重评；golden set 每周跑一次回归；设告警线（如 nDCG@20 掉 3 个点、faithfulness 低于 0.85 就告警）。</li>
+<li><strong>加分点</strong>：能说出"检索评 recall/nDCG，生成评 faithfulness/relevance，两个阶段各归各因"。</li>
+</ul>
+<h3 id="wiki-h-3">42. 分块（Chunking）有哪些策略？各自的适用场景和代价是什么？</h3>
+<p><strong>直接答案</strong>：分块策略决定检索质量的下限，常见四类：</p>
+<ol>
+<li><strong>固定大小切分</strong>：按固定 token 数硬切，最简单，但会在句子/表格中间腰斩，破坏语义。</li>
+<li><strong>递归切分</strong>：按"段落 → 句子 → 词"的优先级逐级下钻直到满足大小，是生产默认起点。</li>
+<li><strong>语义分块</strong>：用句子嵌入检测"话题转折点"，在语义边界处切，精度高但贵。</li>
+<li><strong>结构感知切分</strong>：按文档结构（Markdown 标题、表格、代码块、法律条款编号）切，适合结构化文档。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>chunk size 是第一个要调的超参</strong>，核心矛盾是"语义稀释 vs 语义断裂"：太大 → 一个 chunk 混入多个主题，向量被稀释，检索不精确；太小 → 单个 chunk 信息不足，LLM 答不好。生产经验值 400~600 token 对多数散文是合理起点。</li>
+<li><strong>关键认知</strong>："<strong>按最小检索单元切，而非按上下文窗口大小切</strong>"——很多人把 chunk 切到接近窗口上限，以为上下文越多越好，结果召回 2000 token 的噪声、却只需要其中 200 token。</li>
+<li><strong>加 overlap（10%~20%）</strong>：避免一个句子被边界腰斩，导致检索命中时上下文残缺。</li>
+<li><strong>表格、代码、条款绝不能硬切</strong>：表格要按行/整表保留结构并带表头，代码按函数/类边界，法律按条款编号。</li>
+<li><strong>加分点</strong>：能说出"分块要在同一评测集上比 recall 和答案质量，而不是迷信某一种'高级'分块"。</li>
+</ul>
+<h3 id="wiki-h-4">43. 怎么选 embedding 模型？维度、语言、长度、以及"非对称检索"分别考虑什么？</h3>
+<p><strong>直接答案</strong>：选 embedding 模型看五个维度：</p>
+<ol>
+<li><strong>检索质量</strong>：MTEB 等 benchmark 的检索子项表现。</li>
+<li><strong>维度</strong>：向量维度（768/1024/1536）要和向量库、存储成本对齐；支持 Matryoshka 的模型可截断降维。</li>
+<li><strong>多语言</strong>：中文场景选 BGE-M3、Qwen、jina 等多语言友好的模型。</li>
+<li><strong>最大输入长度</strong>：能否一次嵌入你的 chunk 大小（超长会被截断）。</li>
+<li><strong>领域适配</strong>：通用模型是安全默认，垂直语料上领域微调的 embedding 可能更好。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>非对称检索（asymmetric retrieval）是常被忽略的加分点</strong>：query 和 document 应该用<strong>不同的编码方式</strong>。很多模型（如 bge 系列）支持 instruction 前缀——query 加"Represent this sentence for searching relevant passages:"，document 加"Represent this passage for retrieval:"。这能显著提升信息检索型 query 的召回，因为 query 和 doc 在语义空间里本就不对称（query 短而意图隐含，doc 长而信息完整）。主流 API 也有 <code>input_type=query/document</code> 参数，应正确使用。</li>
+<li><strong>换 embedding 是破坏性变更</strong>：向量空间变了，必须重建全部索引，且<strong>不能在同一索引里混用不同模型的向量</strong>。所以 embedding 要像代码一样版本化管理。</li>
+<li><strong>维度截断</strong>：OpenAI text-embedding-3 支持 Matryoshka 截断（1536→256/512），质量损失小但能省大量存储，千万级 chunk 时收益明显。</li>
+<li><strong>加分点</strong>：能说出"query/doc 非对称编码 + embedding 冻结在索引里"这两个进阶点。</li>
+</ul>
+<h3 id="wiki-h-5">44. 向量数据库怎么选？Milvus、Pinecone、pgvector 怎么取舍？</h3>
+<p><strong>直接答案</strong>：比较产品之前先确定部署方式与工作负载。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>适合先考虑的条件</th>
+<th>需要承担的工作</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>pgvector</td>
+<td>已有 PostgreSQL，希望结合事务和元数据过滤</td>
+<td>索引、容量、查询计划和数据库运维</td>
+</tr>
+<tr>
+<td>Milvus</td>
+<td>需要专门的向量检索及扩展能力</td>
+<td>部署方式、资源、索引与运维评估</td>
+</tr>
+<tr>
+<td>Pinecone</td>
+<td>希望购买托管服务</td>
+<td>费用、数据地域、网络和服务限制</td>
+</tr>
+<tr>
+<td>Weaviate</td>
+<td>需要其检索能力，可选托管或自部署</td>
+<td>按实际部署方式评估控制权和运维</td>
+</tr>
+<tr>
+<td>FAISS／Chroma</td>
+<td>本地实验或适合其能力的应用</td>
+<td>FAISS 是库，持久化和服务层需自行设计</td>
+</tr>
+</tbody></table></div>
+<p>没有"百万以下必选某库"的通则。用相同向量维度、过滤条件和召回目标测 QPS、P95 延迟、内存与费用，同时验证更新、删除和权限隔离。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>ANN 索引类型决定 recall/latency 权衡</strong>：Flat（精确、O(n) 扫描，仅小数据）、IVF（聚类分区，快但可能漏）、HNSW（图结构，高召回 + 快插入，是大多数生产向量库默认）、ScaNN/DiskANN（十亿级）。你通常不需要手调索引，但要理解"召回率 vs 延迟"这个本质权衡。</li>
+<li><strong>元数据预过滤</strong>：先按元数据过滤（<code>where: source=hr-policy AND year&gt;=2023</code>）再向量检索，能大幅提升精度。但要注意——<strong>先过滤再走图索引会导致图结构断裂</strong>（过滤掉的节点让 HNSW 的邻居关系失效），这是生产里"过滤后召回骤降"的根因，可用 ACORN、动态选邻居等策略缓解。</li>
+<li><strong>加分点</strong>：能说清"pgvector 图省事、Milvus 图扩展、Pinecone 图免运维"，并点出"过滤破坏图索引"这个进阶坑。</li>
+</ul>
+<h3 id="wiki-h-6">45. Rerank 为什么是性价比最高的 RAG 提升手段？和向量检索的本质区别是什么？</h3>
+<p><strong>直接答案</strong>：Rerank 用<strong>交叉编码器（cross-encoder）</strong>把 query 和候选 chunk <strong>拼在一起联合打分</strong>，精度远高于向量检索（bi-encoder 分开编码）。它只跑在召回的前几十个候选项上，把最相关的几条提到最前。</p>
+<p><strong>为什么大幅提升</strong>：向量检索是"粗筛"，交叉编码器是"精排"——精排后送入 LLM 的上下文质量显著提高，答案是<strong>最便宜、性价比最高的质量提升手段之一</strong>。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>本质区别在"token 级交互"</strong>：bi-encoder 把 query 和 doc 各自压成一个向量再算相似度，两者之间<strong>没有任何 token 级别的注意力交互</strong>；cross-encoder 把 query+doc 拼成一个序列送进 Transformer，attention 能在 query 的每个词和 doc 的每个词之间流动，能捕捉"精确匹配 + 语义相关"的细粒度信号。这是它准、也是它慢的根本原因。</li>
+<li><strong>代价与规模</strong>：cross-encoder 每次都要现场算，慢（100<del>300ms），所以只能跑在 top 50</del>100 的候选上，是"召回宽、重排窄"的两段式。</li>
+<li><strong>常见模型</strong>：bge-reranker、Cohere Rerank、jina reranker、FlashRank（轻量）；进阶还有 <strong>ColBERT 这类 late-interaction（延迟交互）</strong> 模型——在"cross-encoder 的精度"和"bi-encoder 的速度"之间取折中，用多向量表示 + 延迟求和，接近 cross-encoder 质量却能在索引阶段预计算，是可离线索引的"重排级"方案。</li>
+<li><strong>加分点</strong>：能说出"向量粗召回 + 交叉编码器精排"的标准链路，并知道 ColBERT 是精度/速度的折中方案。</li>
+</ul>
+<h3 id="wiki-h-7">46. Query 改写解决什么问题？多轮对话里的指代消解怎么落地？</h3>
+<p><strong>直接答案</strong>：Query 改写是在检索前<strong>优化用户的原始 query</strong>，让它更适合检索。常见手段：</p>
+<ul>
+<li>补全指代（"它"→具体对象）。</li>
+<li>扩展/分解（把模糊问题细化）。</li>
+<li>多查询生成（生成多个变体提高召回）。</li>
+<li>HyDE（先让模型生成假设答案，用答案去检索）。</li>
+</ul>
+<p><strong>什么时候需要</strong>：用户 query 太短、太模糊、含指代、或口语化严重，直接检索召回差时。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>典型场景——多轮指代消解</strong>：多轮对话里"那它的价格呢"——必须结合历史把"它"补全才能检索。实现上用 LLM 做 <strong>query 改写 + 历史压缩</strong>：把历史上下文压缩成一句话，再和当前 query 一起生成"独立可检索的 query"（standalone query）。</li>
+<li><strong>HyDE 的原理</strong>：先让 LLM 生成一个"假设答案"（可能错，但无所谓），再用这个答案去检索——因为"答案到答案"是同域对称检索，比"短 query 到长文档"的跨域检索更容易命中，在缺乏标注数据的场景能显著提升 recall。代价是多一次生成调用。</li>
+<li><strong>权衡</strong>：query 改写增加一次 LLM 调用，只在"召回确实差"时才值得，不要默认都加。</li>
+<li><strong>加分点</strong>：能说出"改写是为了把'对话依赖的 query'变成'可独立检索的 query'，代价是加一次调用"。</li>
+</ul>
+<h3 id="wiki-h-8">47. 不同类型的 query 该走哪种检索？多路召回和查询路由怎么设计？</h3>
+<p><strong>直接答案</strong>：多路召回指针对不同类型的问题，<strong>路由到不同的检索策略/索引</strong>，而非一刀切用同一个向量库。</p>
+<p><strong>典型路由</strong>：</p>
+<ul>
+<li>信息型问题 → 语义（向量）检索。</li>
+<li>精确查找（文档名、编号）→ BM25/关键词检索。</li>
+<li>结构化数据 → SQL/结构化查询（Text-to-SQL）。</li>
+<li>不同知识域 → 不同的索引/知识库。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：<strong>先判断 query 类型，再选检索方式</strong>——这是意图识别在 RAG 里的应用。一个 query 可能触发多路召回，最后合并（如 RRF 融合）。</li>
+<li><strong>路由的实现</strong>：轻量用规则/关键词分类，复杂用一个小 LLM 做 intent 分类，输出"该走哪路检索"；路由本身也可能误判，所以常保留"多路都查 + 融合"作为兜底。</li>
+<li><strong>路由的风险</strong>：路由到错误领域会漏召回，跨域问题可能需查多个分区——所以路由要可观测、可回退。</li>
+<li><strong>加分点</strong>：能说出"query routing 是把'查什么、去哪查'显式化，路由本身要能兜底"。</li>
+</ul>
+<h3 id="wiki-h-9">48. GraphRAG 相比传统 RAG 补上了什么能力？什么时候才值得上它？</h3>
+<p><strong>直接答案</strong>：GraphRAG 在传统 RAG 的基础上引入<strong>知识图谱</strong>，把文档抽取成"实体 + 关系"的图结构，检索时不仅能召回语义相似的片段，还能<strong>沿着关系做多跳推理</strong>。</p>
+<p><strong>解决什么问题</strong>：传统 RAG 对"全局性问题"（如"整个文档讲了哪几个主题""A 和 B 之间有什么联系"）处理弱，因为它只能召回局部片段；GraphRAG 通过图的社区结构做全局摘要，能回答"跨片段、需要聚合"的问题。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>原理</strong>：GraphRAG 的核心是<strong>先建图、再社区检测、再对每个社区做摘要</strong>，检索时先定位相关社区，再基于社区摘要 + 局部实体做回答。这是它和"只做向量检索"的本质区别——它引入了<strong>结构化的全局视图</strong>。</li>
+<li><strong>代价</strong>：构建知识图谱成本高（实体识别、关系抽取、图存储、社区检测），链路复杂，且抽取本身会引入噪声和错误。</li>
+<li><strong>适用</strong>：需要多跳推理、全局理解、实体关系查询的场景（法务、金融研报、企业知识库）。传统 RAG 能解决的，别为了"高级"而上 GraphRAG。</li>
+<li><strong>加分点</strong>：能说清"GraphRAG 补的是'跨片段全局推理'，代价是建图复杂度，要先证明传统 RAG 不够用"。</li>
+</ul>
+<h3 id="wiki-h-10">49. RAG 里怎么处理"检索不到"的情况？（空召回兜底）</h3>
+<p><strong>直接答案</strong>：检索结果为空或相似度都低于阈值时，<strong>不能让模型硬编</strong>。兜底策略：</p>
+<ol>
+<li><strong>阈值过滤</strong>：设相似度下限，低于阈值视为"未找到"。</li>
+<li><strong>引导拒绝</strong>：明确让模型回答"没有找到相关信息"。</li>
+<li><strong>回退检索</strong>：换更宽的关键词、改写 query 再试一次。</li>
+<li><strong>降级回答</strong>：提示用户"换个问法"或转人工。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>空召回是反幻觉的关键场景</strong>——硬编的答案比"不知道"危害更大，尤其是"有来源要求"的知识库问答（如客服、法务），检索失败时<strong>不能悄悄降级成纯生成</strong>，那等于放弃了"可溯源"的承诺。</li>
+<li><strong>阈值要按数据分布调，不是拍脑袋</strong>：不同语料、不同 embedding 的相似度分布差异很大，应该画相似度分布图，选一个"能切出真正无关项"的阈值，而不是统一用 0.7。</li>
+<li><strong>进阶</strong>：Corrective RAG（CRAG）的思路——先评估召回质量，质量不够就触发 query 改写或回退到网络搜索，而不是直接硬答。</li>
+<li><strong>加分点</strong>：能说出"空召回 → 拒绝/回退，而不是硬编；有来源要求的场景不能静默降级"。</li>
+</ul>
+<h3 id="wiki-h-11">50. 增量更新知识库时，怎么避免检索到过期内容？</h3>
+<p><strong>直接答案</strong>：知识会变（政策、价格、库存），RAG 必须支持更新，否则检索到过期内容。要点：</p>
+<ol>
+<li><strong>版本/时间戳管理</strong>：每个 chunk 带更新时间，检索时优先最新。</li>
+<li><strong>增量删除 + 重建</strong>：更新文档时删除旧向量、写入新向量，而非全量重建。</li>
+<li><strong>元数据过滤</strong>：用生效日期、状态字段过滤过期内容。</li>
+<li><strong>定期同步</strong>：文档源变化时自动触发索引更新。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：<strong>RAG 的质量上限由索引的新鲜度决定</strong>——索引过期，模型再强也白搭。</li>
+<li><strong>实现的关键是"文档→chunk"的映射</strong>：必须建立文档主键 → 它所有 chunk ID 的映射，更新时才能精确删除旧 chunk（否则会残留"幽灵向量"——旧内容还在索引里被召回到）。一个文档从 8 个 chunk 更新成 6 个，旧的那 2 个必须消失。</li>
+<li><strong>增量 re-embedding</strong>：只对变化的 chunk 重新嵌入，避免全量重建。用 CDC（变更数据捕获）从源系统同步，保证新鲜度。</li>
+<li><strong>加分点</strong>：能说出"RAG 不只是建索引，还要管索引的生命周期，关键是文档→chunk 映射 + 增量更新"。</li>
+</ul>
+<h3 id="wiki-h-12">51. 多轮对话的 RAG 怎么处理上下文和指代？</h3>
+<p><strong>直接答案</strong>：多轮 RAG 的核心难点是<strong>把"依赖历史的 query"变成"可独立检索的 query"</strong>。前文第 46 题解释了 Query 改写，本题用歧义案例检验多轮检索的边界处理。</p>
+<p>用户先比较产品 A 与 B，再问"它支持离线吗"。历史不能唯一确定"它"时，应澄清或分别检索两者，不能默认最近提到的对象。用户随后纠正"我问的是 A"，旧 B 的检索结果不能继续充当 A 的证据。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>歧义处理策略</strong>：当指代无法消解时，优先<strong>澄清（clarification）</strong>，或对多个候选实体<strong>分别检索再综合</strong>，而不是猜一个。这是生产里"对话 RAG 翻车"的头号原因——默认最近实体是错的。</li>
+<li><strong>追踪与归因</strong>：保存实体、时间范围与引用来源；改写后保留原问题和改写版本作追踪。历史是解释问题的上下文，<strong>不自动获得事实证据地位</strong>——检索到的资料才是证据。</li>
+<li><strong>测试维度</strong>：分别测试明确指代、歧义、话题切换、用户纠正、无相关文档五种情况，衡量检索召回与最终归因正确性。</li>
+<li><strong>加分点</strong>：能说出"指代消解要能处理歧义和用户纠正，历史只是上下文、检索结果才是证据"。</li>
+</ul>
+<h3 id="wiki-h-13">52. RAG 和长上下文模型怎么选？什么时候不需要 RAG？</h3>
+<p><strong>直接答案</strong>：长上下文模型能一次读入大量文档，但<strong>不等于可以替代 RAG</strong>。判断：</p>
+<ul>
+<li><strong>用长上下文</strong>：文档量小（几篇以内）、一次性分析（总结、对比几篇文档）。</li>
+<li><strong>用 RAG</strong>：文档量大（知识库）、需要精确检索、需要可溯源引用、内容频繁更新。</li>
+</ul>
+<p><strong>什么时候不需要 RAG</strong>：数据量小到能塞进上下文、且不需要频繁检索时，直接放 prompt 里更简单。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：长上下文是"能装下"，RAG 是"能精准找到"——两者定位不同。RAG 的价值是<strong>精准召回 + 可溯源 + 低成本</strong>，不是替代长上下文。</li>
+<li><strong>长上下文的三个坑</strong>：① 成本随 token 线性涨；② 中间遗忘（lost in the middle）——塞得多≠用得好；③ 延迟随 prefill 变长。</li>
+<li><strong>趋势判断</strong>：长上下文窗口越来越大，但"检索 + 精准注入"仍是知识库场景的标准答案，因为检索能控制"喂给模型的是什么"，而长上下文是把选择权交给模型（它不一定看得过来）。</li>
+<li><strong>加分点</strong>：能说清"RAG 的价值是精准召回 + 可溯源 + 低成本，长上下文解决的是'一次处理大文档'，两者互补不互斥"。</li>
+</ul>
+<h3 id="wiki-h-14">53. 一个 RAG 系统上线后效果不好，你怎么排查？</h3>
+<p><strong>直接答案</strong>：RAG 效果不好，按链路分阶段定位（从后往前或从前往后）：</p>
+<ol>
+<li><strong>先判断问题在检索还是生成</strong>：答案和资料对不上（生成问题），还是资料本身没召回对的（检索问题）。</li>
+<li><strong>检索问题</strong>：看 recall@k——低则查分块、embedding、混合检索、query 改写。</li>
+<li><strong>生成问题</strong>：看忠实度——低则查 prompt 约束、幻觉治理、温度。</li>
+<li><strong>逐层 A/B</strong>：单变量改动（换分块、换 embedding、加 rerank），跑 golden set 定位。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心方法论</strong>：<strong>分层定位 + 数据驱动</strong>，而不是"感觉哪不对改哪"。每一步都用指标（recall@k、faithfulness）缩小范围，而不是肉眼看几条。</li>
+<li><strong>常见根因排序（按概率）</strong>：分块不当 &gt; embedding 不适配 &gt; 缺少 rerank &gt; query 没改写 &gt; 解析质量差。多数 RAG 翻车是数据侧（分块/解析）问题，不是模型不够强。</li>
+<li><strong>排查时先看"召回对不对"，再看"生成对不对"</strong>：把召回的 chunk 打印出来人工核对，能最快定位是"没找到"还是"没用好"。</li>
+<li><strong>加分点</strong>：能给出系统的排查路径（分层 + 指标 + 单变量），而不是泛泛而谈"调一调"。</li>
+</ul>
+<h3 id="wiki-h-15">54. 忠实度（Faithfulness）和答案相关性（Relevance）为何要分开评？各自暴露什么问题？</h3>
+<p><strong>直接答案</strong>：这是 RAG 生成端的两个核心评估指标：</p>
+<ul>
+<li><strong>忠实度</strong>：答案的每个论断<strong>是否被检索到的资料支持</strong>——衡量"有没有编造/外推"。</li>
+<li><strong>答案相关性</strong>：答案<strong>是否切题地回应了用户问题</strong>——衡量"有没有答非所问"。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>两者是独立的正交维度</strong>：可能"忠实但不切题"（照抄资料但没回答问题），也可能"切题但不忠实"（回答了但编造）。合并成一个分数会掩盖真实问题。</li>
+<li><strong>忠实度是反幻觉的核心指标</strong>：它直接度量"答案超出资料支撑的程度"，用 NLI（自然语言推理）或 LLM-as-judge 判断"答案的每个 claim 是否被 context 蕴含（entailment）"。faithfulness 低 → 模型在编造。</li>
+<li><strong>配合检索端指标（recall@k）形成"检索 + 忠实 + 相关"三件套</strong>，分别定位"没找到、编造了、跑偏了"三类问题。</li>
+<li><strong>加分点</strong>：能说出"忠实度量幻觉、相关度量跑题，二者正交必须分开评"。</li>
+</ul>
+<h3 id="wiki-h-16">55. 怎么构建 RAG 的评测集（Golden Set）？</h3>
+<p><strong>直接答案</strong>：评测集是 RAG 迭代的地基。构建步骤：</p>
+<ol>
+<li><strong>收集真实问题</strong>：从实际用户、日志里挖真实 query，而非拍脑袋编。</li>
+<li><strong>标注标准答案 + 来源文档</strong>：每个问题标注正确答案和应召回的文档片段。</li>
+<li><strong>覆盖边界</strong>：包含"检索不到""多义问题""跨文档"等难例。</li>
+<li><strong>持续扩充</strong>：把线上 bad case 沉淀进评测集。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>关键</strong>：<strong>评测集要来自真实数据</strong>，编造的评测集测不出真实问题。规模上，50~200 个真实 QA 对是生产可用的起点。</li>
+<li><strong>评测集分层</strong>：开发集（调 prompt、调阈值用）+ 回归集（频繁跑的门禁）+ 独立保留集（不参与调参，防过拟合）。<strong>反复用保留集调参，它就不再独立</strong>，这是评测集建设的经典陷阱。</li>
+<li><strong>评测集既测检索（该召回哪些文档）也测生成（答案对不对、忠实不忠实）</strong>，所以每个样本要同时标注"应召回的 doc"和"标准答案"。</li>
+<li><strong>加分点</strong>：能说出"评测集来自真实数据 + 三集分层 + 持续沉淀 bad case"。</li>
+</ul>
+<h3 id="wiki-h-17">56. 分块太大"语义稀释"、太小"语义断裂"，小到大检索如何两全？（Parent-Child）</h3>
+<p><strong>直接答案</strong>：小到大检索解决"分块太小语义断裂、太大语义稀释"的两难：</p>
+<ul>
+<li><strong>嵌入小块</strong>：用较小的 chunk（如句子级）做向量，保证检索精度。</li>
+<li><strong>返回大块</strong>：检索命中后，返回它所属的更大的父块（如段落级）作为上下文，保证语义完整。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>本质</strong>：<strong>检索粒度和生成粒度解耦</strong>——检索用"精确的小块"，生成用"完整的大块"。每个小块记录其父块的 ID，命中后返回父块。</li>
+<li><strong>相关变体</strong>：<ul>
+<li><strong>Parent-Child / Parent Document Retriever</strong>：小 chunk 索引、大 parent 返回（LangChain 内置）。</li>
+<li><strong>Sentence Window Retrieval（句窗口检索）</strong>：以句子为单位检索，命中后带前后 N 句的上下文窗口，既精细匹配又保留上下文。</li>
+<li><strong>自动合并（Auto-merging）</strong>：若某个父块下的多个子块都被召回（超过阈值），直接把整个父块作为上下文。</li>
+</ul>
+</li>
+<li><strong>代价</strong>：需要维护两级索引和映射关系，实现复杂度略高。</li>
+<li><strong>加分点</strong>：能说出"检索精度和生成完整性是一对矛盾，小到大检索用'两级粒度'解耦它们"。</li>
+</ul>
+</article>

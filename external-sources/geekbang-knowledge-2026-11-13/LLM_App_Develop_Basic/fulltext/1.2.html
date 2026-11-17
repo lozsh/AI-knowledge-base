@@ -1,0 +1,274 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你在网页里输入一段笔记，DeepSeek 能告诉你第二章改到了周六。现在，你希望自己写的程序也能做这件事：读取输入，发送请求，接收回答，再把结果交给后续页面或功能。</p>
+<p>这就是本部分的起点。今天先完成一个很小但完整的闭环：<strong>运行一份 Python 脚本，向 DeepSeek 官方 API 发送一条短请求，把响应保存到本地，并独立核对答案。</strong></p>
+<p>不需要先读完前两部分，也不需要先学习框架。你需要一台能上网的电脑、Python 3.11 或更新的稳定版，以及自己的 DeepSeek 开放平台账户。真正发送请求可能产生 API 费用；本文先提供一个不读取密钥、不联网的预演步骤。</p>
+<p>代码已做本地语法和模拟响应测试，未使用个人密钥进行真实付费调用。文中的示例回答用于说明预期形式，不是线上实测记录。</p>
+<h2 id="wiki-h-0">聊天产品、模型和 API，分别负责什么</h2>
+<p>聊天产品已经替你做好输入框、历史记录和回答展示。API 则是程序与模型服务交换数据的接口。通过 API，你要明确告诉服务：“这次用哪个模型、有哪些消息、怎样返回结果。”</p>
+<p>本例的路径是：</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-1" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 775.71875px;" viewBox="4 4 775.71875 233.5" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-1{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-1 .error-icon{fill:#552222;}#wiki-mermaid-1 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-1 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-1 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-1 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-1 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-1 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-1 .marker{fill:#666;stroke:#666;}#wiki-mermaid-1 .marker.cross{stroke:#666;}#wiki-mermaid-1 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-1 p{margin:0;}#wiki-mermaid-1 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-1 .cluster-label text{fill:#333;}#wiki-mermaid-1 .cluster-label span{color:#333;}#wiki-mermaid-1 .cluster-label span p{background-color:transparent;}#wiki-mermaid-1 .label text,#wiki-mermaid-1 span{fill:#000000;color:#000000;}#wiki-mermaid-1 .node rect,#wiki-mermaid-1 .node circle,#wiki-mermaid-1 .node ellipse,#wiki-mermaid-1 .node polygon,#wiki-mermaid-1 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-1 .rough-node .label text,#wiki-mermaid-1 .node .label text,#wiki-mermaid-1 .image-shape .label,#wiki-mermaid-1 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-1 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-1 .rough-node .label,#wiki-mermaid-1 .node .label,#wiki-mermaid-1 .image-shape .label,#wiki-mermaid-1 .icon-shape .label{text-align:center;}#wiki-mermaid-1 .node.clickable{cursor:pointer;}#wiki-mermaid-1 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-1 .arrowheadPath{fill:#333333;}#wiki-mermaid-1 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-1 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-1 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-1 .edgeLabel p{background-color:white;}#wiki-mermaid-1 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-1 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-1 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-1 .cluster text{fill:#333;}#wiki-mermaid-1 .cluster span{color:#333;}#wiki-mermaid-1 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-1 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-1 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-1 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-1 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-1 .icon-shape,#wiki-mermaid-1 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-1 .icon-shape p,#wiki-mermaid-1 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-1 .icon-shape .label rect,#wiki-mermaid-1 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-1 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-1 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-1 .node .neo-node{stroke:#999;}#wiki-mermaid-1 [data-look="neo"].node rect,#wiki-mermaid-1 [data-look="neo"].cluster rect,#wiki-mermaid-1 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-1 [data-look="neo"].node path{stroke:url(#wiki-mermaid-1-gradient);stroke-width:1px;}#wiki-mermaid-1 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-1 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-1 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-1_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-1_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,91L176.92893218813452,91Q184,91 184,83.92893218813452L184,55.071067811865476Q184,48 191.07106781186548,48L423.71875,48" id="wiki-mermaid-1-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 293.390380859375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTY0LCJ5Ijo5MX0seyJ4IjoxODQsInkiOjkxfSx7IngiOjE4NCwieSI6NDh9LHsieCI6NDI3LjcxODc1LCJ5Ijo0OH1d" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M579.71875,48L592.6476821881345,48Q599.71875,48 599.71875,55.071067811865476L599.71875,64.26226552146787Q599.71875,71.33333333333334 606.7898178118655,71.33333333333334L615.71875,71.33333333333334" id="wiki-mermaid-1-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 50.005062103271484 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6NTc5LjcxODc1LCJ5Ijo0OH0seyJ4Ijo1OTkuNzE4NzUsInkiOjQ4fSx7IngiOjU5OS43MTg3NSwieSI6NzEuMzMzMzMzMzMzMzMzMzR9LHsieCI6NjE5LjcxODc1LCJ5Ijo3MS4zMzMzMzMzMzMzMzMzNH1d" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M619.71875,80.66666666666667L606.7898178118655,80.66666666666667Q599.71875,80.66666666666667 599.71875,87.73773447853215L599.71875,96.92893218813452Q599.71875,104 592.6476821881345,104L503.71875,104L168,104" id="wiki-mermaid-1-L_C_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 465.72381591796875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_A_0" data-points="W3sieCI6NjE5LjcxODc1LCJ5Ijo4MC42NjY2NjY2NjY2NjY2N30seyJ4Ijo1OTkuNzE4NzUsInkiOjgwLjY2NjY2NjY2NjY2NjY3fSx7IngiOjU5OS43MTg3NSwieSI6MTA0fSx7IngiOjUwMy43MTg3NSwieSI6MTA0fSx7IngiOjE2NCwieSI6MTA0fV0=" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M164,117L176.92893218813452,117Q184,117 184,124.07106781186548L184,186.42893218813452Q184,193.5 191.07106781186548,193.5L200,193.5" id="wiki-mermaid-1-L_A_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 103.17166900634766 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_D_0" data-points="W3sieCI6MTY0LCJ5IjoxMTd9LHsieCI6MTg0LCJ5IjoxMTd9LHsieCI6MTg0LCJ5IjoxOTMuNX0seyJ4IjoyMDQsInkiOjE5My41fV0=" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(295.859375, 47.5)"><g class="label" data-id="L_A_B_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-91.859375" y="-3" width="183.71875" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">HTTPS请求：消息和参数</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(295.859375, 103.5)"><g class="label" data-id="L_C_A_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-39.0859375" y="-3" width="78.171875" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">JSON响应</tspan></tspan></text></g></g></g></g><g class="nodes"><g class="node default" id="wiki-mermaid-1-flowchart-A-0" data-look="neo" transform="translate(88, 104)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>你的 Python 程序</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-B-1" data-look="neo" transform="translate(503.71875, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>DeepSeek 官方 API</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-C-3" data-look="neo" transform="translate(695.71875, 76)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>模型生成</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-D-7" data-look="neo" transform="translate(280, 193.5)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>终端显示与本地响应文件</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-1-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-1-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-1-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>Python 程序在你的电脑上运行，模型仍在远端服务运行。这不要求你的电脑有能装下大模型的显卡，也不等于把模型权重下载到本机。</p>
+<p>先认识四个值：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>本篇使用的值或含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>服务基础地址</td>
+<td><code>https://api.deepseek.com</code></td>
+</tr>
+<tr>
+<td>本次操作路径</td>
+<td><code>/chat/completions</code>，用于本例的聊天生成</td>
+</tr>
+<tr>
+<td>模型标识</td>
+<td><code>deepseek-flash</code>，让服务选择模型</td>
+</tr>
+<tr>
+<td>API Key</td>
+<td>你自己的访问凭据，不能用聊天密码代替</td>
+</tr>
+</tbody></table></div>
+<p>截至 2026 年 10 月 4 日，官方首次调用文档列出的 Flash 调用标识是 <code>deepseek-flash</code>。不要从旧教程复制模型名后假定它一直有效；阅读本篇较晚时，应先核对官方文档。<a href="https://api-docs.deepseek.com/">DeepSeek：首次 API 调用</a></p>
+<p>这里采用兼容 OpenAI 格式的聊天接口。请求仍发给 DeepSeek，凭据也必须来自 DeepSeek；“协议兼容”不是把两个平台的账户或余额连在一起。本篇直接用 Python 标准库发送 HTTP 请求，下一篇再用 SDK 整理项目。</p>
+<h2 id="wiki-h-1">准备自己的账户和凭据</h2>
+<p>打开 <a href="https://platform.deepseek.com/">DeepSeek 开放平台</a>，登录自己的账户，找到 API Keys（API 密钥）管理入口，创建一枚用于本课程的密钥。界面名称和布局可能调整，入口用途是管理供程序调用的访问凭据。</p>
+<p>再检查平台显示的可用余额和 <a href="https://api-docs.deepseek.com/quick_start/pricing/">官方价格页</a>。没有可用余额时，按自己愿意承担的预算决定是否充值；本文不要求固定充值金额，也不假设账户一定有赠送额度。API 用量由平台按规则扣费，不能仅凭聊天页面可以使用，就判断程序调用也免费。</p>
+<p>本篇只发一次很短的文本请求，并限制输出长度。密钥在程序运行时通过隐藏输入读取，不需要贴进代码、聊天记录或截图。请把密钥保存在自己使用的密码管理工具等安全位置；程序运行时再粘贴。</p>
+<p>如果把密钥误发给他人或提交进公开仓库，应在平台撤销并重新创建。删除截图或最新一行代码，不会让已经泄露的密钥重新安全。</p>
+<h2 id="wiki-h-2">确认电脑能运行 Python</h2>
+<p>先在系统终端检查版本。macOS 打开“终端”，Windows 打开 PowerShell；不要把下面的命令粘贴进出现 <code>&gt;&gt;&gt;</code> 的 Python 交互窗口。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 --version
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">--version</span>
+</code></pre><p>看到 <code>Python 3.11.x</code>、<code>3.12.x</code> 等不低于 3.11 的稳定版即可。本文代码在 Python 3.11.8 上完成本地检查；不要求安装某一个完全相同的小版本。</p>
+<p>如果命令不存在，按对应平台处理：</p>
+<ul>
+<li><strong>macOS</strong>：从 <a href="https://www.python.org/downloads/">Python 官方下载页</a> 选择稳定版 macOS 安装包，打开 <code>.pkg</code> 完成安装；重新打开终端，再检查 <code>python3 --version</code>。如后续遇到证书验证问题，官方安装包的 Python 文件夹提供 <code>Install Certificates.command</code>，可按 <a href="https://docs.python.org/3/using/mac.html">macOS 官方说明</a>安装证书，不要改成跳过 HTTPS 验证。</li>
+<li><strong>Windows</strong>：从同一官方下载页进入 Windows 安装入口，按官方安装方式安装稳定版。重新打开 PowerShell，检查 <code>py -3 --version</code>；若仅 <code>python --version</code> 能正常显示所需版本，后续将 <code>py -3</code> 换成 <code>python</code>。安装与命令发现问题可对照 <a href="https://docs.python.org/3/using/windows.html">Windows 官方说明</a>。</li>
+<li><strong>Linux</strong>：先检查发行版自带的 <code>python3</code>。Ubuntu / Debian 缺少时可用下方命令安装，再检查版本；若发行版提供的版本低于 3.11，需按该发行版支持的方式安装较新版本，不要直接替换系统依赖的解释器。</li>
+</ul>
+<p>仅 Ubuntu / Debian 安装命令：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update
+<span class="hljs-built_in">sudo</span> apt install python3
+python3 --version
+</code></pre><p>本篇只使用标准库，不需要执行 <code>pip install</code>。能显示正确版本，是继续之前的第一项检查。</p>
+<h2 id="wiki-h-3">保存一份可以直接运行的脚本</h2>
+<p>在你容易找到的位置创建一个空文件夹 <code>deepseek-notes</code>。用代码编辑器在里面新建 <code>first_call.py</code>，保存为 UTF-8。文件名应以 <code>.py</code> 结尾，不要误存成 <code>first_call.py.txt</code>。</p>
+<p>你也可以下载现成的 first_call.py，放进这个文件夹。以下代码与下载文件一致：</p>
+<pre><code class="hljs language-python"><span class="hljs-string">"""Lesson 01: one DeepSeek request; --dry-run never reads a key or uses the network."""</span>
+<span class="hljs-keyword">import</span> argparse
+<span class="hljs-keyword">import</span> getpass
+<span class="hljs-keyword">import</span> json
+<span class="hljs-keyword">from</span> pathlib <span class="hljs-keyword">import</span> Path
+<span class="hljs-keyword">from</span> datetime <span class="hljs-keyword">import</span> datetime
+<span class="hljs-keyword">import</span> urllib.error
+<span class="hljs-keyword">import</span> urllib.request
+<span class="hljs-keyword">import</span> warnings
+
+ENDPOINT = <span class="hljs-string">"https://api.deepseek.com/chat/completions"</span>
+MODEL = <span class="hljs-string">"deepseek-flash"</span>
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">make_payload</span>():
+    <span class="hljs-keyword">return</span> {
+        <span class="hljs-string">"model"</span>: MODEL,
+        <span class="hljs-string">"messages"</span>: [
+            {<span class="hljs-string">"role"</span>: <span class="hljs-string">"system"</span>, <span class="hljs-string">"content"</span>: <span class="hljs-string">"你是复习助手。仅依据用户提供的笔记回答；缺少信息就说明缺少。"</span>},
+            {<span class="hljs-string">"role"</span>: <span class="hljs-string">"user"</span>, <span class="hljs-string">"content"</span>: <span class="hljs-string">"笔记：第二章原定周五，现改为周六复习。问题：现在安排在哪天？只回答日期表达，不补充几点。"</span>},
+        ],
+        <span class="hljs-string">"thinking"</span>: {<span class="hljs-string">"type"</span>: <span class="hljs-string">"disabled"</span>},
+        <span class="hljs-string">"stream"</span>: <span class="hljs-literal">False</span>,
+        <span class="hljs-string">"max_tokens"</span>: <span class="hljs-number">256</span>,
+    }
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>():
+    parser = argparse.ArgumentParser(description=<span class="hljs-string">"一次 DeepSeek API 调用"</span>)
+    parser.add_argument(<span class="hljs-string">"--dry-run"</span>, action=<span class="hljs-string">"store_true"</span>, <span class="hljs-built_in">help</span>=<span class="hljs-string">"只看请求，不读取密钥、不联网"</span>)
+    args = parser.parse_args()
+    payload = make_payload()
+    <span class="hljs-keyword">if</span> args.dry_run:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">"POST"</span>, ENDPOINT)
+        <span class="hljs-built_in">print</span>(json.dumps(payload, ensure_ascii=<span class="hljs-literal">False</span>, indent=<span class="hljs-number">2</span>))
+        <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>
+
+    <span class="hljs-keyword">try</span>:
+        <span class="hljs-keyword">with</span> warnings.catch_warnings():
+            warnings.simplefilter(<span class="hljs-string">"error"</span>, getpass.GetPassWarning)
+            key = getpass.getpass(<span class="hljs-string">"粘贴 DeepSeek API Key（不显示），然后回车："</span>).strip()
+    <span class="hljs-keyword">except</span> (getpass.GetPassWarning, EOFError):
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">"无法隐藏输入。请在系统终端中运行，不要把密钥写入代码。"</span>)
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> key:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">"未输入密钥，未发送请求。"</span>)
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>
+
+    request = urllib.request.Request(
+        ENDPOINT,
+        data=json.dumps(payload, ensure_ascii=<span class="hljs-literal">False</span>).encode(<span class="hljs-string">"utf-8"</span>),
+        headers={<span class="hljs-string">"Content-Type"</span>: <span class="hljs-string">"application/json"</span>, <span class="hljs-string">"Authorization"</span>: <span class="hljs-string">"Bearer "</span> + key},
+        method=<span class="hljs-string">"POST"</span>,
+    )
+    <span class="hljs-keyword">try</span>:
+        <span class="hljs-keyword">with</span> urllib.request.urlopen(request, timeout=<span class="hljs-number">60</span>) <span class="hljs-keyword">as</span> response:
+            status = response.status
+            raw = response.read().decode(<span class="hljs-string">"utf-8"</span>)
+        data = json.loads(raw)
+    <span class="hljs-keyword">except</span> urllib.error.HTTPError <span class="hljs-keyword">as</span> exc:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f"HTTP <span class="hljs-subst">{exc.code}</span>：请求未成功，请按文章的错误表检查；本程序不会自动重试。"</span>)
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>
+    <span class="hljs-keyword">except</span> (urllib.error.URLError, TimeoutError):
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">"网络连接、证书或等待响应出错；未确认完成，不自动重试。"</span>)
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>
+    <span class="hljs-keyword">except</span> (UnicodeDecodeError, json.JSONDecodeError):
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">"响应不是预期的 UTF-8 JSON。请核对官方地址和网络环境。"</span>)
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>
+
+    output = Path(__file__).resolve().parent / <span class="hljs-string">"responses"</span>
+    output.mkdir(exist_ok=<span class="hljs-literal">True</span>)
+    path = output / (datetime.now().strftime(<span class="hljs-string">"response-%Y%m%d-%H%M%S-%f"</span>) + <span class="hljs-string">".json"</span>)
+    path.write_text(json.dumps(data, ensure_ascii=<span class="hljs-literal">False</span>, indent=<span class="hljs-number">2</span>), encoding=<span class="hljs-string">"utf-8"</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"HTTP"</span>, status)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"响应保存到："</span>, path)
+    <span class="hljs-keyword">try</span>:
+        choice = data[<span class="hljs-string">"choices"</span>][<span class="hljs-number">0</span>]
+        answer = choice[<span class="hljs-string">"message"</span>][<span class="hljs-string">"content"</span>]
+        finish = choice[<span class="hljs-string">"finish_reason"</span>]
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-built_in">isinstance</span>(answer, <span class="hljs-built_in">str</span>) <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> answer.strip():
+            <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">"empty content"</span>)
+    <span class="hljs-keyword">except</span> (KeyError, IndexError, TypeError, ValueError):
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">"缺少有效回答，请查看响应文件；HTTP 成功不等于内容可用。"</span>)
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"回答："</span>, answer)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"结束原因："</span>, finish)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"用量："</span>, json.dumps(data.get(<span class="hljs-string">"usage"</span>, {}), ensure_ascii=<span class="hljs-literal">False</span>))
+    <span class="hljs-keyword">if</span> finish != <span class="hljs-string">"stop"</span>:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">"本次不是正常 stop 结束；不要直接当成完整答案。"</span>)
+        <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>
+    <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>
+
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">"__main__"</span>:
+    <span class="hljs-keyword">try</span>:
+        <span class="hljs-keyword">raise</span> SystemExit(main())
+    <span class="hljs-keyword">except</span> KeyboardInterrupt:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">"\n已中断；若请求已发出，不能据此断定服务端没有处理或计费。"</span>)
+        <span class="hljs-keyword">raise</span> SystemExit(<span class="hljs-number">130</span>)
+</code></pre><p>代码看起来不短，是因为它同时交代了读取密钥、处理常见失败和保存结果。你暂时不需要背下每一行，先沿着三个部分理解：</p>
+<p><strong><code>make_payload()</code> 定义发给服务的内容。</strong> <code>messages</code> 是消息列表，<code>system</code> 说明任务要求，<code>user</code> 提供具体笔记和问题。这里的笔记是教学构造，正确答案能由原文独立判断。</p>
+<p><strong><code>Request</code> 和 <code>urlopen</code> 负责发送。</strong> Python 字典先转成 UTF-8 JSON 字节，再通过 HTTPS POST 交给接口；<code>Authorization</code> 请求头带访问凭据。<code>timeout=60</code> 为阻塞网络操作设置超时，不是保证整个任务严格在 60 秒内结束。<a href="https://docs.python.org/3/library/urllib.request.html">Python：urllib.request</a></p>
+<p><strong>后半段解析并保存响应。</strong> 它从 <code>choices[0].message.content</code> 取第一项回答，检查是否有内容，读取结束原因，并把原始 JSON 保存下来。这样你不必只相信终端最后一句“看起来成功”。</p>
+<p><code>thinking</code> 在这里显式设为 <code>disabled</code>。当前官方文档说明思考模式默认开启；第一次只是从短笔记取日期，不需要把更多模式一起引入。后面会单独比较什么时候需要它。<a href="https://api-docs.deepseek.com/guides/thinking_mode/">DeepSeek：思考模式</a></p>
+<p><code>stream: false</code> 表示本篇一次接收完整响应；<code>max_tokens: 256</code> 是输出 Token 上限，不是“256 个汉字”，也不是要求必须输出这么长。<a href="https://api-docs.deepseek.com/api/create-chat-completion/">DeepSeek：聊天接口参数</a></p>
+<h2 id="wiki-h-4">先预演，再发送一次真实请求</h2>
+<p>在终端切换到 <code>deepseek-notes</code> 文件夹。可以在编辑器中打开该文件夹，再打开它的集成终端；用下面命令确认当前文件夹里确实有脚本。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">ls</span>
+python3 first_call.py --dry-run
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span>
+py <span class="hljs-literal">-3</span> first_call.py <span class="hljs-literal">--dry-run</span>
+</code></pre><p>预演会显示 <code>POST https://api.deepseek.com/chat/completions</code> 和请求 JSON。它不读取密钥、不联网、不产生 API 用量。检查三件事：目标域名正确、模型标识正确、消息里是本篇的短笔记。</p>
+<p>确认后去掉 <code>--dry-run</code>。<strong>下面这一步会向官方服务发送请求，可能产生费用。</strong></p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 first_call.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> first_call.py
+</code></pre><p>出现“粘贴 DeepSeek API Key”提示时粘贴自己的密钥，再按回车。输入时通常没有星号，也看不到字符，这不意味着粘贴失败。隐藏输入由标准库 <code>getpass</code> 提供；如果运行环境无法隐藏，脚本会停止，而不是改成把密钥显示出来。<a href="https://docs.python.org/3/library/getpass.html">Python：getpass</a></p>
+<p>这一版没有自动重试。若要中断，可以按 Ctrl+C；请求已经发出时，中断本地程序不等于远端一定没有处理，也不能据此断定不会计费。</p>
+<h2 id="wiki-h-5">怎样判断这次真正成功了</h2>
+<p>下面是<strong>示意输出</strong>，文件名、文字和实际用量以你的运行结果为准：</p>
+<pre><code class="hljs language-text">HTTP 200
+响应保存到：…/deepseek-notes/responses/response-日期-时间.json
+回答：周六
+结束原因：stop
+用量：{这里会显示服务实际返回的用量字段}
+</code></pre><p>先看四层结果：</p>
+<ol>
+<li><strong>网络和接口</strong>：没有连接错误，HTTP 返回成功。</li>
+<li><strong>响应结构</strong>：存在有效回答内容，而不是空字符串或缺少 <code>choices</code>。</li>
+<li><strong>生成结束</strong>：本例应当正常 <code>stop</code>；若是 <code>length</code> 等其他状态，先检查是否截断或异常结束。</li>
+<li><strong>任务结果</strong>：答案确实是周六，没有凭空添加 19:00、教材或新安排。</li>
+</ol>
+<p><code>stop</code> 只说明生成正常停止，不证明答案正确。前三层通过、第四层失败时，接口仍然可能已经正常调用并计费，只是模型没有完成你想要的任务。<a href="https://api-docs.deepseek.com/api/create-chat-completion/">DeepSeek：响应及结束原因</a></p>
+<p>接着打开脚本旁的 <code>responses</code> 文件夹，用文本编辑器打开最新 JSON。找到 <code>choices</code>、<code>message</code>、<code>content</code>，确认它与终端显示一致；再找到 <code>usage</code>，查看服务实际记录的输入输出用量。这是对程序显示的一次独立复核。</p>
+<p>文件由脚本按本地日期时间创建，每次成功解析响应都会生成新文件，不覆盖前一次。脚本没有把请求头或密钥主动写入文件，但真实响应可能包含你的私人资料；本课先用公开的构造笔记，后续不要随意分享原始响应目录。</p>
+<p>如果打开的不是最新文件，或者你在别的目录运行了脚本，按终端打印的完整路径查找。保存位置固定在脚本旁，不取决于启动时恰好在哪个文件夹。</p>
+<h2 id="wiki-h-6">失败时，先按现象查</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>首先检查什么</th>
+<th>本轮怎样处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>找不到 <code>first_call.py</code></td>
+<td>当前文件夹、扩展名</td>
+<td>回到脚本所在目录，重新列出文件</td>
+</tr>
+<tr>
+<td>隐藏输入不可用</td>
+<td>是否在不支持交互的运行面板</td>
+<td>改用系统终端；不要把密钥粘进源码</td>
+</tr>
+<tr>
+<td>HTTP 401</td>
+<td>密钥错误、撤销、复制不完整</td>
+<td>回开放平台确认，重新运行并输入</td>
+</tr>
+<tr>
+<td>HTTP 402</td>
+<td>可用余额</td>
+<td>查看平台账户余额，决定是否补充</td>
+</tr>
+<tr>
+<td>HTTP 400 / 422</td>
+<td>JSON格式、模型名、参数</td>
+<td>对照请求预演与当前文档，不凭猜测改一堆参数</td>
+</tr>
+<tr>
+<td>HTTP 429</td>
+<td>请求频率或服务限制</td>
+<td>停下来稍后再试，不连续启动很多次</td>
+</tr>
+<tr>
+<td>HTTP 500 / 503</td>
+<td>服务端错误或繁忙</td>
+<td>稍后人工重试，保留错误类型</td>
+</tr>
+<tr>
+<td>网络、证书或等待错误</td>
+<td>网络能否访问官方服务，证书配置</td>
+<td>排查网络和系统证书；不要禁用验证</td>
+</tr>
+<tr>
+<td>HTTP成功但回答缺失或非stop</td>
+<td>响应文件中的内容与结束原因</td>
+<td>查看保存文件，不直接当完整答案使用</td>
+</tr>
+</tbody></table></div>
+<p>其中状态码对应原因来自 <a href="https://api-docs.deepseek.com/quick_start/error_codes/">DeepSeek 官方错误说明</a>。本篇先把常见问题分清，第 08 篇再做有上限、分类型的程序重试。</p>
+<p>如果出现文件权限或磁盘空间错误，可能是响应已经收到，但本地保存失败。把脚本放在自己可写的项目目录，检查磁盘空间；不要因为保存失败就认为服务一定没有计费。</p>
+<h2 id="wiki-h-7">做一个小改动，确认你真的理解了</h2>
+<p>把 <code>user</code> 消息里的笔记改成：</p>
+<blockquote>
+<p>第二章原定周六，现改为周日复习。问题：现在安排在哪天？只回答日期表达，不补充几点。</p>
+</blockquote>
+<p>先运行 <code>--dry-run</code>，确认送出的文本已经改变，再决定是否执行第二次真实调用。预期应改答周日；它能检验你修改的是实际请求，而不是只改了页面上的说明。</p>
+<p>再做三个不用联网的判断：</p>
+<ul>
+<li><strong>把模型标识改成自己的密钥，可以完成认证吗？</strong> 不可以。模型标识选择服务里的模型，认证凭据放在请求头，两者作用不同。</li>
+<li><strong>预演显示了请求 JSON，能说模型已经回答了吗？</strong> 不能。预演没有发出网络请求。</li>
+<li><strong>返回“周日 19:00”，HTTP和结束状态都正常，算本题通过吗？</strong> 不算。19:00没有依据，接口成功与任务正确是两件事。</li>
+</ul>
+<p>今天得到的是一个可以检查输入、发送请求、保存响应的小脚本。下一篇会把它整理成可维护的项目：建立虚拟环境，管理依赖和配置，用 SDK 封装请求，让后续多轮对话不必反复写这些连接代码。</p>
+<hr>
+<p>本部分大纲 · 可运行脚本 · 第二部分：大模型原理</p>
+<p>文档核查日期：2026 年 10 月 4 日。示例本地离线验证通过；真实账户权限、余额、网络和当时服务行为需由读者实际运行核对。</p>
+</article>

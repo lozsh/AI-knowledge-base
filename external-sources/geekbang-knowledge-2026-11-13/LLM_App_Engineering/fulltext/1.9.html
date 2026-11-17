@@ -1,0 +1,180 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>搜索框里输入“RAG 流程”，网页却返回了问题“RAG流程是什么？”。两个字符串中间有没有空格，原本应该影响本项目的连续子串匹配。更奇怪的是，存储层检查全过了，只有网页检查报错。</p>
+<p>现在让AI“优化搜索”，它可能换匹配算法、重写SQL，甚至把测试预期改成允许这个结果。改动越来越多，你却越来越难解释：到底哪一处引起了问题？</p>
+<p>本篇只处理这个具体故障。我们先稳定复现，再比较相邻层的行为，找到输入在哪一步被改变，做一行修复，最后审查真实差异与验证证据。你会得到一份可以交给别人复核的故障记录和修复报告。</p>
+<p>完整练习包 · 问题记录 · 审查报告 · 上一篇：测试与反馈</p>
+<blockquote>
+<p>这是作者专门构造的教学回归，不是上一课真实存在的缺陷，也不是Kimi生成代码实录。核实日期2026年10月4日；作者已离线复现并在临时副本验证修复。没有真实Kimi或DeepSeek请求，没有Windows实机、浏览器视觉或性能压测。</p>
+</blockquote>
+<h2 id="wiki-h-0">这次的project确实带错，先认清起点</h2>
+<p>解压后进入外层<code>lesson-08</code>。本篇与前两课不同，包含两个应用目录：</p>
+<pre><code class="hljs language-text">lesson-08/
+  project/                  故意带错，供你修复
+  reference/                正确对照，只读保留
+  verify_search.py          仍检查project
+  verify_search_boundary.py 仍检查project
+  verify_preview.py         仍检查project
+  search-cases.json
+  reference-fix.diff         作者最小修复对照，先不看
+  docs/
+    tasks/008-debug.md
+    BUG_REPORT.md
+    REVIEW_REPORT.md
+    STATUS.md
+</code></pre><p><code>reference</code>的38个应用文件与第07篇正确版本完全一致。<code>project</code>只在一个文件中加入了一行错误处理，其他37个文件不变。交付包特意保留这个故障，让你能够从失败开始练习；“作者已验证修复”不表示你的练习起点已经修好。</p>
+<p>三个验证器和固定案例沿用上一课，没有为了演练放宽预期。它们的目标仍是<code>project</code>；不要把参数改成<code>reference</code>，也不要打开第07篇的<code>--counterexample</code>。上一课的反例只在进程里生效，本篇错误实际存在于练习文件，重开终端不会自动消失。</p>
+<p>先读README、AGENTS和任务008。应用仍使用DeepSeek，开发工具仍是Kimi。我们不需要个人数据库、模型Key或线上请求，也不准备修改模型配置、数据库结构和搜索规格。</p>
+<p>如果你已经在自己的仓库继续开发，请另用这份独立练习包，不要把教学故障覆盖进正在使用的项目。</p>
+<h2 id="wiki-h-1">先保存基线，再取得一份稳定的失败</h2>
+<p>开始修改前，确认工作目录和已有变化。已有独立Git仓库的读者先运行<code>git status --short</code>，记下哪些是自己之前的修改，再按第03篇的方法保留检查点。本课不会替你提交或丢弃内容。</p>
+<p>新解压包没有<code>.git</code>也可以练习：用编辑器把<code>project/web_app.py</code>的修改前内容复制保存为<code>docs/debug-before-web_app.py.txt</code>，原文件继续留在project。若同名备份已存在，换一个新名字，不覆盖过去的记录。备份只是一份审查基线，不参与程序执行。</p>
+<p>Python环境按README准备：Python3.11或以上，虚拟环境安装<code>project/requirements.txt</code>。已有课程环境可复用。以下都从外层<code>lesson-08</code>运行。</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python verify_search.py project --stage store
+.venv/bin/python verify_search.py project --stage web
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe verify_search.py project <span class="hljs-literal">--stage</span> store
+.\.venv\Scripts\python.exe verify_search.py project <span class="hljs-literal">--stage</span> web
+</code></pre><p>第一条预期2个方法通过。第二条会运行4个方法，并在固定案例S10出现一个断言失败。作者实际输出的关键部分如下，路径与运行时间已省略：</p>
+<pre><code class="hljs language-text">test_spec_cases_over_http ... (case='S10') ... FAIL
+AssertionError: Lists differ: ['A01'] != []
+Ran 4 tests
+FAILED (failures=1)
+</code></pre><p>这说明实际结果含A01，预期却为空；不是程序完全打不开，也不是全部搜索失效。S10的数据为：owner A，关键词<code>RAG 流程</code>，A01的问题是<code>RAG流程是什么？</code>。R3要求保留内部空格，R4要求连续子串匹配，因此预期不命中有独立依据。</p>
+<p>先把命令、案例、预期和实际结果写进BUG_REPORT。如果你的结果是缺依赖、零测试或另一条断言失败，先处理环境或版本差异，不要直接套本篇结论。没有稳定复现时，“我猜也是这个原因”还不能成为修复依据。</p>
+<h2 id="wiki-h-2">失败位置给出线索，不直接宣判根因</h2>
+<p>存储检查通过、网页检查失败，说明两条执行路径的某个差异值得调查。它不自动证明数据库无错，也不自动证明模板有错。</p>
+<p>先列出几个能被证据检验的假设：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>假设</th>
+<th>怎样核对</th>
+<th>什么结果会削弱它</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>规格本来允许忽略内部空格</td>
+<td>阅读当前R3/R4与S10</td>
+<td>规格明确保留内部空格</td>
+</tr>
+<tr>
+<td>存储层会把空格忽略掉</td>
+<td>用同一输入直接检查search_history</td>
+<td>直接调用返回空集合</td>
+</tr>
+<tr>
+<td>网页入口改变了关键词</td>
+<td>检查q读取后到存储调用前的处理</td>
+<td>参数原样传入且其他条件一致</td>
+</tr>
+<tr>
+<td>模板错误展示了不存在的记录</td>
+<td>对比存储返回ID与页面ID</td>
+<td>存储已经返回A01，模板只是显示它</td>
+</tr>
+</tbody></table></div>
+<p>不要同时沿四个方向改代码。先用最便宜、最直接的检查缩小范围：读现行规则，比较两个层次使用的输入，再看连接处。</p>
+<p>本项目的路径很短：</p>
+<pre><code class="hljs language-text">浏览器关键词q
+  → home读取request.args
+  → 调用Store.search_history(owner, keyword)
+  → 返回items与keyword
+  → 模板显示结果和输入回显
+</code></pre><p>读<code>home</code>时，注意传给存储的表达式，而不只是函数名。参数即使类型仍是字符串，内容也可能已经变了。读<code>search_history</code>时，核对它本来在哪里做两端空白处理；不要因为看到两个层次都可能处理输入，就再增加一处“保险清理”。</p>
+<p>实际项目可以用断点、少量临时输出或测试替身观察参数。输出只记录定位所需的信息，避免把完整用户文本、凭据或数据库内容塞进日志；确认原因后移除临时调试输出。本课用公开构造词语，无需接触真实用户资料。</p>
+<h2 id="wiki-h-3">找到改变输入的那一步</h2>
+<p>现在打开<code>project/web_app.py</code>，在<code>create_app</code>内找到<code>home</code>。练习版中这行代码是：</p>
+<pre><code class="hljs language-python">result = store.search_history(session[<span class="hljs-string">"owner"</span>], keywords[<span class="hljs-number">0</span>].replace(<span class="hljs-string">" "</span>, <span class="hljs-string">""</span>) <span class="hljs-keyword">if</span> keywords <span class="hljs-keyword">else</span> <span class="hljs-string">""</span>)
+</code></pre><p><code>replace(" ", "")</code>会删除字符串中的普通空格，包括中间那个。于是HTTP请求中的<code>RAG 流程</code>在进入存储前，已经变成<code>RAG流程</code>。存储层按照收到的词匹配到A01，模板又按返回内容显示出来。</p>
+<p>作者用临时案例数据库跟踪这条路径，观察到：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>观察点</th>
+<th>实际值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>直接传给存储的关键词</td>
+<td>RAG 流程</td>
+</tr>
+<tr>
+<td>直接存储返回ID</td>
+<td>空列表</td>
+</tr>
+<tr>
+<td>网页路径实际传给存储的关键词</td>
+<td>RAG流程</td>
+</tr>
+<tr>
+<td>网页返回ID</td>
+<td>A01</td>
+</tr>
+<tr>
+<td>网页关键词回显</td>
+<td>RAG流程</td>
+</tr>
+</tbody></table></div>
+<p>这份对照比“网页层可能有问题”更具体：同一套构造数据下，入口改变了关键词，后续行为与改变后的输入相符。它还解释了为什么仅运行存储测试会漏掉这个回归。</p>
+<p>不需要为了这次调查启动真实服务器。原有检查使用Flask测试客户端，可以在进程内经过请求处理与模板，适合观察这个边界；它仍然不是浏览器视觉测试。<a href="https://flask.palletsprojects.com/en/stable/testing/">Flask测试客户端</a></p>
+<p>根因现在可以写成一句因果完整的话：网页入口删除了关键词内部空格，使按原规格不该匹配的输入变成能够匹配的输入。不要只写“搜索bug”或“字符串问题”，因为那样无法说明修复应该落在哪一层。</p>
+<h2 id="wiki-h-4">只恢复原来的输入传递</h2>
+<p>将上述调用改回：</p>
+<pre><code class="hljs language-python">result = store.search_history(session[<span class="hljs-string">"owner"</span>], keywords[<span class="hljs-number">0</span>] <span class="hljs-keyword">if</span> keywords <span class="hljs-keyword">else</span> <span class="hljs-string">""</span>)
+</code></pre><p>存储方法已经按契约使用<code>strip()</code>去除两端空白，并保留内部空格。恢复原样传递后，入口不再额外改变语义；长度检查、大小写处理、owner隔离和结果排序仍由既有路径负责。</p>
+<p>这次最小修复是一行，但“最小”不是机械要求任何bug都只能改一行，而是每一处修改都有证据和任务上的理由。若问题涉及多个接口，可能确实需要多处协调；本例没有证据要求重写数据库或模板。</p>
+<p>有两个看起来省事的方向不能接受。第一，把S10预期改成A01，只是让测试迎合错误，改变了已批准行为。第二，在模板里隐藏包含空格的关键词结果，只是遮住症状，还可能错误隐藏本来合法匹配的问题。</p>
+<p>搜索无结果也不必转交给模型“智能理解一下”。那会把连续子串搜索变成另一个产品功能，带来新的语义和费用。需求如果要变，应另行明确，而不是混进一次回归修复。</p>
+<p>没把握时可以查看<code>reference-fix.diff</code>和reference文件，但不要只复制整个正确目录后宣布“定位完成”。练习的价值在于解释错误与修复之间的因果关系。</p>
+<h2 id="wiki-h-5">先确认失败消失，再检查相邻行为</h2>
+<p>修复后，先重跑刚才失败的HTTP检查。macOS/Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python verify_search.py project --stage web
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe verify_search.py project <span class="hljs-literal">--stage</span> web
+</code></pre><p>预期4个方法通过，S10不再失败。该组还核对输入回显、重复q、错误状态、转义、owner与原链接，因此比只手动看到一次空列表更有说服力。</p>
+<p>然后运行相邻检查。macOS/Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python verify_search.py project --stage store
+.venv/bin/python verify_search_boundary.py
+.venv/bin/python verify_preview.py project
+.venv/bin/python project/acceptance.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe verify_search.py project <span class="hljs-literal">--stage</span> store
+.\.venv\Scripts\python.exe verify_search_boundary.py
+.\.venv\Scripts\python.exe verify_preview.py project
+.\.venv\Scripts\python.exe project/acceptance.py
+</code></pre><p>预期依次为2、4、5、10个方法通过。作者在临时修复副本实际执行了这些检查，未改变测试或案例。交付包的project仍保留起点故障，方便你自己重复整个过程。</p>
+<p>本例已有S10能稳定阻止同类回归，不必为了这次一行修复再复制一个完全相同的测试。如果实际故障没有被现有案例覆盖，则应先保留一个能复现它的检查，再确认修复能让它通过。</p>
+<p>若修复后又出现新的失败，先看它是否与这次变化相关、是否原本就存在，以及测试环境是否发生变化。不要为了追求全绿连续改动多个模块；每一轮只推进有证据支持的假设，保留失败信息和真实差异。</p>
+<h2 id="wiki-h-6">代码审查看实际差异，也看上下文</h2>
+<p>测试通过后，仍要审查。测试只覆盖已写出的情形，而一次修改可能夹带无关配置、放宽权限或删除其他分支。反过来，短小的diff也不自动意味着正确。</p>
+<p>若使用了前面保存的单文件备份，可运行以下命令，两平台相同，需要Git：</p>
+<pre><code class="hljs language-bash">git --no-pager diff --no-index -- docs/debug-before-web_app.py.txt project/web_app.py
+</code></pre><p><code>--no-index</code>比较两个磁盘路径，不要求它们已在Git仓库里。输出中的减号表示旧内容，加号表示新内容；有差异时通常退出1，不应误认成验证脚本失败。Git官方文档说明该模式隐含按差异返回退出状态。<a href="https://git-scm.com/docs/git-diff">git diff文档</a></p>
+<p>本例应只看到搜索调用去掉了<code>.replace(" ", "")</code>。还要读这行周围的<code>getlist</code>、重复q检查、异常处理与session取owner逻辑，确认它们仍完整存在。只看孤立的一行，可能看不出上下文被谁改过。</p>
+<p>已有Git仓库则从这些命令检查，注意它们看的范围不同：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --<span class="hljs-built_in">stat</span>
+git diff -- project/web_app.py
+git diff --cached -- project/web_app.py
+</code></pre><p>普通diff看未暂存改动，cached看已暂存改动；新建未跟踪文件还要依据status打开检查。不要只看到一份空diff，就推断没有修改。其他人的既有改动要单独识别，不能为让本次差异好看而删除。</p>
+<p>完成后，可再与作者正确文件比较：</p>
+<pre><code class="hljs language-bash">git --no-pager diff --no-index -- reference/web_app.py project/web_app.py
+</code></pre><p>完全按参考修复时无输出、退出0。与参考相同是一项对照证据，并不代替规格和测试；别的实现也可能正确，但任何额外变化都需要说明理由。</p>
+<p>审查报告里要回答：触发条件是什么，为什么这一行能解决问题，有没有改测试预期，有没有绕过owner或确认，有没有残留调试输出，还有哪些未验证。不要用“AI说已修复”替代这些判断。</p>
+<h2 id="wiki-h-7">让Kimi提出可验证的假设，再授权小范围修改</h2>
+<p>已自行安装并登录的读者，可以在外层lesson-08启动<code>kimi --plan</code>。本机核对版本为2.0.2，当前官方文档说明Plan模式支持先提出计划供审阅；这有助于先看调查方向，不能代替代码权限和结果验证。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/guides/interaction.html">Kimi交互说明</a></p>
+<p>第一次请求可只做诊断：</p>
+<pre><code class="hljs language-text">请读取AGENTS、任务008、BUG_REPORT、搜索契约与相关源码。
+project是故意带错的练习起点，reference和reference-fix.diff先不要看。
+已知store阶段通过，web阶段S10实际['A01']、预期[]。
+请提出最多三个可检验假设，沿q到search_history的路径核对。
+先给证据、根因与最小修复计划，不编辑文件，不读取个人data或凭据。
+不要改测试预期，不要将本次修复扩大为语义搜索、数据库重构或模型迁移。
+</code></pre><p>核对它是否引用了真实路径、解释了两层结果的差别，再明确要求仅修改<code>project/web_app.py</code>的相关输入传递，并按本篇命令验证。一次诊断、一次修改通常足以完成这个练习；若持续往返仍无法解释原因，先停下检查证据，不要让它无限尝试。真实开发对话可能使用Kimi额度，作者没有替你执行。</p>
+<p>修复后让它审查自己的diff可以帮助发现遗漏，但这仍是同一系统对自己工作的解释。你应独立查看差异和测试输出，必要时让另一位读者或另一个会话根据规格审阅。是否需要第二位审阅者取决于风险，不是所有小修复都必须增加一个Agent。</p>
+<h2 id="wiki-h-8">把修复交付成别人能复核的结论</h2>
+<p>完成BUG_REPORT与REVIEW_REPORT后，试着写一段交付说明：当关键词包含内部空格时，网页入口曾删除空格并改变匹配结果；现已恢复原词传入存储，保留既有两端空白处理；只修改web_app.py一行，HTTP及相邻离线检查通过，未验证真实模型、视觉和性能。</p>
+<p>这段话同时说明了触发条件、前后行为、改动范围和证据，比“修了一个搜索bug”更能帮助后续维护。你没有执行的检查应从自己的交付结论中删去或标成未运行，不能直接复制作者记录。</p>
+<p>如果复现不出本篇故障，先确认自己是否误用了reference或上一课的正确代码；如果HTTP仍然红，确认修改保存到了project，并核对S10的实际差异；如果只剩依赖错误，回到环境检查，不继续改业务。把失败分清楚，调试才不会变成随机改动。</p>
+<p>本篇结束后，请从修复后的project或正确reference继续，不把故意带错的起点带入后续正常项目。下一篇进入AI应用评测：代码行为正确之后，怎样进一步检查检索、引用与回答语义，尤其是资料不足时是否能可靠地说明不知道。</p>
+</article>

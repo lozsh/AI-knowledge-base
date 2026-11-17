@@ -1,0 +1,215 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>上一课，助手已经能读取你指定的文本文件，并留下来源快照。现在你想问一个很小的问题，却需要把整份笔记交给模型：其中可能有学习计划、安装记录和暂时无关的摘录。资料越多，输入越长，也越难看清模型究竟依据了哪一段。</p>
+<p>这次在发送前加一道本地检索：先把资料切成片段，按关键词找到候选证据，再把选中的片段和问题交给 DeepSeek。回答仍沿用已经熟悉的复习卡格式，但引用会指向具体片段，并能追溯到文件行号和版本。</p>
+<p>本篇最值得学会的，不是“装上一个 RAG 框架”，而是能亲眼检查：<strong>哪段资料被选中了，为什么选中，模型有没有引用它，以及它是否真的支持答案。</strong></p>
+<p>完整代码下载 · 代码说明 · 上一篇：文件与来源快照</p>
+<blockquote>
+<p>核实日期：2026年10月4日。使用 Python 3.11+、openai 3.24.0，无新增依赖。作者在 Python 3.11.8 环境做了离线验证，没有使用真实密钥或发起付费调用。检索会真实运行；演示中的模型答案是作者预置样例。</p>
+</blockquote>
+<h2 id="wiki-h-0">这次增加的能力在哪里</h2>
+<p>RAG 是 Retrieval-Augmented Generation，通常译为“检索增强生成”。原始 RAG 论文研究了将外部检索资料与语言生成结合的方法，采用了稠密向量索引和神经检索器。本篇借用“先查资料，再据此生成”的思路，做一个应用层的小型流程，不复现论文的训练方案。<a href="https://arxiv.org/abs/2005.11401">RAG 原始论文</a></p>
+<p>我们的工作路径是：</p>
+<pre><code class="hljs language-text">本地文件 → 规范化文本 → 带行号的片段
+                               ↓
+你填写的关键词 → 匹配、计分、排序 → 选中最多 K 段
+                                         ↓
+                         问题 + 选中片段 → 模型生成卡片
+                                         ↓
+                         校验引用 → 对照来源快照审核
+</code></pre><p>这里有两个不同的任务。检索器决定模型能看到什么；生成模型负责根据看到的内容回答。检索器漏掉了关键例外，模型即使严格遵守“只根据资料回答”，也可能得出不完整的结论。因此排查错误时，要先看送入了什么，再看回答了什么。</p>
+<p>本课采用你显式填写的关键词，不自动分词，也不让另一个模型改写查询。例如，问题是“笔记中的RAG流程是什么？”，关键词可以选“检索”“片段”。自然语言问题和检索关键词有联系，但不是同一份输入：只改问题不会自动改变关键词。</p>
+<p>这样做的好处是每次选择都有可解释的原因，也不需要额外服务。代价同样明显：不会自动理解同义词，“查找资料”未必能匹配“检索”。先理解这个局限，后面引入向量检索时才知道自己到底在改善什么。</p>
+<h2 id="wiki-h-1">先跑检索预览，不调用模型</h2>
+<p>解压 <code>lesson-12.zip</code>，进入其中的 <code>lesson-12</code> 目录。完整快照保留上篇所有功能，新增 <code>retrieval.py</code> 和 <code>rag.py</code>。本篇统一使用 <code>rag.py</code> 入口。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+<span class="hljs-built_in">cp</span> config.example.json config.json
+.venv/bin/python rag.py --inspect
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements.txt
+<span class="hljs-built_in">Copy-Item</span> config.example.json config.json
+.\.venv\Scripts\python.exe rag.py <span class="hljs-literal">--inspect</span>
+</code></pre><p>已有配置不要覆盖。安装依赖需要网络；检索预览不联网、不读密钥、不写运行记录，而且不需要 <code>config.json</code>。省略模式参数也默认预览。以下命令在 Windows 上只需把 <code>.venv/bin/python</code> 换成 <code>.\.venv\Scripts\python.exe</code>。</p>
+<p>默认读取上篇的两份样例：<code>sample-notes/rag.md</code> 和 <code>sample-notes/review.txt</code>。问题仍是“笔记中的RAG流程是什么？”，默认关键词为“检索”“片段”，默认 <code>top_k</code> 为2。</p>
+<p>输出 JSON 较长，先找 <code>retrieval.ranked_chunks</code> 和 <code>retrieval.selected_ids</code>。原样文件应得到以下结果：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>排序</th>
+<th>片段</th>
+<th>来源位置</th>
+<th>命中的不同关键词</th>
+<th align="right">得分</th>
+<th>是否选中</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>F1-C2</td>
+<td>rag.md 第3行</td>
+<td>检索、片段</td>
+<td align="right">2</td>
+<td>是</td>
+</tr>
+<tr>
+<td>2</td>
+<td>F1-C3</td>
+<td>rag.md 第5行</td>
+<td>检索</td>
+<td align="right">1</td>
+<td>是</td>
+</tr>
+<tr>
+<td>3</td>
+<td>F2-C1</td>
+<td>review.txt 第1—2行</td>
+<td>片段</td>
+<td align="right">1</td>
+<td>否</td>
+</tr>
+<tr>
+<td>4</td>
+<td>F1-C1</td>
+<td>rag.md 第1行标题</td>
+<td>无</td>
+<td align="right">0</td>
+<td>否</td>
+</tr>
+</tbody></table></div>
+<p><code>selected_ids</code> 应为 <code>F1-C2</code>、<code>F1-C3</code>。打开两个样例文件，直接数行：流程说明确实在第一份文件第3行，提醒遗漏和过时的文字在第5行。编辑器的视觉自动折行不算新的文件行；只有实际换行才影响这里的定位。</p>
+<p>这张表也暴露了一个选择：第二、第三段都是1分，为何先选第二段？因为同分时按文件传入顺序、再按文件内位置保持原顺序。它是确定性的排序规则，不是程序知道“第二段更正确”。</p>
+<h2 id="wiki-h-2">切块要保留上下文，也要保留回去的路</h2>
+<p>模型接收的是文字，但我们希望以后还能回到文件，所以每个片段保存六类信息：片段编号、来源文件编号、开始行、结束行、最近标题和片段原文。</p>
+<p>例如 <code>F1-C2</code> 表示这次文件列表中 F1 的第二个片段。它的 <code>source_id</code> 是 <code>F1</code>，<code>line_start</code> 和 <code>line_end</code> 都是3。回到来源快照中的 F1，就能找到绝对路径和那一版文本的哈希。</p>
+<p>本课切块规则很简单：</p>
+<ul>
+<li>遇到空白行结束当前块，空白分隔行本身不进入片段。</li>
+<li>遇到行首一到六个 <code>#</code> 后接空白的标题，先结束前一块，再从标题开始新块，记录最近标题。</li>
+<li>同一块最多600个字符；加上下一行会超限时，从那一行开始新块。</li>
+<li>单独一行已经超过600字符时停止，请你先合理分段；不会偷偷删掉后面的内容。</li>
+</ul>
+<p>片段文本仍是规范化原文里连续若干行的拼接。没有把标题额外塞进每个片段，也没有改写原句。<code>title</code> 只是本地定位信息：如果标题和正文被空行隔开，标题可能成为独立片段。</p>
+<p>这不是完整 Markdown 解析器。代码围栏里面看起来像标题的行，也可能触发这个简单规则；没有自动补全上层标题、处理表格语义或跨段代词。本课样例是短文本笔记，适合先观察这些机制。若你的笔记有复杂表格，应该先检查切分结果，不能仅因为扩展名是 <code>.md</code> 就相信段落边界一定合理。</p>
+<p>600是教学字符上限，不是模型 token 限制。也不是块越小越好：前一段写“以下规定只适用于测试环境”，后一段写具体操作，分开后只检索后一段，就可能丢掉适用范围。本课没有做重叠片段或相邻段自动扩展。检查证据时发现这种情况，可以先调整笔记分段、增加相关关键词，或在后续改进中显式带入邻段。</p>
+<h2 id="wiki-h-3">关键词怎样变成分数</h2>
+<p><code>--terms</code> 接受1到5个关键词，每个去掉首尾空白后为1到30个字符。程序用 <code>casefold()</code> 做不区分大小写的比较，再合并重复关键词，例如 <code>RAG</code> 和 <code>rag</code> 只算一个。<a href="https://docs.python.org/3.11/library/stdtypes.html#str.casefold">Python 字符串文档</a></p>
+<p>计分过程在 <code>retrieval.py</code> 中：</p>
+<pre><code class="hljs language-python">    <span class="hljs-keyword">for</span> chunk <span class="hljs-keyword">in</span> make_chunks(bundle):
+        matched = [term <span class="hljs-keyword">for</span> term <span class="hljs-keyword">in</span> terms <span class="hljs-keyword">if</span> term <span class="hljs-keyword">in</span> chunk[<span class="hljs-string">"text"</span>].casefold()]
+        ranked.append({**chunk, <span class="hljs-string">"matched_terms"</span>: matched, <span class="hljs-string">"score"</span>: <span class="hljs-built_in">len</span>(matched)})
+    <span class="hljs-comment"># Stable sort preserves file selection order and then source order on ties.</span>
+    ranked.sort(key=<span class="hljs-keyword">lambda</span> chunk: -chunk[<span class="hljs-string">"score"</span>])
+    selected = [chunk <span class="hljs-keyword">for</span> chunk <span class="hljs-keyword">in</span> ranked <span class="hljs-keyword">if</span> chunk[<span class="hljs-string">"score"</span>] &gt; <span class="hljs-number">0</span>][:top_k]
+</code></pre><p>每命中一个不同关键词加1分。一个段落把“检索”重复十遍，仍只在这个词上得1分；同时出现“检索”和“片段”，得2分。零分片段不用于凑数。</p>
+<p>这里使用子串匹配，不是中文分词，也不是整词匹配。短词可能在不相关文字中出现；关键词选得太宽，标题也可能排在前面。<code>score=2</code> 只表示命中了两个词，不表示“可信度200%”，更不是事实正确的概率。</p>
+<p><code>top_k</code> 的意思是最多保留排名靠前的 K 个正分片段。本课允许1到3，默认2。增加 K 可以带入更多证据，也可能引入更多无关内容；仅有一个正分片段时，即使 K=3，结果也只有一个。</p>
+<p>本课每次重新读取和切分文件，然后逐块扫描，没有建立持久化索引。资料仍受上篇的1到3文件、单文件16 KiB、总文本10000字符限制。这个实现适合看清机制，不适合声称已经能高效检索百万文档。</p>
+<h2 id="wiki-h-4">确认发送的是选中片段，再离线生成卡片</h2>
+<p>运行：</p>
+<pre><code class="hljs language-bash">.venv/bin/python rag.py --dry-run
+.venv/bin/python rag.py --demo
+</code></pre><p>第一条打印实际请求体。找到 user 消息中的 <code>notes</code>：应只有 <code>F1-C2</code> 和 <code>F1-C3</code>，没有 <code>review.txt</code> 的“检查回答时”那一段，也没有未选中的标题。预览中的完整资料并不等于模型请求中的资料；这是要独立核对的关键区别。</p>
+<p>当前模型仍为 <code>deepseek-flash</code>，明确关闭思考，非流式 JSON 输出；输出预算取配置，默认1024。本入口一次请求尝试，不自动重试。<code>response_format</code> 和 <code>thinking</code> 参数已经按写作日官方接口核查。<a href="https://api-docs.deepseek.com/api/create-chat-completion/">DeepSeek Chat Completions API</a></p>
+<p>第二条先真实运行本地检索，再把作者预置答案交给旧卡片校验器。预期显示“规则检查通过：1 张卡。语义仍待人工审核。”固定卡片引用的是 <code>F1-C2</code>，原文是 RAG 的流程说明。演示没有测量模型的检索理解、回答质量或费用。</p>
+<p>校验器这次拿到的资料范围也必须变。<code>rag.py</code> 中的衔接是：</p>
+<pre><code class="hljs language-python">    report, selected = retrieve(bundle, terms, top_k)
+    notes = [{<span class="hljs-string">"id"</span>: chunk[<span class="hljs-string">"id"</span>], <span class="hljs-string">"text"</span>: chunk[<span class="hljs-string">"text"</span>]} <span class="hljs-keyword">for</span> chunk <span class="hljs-keyword">in</span> selected]
+    questions = [{<span class="hljs-string">"id"</span>: <span class="hljs-string">"Q1"</span>, <span class="hljs-string">"text"</span>: question.strip()}]
+    messages = task_history() + [{<span class="hljs-string">"role"</span>: <span class="hljs-string">"user"</span>, <span class="hljs-string">"content"</span>: build_task(notes, questions)}]
+</code></pre><p>后续生成和校验都使用这里的 <code>notes</code>。如果模型引用未选中的 <code>F2-C1</code>，即便那段话确实存在于磁盘文件里，也不能通过本次规则检查。否则模型就能用“资料库某处好像有这句话”绕过本次证据范围。</p>
+<p>存在性检查仍有边界：模型可能引用了正确原句，却把“可能遗漏”写成“绝不会遗漏”。程序不会理解这个语义反转，最终仍需人工审核。</p>
+<h2 id="wiki-h-5">沿着记录，把答案追回文件版本</h2>
+<p>成功演示会在脚本旁 <code>records</code> 新增同编号的五份 JSON，前缀为 <code>rag-demo-</code>：来源快照、请求、一次尝试、响应和校验结果。真实调用则使用 <code>rag-live-</code>。原有记录不覆盖。</p>
+<p>本课的 <code>-sources.json</code> 外层版本为2，布局如下：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th>保存的内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>source_bundle</code></td>
+<td>第11篇的完整来源包：全部规范化文本、路径、哈希、读取时间</td>
+</tr>
+<tr>
+<td><code>retrieval</code></td>
+<td>使用的方法、关键词、K、所有片段得分与选中编号</td>
+</tr>
+<tr>
+<td><code>notes</code></td>
+<td>本次送入模型并用于校验的片段原文</td>
+</tr>
+</tbody></table></div>
+<p>完整资料留在本地快照中；API 请求只带选中片段、问题和任务说明。没有另外把本地路径、文件哈希或排序报告发送出去。不过，被选中文字本身包含私人信息时，它们仍会随文字发送。</p>
+<p>按下面顺序做一次追溯，不要只看终端说“通过”：</p>
+<ol>
+<li>打开这次的 <code>-result.json</code>，找到卡片的 <code>evidence</code>，确认引用编号是 <code>F1-C2</code>，读出 <code>quote</code>。</li>
+<li>在同编号 <code>-sources.json</code> 的 <code>retrieval.ranked_chunks</code> 找到 <code>F1-C2</code>，核对 <code>source_id=F1</code>、行范围3—3；同时确认它在 <code>selected_ids</code> 中。</li>
+<li>打开 <code>source_bundle.notes</code> 中的 F1 原文，逐行定位，确认第3行包含相同引用；再到 <code>source_bundle.sources</code> 找到 F1 的路径与版本哈希。</li>
+<li>打开 <code>-request.json</code>，确认它的 <code>source_snapshot_file</code> 指向这份快照，<code>request.messages</code> 只包含选中片段。</li>
+</ol>
+<p>因此，引用链是“运行记录 → 片段 → 当时那份文件文本”。当前磁盘文件即使已经改过，你仍能查本次输入快照。行号是片段范围，不一定就是引文最短范围；不能把它当作模型逐字标注的引用行。</p>
+<p>F1-C2 也不是永久编号。文件顺序、分段或内容改变，都可能改变编号。必须连同运行记录使用；本课没有给旧计划工具开放这些新编号，也不做跨运行去重。</p>
+<h2 id="wiki-h-6">做三个对照，检查系统有没有真的在检索</h2>
+<p>默认样例跑通后，不急着调更大的模型。先做下面三个完全本地的对照。</p>
+<p><strong>对照一：相同资料，换一组相关关键词。</strong></p>
+<pre><code class="hljs language-bash">.venv/bin/python rag.py --question <span class="hljs-string">"应该如何核查回答？"</span> --terms 核对 引用 --inspect
+</code></pre><p>应只选中 <code>F2-C1</code>，得2分。因为两词都在 <code>review.txt</code> 的第一行，其余片段没有命中。打开文件确认这段确实能帮助回答问题。</p>
+<p><strong>对照二：使用语义相关但原文没有的词。</strong></p>
+<pre><code class="hljs language-bash">.venv/bin/python rag.py --terms 查找 --dry-run
+</code></pre><p>你会得到 <code>no_matches</code>，没有请求体，也没有新记录。这证明的是“当前关键词没有命中”，不能推出“笔记里没有相关知识”。把“查找”换成原文里的“检索”再预览，就能看到差别。</p>
+<p>即使使用 <code>--run</code>，没有命中时也会在读取配置和密钥之前停止，不去请模型凭常识补答。这个分支正常退出，退出码为0代表程序按设计处理了无匹配情况，不代表已经答出问题。它也不同于模型返回的卡片 <code>missing</code>：后者是在已经选中的资料里无法回答，不保证全部原始文件都没有答案。</p>
+<p><strong>对照三：命中了词，却选中了不能回答的标题。</strong></p>
+<pre><code class="hljs language-bash">.venv/bin/python rag.py --terms RAG --top-k 1 --inspect
+</code></pre><p>此时标题 <code>F1-C1</code> 与流程正文 <code>F1-C2</code> 都命中 RAG，各得1分。按同分规则，标题先被选中。只读“# RAG基础”，当然不能知道流程细节。这是一条有意保留的失败案例：检索命中和证据充分是两回事。</p>
+<p>改用“检索”“片段”会让流程正文得分更高；改成 K=2 则会把正文也纳入。这两种调整解决的问题不同。前者让查询更有区分度，后者放宽证据数量。真实资料中最好保留几组“问题—应该出现的证据”作为回归样例，调整规则后先检查这些证据还在不在。</p>
+<p>这些对照不使用 <code>--demo</code>，因为演示答案固定对应默认配置。代码会拒绝把自定义问题、关键词、文件或 K 与演示模式混用，避免用固定答案冒充新查询效果。</p>
+<h2 id="wiki-h-7">用自己的资料，判断下一步该改哪里</h2>
+<p>在编辑器准备一份 UTF-8 笔记，例如 <code>sample-notes/my-note.md</code>。选择其中一个能明确找到原文的问题，并手动挑两三个原文关键词：</p>
+<pre><code class="hljs language-bash">.venv/bin/python rag.py --files <span class="hljs-string">"sample-notes/my-note.md"</span> --question <span class="hljs-string">"笔记建议怎样检查引用？"</span> --terms 引用 检查 --inspect
+.venv/bin/python rag.py --files <span class="hljs-string">"sample-notes/my-note.md"</span> --question <span class="hljs-string">"笔记建议怎样检查引用？"</span> --terms 引用 检查 --dry-run
+</code></pre><p>路径相对终端当前目录，有空格加引号；默认样例仍相对脚本目录定位。先查看片段是否完整、关键词是否有区分度、重要限定是否被漏掉。若原文根本没用“检查”这个词，就按资料实际用词修改，不要期待模型调用能补救本地未命中。</p>
+<p>确认后，自行愿意发起可能计费的调用，再把模式改为 <code>--run</code>。它会隐藏读取你的密钥，发送选中片段并保存五份记录。不需要为完成本篇学习而充值；离线检查已经能验证检索和记录流程。分享项目时不要带上含完整笔记的运行记录。</p>
+<p>常见问题可以沿着流程定位：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>优先处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>有资料却无匹配</td>
+<td>检查关键词与原文字面是否一致，换同义词试验</td>
+</tr>
+<tr>
+<td>总是选标题或泛泛提醒</td>
+<td>换更具体的关键词；查看同分顺序，再考虑调整 K</td>
+</tr>
+<tr>
+<td>条件或结论被拆开</td>
+<td>检查切块边界，调整分段或设计邻段扩展</td>
+</tr>
+<tr>
+<td>报单行超过600字符</td>
+<td>在编辑器中合理换行分段；不要以截断掩盖问题</td>
+</tr>
+<tr>
+<td>回答引用未选中的片段</td>
+<td>应让本次校验失败，检查 response/result，不放宽为全库任意引用</td>
+</tr>
+<tr>
+<td>资料存在且引用通过，但答案仍错</td>
+<td>人工检查是否曲解、过时或缺少适用条件</td>
+</tr>
+<tr>
+<td>改笔记后默认演示失败</td>
+<td>固定答案的片段编号或原句变了；恢复样例，定制任务用预览或真实模式</td>
+</tr>
+</tbody></table></div>
+<p>当词面匹配已经成为主要问题，可以在“选候选片段”这一层加入向量检索：将片段和查询转成可比较的向量，以表示上的接近程度寻找候选。它可能改善不同措辞的匹配，但相似也不等于支持结论。还可以结合关键词与向量召回，再对候选重新排序。这里先说明替换位置，不假设 DeepSeek 聊天接口同时提供可用的嵌入接口，也不暗中接入另一个付费供应商。</p>
+<p>无论更换哪一种检索器，来源版本、输入预算、证据范围与回答校验都应保留。遇到外部笔记里的“忽略要求”等指令，检索到它不代表它获得了执行权限；本入口不提供工具，也不执行片段内容，但仍需防止答案被这些文字干扰。</p>
+<p>本篇通过74项离线测试，含既有60项回归与14项检索边界测试，并用模拟传输检查了真实 SDK 的请求组装。你现在可以把应用拆成“读资料、找证据、生成、检查”四步分别验证。下一篇会给这条流程加上本地浏览器页面，让输入问题、查看证据和阅读卡片不再依赖命令行。</p>
+</article>

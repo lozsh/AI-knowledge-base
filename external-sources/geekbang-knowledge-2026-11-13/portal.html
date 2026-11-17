@@ -1,0 +1,849 @@
+<!DOCTYPE html><html  lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>极客知识库｜程序员的 AI 时代知识地图</title><script src="//g.alicdn.com/frontend-lib/frontend-lib/2.3.74/antidom.js"></script><script src="//o.alicdn.com/frontend-lib/common-lib/jquery.min.js"></script><script src="//g.alicdn.com/frontend-lib/frontend-lib/2.3.74/antidom.js"></script><script src="//o.alicdn.com/frontend-lib/common-lib/jquery.min.js"></script><script type="importmap">{"imports":{"#entry":"https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CgMbsdLZ.js"}}</script><style cssr-id="n-input" data-hid="n-input">
+.n-input {
+
+ max-width: 100%;
+ cursor: text;
+ line-height: 1.5;
+ z-index: auto;
+ outline: none;
+ box-sizing: border-box;
+ position: relative;
+ display: inline-flex;
+ border-radius: var(--n-border-radius);
+ background-color: var(--n-color);
+ transition: background-color .3s var(--n-bezier);
+ font-size: var(--n-font-size);
+ font-weight: var(--n-font-weight);
+ --n-padding-vertical: calc((var(--n-height) - 1.5 * var(--n-font-size)) / 2);
+
+}
+
+.n-input .n-input__input, .n-input .n-input__textarea {
+
+ overflow: hidden;
+ flex-grow: 1;
+ position: relative;
+ 
+}
+
+.n-input .n-input__input-el, .n-input .n-input__textarea-el, .n-input .n-input__input-mirror, .n-input .n-input__textarea-mirror, .n-input .n-input__separator, .n-input .n-input__placeholder {
+
+ box-sizing: border-box;
+ font-size: inherit;
+ line-height: 1.5;
+ font-family: inherit;
+ border: none;
+ outline: none;
+ background-color: #0000;
+ text-align: inherit;
+ transition:
+ -webkit-text-fill-color .3s var(--n-bezier),
+ caret-color .3s var(--n-bezier),
+ color .3s var(--n-bezier),
+ text-decoration-color .3s var(--n-bezier);
+ 
+}
+
+.n-input .n-input__input-el, .n-input .n-input__textarea-el {
+
+ -webkit-appearance: none;
+ scrollbar-width: none;
+ width: 100%;
+ min-width: 0;
+ text-decoration-color: var(--n-text-decoration-color);
+ color: var(--n-text-color);
+ caret-color: var(--n-caret-color);
+ background-color: transparent;
+ 
+}
+
+.n-input .n-input__input-el::-webkit-scrollbar, .n-input .n-input__textarea-el::-webkit-scrollbar, .n-input .n-input__input-el::-webkit-scrollbar-track-piece, .n-input .n-input__textarea-el::-webkit-scrollbar-track-piece, .n-input .n-input__input-el::-webkit-scrollbar-thumb, .n-input .n-input__textarea-el::-webkit-scrollbar-thumb {
+
+ width: 0;
+ height: 0;
+ display: none;
+ 
+}
+
+.n-input .n-input__input-el::placeholder, .n-input .n-input__textarea-el::placeholder {
+
+ color: #0000;
+ -webkit-text-fill-color: transparent !important;
+ 
+}
+
+.n-input .n-input__input-el:-webkit-autofill ~ .n-input__placeholder, .n-input .n-input__textarea-el:-webkit-autofill ~ .n-input__placeholder {
+display: none;
+}
+
+.n-input.n-input--round:not(.n-input--textarea) {
+border-radius: calc(var(--n-height) / 2);
+}
+
+.n-input .n-input__placeholder {
+
+ pointer-events: none;
+ position: absolute;
+ left: 0;
+ right: 0;
+ top: 0;
+ bottom: 0;
+ overflow: hidden;
+ color: var(--n-placeholder-color);
+ 
+}
+
+.n-input .n-input__placeholder span {
+
+ width: 100%;
+ display: inline-block;
+ 
+}
+
+.n-input.n-input--textarea .n-input__placeholder {
+overflow: visible;
+}
+
+.n-input:not(.n-input--autosize) {
+width: 100%;
+}
+
+.n-input.n-input--autosize .n-input__textarea-el, .n-input.n-input--autosize .n-input__input-el {
+
+ position: absolute;
+ top: 0;
+ left: 0;
+ height: 100%;
+ 
+}
+
+.n-input .n-input-wrapper {
+
+ overflow: hidden;
+ display: inline-flex;
+ flex-grow: 1;
+ position: relative;
+ padding-left: var(--n-padding-left);
+ padding-right: var(--n-padding-right);
+ 
+}
+
+.n-input .n-input__input-mirror {
+
+ padding: 0;
+ height: var(--n-height);
+ line-height: var(--n-height);
+ overflow: hidden;
+ visibility: hidden;
+ position: static;
+ white-space: pre;
+ pointer-events: none;
+ 
+}
+
+.n-input .n-input__input-el {
+
+ padding: 0;
+ height: var(--n-height);
+ line-height: var(--n-height);
+ 
+}
+
+.n-input .n-input__input-el[type=password]::-ms-reveal {
+display: none;
+}
+
+.n-input .n-input__input-el + .n-input__placeholder {
+
+ display: flex;
+ align-items: center; 
+ 
+}
+
+.n-input:not(.n-input--textarea) .n-input__placeholder {
+white-space: nowrap;
+}
+
+.n-input .n-input__eye {
+
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ transition: color .3s var(--n-bezier);
+ 
+}
+
+.n-input.n-input--textarea {
+width: 100%;
+}
+
+.n-input.n-input--textarea .n-input-word-count {
+
+ position: absolute;
+ right: var(--n-padding-right);
+ bottom: var(--n-padding-vertical);
+ 
+}
+
+.n-input.n-input--textarea.n-input--resizable .n-input-wrapper {
+
+ resize: vertical;
+ min-height: var(--n-height);
+ 
+}
+
+.n-input.n-input--textarea .n-input__textarea-el, .n-input.n-input--textarea .n-input__textarea-mirror, .n-input.n-input--textarea .n-input__placeholder {
+
+ height: 100%;
+ padding-left: 0;
+ padding-right: 0;
+ padding-top: var(--n-padding-vertical);
+ padding-bottom: var(--n-padding-vertical);
+ word-break: break-word;
+ display: inline-block;
+ vertical-align: bottom;
+ box-sizing: border-box;
+ line-height: var(--n-line-height-textarea);
+ margin: 0;
+ resize: none;
+ white-space: pre-wrap;
+ scroll-padding-block-end: var(--n-padding-vertical);
+ 
+}
+
+.n-input.n-input--textarea .n-input__textarea-mirror {
+
+ width: 100%;
+ pointer-events: none;
+ overflow: hidden;
+ visibility: hidden;
+ position: static;
+ white-space: pre-wrap;
+ overflow-wrap: break-word;
+ 
+}
+
+.n-input.n-input--pair .n-input__input-el, .n-input.n-input--pair .n-input__placeholder {
+text-align: center;
+}
+
+.n-input.n-input--pair .n-input__separator {
+
+ display: flex;
+ align-items: center;
+ transition: color .3s var(--n-bezier);
+ color: var(--n-text-color);
+ white-space: nowrap;
+ 
+}
+
+.n-input.n-input--pair .n-input__separator .n-icon {
+
+ color: var(--n-icon-color);
+ 
+}
+
+.n-input.n-input--pair .n-input__separator .n-base-icon {
+
+ color: var(--n-icon-color);
+ 
+}
+
+.n-input.n-input--disabled {
+
+ cursor: not-allowed;
+ background-color: var(--n-color-disabled);
+ 
+}
+
+.n-input.n-input--disabled .n-input__border {
+border: var(--n-border-disabled);
+}
+
+.n-input.n-input--disabled .n-input__input-el, .n-input.n-input--disabled .n-input__textarea-el {
+
+ cursor: not-allowed;
+ color: var(--n-text-color-disabled);
+ text-decoration-color: var(--n-text-color-disabled);
+ 
+}
+
+.n-input.n-input--disabled .n-input__placeholder {
+color: var(--n-placeholder-color-disabled);
+}
+
+.n-input.n-input--disabled .n-input__separator {
+color: var(--n-text-color-disabled);
+}
+
+.n-input.n-input--disabled .n-input__separator .n-icon {
+
+ color: var(--n-icon-color-disabled);
+ 
+}
+
+.n-input.n-input--disabled .n-input__separator .n-base-icon {
+
+ color: var(--n-icon-color-disabled);
+ 
+}
+
+.n-input.n-input--disabled .n-input-word-count {
+
+ color: var(--n-count-text-color-disabled);
+ 
+}
+
+.n-input.n-input--disabled .n-input__suffix, .n-input.n-input--disabled .n-input__prefix {
+color: var(--n-text-color-disabled);
+}
+
+.n-input.n-input--disabled .n-input__suffix .n-icon, .n-input.n-input--disabled .n-input__prefix .n-icon {
+
+ color: var(--n-icon-color-disabled);
+ 
+}
+
+.n-input.n-input--disabled .n-input__suffix .n-internal-icon, .n-input.n-input--disabled .n-input__prefix .n-internal-icon {
+
+ color: var(--n-icon-color-disabled);
+ 
+}
+
+.n-input:not(.n-input--disabled) .n-input__eye {
+
+ color: var(--n-icon-color);
+ cursor: pointer;
+ 
+}
+
+.n-input:not(.n-input--disabled) .n-input__eye:hover {
+
+ color: var(--n-icon-color-hover);
+ 
+}
+
+.n-input:not(.n-input--disabled) .n-input__eye:active {
+
+ color: var(--n-icon-color-pressed);
+ 
+}
+
+.n-input:not(.n-input--disabled):hover {
+background-color: var(--n-color-hover);
+}
+
+.n-input:not(.n-input--disabled):hover .n-input__state-border {
+border: var(--n-border-hover);
+}
+
+.n-input:not(.n-input--disabled).n-input--focus {
+background-color: var(--n-color-focus);
+}
+
+.n-input:not(.n-input--disabled).n-input--focus .n-input__state-border {
+
+ border: var(--n-border-focus);
+ box-shadow: var(--n-box-shadow-focus);
+ 
+}
+
+.n-input .n-input__border, .n-input .n-input__state-border {
+
+ box-sizing: border-box;
+ position: absolute;
+ left: 0;
+ right: 0;
+ top: 0;
+ bottom: 0;
+ pointer-events: none;
+ border-radius: inherit;
+ border: var(--n-border);
+ transition:
+ box-shadow .3s var(--n-bezier),
+ border-color .3s var(--n-bezier);
+ 
+}
+
+.n-input .n-input__state-border {
+
+ border-color: #0000;
+ z-index: 1;
+ 
+}
+
+.n-input .n-input__prefix {
+margin-right: 4px;
+}
+
+.n-input .n-input__suffix {
+
+ margin-left: 4px;
+ 
+}
+
+.n-input .n-input__suffix, .n-input .n-input__prefix {
+
+ transition: color .3s var(--n-bezier);
+ flex-wrap: nowrap;
+ flex-shrink: 0;
+ line-height: var(--n-height);
+ white-space: nowrap;
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ color: var(--n-suffix-text-color);
+ 
+}
+
+.n-input .n-input__suffix .n-base-loading, .n-input .n-input__prefix .n-base-loading {
+
+ font-size: var(--n-icon-size);
+ margin: 0 2px;
+ color: var(--n-loading-color);
+ 
+}
+
+.n-input .n-input__suffix .n-base-clear, .n-input .n-input__prefix .n-base-clear {
+
+ font-size: var(--n-icon-size);
+ 
+}
+
+.n-input .n-input__suffix .n-base-clear .n-base-clear__placeholder .n-base-icon, .n-input .n-input__prefix .n-base-clear .n-base-clear__placeholder .n-base-icon {
+
+ transition: color .3s var(--n-bezier);
+ color: var(--n-icon-color);
+ font-size: var(--n-icon-size);
+ 
+}
+
+.n-input .n-input__suffix > .n-icon, .n-input .n-input__prefix > .n-icon {
+
+ transition: color .3s var(--n-bezier);
+ color: var(--n-icon-color);
+ font-size: var(--n-icon-size);
+ 
+}
+
+.n-input .n-input__suffix .n-base-icon, .n-input .n-input__prefix .n-base-icon {
+
+ font-size: var(--n-icon-size);
+ 
+}
+
+.n-input .n-input-word-count {
+
+ pointer-events: none;
+ line-height: 1.5;
+ font-size: .85em;
+ color: var(--n-count-text-color);
+ transition: color .3s var(--n-bezier);
+ margin-left: 4px;
+ font-variant: tabular-nums;
+ 
+}
+
+.n-input.n-input--warning-status:not(.n-input--disabled) .n-base-loading {
+
+ color: var(--n-loading-color-warning)
+ 
+}
+
+.n-input.n-input--warning-status:not(.n-input--disabled) .n-input__input-el, .n-input.n-input--warning-status:not(.n-input--disabled) .n-input__textarea-el {
+
+ caret-color: var(--n-caret-color-warning);
+ 
+}
+
+.n-input.n-input--warning-status:not(.n-input--disabled) .n-input__state-border {
+
+ border: var(--n-border-warning);
+ 
+}
+
+.n-input.n-input--warning-status:not(.n-input--disabled):hover .n-input__state-border {
+
+ border: var(--n-border-hover-warning);
+ 
+}
+
+.n-input.n-input--warning-status:not(.n-input--disabled):focus {
+
+ background-color: var(--n-color-focus-warning);
+ 
+}
+
+.n-input.n-input--warning-status:not(.n-input--disabled):focus .n-input__state-border {
+
+ box-shadow: var(--n-box-shadow-focus-warning);
+ border: var(--n-border-focus-warning);
+ 
+}
+
+.n-input.n-input--warning-status:not(.n-input--disabled).n-input--focus {
+
+ background-color: var(--n-color-focus-warning);
+ 
+}
+
+.n-input.n-input--warning-status:not(.n-input--disabled).n-input--focus .n-input__state-border {
+
+ box-shadow: var(--n-box-shadow-focus-warning);
+ border: var(--n-border-focus-warning);
+ 
+}
+
+.n-input.n-input--error-status:not(.n-input--disabled) .n-base-loading {
+
+ color: var(--n-loading-color-error)
+ 
+}
+
+.n-input.n-input--error-status:not(.n-input--disabled) .n-input__input-el, .n-input.n-input--error-status:not(.n-input--disabled) .n-input__textarea-el {
+
+ caret-color: var(--n-caret-color-error);
+ 
+}
+
+.n-input.n-input--error-status:not(.n-input--disabled) .n-input__state-border {
+
+ border: var(--n-border-error);
+ 
+}
+
+.n-input.n-input--error-status:not(.n-input--disabled):hover .n-input__state-border {
+
+ border: var(--n-border-hover-error);
+ 
+}
+
+.n-input.n-input--error-status:not(.n-input--disabled):focus {
+
+ background-color: var(--n-color-focus-error);
+ 
+}
+
+.n-input.n-input--error-status:not(.n-input--disabled):focus .n-input__state-border {
+
+ box-shadow: var(--n-box-shadow-focus-error);
+ border: var(--n-border-focus-error);
+ 
+}
+
+.n-input.n-input--error-status:not(.n-input--disabled).n-input--focus {
+
+ background-color: var(--n-color-focus-error);
+ 
+}
+
+.n-input.n-input--error-status:not(.n-input--disabled).n-input--focus .n-input__state-border {
+
+ box-shadow: var(--n-box-shadow-focus-error);
+ border: var(--n-border-focus-error);
+ 
+}
+</style><style cssr-id="n-global" data-hid="n-global">
+body {
+
+ margin: 0;
+ font-size: 14px;
+ font-family: v-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+ line-height: 1.6;
+ -webkit-text-size-adjust: 100%;
+ -webkit-tap-highlight-color: transparent;
+
+}
+
+body input {
+
+ font-family: inherit;
+ font-size: inherit;
+ 
+}
+</style><style cssr-id="n-button" data-hid="n-button">
+.n-button {
+
+ margin: 0;
+ font-weight: var(--n-font-weight);
+ line-height: 1;
+ font-family: inherit;
+ padding: var(--n-padding);
+ height: var(--n-height);
+ font-size: var(--n-font-size);
+ border-radius: var(--n-border-radius);
+ color: var(--n-text-color);
+ background-color: var(--n-color);
+ width: var(--n-width);
+ white-space: nowrap;
+ outline: none;
+ position: relative;
+ z-index: auto;
+ border: none;
+ display: inline-flex;
+ flex-wrap: nowrap;
+ flex-shrink: 0;
+ align-items: center;
+ justify-content: center;
+ user-select: none;
+ -webkit-user-select: none;
+ text-align: center;
+ cursor: pointer;
+ text-decoration: none;
+ transition:
+ color .3s var(--n-bezier),
+ background-color .3s var(--n-bezier),
+ opacity .3s var(--n-bezier),
+ border-color .3s var(--n-bezier);
+ 
+}
+
+.n-button.n-button--color .n-button__border {
+  border-color: var(--n-border-color);
+}
+
+.n-button.n-button--color.n-button--disabled .n-button__border {
+  border-color: var(--n-border-color-disabled);
+}
+
+.n-button.n-button--color:not(.n-button--disabled):focus .n-button__state-border {
+  border-color: var(--n-border-color-focus);
+}
+
+.n-button.n-button--color:not(.n-button--disabled):hover .n-button__state-border {
+  border-color: var(--n-border-color-hover);
+}
+
+.n-button.n-button--color:not(.n-button--disabled):active .n-button__state-border {
+  border-color: var(--n-border-color-pressed);
+}
+
+.n-button.n-button--color:not(.n-button--disabled).n-button--pressed .n-button__state-border {
+  border-color: var(--n-border-color-pressed);
+}
+
+.n-button.n-button--disabled {
+  background-color: var(--n-color-disabled);
+  color: var(--n-text-color-disabled);
+}
+
+.n-button.n-button--disabled .n-button__border {
+  border: var(--n-border-disabled);
+}
+
+.n-button:not(.n-button--disabled):focus {
+  background-color: var(--n-color-focus);
+  color: var(--n-text-color-focus);
+}
+
+.n-button:not(.n-button--disabled):focus .n-button__state-border {
+  border: var(--n-border-focus);
+}
+
+.n-button:not(.n-button--disabled):hover {
+  background-color: var(--n-color-hover);
+  color: var(--n-text-color-hover);
+}
+
+.n-button:not(.n-button--disabled):hover .n-button__state-border {
+  border: var(--n-border-hover);
+}
+
+.n-button:not(.n-button--disabled):active {
+  background-color: var(--n-color-pressed);
+  color: var(--n-text-color-pressed);
+}
+
+.n-button:not(.n-button--disabled):active .n-button__state-border {
+  border: var(--n-border-pressed);
+}
+
+.n-button:not(.n-button--disabled).n-button--pressed {
+  background-color: var(--n-color-pressed);
+  color: var(--n-text-color-pressed);
+}
+
+.n-button:not(.n-button--disabled).n-button--pressed .n-button__state-border {
+  border: var(--n-border-pressed);
+}
+
+.n-button.n-button--loading {
+cursor: wait;
+}
+
+.n-button .n-base-wave {
+
+ pointer-events: none;
+ top: 0;
+ right: 0;
+ bottom: 0;
+ left: 0;
+ animation-iteration-count: 1;
+ animation-duration: var(--n-ripple-duration);
+ animation-timing-function: var(--n-bezier-ease-out), var(--n-bezier-ease-out);
+ 
+}
+
+.n-button .n-base-wave.n-base-wave--active {
+  z-index: 1;
+  animation-name: button-wave-spread, button-wave-opacity;
+}
+
+.n-button .n-button__border, .n-button .n-button__state-border {
+
+ position: absolute;
+ left: 0;
+ top: 0;
+ right: 0;
+ bottom: 0;
+ border-radius: inherit;
+ transition: border-color .3s var(--n-bezier);
+ pointer-events: none;
+ 
+}
+
+.n-button .n-button__border {
+
+ border: var(--n-border);
+ 
+}
+
+.n-button .n-button__state-border {
+
+ border: var(--n-border);
+ border-color: #0000;
+ z-index: 1;
+ 
+}
+
+.n-button .n-button__icon {
+
+ margin: var(--n-icon-margin);
+ margin-left: 0;
+ height: var(--n-icon-size);
+ width: var(--n-icon-size);
+ max-width: var(--n-icon-size);
+ font-size: var(--n-icon-size);
+ position: relative;
+ flex-shrink: 0;
+ 
+}
+
+.n-button .n-button__icon .n-icon-slot {
+
+ height: var(--n-icon-size);
+ width: var(--n-icon-size);
+ position: absolute;
+ left: 0;
+ top: 50%;
+ transform: translateY(-50%);
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ 
+}
+
+.n-button .n-button__icon .n-icon-slot.icon-switch-transition-enter-from, .n-button .n-button__icon .n-icon-slot.icon-switch-transition-leave-to {
+  transform: translateY(-50%) scale(0.75);
+  left: 0;
+  top: 50%;
+  opacity: 0;
+}
+
+.n-button .n-button__icon .n-icon-slot.icon-switch-transition-enter-to, .n-button .n-button__icon .n-icon-slot.icon-switch-transition-leave-from {
+  transform: scale(1) translateY(-50%);
+  left: 0;
+  top: 50%;
+  opacity: 1;
+}
+
+.n-button .n-button__icon .n-icon-slot.icon-switch-transition-enter-active, .n-button .n-button__icon .n-icon-slot.icon-switch-transition-leave-active {
+  transform-origin: center;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transition: all .3s cubic-bezier(.4, 0, .2, 1) !important;
+}
+
+.n-button .n-button__icon.fade-in-width-expand-transition-leave-from, .n-button .n-button__icon.fade-in-width-expand-transition-enter-to {
+  opacity: 1;
+}
+
+.n-button .n-button__icon.fade-in-width-expand-transition-leave-to, .n-button .n-button__icon.fade-in-width-expand-transition-enter-from {
+
+ opacity: 0!important;
+ margin-left: 0!important;
+ margin-right: 0!important;
+ 
+}
+
+.n-button .n-button__icon.fade-in-width-expand-transition-leave-active {
+
+ overflow: hidden;
+ transition:
+ opacity .2s cubic-bezier(.4, 0, .2, 1),
+ max-width .2s cubic-bezier(.4, 0, .2, 1) .1s,
+ margin-left .2s cubic-bezier(.4, 0, .2, 1) .1s,
+ margin-right .2s cubic-bezier(.4, 0, .2, 1) .1s;
+ 
+}
+
+.n-button .n-button__icon.fade-in-width-expand-transition-enter-active {
+
+ overflow: hidden;
+ transition:
+ opacity .2s cubic-bezier(.4, 0, .2, 1) .1s,
+ max-width .2s cubic-bezier(.4, 0, .2, 1),
+ margin-left .2s cubic-bezier(.4, 0, .2, 1),
+ margin-right .2s cubic-bezier(.4, 0, .2, 1);
+ 
+}
+
+.n-button .n-button__content {
+
+ display: flex;
+ align-items: center;
+ flex-wrap: nowrap;
+ min-width: 0;
+ 
+}
+
+.n-button .n-button__content ~ .n-button__icon {
+  margin: var(--n-icon-margin);
+  margin-right: 0;
+}
+
+.n-button.n-button--block {
+
+ display: flex;
+ width: 100%;
+ 
+}
+
+.n-button.n-button--dashed .n-button__border, .n-button.n-button--dashed .n-button__state-border {
+  border-style: dashed !important;
+}
+
+.n-button.n-button--disabled {
+  cursor: not-allowed;
+  opacity: var(--n-opacity-disabled);
+}
+
+@keyframes button-wave-spread {
+  from {
+    box-shadow: 0 0 0.5px 0 var(--n-ripple-color);
+  }
+  to {
+    box-shadow: 0 0 0.5px 4.5px var(--n-ripple-color);
+  }
+}
+
+@keyframes button-wave-opacity {
+  from {
+    opacity: var(--n-wave-opacity);
+  }
+  to {
+    opacity: 0;
+  }
+}
+</style><style>.wiki-root{background-color:#f5f5f5;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,Helvetica Neue,Arial,sans-serif}</style><style>.knowledge-header-menu[data-v-ef931cbd]{color:#3c3c3c;align-items:center;gap:42px;height:100%;font-size:16px;display:flex}.knowledge-header-menu a[data-v-ef931cbd]{color:inherit;text-decoration:none}.knowledge-header-menu a[data-v-ef931cbd]:focus-visible,.knowledge-header-menu button[data-v-ef931cbd]:focus-visible{outline-offset:4px;outline:2px solid #ec7100}.knowledge-header-menu .selected[data-v-ef931cbd]{color:#ff890d}.fig-nav-menu-wrap[data-v-ef931cbd]{position:relative}.fig-nav-menu-trigger[data-v-ef931cbd],.fig-nav-menu-wrap[data-v-ef931cbd]{align-items:center;height:100%;display:flex}.fig-nav-menu-trigger[data-v-ef931cbd]{gap:5px}.fig-nav-menu-trigger i[data-v-ef931cbd]{border-bottom:2px solid;border-right:2px solid;flex:0 0 9px;width:9px;height:9px;margin:-4px 0 0 2px;transition:transform .18s;display:block;transform:rotate(45deg)}.fig-camp-menu[data-v-ef931cbd]{z-index:40;opacity:0;visibility:hidden;pointer-events:none;background:#fff;border:1px solid #f0f0f0;border-radius:0 0 12px 12px;width:340px;padding:12px;transition:opacity .18s,transform .18s,visibility .18s;position:absolute;top:100%;left:50%;transform:translate(-50%,-8px);box-shadow:0 18px 36px #1f253224}.fig-camp-menu a[data-v-ef931cbd],.fig-camp-menu button[data-v-ef931cbd]{color:#4a4d53;width:100%;min-height:43px;font:inherit;text-align:left;white-space:nowrap;cursor:pointer;background:0 0;border:0;border-radius:7px;align-items:center;gap:8px;padding:9px 13px;font-size:17px;line-height:1.4;display:flex}.fig-camp-menu a[data-v-ef931cbd]:focus-visible,.fig-camp-menu a[data-v-ef931cbd]:hover,.fig-camp-menu button[data-v-ef931cbd]:focus-visible,.fig-camp-menu button[data-v-ef931cbd]:hover{color:#f47b10;background:#fff7ee;outline:0}.fig-camp-menu small[data-v-ef931cbd]{color:#fff;background:#ff5b12;border-radius:10px;flex-shrink:0;padding:0 8px;font-size:12px;line-height:20px}.fig-training-menu[data-v-ef931cbd]{max-height:min(60vh,520px);overflow-y:auto}.fig-training-menu a[data-v-ef931cbd]{white-space:normal;overflow-wrap:anywhere}.fig-trial-menu[data-v-ef931cbd]{width:300px}.fig-menu-state[data-v-ef931cbd]{color:#777;margin:0;padding:12px 13px;font-size:14px}.fig-nav-menu-wrap:focus-within .fig-camp-menu[data-v-ef931cbd],.fig-nav-menu-wrap:hover .fig-camp-menu[data-v-ef931cbd]{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%)}.fig-nav-menu-wrap:focus-within .fig-nav-menu-trigger i[data-v-ef931cbd],.fig-nav-menu-wrap:hover .fig-nav-menu-trigger i[data-v-ef931cbd]{margin-top:4px;transform:rotate(225deg)}@media (width<=900px){.knowledge-header-menu[data-v-ef931cbd]{gap:16px}.fig-camp-menu[data-v-ef931cbd]{width:320px;left:0;transform:translateY(-8px)}.fig-trial-menu[data-v-ef931cbd]{width:280px}.fig-nav-menu-wrap:focus-within .fig-camp-menu[data-v-ef931cbd],.fig-nav-menu-wrap:hover .fig-camp-menu[data-v-ef931cbd]{transform:translate(0)}}@media (prefers-reduced-motion:reduce){.fig-camp-menu[data-v-ef931cbd],.fig-nav-menu-trigger i[data-v-ef931cbd]{transition:none}}</style><style>.knowledge-header[data-v-7ddc79c1]{z-index:30;color:#3c3c3c;background:#fff;height:66px;font:16px/1.5 Arial,PingFang SC,Microsoft YaHei,sans-serif;position:relative;overflow:visible}.knowledge-header-inner[data-v-7ddc79c1]{justify-content:space-between;align-items:center;width:calc(100% - 64px);max-width:1200px;height:100%;margin:0 auto;display:flex}.knowledge-header-brand[data-v-7ddc79c1]{flex:none;align-items:center;text-decoration:none;display:flex}.knowledge-header-brand img[data-v-7ddc79c1]{width:132px;height:auto;display:block}.knowledge-header-brand[data-v-7ddc79c1]:focus-visible{outline-offset:4px;outline:2px solid #ec7100}.knowledge-header--mobile[data-v-7ddc79c1]{-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);background:#fffffff2;border-bottom:1px solid #e9e9e9;height:58px;font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,Arial,sans-serif;position:sticky;top:0}.knowledge-header--mobile .knowledge-header-inner[data-v-7ddc79c1]{width:100%;max-width:none;padding:0 16px}.knowledge-header--mobile .knowledge-header-brand img[data-v-7ddc79c1]{width:128px}@media (width<=767px){.knowledge-header--auto[data-v-7ddc79c1]{-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);background:#fffffff2;border-bottom:1px solid #e9e9e9;height:58px;font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,Arial,sans-serif;position:sticky;top:0}.knowledge-header--auto .knowledge-header-inner[data-v-7ddc79c1]{width:100%;max-width:none;padding:0 16px}.knowledge-header--auto .knowledge-header-brand img[data-v-7ddc79c1]{width:128px}.knowledge-header--auto[data-v-7ddc79c1] .knowledge-header-menu{display:none}}</style><style>.knowledge-footer[data-v-533cb129]{background:#fcfcfc}.knowledge-footer-container[data-v-533cb129]{width:calc(100% - 64px);max-width:1200px;margin:0 auto}.knowledge-footer-element[data-v-533cb129]{width:1200px;display:block}.knowledge-footer-status[data-v-533cb129]{color:#6c7684;justify-content:center;align-items:center;gap:16px;min-height:160px;font-size:14px;display:flex}.knowledge-footer-status button[data-v-533cb129]{color:#c65d00;padding:8px}</style><style>.knowledge-qcon[data-v-3da1bdbc]{min-width:0}.knowledge-qcon__link[data-v-3da1bdbc]{color:#152d58;background:linear-gradient(115deg,#f2f6ff,#edf7fc 62%,#e6faef);border:1px solid #dce9f5;border-radius:18px;justify-content:space-between;align-items:center;gap:28px;min-height:190px;padding:25px 34px;text-decoration:none;transition:border-color .2s,box-shadow .2s,transform .2s;display:flex;position:relative;overflow:hidden}.knowledge-qcon__link[data-v-3da1bdbc]:hover{border-color:#81b9dc;transform:translateY(-2px);box-shadow:0 13px 28px #2364a51a}.knowledge-qcon__link[data-v-3da1bdbc]:focus-visible{outline-offset:3px;outline:2px solid #246ee5}.knowledge-qcon__copy[data-v-3da1bdbc]{z-index:1;min-width:0;max-width:710px;position:relative}.knowledge-qcon__eyebrow[data-v-3da1bdbc]{color:#2374cc;letter-spacing:.09em;margin-bottom:8px;font-size:13px;font-weight:700;display:block}.knowledge-qcon h2[data-v-3da1bdbc]{color:#173560;margin:0;font-size:30px;font-weight:750;line-height:1.3}.knowledge-qcon p[data-v-3da1bdbc]{color:#5f7089;margin:10px 0 16px;font-size:14px;line-height:1.55}.knowledge-qcon__cta[data-v-3da1bdbc]{color:#2167cc;align-items:center;gap:9px;font-size:14px;font-weight:700;display:inline-flex}.knowledge-qcon__cta span[data-v-3da1bdbc]{font-size:19px;font-weight:400;line-height:1}.knowledge-qcon__visual[data-v-3da1bdbc]{flex:none;width:255px;height:142px;position:relative}.knowledge-qcon__sheet[data-v-3da1bdbc]{box-sizing:border-box;color:#fff;background:linear-gradient(130deg,#176bea,#3888f3 57%,#25b13c 0,#36c54c);border:4px solid #fff;border-radius:10px;align-items:flex-start;width:144px;height:94px;padding:15px;font-size:12px;font-weight:700;display:flex;position:absolute;box-shadow:0 8px 20px #16447928}.knowledge-qcon__sheet--back[data-v-3da1bdbc]{top:8px;right:0;transform:rotate(7deg)}.knowledge-qcon__sheet--middle[data-v-3da1bdbc]{top:26px;right:54px;transform:rotate(-5deg)}.knowledge-qcon__sheet--front[data-v-3da1bdbc]{flex-direction:column;gap:8px;display:flex;top:43px;right:101px;transform:rotate(-10deg)}.knowledge-qcon__sheet--front strong[data-v-3da1bdbc]{font-size:20px;line-height:1}.knowledge-qcon__sheet--front small[data-v-3da1bdbc]{font-size:12px}.knowledge-qcon__count[data-v-3da1bdbc]{color:#2179b8;white-space:nowrap;background:#fff;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;position:absolute;bottom:2px;right:1px;box-shadow:0 6px 18px #1644791c}.knowledge-qcon__count strong[data-v-3da1bdbc]{color:#1c62ce;margin-right:3px;font-size:22px}.knowledge-qcon--desktop[data-v-3da1bdbc]{width:calc(100% - 64px);max-width:1200px;margin:0 auto}.knowledge-qcon--mobile[data-v-3da1bdbc]{margin:0 16px 28px}.knowledge-qcon--mobile .knowledge-qcon__link[data-v-3da1bdbc]{border-radius:14px;min-height:178px;padding:20px}.knowledge-qcon--mobile .knowledge-qcon__eyebrow[data-v-3da1bdbc]{margin-bottom:7px;font-size:11px}.knowledge-qcon--mobile h2[data-v-3da1bdbc]{max-width:250px;font-size:19px}.knowledge-qcon--mobile p[data-v-3da1bdbc]{max-width:270px;margin:8px 0 13px;font-size:11px}.knowledge-qcon--mobile .knowledge-qcon__cta[data-v-3da1bdbc]{font-size:12px}.knowledge-qcon--mobile .knowledge-qcon__visual[data-v-3da1bdbc]{opacity:.27;transform-origin:100% 100%;position:absolute;bottom:7px;right:-70px;transform:scale(.85)}@media (width<=900px){.knowledge-qcon--desktop .knowledge-qcon__visual[data-v-3da1bdbc]{transform-origin:100%;margin-left:-50px;transform:scale(.78)}}@media (width<=359px){.knowledge-qcon--mobile .knowledge-qcon__visual[data-v-3da1bdbc]{opacity:.2;right:-100px}}@media (prefers-reduced-motion:reduce){.knowledge-qcon__link[data-v-3da1bdbc]{transition:none}}</style><style>.fig-page{color:#3c3c3c;background:#fff;font-family:Arial,PingFang SC,Microsoft YaHei,sans-serif;font-size:16px;line-height:1.5;overflow:hidden}.fig-page *{box-sizing:border-box}.fig-page a{color:inherit;text-decoration:none}.fig-page button{font:inherit;cursor:pointer;background:0 0;border:0}.fig-container{width:calc(100% - 64px);max-width:1200px;margin:0 auto}.fig-header{background:#fff;height:66px}.fig-nav{justify-content:space-between;height:100%}.fig-brand,.fig-nav{align-items:center;display:flex}.fig-brand{gap:8px;font-size:22px}.fig-brand svg{width:32px;height:32px}.fig-nav nav{align-items:center;gap:42px;font-size:16px;display:flex}.fig-nav nav .selected{color:#ff890d}.enterprise-icon{color:#6289fa;font-size:22px}.fig-login{color:#888!important}.fig-announcement{color:#ee9b40;background:#fff8ee;justify-content:center;align-items:center;height:44px;font-size:16px;display:flex}.fig-announcement button{color:inherit;padding:0 20px}.fig-hero{background:#ffac50 var(--knowledge-hero) center center/cover no-repeat;height:530px;position:relative}.fig-hero-copy{z-index:1;pointer-events:none;padding-top:90px;position:relative}.fig-hero h1{letter-spacing:1px;color:#bf3800;margin:0 0 19px;font-size:60px;font-weight:800;line-height:1.22}.fig-hero-copy p{color:#e75400;margin:0;font-size:16px;font-weight:500;line-height:1.5}.fig-stats{color:#ef5900;gap:0;margin-top:65px;display:flex}.fig-stats>div{border-right:1px solid #f58c3c;grid-template-columns:max-content max-content;align-items:baseline;padding:0 26px;line-height:1.1;display:grid}.fig-stats>div:first-child{padding-left:4px}.fig-stats>div:last-child{border:0}.fig-stats strong{letter-spacing:-2px;font-size:40px;font-weight:800}.fig-stats .weekly{letter-spacing:0;font-size:34px;line-height:44px}.fig-stats span{padding-left:3px;font-size:20px}.fig-stats small{grid-column:1/-1;margin-top:6px;font-size:16px}.fig-planet-labels{color:#fff;pointer-events:none;width:1920px;height:530px;font-size:16px;top:0;left:50%}.fig-planet-labels,.fig-planet-title{position:absolute;transform:translate(-50%)}.fig-planet-title{white-space:nowrap;flex-direction:column;align-items:center;display:flex;top:38%;left:63.65%}.fig-planet-title strong{font-size:42px;line-height:1.3}.fig-planet-title span{background:#ff6400;border-radius:22px;margin-top:4px;padding:0 20px;font-size:21px;line-height:1.35}.fig-planet-labels>span{line-height:1.3;position:absolute}.fig-rag{top:28%;left:50.2%}.fig-tools{top:48.5%;left:52.3%}.fig-work{top:58.5%;left:48.6%}.fig-deep{top:38.5%;left:75.2%}.fig-interview{top:70.2%;left:64.8%}.fig-harness{top:70.2%;left:73.9%}.fig-library{padding-top:74px}.fig-library-head{align-items:center;gap:28px;min-height:36px;margin-bottom:24px;display:flex}.fig-library-heading{white-space:nowrap;padding:0;font-size:22px!important;font-weight:600!important}.fig-tabs{white-space:nowrap;gap:28px;display:flex}.fig-tabs button{color:#85858b;padding:7px 0;font-size:16px;position:relative}.fig-tabs button.active{color:#ff8b13}.fig-tabs button.active:after{content:"";background:#ff8b13;height:2px;position:absolute;bottom:0;left:5px;right:5px}.fig-search{border:1px solid #ff931f;border-radius:7px;flex-shrink:0;align-items:center;width:304px;height:38px;margin-left:auto;padding:0 11px;display:flex}.fig-search input{width:100%;min-width:0;font:inherit;color:#555;background:0 0;border:0;outline:0;font-size:12px}.fig-search input::placeholder{color:#c4c6ca}.fig-search svg{fill:none;stroke:#ff8912;stroke-width:2px;flex-shrink:0;width:22px;height:22px}.fig-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;display:grid}.fig-card{background:#fff;border-radius:10px;min-width:0;overflow:hidden;box-shadow:0 8px 35px #33365008}.fig-card-cover{justify-content:center;align-items:center;height:158px;display:flex;position:relative;overflow:hidden}.fig-card-cover.agent{color:#e76030;background:#fff1e9}.fig-card-cover.mcp{color:#47845a;background:#ebf8ee}.fig-card-cover.fde{color:#795bc5;background:#f1ebff}.fig-card-cover.harness{color:#a08043;background:#fff6d9}.fig-watermark{opacity:.085;white-space:nowrap;letter-spacing:-5px;font-size:100px;font-weight:400;line-height:1;position:absolute}.fig-card-cover h2{z-index:1;white-space:nowrap;letter-spacing:-1px;margin:0;font-size:30px;font-weight:500;position:relative}.fig-hot{color:#fff;background:#ff8d13;border-radius:3px;padding:1px 7px;font-size:13px;line-height:21px;position:absolute;top:11px;left:11px}.fig-card-body{padding:19px 17px 15px}.fig-card-body>p{color:#363636;min-height:46px;margin:0 0 14px;font-size:16px;font-weight:600;line-height:1.45}.fig-tags{flex-wrap:wrap;align-content:start;gap:7px 9px;max-width:100%;min-height:54px;display:flex}.fig-tags span{color:#93949e;text-align:center;background:#f6f6fa;border-radius:16px;min-width:53px;padding:2px 13px;font-size:12px;line-height:19px}.fig-card-bottom{color:#a1a1a1;justify-content:space-between;align-items:center;margin-top:18px;font-size:14px;display:flex}.fig-card-bottom a,.fig-card-bottom button{color:#ff9118;white-space:nowrap;background:#fff8ee;border-radius:20px;padding:3px 12px;font-size:14px}.fig-card-bottom b{font-size:20px;font-weight:400;line-height:15px}.fig-courses{padding-top:72px;padding-bottom:86px}.fig-courses>header{align-items:center;gap:24px;margin-bottom:22px;display:flex}.fig-courses h2{margin:0;font-size:22px;font-weight:500}.fig-courses>header p{color:#999;margin:0;font-size:16px}.fig-course{border-radius:8px;overflow:hidden;box-shadow:0 8px 35px #33365008}.fig-course-image{aspect-ratio:350/196;position:relative;overflow:hidden}.fig-course-image img{-o-object-fit:cover;object-fit:cover;width:100%;height:100%}.fig-course .fig-hot{padding:0 4px}.fig-course-body{padding:16px}.fig-course h3{white-space:nowrap;margin:0 0 3px;font-size:16px;font-weight:500}.fig-course-body>p{color:#aaa;text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:12px;overflow:hidden}.fig-course-body>div{color:#ff9a2a;justify-content:space-between;align-items:center;margin-top:15px;font-size:14px;display:flex}.fig-course-body button{color:#fff;background:#ff900d;border-radius:22px;padding:1px 20px;font-size:13px;line-height:23px}.fig-empty{text-align:center;color:#888;padding:50px}.fig-notice{color:#fff;z-index:20;background:#333;border-radius:8px;gap:24px;padding:15px 20px;display:flex;position:fixed;bottom:30px;left:50%;transform:translate(-50%);box-shadow:0 4px 20px #0002}.fig-notice button{color:#fff}.fig-page a:focus-visible,.fig-page button:focus-visible,.fig-search:focus-within{outline-offset:4px;outline:2px solid #ec7100}.fig-current-course{aspect-ratio:285/160;background-image:var(--knowledge-current-courses);background-repeat:no-repeat;background-size:463.158% 206.25%}.fig-vip-course{aspect-ratio:285/160;background:#fff2e8}.fig-vip-course img{-o-object-fit:cover;object-fit:cover;-o-object-position:center;object-position:center;width:100%;height:100%;display:block}.fig-course-enroll{white-space:nowrap;background:#ff900d;border-radius:22px;padding:1px 20px;font-size:13px;line-height:23px;color:#fff!important}.fig-course{position:relative}.fig-course-enroll:after{content:"";position:absolute;inset:0}.fig-course:has(.fig-course-enroll){cursor:pointer}.fig-announcement a{color:inherit;padding:0 20px}.fig-card-long .fig-card-cover h2{white-space:normal;text-align:center;max-width:100%;padding:0 8px;font-size:23px;line-height:1.2}.fig-card-soon .fig-card-meta em{color:#8d8f96;background:#f4f4f6}.fig-card-soon .fig-card-bottom span{color:#a0a2a8;margin-left:auto}.fig-work{left:50.5%}.fig-cover-copy{z-index:1;text-align:center;max-width:95%;position:relative}.fig-cover-copy h2{white-space:normal;font-size:clamp(21px,2vw,30px);line-height:1.15}.fig-cover-copy small{color:#7065a7;margin-top:9px;font-size:12px;display:block}.fig-card-body{flex-direction:column;min-height:221px;display:flex}.fig-card-body>p{min-height:70px}.fig-tags{margin-top:auto}.fig-card-bottom{justify-content:flex-end;gap:7px;min-height:38px;align-items:flex-end!important}.fig-card-bottom>a,.fig-card-bottom>button{flex-shrink:0}.fig-card-cover .fig-watermark{font-size:clamp(65px,7vw,100px)}@media (width>=1921px){.fig-hero{background-size:100% 100%}.fig-planet-labels{width:100%}}@media (width<=1250px){.fig-library-head{flex-wrap:wrap;gap:20px}.fig-search{width:240px}.fig-tabs{gap:20px}.fig-card-cover h2{font-size:25px}.fig-tags{gap:5px}.fig-tags span{padding:2px 10px}.fig-course h3{white-space:normal;min-height:48px}.fig-hero h1{font-size:50px}.fig-hero-copy{padding-top:100px}}@media (width<=900px){.fig-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fig-nav nav{gap:16px}.fig-brand{font-size:18px}.fig-hero h1{font-size:38px}.fig-hero-copy{padding-top:65px}.fig-hero{background-position:44%;height:440px}.fig-planet-labels{display:none}.fig-stats{margin-top:45px}.fig-hero-copy p{max-width:360px}.fig-courses>header{flex-direction:column;align-items:start;gap:8px}.fig-course h3{min-height:0}.fig-search{margin-left:0}}.fig-brand img{width:132px;height:auto;display:block}@media (width<=560px){.fig-container{width:calc(100% - 32px)}.fig-nav nav{display:none}.fig-announcement{font-size:12px}.fig-hero h1{font-size:32px}.fig-hero-copy p{font-size:14px}.fig-hero{background-position:20%}.fig-card-cover h2{font-size:19px}.fig-card-cover{height:120px}.fig-card-body{padding:12px}.fig-card-body>p{min-height:81px;font-size:14px}.fig-grid{gap:14px}.fig-watermark{font-size:70px}.fig-card-bottom{flex-direction:column;align-items:start;gap:5px}.fig-stats>div{padding:0 16px}.fig-stats strong{font-size:34px}.fig-stats small{font-size:13px}.fig-library{padding-top:40px}.fig-library-head{gap:14px}.fig-tabs{gap:20px}.fig-tabs button{font-size:14px}.fig-search{width:100%}.fig-course-body{padding:12px}.fig-course-body>div{flex-direction:column;align-items:start;gap:10px}.fig-course h3{min-height:48px}.fig-courses{padding:40px 0}.fig-notice{width:90%;bottom:20px}}.fig-library>.fig-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 18px}.fig-library .fig-card{border:1px solid #e5e6ea;border-radius:12px;padding:16px 19px 0;overflow:hidden;box-shadow:0 7px 24px #1f283d0e}.fig-card-meta{color:#777b83;align-items:flex-start;gap:9px;height:28px;font-size:12px;line-height:20px;display:flex}.fig-card-meta em{color:#ff765f;background:#fff0ed;border-radius:3px;padding:0 6px;font-size:11px;font-style:normal;line-height:18px}.fig-library .fig-card-cover{border-radius:8px;height:76px;overflow:hidden}.fig-library .fig-card-cover h2{letter-spacing:-.5px;white-space:nowrap;font-size:24px;font-weight:500}.fig-library .fig-card-body{min-height:157px;padding:18px 0 0}.fig-library .fig-card-body>p{color:#5d626d;min-height:50px;margin:0 0 16px;font-size:16px;font-weight:400;line-height:1.55}.fig-library .fig-tags{gap:6px;min-height:30px;margin-top:0}.fig-library .fig-tags span{border-radius:4px;min-width:0;padding:2px 8px;font-size:12px;line-height:20px}.fig-library .fig-card-bottom{border-top:1px solid #e8e9ec;min-height:55px;margin-top:8px;align-items:center!important}.fig-library .fig-card-bottom a,.fig-library .fig-card-bottom button{color:#25282d;background:0 0;margin-left:auto;padding:0;font-weight:600}.fig-library .fig-card-bottom b{font-size:18px}@media (width<=900px){.fig-library>.fig-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (width<=560px){.fig-library>.fig-grid{grid-template-columns:1fr}.fig-library .fig-card-cover{height:76px}.fig-library .fig-card-body>p{min-height:0}.fig-library .fig-card-bottom{flex-direction:row;align-items:center!important}.fig-library .fig-card-cover h2{font-size:22px}}.fig-library .fig-card-bottom a,.fig-library .fig-card-bottom button{color:#ff8d13}.fig-header{z-index:30;position:relative;overflow:visible}.fig-nav nav{height:100%}.fig-nav-menu-wrap{position:relative}.fig-nav-menu-trigger,.fig-nav-menu-wrap{align-items:center;height:100%;display:flex}.fig-nav-menu-trigger{gap:5px}.fig-nav-menu-trigger i{border-bottom:2px solid;border-right:2px solid;flex:0 0 9px;width:9px;height:9px;margin:-4px 0 0 2px;transition:transform .18s;display:block;transform:rotate(45deg)}.fig-camp-menu{opacity:0;visibility:hidden;pointer-events:none;z-index:40;background:#fff;border:1px solid #f0f0f0;border-radius:0 0 12px 12px;width:340px;padding:12px;transition:opacity .18s,transform .18s,visibility .18s;position:absolute;top:100%;left:50%;transform:translate(-50%,-8px);box-shadow:0 18px 36px #1f253224}.fig-camp-menu a,.fig-camp-menu button{text-align:left;color:#4a4d53;white-space:nowrap;border-radius:7px;align-items:center;gap:8px;width:100%;min-height:43px;padding:9px 13px;font-size:17px;line-height:1.4;display:flex}.fig-camp-menu a:focus-visible,.fig-camp-menu a:hover,.fig-camp-menu button:focus-visible,.fig-camp-menu button:hover{color:#f47b10;background:#fff7ee;outline:0}.fig-camp-menu small{color:#fff;background:#ff5b12;border-radius:10px;padding:0 8px;font-size:12px;line-height:20px}.fig-trial-menu{width:300px}.fig-nav-menu-wrap:focus-within .fig-camp-menu,.fig-nav-menu-wrap:hover .fig-camp-menu{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%)}.fig-nav-menu-wrap:focus-within .fig-nav-menu-trigger i,.fig-nav-menu-wrap:hover .fig-nav-menu-trigger i{margin-top:4px;transform:rotate(225deg)}@media (width<=900px){.fig-camp-menu{width:320px;left:0;transform:translateY(-8px)}.fig-trial-menu{width:280px}.fig-nav-menu-wrap:focus-within .fig-camp-menu,.fig-nav-menu-wrap:hover .fig-camp-menu{transform:translate(0)}}.knowledge-hub-root .fig-library-head{justify-content:space-between;align-items:flex-end;margin-bottom:16px}.knowledge-hub-root .fig-library-head>div:first-child{flex:1;min-width:0}.knowledge-hub-root .fig-library-heading{white-space:normal;margin:0;line-height:1.3;font-size:27px!important}.knowledge-hub-root .fig-library-intro{color:#8c8e94;margin:8px 0 0;font-size:15px}.knowledge-hub-root .fig-filter-reset{color:#85858b;flex:none;height:38px;padding:0 4px;font-size:13px}.knowledge-hub-root .fig-library .fig-tabs{scrollbar-width:none;gap:9px;margin-bottom:22px;padding:0 0 11px;overflow-x:auto}.knowledge-hub-root .fig-library .fig-tabs::-webkit-scrollbar{display:none}.knowledge-hub-root .fig-library .fig-tabs button{border:1px solid #e9e9ed;border-radius:24px;flex:none;padding:8px 15px;font-size:14px;line-height:1.2}.knowledge-hub-root .fig-library .fig-tabs button.active{color:#ed7410;background:#fff3e5;border-color:#ffbc77;font-weight:700}.knowledge-hub-root .fig-library .fig-tabs button.active:after{display:none}.knowledge-hub-root .fig-library .fig-tabs button:not(.active):hover{color:#ed7410;border-color:#ffd3aa}.knowledge-hub-root .fig-library .fig-tabs button:focus-visible{outline-offset:-2px;outline:2px solid #ec7100}.knowledge-hub-root .fig-topic-group{border-top:1px solid #f0ede9;padding:19px 0 37px}.knowledge-hub-root .fig-topic-group-head{justify-content:space-between;align-items:center;gap:20px;margin:0 0 19px;display:flex}.knowledge-hub-root .fig-topic-group-head>div{flex-wrap:wrap;align-items:baseline;gap:12px;min-width:0;display:flex}.knowledge-hub-root .fig-topic-index{color:#f28a24;letter-spacing:.12em;font-size:14px;font-weight:800}.knowledge-hub-root .fig-topic-group-head h3{color:#2f3034;margin:0;font-size:24px;line-height:1.25}.knowledge-hub-root .fig-topic-group-head p{color:#92949a;margin:0;font-size:14px}.knowledge-hub-root .fig-topic-count{color:#e97816;flex:none;font-size:14px;font-weight:700}.knowledge-hub-root .fig-library .fig-topic-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card{cursor:pointer;border:1px solid #e6e6e9;border-radius:12px;padding:15px 17px 17px;position:relative;box-shadow:0 7px 24px #1f283d0b}.knowledge-hub-root .fig-topic-link{z-index:2;border-radius:inherit;position:absolute;inset:0}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card:hover{border-color:#f3b47b;box-shadow:0 12px 28px #ed74101c}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card:focus-within{outline-offset:2px;outline:2px solid #ed7410}.knowledge-hub-root .fig-topic-open{color:#ed7410;margin-left:auto;font-size:18px}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card-cover{height:91px}.knowledge-hub-root .fig-library .fig-topic-grid .fig-cover-copy h4{letter-spacing:-.4px;white-space:nowrap;margin:0;padding:0 10px;font-size:23px;font-weight:650;line-height:1.22}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card-long .fig-cover-copy h4{white-space:normal;text-wrap:balance;overflow-wrap:anywhere;font-size:19px}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card-body{min-height:0;padding:15px 0 0}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card-body>p{min-height:45px;margin-bottom:12px;font-size:14px;line-height:1.55}.knowledge-hub-root .fig-library .fig-topic-grid .fig-tags{gap:6px;min-height:0;margin:0}.knowledge-hub-root .fig-library .fig-topic-grid .fig-tags span{font-size:11px;line-height:19px}.knowledge-hub-root .fig-card-cover.theory{color:#356bb5;background:#e8f1ff}.knowledge-hub-root .fig-card-cover.app{color:#268779;background:#eaf8f5}.knowledge-hub-root .fig-card-cover.interview{color:#de6114;background:#fff0e2}.knowledge-hub-root .fig-card-cover.primer{color:#2444d3;background:#e2e9ff}.knowledge-hub-root .fig-card-cover.case{color:#1d5a83;background:linear-gradient(115deg,#eaf2ff,#e8f7ee)}.knowledge-hub-root .fig-card-cover.anthropic{color:#9a4b2c;background:linear-gradient(115deg,#f8e7dc,#f2dbcc)}.knowledge-hub-root .fig-topic-sections{-moz-column-gap:17px;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:17px;display:grid}.knowledge-hub-root .fig-topic-sections>.fig-topic-group{grid-column:1/-1;min-width:0}.knowledge-hub-root .fig-topic-sections>.fig-topic-group--paired{grid-column:span 1}.knowledge-hub-root .fig-topic-group--paired .fig-topic-count,.knowledge-hub-root .fig-topic-group--paired .fig-topic-group-head p{display:none}.knowledge-hub-root .fig-library .fig-topic-group--paired .fig-topic-grid{grid-template-columns:1fr}.knowledge-hub-root .fig-topic-sections>.fig-topic-group--wide{grid-column:span 2}.knowledge-hub-root .fig-topic-sections>.fig-topic-group--full{grid-column:span 3}.knowledge-hub-root .fig-library .fig-topic-group--wide .fig-topic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.knowledge-hub-root .fig-library .fig-topic-group--full .fig-topic-grid{grid-template-columns:repeat(3,minmax(0,1fr))}@media (width<=900px){.knowledge-hub-root .fig-library .fig-topic-grid,.knowledge-hub-root .fig-topic-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.knowledge-hub-root .fig-topic-group-head>div{gap:8px}}@media (width<=560px){.knowledge-hub-root .fig-library-head{align-items:stretch}.knowledge-hub-root .fig-library .fig-topic-grid{grid-template-columns:1fr}.knowledge-hub-root .fig-topic-group-head{align-items:flex-start}.knowledge-hub-root .fig-topic-group-head>div{display:block}.knowledge-hub-root .fig-topic-group-head h3{font-size:21px}.knowledge-hub-root .fig-topic-group-head p{margin-top:4px}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card-cover{height:86px}.knowledge-hub-root .fig-library .fig-topic-grid .fig-card-body>p{min-height:0}}</style><style>.h5-page{--orange:#fa8919;--deep:#c54000;--ink:#3d3d3d;--muted:#8a8a8a;--line:#e9e9e9;width:min(100%,480px);min-height:100vh;color:var(--ink);background:#fff;margin:auto;padding-bottom:68px;font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,Arial,sans-serif;box-shadow:0 0 50px #31344a12}.h5-page *{box-sizing:border-box}.h5-page a{color:inherit;text-decoration:none}.h5-page button{font:inherit;cursor:pointer;border:0}.h5-header{z-index:30;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);background:#fffffff2;justify-content:space-between;height:58px;padding:0 16px;position:sticky;top:0}.h5-brand,.h5-header{align-items:center;display:flex}.h5-brand{gap:8px}.h5-brand svg{flex:none;width:29px;height:29px}.h5-brand b{color:#343434;font-size:17px}.h5-login{color:#777;font-size:14px}.h5-announcement{color:#ec8d2f;text-align:center;background:#fff8ee;width:100%;min-height:40px;padding:8px 14px;font-size:13px;line-height:1.5}.h5-hero{background:linear-gradient(120deg,#fff8dc,#ffc871 58%,#ff7919);padding:34px 0 24px;position:relative;overflow:hidden}.h5-hero-copy{z-index:2;padding:0 20px;position:relative}.h5-hero h1{color:var(--deep);letter-spacing:-1.5px;margin:0;font-size:clamp(34px,9vw,43px);font-weight:700;line-height:1.22}.h5-hero-copy p{color:#df540d;margin:16px 0 0;font-size:14px;line-height:1.65}.h5-hero-visual{background:var(--knowledge-hero) 77% center/auto 100% no-repeat;height:300px;margin-top:10px;position:relative}.h5-planet-title{color:#fff;white-space:nowrap;flex-direction:column;align-items:center;display:flex;position:absolute;transform:translate(-50%,-50%)}.h5-hero-visual strong{font-size:26px;line-height:1.3}.h5-hero-visual span{background:#ff6400;border-radius:15px;margin-top:3px;padding:1px 12px;font-size:13px;line-height:1.35}.h5-hero-visual>i{color:#fffaf2;white-space:nowrap;font:11px/1.3 Arial;position:absolute}.h5-rag{left:20%}.h5-tools{left:24%}.h5-work{left:16%}.h5-deep{left:76%}.h5-interview{left:53%}.h5-harness{left:73%}.h5-stats{z-index:2;color:#ed5a00;background:#fff8efdc;border:1px solid #f0bc84;border-radius:10px;grid-template-columns:repeat(3,1fr);margin:-4px 16px 0;padding:15px 0;display:grid;position:relative}.h5-stats>div{grid-template-columns:max-content max-content;display:grid}.h5-stats>div+div{border-left:1px solid #efaa6e}.h5-stats strong{font-size:23px;line-height:1}.h5-stats span{font-size:13px}.h5-stats small{grid-column:1/-1;font-size:11px}.h5-courses,.h5-library{padding:46px 16px 54px;scroll-margin-top:58px}.h5-section-head h2{letter-spacing:-.5px;margin:0;font-size:24px;line-height:1.4}.h5-section-head p{color:var(--muted);margin:7px 0 0;font-size:13px}.h5-filters{scrollbar-width:none;gap:8px;margin:22px -16px 18px;padding:0 16px 4px;display:flex;overflow-x:auto}.h5-filters::-webkit-scrollbar{display:none}.h5-filters button{border:1px solid var(--line);color:#7f7f7f;background:#fff;border-radius:18px;flex:none;height:34px;padding:0 14px;font-size:12px}.h5-filters button.active{background:#fff6ec;font-weight:600}.h5-filters button.active,.h5-filters button:not(.active):hover{color:var(--orange);border-color:#ffd3aa}.h5-list{gap:14px;display:grid}.h5-card{background:#fff;border:1px solid #e5e6ea;border-radius:12px;padding:14px 15px 0;box-shadow:0 7px 24px #1f283d0e}.h5-card-meta{color:#7c7f85;gap:8px;height:25px;font-size:11px;display:flex}.h5-card-meta b{color:#ff725e;background:#fff0ed;border-radius:3px;height:18px;padding:1px 6px;font-size:10px}.h5-card-cover{border-radius:8px;place-items:center;height:74px;display:grid}.h5-card-cover.agent{color:#e76030;background:#fff1e9}.h5-card-cover.mcp{color:#47845a;background:#ebf8ee}.h5-card-cover.fde{color:#795bc5;background:#f1ebff}.h5-card-cover.harness{color:#a08043;background:#fff6d9}.h5-card-cover.anthropic{color:#9a4b2c;background:linear-gradient(115deg,#f8e7dc,#f2dbcc)}.h5-card-cover h3{letter-spacing:-.5px;margin:0;font-size:24px;font-weight:500}.h5-card>p{margin:16px 1px 13px;font-size:14px;line-height:1.6}.h5-tags{flex-wrap:wrap;gap:6px;display:flex}.h5-tags span{color:#8b8e98;background:#f6f6fa;border-radius:4px;padding:3px 8px;font-size:11px}.h5-card footer{border-top:1px solid #ececef;justify-content:flex-end;align-items:center;min-height:50px;margin-top:12px;display:flex}.h5-card footer a,.h5-card footer button{color:#2e3034;background:0 0;padding:0;font-size:13px;font-weight:600}.h5-courses{background:#f6f7fb;padding-top:42px}.h5-course-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px;display:grid}.h5-course{background:#fff;border-radius:10px;flex-direction:column;display:flex;overflow:hidden;box-shadow:0 7px 26px #3036500a}.h5-course>img{aspect-ratio:16/10;-o-object-fit:cover;object-fit:cover;width:100%;display:block}.h5-course>div{flex-direction:column;flex:1;padding:12px;display:flex}.h5-course h3{color:#424242;min-height:44px;margin:0;font-size:14px;line-height:1.55}.h5-course p{color:#aaa;height:34px;margin:4px 0 0;font-size:11px;line-height:1.55;overflow:hidden}.h5-course footer{color:#fa8919;flex-direction:column;align-items:flex-start;gap:9px;margin-top:auto;padding-top:12px;font-size:11px;display:flex}.h5-course footer a,.h5-course footer button{text-align:center;color:#fff;background:#fa8919;border-radius:17px;justify-content:center;align-items:center;width:100%;height:30px;padding:0;font-size:12px;line-height:1;display:flex}.h5-site-footer{background:#fff;padding:36px 20px 42px}.h5-site-footer p{color:#777;margin:14px 0 5px;font-size:13px}.h5-site-footer small{color:#aaa}.h5-bottom{z-index:40;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line);background:#fffffff2;grid-template-columns:repeat(4,1fr);width:min(100%,480px);height:62px;padding:6px 12px 4px;display:grid;position:fixed;bottom:0;left:50%;transform:translate(-50%)}.h5-bottom a{color:#858585;flex-direction:column;justify-content:center;align-items:center;gap:3px;font-size:10px;display:flex}.h5-bottom i{font:16px Arial}.h5-bottom a:last-child i{color:#fa8919;background:#fff1e5;border-radius:6px;place-items:center;width:22px;height:22px;font:italic 700 12px Georgia;display:grid}.h5-notice{z-index:60;color:#fff;background:#333;border-radius:9px;justify-content:space-between;align-items:center;width:calc(100% - 32px);padding:12px 14px;font-size:13px;display:flex;position:fixed;bottom:78px;left:50%;transform:translate(-50%);box-shadow:0 8px 26px #0003}.h5-notice button{color:#fff;background:0 0;padding:0 3px;font-size:20px}@media (width<=359px){.h5-course-list{grid-template-columns:1fr}.h5-course h3{min-height:0}.h5-hero h1{font-size:32px}}@media (width>=481px){.knowledge-hub-root{background:#eee}.h5-page{border-radius:18px;margin:20px auto;overflow:hidden}.h5-bottom{border:1px solid var(--line);border-radius:17px;bottom:18px;box-shadow:0 12px 35px #4d30171c}}@media (prefers-reduced-motion:reduce){.knowledge-hub-root *{scroll-behavior:auto!important}}.h5-course{cursor:pointer;position:relative}.h5-course footer a:after{content:"";position:absolute;inset:0}.h5-announcement{text-decoration:none;display:block}.h5-hero-visual{background-position:74.4%}.h5-hero{background:linear-gradient(145deg,#fff8e8,#ffd18a 58%,#ff8b2e);padding:32px 0 28px}.h5-hero-copy{padding:0 22px}.h5-hero-copy p{margin-top:14px}.h5-hero-visual{background-position:78%;border:1px solid #ffffff7a;border-radius:18px;height:240px;margin:24px 16px 0;overflow:hidden;box-shadow:0 16px 34px #c64c0024}.h5-planet-title{top:38%;left:50%}.h5-hero-visual strong{font-size:24px}.h5-hero-visual span{font-size:11px}.h5-hero-visual>i{opacity:.94;font-size:9px}.h5-rag{top:28%;left:24%}.h5-tools{top:48.5%;left:28%}.h5-work{top:58.5%;left:21%}.h5-deep{top:38.5%;left:73%}.h5-interview{top:70.2%;left:52%}.h5-harness{top:70.2%;left:70%}.h5-stats{background:#fff9f1f0;margin:16px 16px 0;box-shadow:0 10px 28px #aa4a0d14}.h5-card footer a,.h5-card footer button{color:#ff8d13}.h5-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.h5-card{flex-direction:column;min-width:0;padding:11px 10px 0;display:flex}.h5-card-meta{white-space:nowrap;gap:5px;height:22px;font-size:9px}.h5-card-meta b{height:16px;padding:1px 4px;font-size:8px}.h5-card-cover{height:64px}.h5-card-cover h3{text-align:center;max-width:100%;font-size:18px;line-height:1.15}.h5-card>p{color:#5f646d;text-overflow:ellipsis;white-space:nowrap;margin:12px 0 10px;font-size:12px;line-height:1.5;overflow:hidden}.h5-tags{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;min-height:0;display:grid}.h5-tags span{text-align:center;text-overflow:ellipsis;white-space:nowrap;min-width:0;padding:2px 4px;font-size:9px;overflow:hidden}.h5-card footer{border-top:0;min-height:49px;margin-top:auto;padding-top:12px}.h5-page{padding-bottom:0}.h5-notice{bottom:20px}.h5-card-long .h5-card-cover h3{font-size:15px;line-height:1.2}.h5-card-soon .h5-tags span:only-child{grid-column:1/-1}.h5-card footer a,.h5-card footer button{font-size:11px}.h5-card-soon{box-shadow:none;background:#fcfcfd;border-color:#e7e7e9}.h5-card-soon .h5-card-cover{color:#8d8f96;background:#f4f4f6}.h5-card-soon .h5-card-meta b{color:#ff8d13;background:#fff4e8}.h5-card-soon footer span{color:#a0a2a8;font-size:11px;font-weight:600}.h5-hero-visual{aspect-ratio:1.64;background:0 0;height:auto}.h5-hero-visual>img{-o-object-fit:cover;object-fit:cover;-o-object-position:center 50%;object-position:center 50%;width:100%;height:100%;display:block}.h5-hero-visual{box-shadow:none;border:0;border-radius:0;margin:18px 0 0}.h5-hero{background:linear-gradient(#fff0cf,#ffe0aa 27%,#ffc16d 48%,#ff9a3b);padding-bottom:16px}.h5-hero-visual{margin:8px 0 -8px}.h5-hero-visual>img{-webkit-mask-image:linear-gradient(#0000,#00000014 12%,#00000057 25%,#000 44% 86%,#0000);mask-image:linear-gradient(#0000,#00000014 12%,#00000057 25%,#000 44% 86%,#0000)}.h5-stats{color:#e95100;background:#fff9f1f5;border:0;border-radius:11px;margin:0 10px;padding:17px 4px;box-shadow:0 6px 18px #b14a090f}.h5-stats>div+div{border-color:#e9510057}.h5-stats>div{text-align:center;flex-wrap:wrap;justify-content:center;align-items:baseline;min-width:0;display:flex}.h5-stats small,.h5-stats span,.h5-stats strong{white-space:nowrap}.h5-stats span{margin-left:4px}.h5-stats small{text-align:center;flex:0 0 100%;margin-top:7px}.h5-brand img{width:128px;height:auto;display:block}.knowledge-hub-root .h5-library{padding-top:42px}.knowledge-hub-root .h5-filters{margin-top:19px;margin-bottom:9px}.knowledge-hub-root .h5-topic-group{border-top:1px solid #efeded;padding:22px 0 7px}.knowledge-hub-root .h5-topic-group-head{align-items:flex-start;gap:9px;margin-bottom:14px;display:flex}.knowledge-hub-root .h5-topic-index{color:#f17e18;padding-top:5px;font-size:11px;font-weight:800}.knowledge-hub-root .h5-topic-group-head>div{flex:1;min-width:0}.knowledge-hub-root .h5-topic-group-head h3{color:#35363a;margin:0;font-size:18px;line-height:1.3}.knowledge-hub-root .h5-topic-group-head p{color:#94969b;margin:4px 0 0;font-size:11px;line-height:1.45}.knowledge-hub-root .h5-topic-count{color:#e8791a;background:#fff4e8;border-radius:12px;flex:none;padding:4px 7px;font-size:10px;font-weight:700}.knowledge-hub-root .h5-topic-group .h5-list{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:10px}.knowledge-hub-root .h5-topic-group .h5-card{cursor:pointer;padding:10px 9px 12px;position:relative}.knowledge-hub-root .h5-topic-link{z-index:1;border-radius:inherit;position:absolute;inset:0}.knowledge-hub-root .h5-topic-group .h5-card:focus-within{outline-offset:2px;outline:2px solid #ed7410}.knowledge-hub-root .h5-topic-group .h5-topic-open{color:#ed7410;flex:none;margin-left:auto;font-size:14px;line-height:1}.knowledge-hub-root .h5-topic-group .h5-card-meta{height:22px;font-size:9px;overflow:hidden}.knowledge-hub-root .h5-topic-group .h5-card-meta span{text-overflow:ellipsis;overflow:hidden}.knowledge-hub-root .h5-topic-group .h5-card-cover{height:52px;padding:6px}.knowledge-hub-root .h5-topic-group .h5-card-cover h4{text-align:center;white-space:normal;text-wrap:balance;overflow-wrap:anywhere;letter-spacing:-.25px;max-width:100%;margin:0;font-size:clamp(11.5px,3.3vw,14px);font-weight:650;line-height:1.22}.knowledge-hub-root .h5-topic-group .h5-card>p{white-space:normal;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:38px;margin:11px 0 9px;font-size:11px;line-height:1.5;display:-webkit-box;overflow:hidden}.knowledge-hub-root .h5-topic-group .h5-tags{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:auto}.knowledge-hub-root .h5-topic-group .h5-tags span{font-size:9px}.knowledge-hub-root .h5-topic-group .h5-card-cover.theory{color:#356bb5;background:#e8f1ff}.knowledge-hub-root .h5-topic-group .h5-card-cover.app{color:#268779;background:#eaf8f5}.knowledge-hub-root .h5-topic-group .h5-card-cover.interview{color:#de6114;background:#fff0e2}.knowledge-hub-root .h5-topic-group .h5-card-cover.primer{color:#2444d3;background:#e2e9ff}.knowledge-hub-root .h5-topic-group .h5-card-cover.case{color:#1d5a83;background:linear-gradient(115deg,#eaf2ff,#e8f7ee)}.knowledge-hub-root .h5-topic-sections{-moz-column-gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px;display:grid}.knowledge-hub-root .h5-topic-sections>.h5-topic-group{grid-column:1/-1;min-width:0}.knowledge-hub-root .h5-topic-sections>.h5-topic-group--paired{grid-column:span 1}.knowledge-hub-root .h5-topic-group--paired .h5-topic-count,.knowledge-hub-root .h5-topic-group--paired .h5-topic-group-head p{display:none}.knowledge-hub-root .h5-topic-group--paired .h5-list{grid-template-columns:1fr}</style><style>.knowledge-hub-root{background:#fff}.responsive-pc{display:block}.responsive-h5{display:none}.knowledge-hub-root .fig-nav nav{color:inherit}.knowledge-hub-root .fig-search .n-input{--n-padding-left:0;--n-padding-right:0;background:0 0;font-size:12px}.knowledge-hub-root .fig-search .n-input__input-el{height:34px}.knowledge-hub-root .fig-tabs .n-button,.knowledge-hub-root .h5-filters .n-button{height:auto}.knowledge-hub-root .h5-filters .n-button{height:34px}@media (width<=767px){.responsive-pc{display:none}.responsive-h5{display:block}}@media (width>=481px) and (width<=767px){.knowledge-hub-root{background:#eee}}</style><style>.account-area[data-v-a02b65c7]{align-items:center;min-height:36px;font-size:14px;display:flex}.account-error[data-v-a02b65c7],.account-status[data-v-a02b65c7]{color:var(--muted);font-size:12px}.account-error[data-v-a02b65c7]{gap:8px}.account-error[data-v-a02b65c7],.account-links[data-v-a02b65c7]{align-items:center;display:flex}.account-links[data-v-a02b65c7]{color:#39483f;gap:12px}.account-links span[data-v-a02b65c7]{color:#bbc3bc}.avatar[data-v-a02b65c7]{-o-object-fit:cover;object-fit:cover;cursor:pointer;border:2px solid #fff;border-radius:50%;width:40px;height:40px;transition:transform .2s;display:block;box-shadow:0 2px 8px #0000001a}.avatar[data-v-a02b65c7]:hover{transform:scale(1.05)}.dropdown[data-v-a02b65c7]{background:#fff;border-radius:8px;min-width:120px;overflow:hidden;box-shadow:0 4px 20px #0000001f}.dropdown-info[data-v-a02b65c7]{cursor:pointer;padding:12px 16px;transition:all .2s}.dropdown-info[data-v-a02b65c7]:hover{color:#269fdc;background:#f5f5f5}.dropdown-nickname[data-v-a02b65c7]{color:#333;margin-bottom:4px;font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,sans-serif;font-size:16px;font-weight:500;line-height:22px}.dropdown-phone[data-v-a02b65c7]{color:#999;font-size:13px;line-height:18px}.dropdown-divider[data-v-a02b65c7]{background:#f0f0f0;height:1px}.dropdown-item[data-v-a02b65c7]{color:#666;cursor:pointer;padding:10px 16px;font-size:14px;transition:all .2s}.dropdown-item[data-v-a02b65c7]:hover{color:#269fdc;background:#f5f5f5}@media (width<=760px){.account-links[data-v-a02b65c7]{gap:9px;font-size:14px}.account-error[data-v-a02b65c7],.account-status[data-v-a02b65c7]{max-width:140px}}</style><link rel="stylesheet" href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/entry.Bo5n87D6.css" crossorigin><link rel="stylesheet" href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/AccountMenu.BORGEd19.css" crossorigin><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CgMbsdLZ.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/5Ji2c2dl.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/C0Aaq4UG.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/BolyE_LA.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/BMs3BltT.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/BnFfPZhb.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/DDw98r_w.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/IyGlSKZK.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/2VRyWeGg.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/DB3UXymD.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/Bsmrdcvo.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/C2iGKETx.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/BDNMzG2s.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CRE0veBI.js"><script type="module" src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CgMbsdLZ.js" crossorigin></script><link rel="prefetch" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CGwADvkh.js"><link rel="prefetch" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/Dd_uD5pT.js"><link rel="prefetch" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/Bp7LmCdi.js"><link rel="prefetch" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CH-KOtaU.js"><link rel="icon" type="image/jpeg" sizes="32x32" href="https://static001.geekbang.org/static/time/icon/favicon-32x32.jpg"><link rel="icon" type="image/jpeg" sizes="16x16" href="https://static001.geekbang.org/static/time/icon/favicon-16x16.jpg"><link rel="apple-touch-icon" sizes="180x180" href="https://static001.geekbang.org/static/time/icon/apple-touch-icon.jpg"><meta name="description" content="聚焦 AI Agent、AI 编程与工程实践，系统掌握程序员真正需要的核心能力。"><meta property="og:title" content="极客知识库｜把复杂技术讲得明明白白"><meta property="og:description" content="23 个知识库，覆盖大模型通识、Agent 工具、工程化、AI 落地案例与面试。"><meta property="og:image" content="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/og.png"></head><body><div id="__nuxt"><div class="n-config-provider"><!--[--><!--[--><!--[--><!--[--><!--]--><!--[--><div></div><div class="wiki-root"><div class="knowledge-hub-root" data-tea-ignore="true" style="--knowledge-hero:url(&#39;https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/hero.jpg&#39;);--knowledge-current-courses:url(&#39;https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/current-courses.png&#39;);"><div class="responsive-pc"><main id="pc-top" class="fig-page"><header class="knowledge-header knowledge-header--desktop" data-tea-ignore="true" data-v-7ddc79c1><div class="knowledge-header-inner" data-v-7ddc79c1><a href="#pc-top" class="knowledge-header-brand" aria-label="返回极客知识库顶部" data-v-7ddc79c1><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/geek-knowledge-logo.png" alt="极客知识库" data-v-7ddc79c1></a><nav class="knowledge-header-menu" aria-label="主导航" data-v-7ddc79c1 data-v-ef931cbd><div class="fig-nav-menu-wrap" data-v-ef931cbd><a class="selected fig-nav-menu-trigger" href="#paths" aria-haspopup="true" data-v-ef931cbd>训练营 <i aria-hidden="true" data-v-ef931cbd></i></a><div class="fig-camp-menu fig-training-menu" role="menu" aria-label="训练营推荐" aria-busy="false" data-v-ef931cbd><p class="fig-menu-state" role="status" data-v-ef931cbd>训练营加载中…</p><!--[--><!--]--></div></div><div class="fig-nav-menu-wrap" data-v-ef931cbd><a class="fig-nav-menu-trigger" href="#paths" aria-haspopup="true" data-v-ef931cbd>体验课 <i aria-hidden="true" data-v-ef931cbd></i></a><div class="fig-camp-menu fig-trial-menu" role="menu" aria-label="体验课推荐" data-v-ef931cbd><!--[--><a href="http://gk.link/a/12M2k" role="menuitem" data-v-ef931cbd>2 小时入门 AI Agent 开发</a><a href="http://gk.link/a/12M2l" role="menuitem" data-v-ef931cbd>4 小时入门 AI 编程</a><!--]--></div></div><a href="https://time.geekbang.com/" data-v-ef931cbd>极客时间</a></nav><div class="account-area" aria-label="账户" data-tea-ignore="true" data-v-7ddc79c1 data-v-a02b65c7><div class="account-error" role="status" data-v-a02b65c7><span data-v-a02b65c7>登录状态暂不可用</span><button class="n-button n-button--primary-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:#ed7410;--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" data-v-a02b65c7><!----><!----><span class="n-button__content"><!--[-->重试<!--]--></span><!----><!----><!----></button></div></div></div></header><div class="fig-announcement"><a href="https://time.geekbang.org/hybrid/next/channel-pvip/6yG5zxWrPqdoGcqjFK9YO2qnvQw1Bd?field=101">戳此免费领取「极客时间 7 天 VIP 年卡」&gt;&gt;&gt;</a></div><section class="fig-hero"><div class="fig-container fig-hero-copy"><h1>把 AI 新知识<br>变成你的工程能力</h1><p>从大模型通识、Agent 入门到工程化、案例与面试<br>23 个知识库，沿着清晰路径持续深入</p><div class="fig-stats"><div><strong>23</strong><span>个</span><small>知识库专题</small></div><div><strong>5</strong><span>类</span><small>学习方向</small></div><div><strong class="weekly">每周</strong><small>持续更新</small></div></div></div><div class="fig-planet-labels"><div class="fig-planet-title"><strong>AI Agent</strong><span>极客知识库</span></div><span class="fig-rag">RAG</span><span class="fig-tools">TOOLS</span><span class="fig-work">Codex</span><span class="fig-deep">Harness<br>Engineering</span><span class="fig-interview">AI 面试题</span><span class="fig-harness">Loop Engineering</span></div></section><section id="library" class="fig-container fig-library"><div class="fig-library-head"><div><h2 class="fig-library-heading">从入门到实战，搭建你的 AI 能力地图</h2><p class="fig-library-intro">从基础、工具到工程实践与真实案例，按需选择，逐步深入。</p></div><div class="fig-search" data-tea-ignore="true"><div class="n-input n-input--medium-size n-input--resizable n-input--stateful" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-count-text-color:rgb(118, 124, 130);--n-count-text-color-disabled:rgba(194, 194, 194, 1);--n-color:rgba(255, 255, 255, 1);--n-color-hover:rgba(255, 255, 255, 1);--n-font-size:14px;--n-font-weight:400;--n-border-radius:6px;--n-height:34px;--n-padding-left:12px;--n-padding-right:12px;--n-text-color:rgb(51, 54, 57);--n-caret-color:#ed7410;--n-text-decoration-color:rgb(51, 54, 57);--n-border:1px solid rgb(224, 224, 230);--n-border-disabled:1px solid rgb(224, 224, 230);--n-border-hover:1px solid #f28a24;--n-border-focus:1px solid #f28a24;--n-placeholder-color:rgba(194, 194, 194, 1);--n-placeholder-color-disabled:rgba(209, 209, 209, 1);--n-icon-size:16px;--n-line-height-textarea:1.6;--n-color-disabled:rgb(250, 250, 252);--n-color-focus:rgba(255, 255, 255, 1);--n-text-color-disabled:rgba(194, 194, 194, 1);--n-box-shadow-focus:0 0 0 2px rgba(237, 116, 16, 0.2);--n-loading-color:#ed7410;--n-caret-color-warning:#f0a020;--n-color-focus-warning:rgba(255, 255, 255, 1);--n-box-shadow-focus-warning:0 0 0 2px rgba(240, 160, 32, 0.2);--n-border-warning:1px solid #f0a020;--n-border-focus-warning:1px solid #fcb040;--n-border-hover-warning:1px solid #fcb040;--n-loading-color-warning:#f0a020;--n-caret-color-error:#d03050;--n-color-focus-error:rgba(255, 255, 255, 1);--n-box-shadow-focus-error:0 0 0 2px rgba(208, 48, 80, 0.2);--n-border-error:1px solid #d03050;--n-border-focus-error:1px solid #de576d;--n-border-hover-error:1px solid #de576d;--n-loading-color-error:#d03050;--n-clear-color:rgba(194, 194, 194, 1);--n-clear-size:16px;--n-clear-color-hover:rgba(146, 146, 146, 1);--n-clear-color-pressed:rgba(175, 175, 175, 1);--n-icon-color:rgba(194, 194, 194, 1);--n-icon-color-hover:rgba(146, 146, 146, 1);--n-icon-color-pressed:rgba(175, 175, 175, 1);--n-icon-color-disabled:rgba(209, 209, 209, 1);--n-suffix-text-color:rgb(51, 54, 57);"><div class="n-input-wrapper"><!----><div class="n-input__input"><input type="text" aria-label="搜索知识库" data-tea-ignore="true" class="n-input__input-el" style="" placeholder="搜索知识库或关键词" value size="20"><div class="n-input__placeholder"><span>搜索知识库或关键词</span></div><!----></div><!----></div><!----><!----><!----><!----><!----></div><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="7"></circle><path d="m15 15 6 6"></path></svg></div><button class="n-button n-button--default-type n-button--medium-type n-button--disabled fig-filter-reset" tabindex="-1" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" disabled><!----><!----><span class="n-button__content"><!--[-->重置筛选<!--]--></span><!----><!----><!----></button></div><div class="fig-tabs" role="group" aria-label="知识库分类"><!--[--><button class="n-button n-button--default-type n-button--medium-type active" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="true"><!----><!----><span class="n-button__content"><!--[-->全部<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->大模型通识<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->主流 Agent 入门教程<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->工程化<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->AI 落地案例<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->AI 面试<!--]--></span><!----><!----><!----></button><!--]--></div><div class="fig-topic-sections"><!--[--><section class="fig-topic-group" aria-label="大模型通识"><div class="fig-topic-group-head"><div><span class="fig-topic-index">01</span><h3>大模型通识</h3><p>从技术演进和理论基础入手，迈出应用开发第一步。</p></div><span class="fig-topic-count">4 个知识库</span></div><div class="fig-grid fig-topic-grid"><!--[--><article class="fig-card"><a href="/space/wiki/LLM_History" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「大模型技术演进」知识库（新窗口）"></a><div class="fig-card-meta"><span>01 / 大模型通识</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="theory fig-card-cover"><div class="fig-cover-copy"><h4>大模型技术演进</h4></div></div><div class="fig-card-body"><p>沿 2023—2026 时间线，看懂关键模型与技术路线的变化。</p><div class="fig-tags"><!--[--><span>技术演进</span><span>关键模型</span><span>能力变化</span><span>时间线</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/AI_Basic" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「AI 理论基础」知识库（新窗口）"></a><div class="fig-card-meta"><span>02 / 大模型通识</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="theory fig-card-cover"><div class="fig-cover-copy"><h4>AI 理论基础</h4></div></div><div class="fig-card-body"><p>从机器学习到生成式 AI，补齐读懂大模型的前置知识。</p><div class="fig-tags"><!--[--><span>机器学习</span><span>深度学习</span><span>生成式 AI</span><span>基础概念</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/LLM_Basic" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「大模型理论基础」知识库（新窗口）"></a><div class="fig-card-meta"><span>03 / 大模型通识</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="theory fig-card-cover"><div class="fig-cover-copy"><h4>大模型理论基础</h4></div></div><div class="fig-card-body"><p>理解模型架构、训练与推理，建立大模型原理框架。</p><div class="fig-tags"><!--[--><span>模型架构</span><span>模型训练</span><span>模型推理</span><span>核心原理</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/LLM_App_Develop_Basic" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「大模型应用开发入门」知识库（新窗口）"></a><div class="fig-card-meta"><span>04 / 大模型通识</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="app fig-card-cover"><div class="fig-cover-copy"><h4>大模型应用开发入门</h4></div></div><div class="fig-card-body"><p>从模型调用和提示词入手，动手构建第一个 AI 应用。</p><div class="fig-tags"><!--[--><span>模型调用</span><span>提示词</span><span>应用开发</span><span>入门实践</span><!--]--></div></div></article><!--]--></div></section><section class="fig-topic-group" aria-label="主流 Agent 入门教程"><div class="fig-topic-group-head"><div><span class="fig-topic-index">02</span><h3>主流 Agent 入门教程</h3><p>认识主流工具，把 AI Agent 用进日常开发。</p></div><span class="fig-topic-count">9 个知识库</span></div><div class="fig-grid fig-topic-grid"><!--[--><article class="fig-card"><a href="/space/wiki/Codex_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Codex」知识库（新窗口）"></a><div class="fig-card-meta"><span>05 / 主流 Agent 入门教程</span><em>精选</em><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="fde fig-card-cover"><div class="fig-cover-copy"><h4>Codex</h4></div></div><div class="fig-card-body"><p>从任务规划到代码交付，掌握 Codex 的开发工作流。</p><div class="fig-tags"><!--[--><span>AGENTS.md</span><span>Skills</span><span>MCP</span><span>自动化</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/Claude_Code_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Claude Code」知识库（新窗口）"></a><div class="fig-card-meta"><span>06 / 主流 Agent 入门教程</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="agent fig-card-cover"><div class="fig-cover-copy"><h4>Claude Code</h4></div></div><div class="fig-card-body"><p>结合真实项目，练习上下文管理、Hooks 与 MCP。</p><div class="fig-tags"><!--[--><span>CLAUDE.md</span><span>Hooks</span><span>MCP</span><span>上下文</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/CodeBuddy_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「CodeBuddy」知识库（新窗口）"></a><div class="fig-card-meta"><span>07 / 主流 Agent 入门教程</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="mcp fig-card-cover"><div class="fig-cover-copy"><h4>CodeBuddy</h4></div></div><div class="fig-card-body"><p>用 CodeBuddy 接手代码，完成测试、修复、重构与部署。</p><div class="fig-tags"><!--[--><span>代码接手</span><span>补测试</span><span>重构</span><span>部署</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/Qoder_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Qoder」知识库（新窗口）"></a><div class="fig-card-meta"><span>08 / 主流 Agent 入门教程</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="agent fig-card-cover"><div class="fig-cover-copy"><h4>Qoder</h4></div></div><div class="fig-card-body"><p>围绕真实项目，练习开发、测试、重构与交付。</p><div class="fig-tags"><!--[--><span>项目开发</span><span>测试</span><span>子代理</span><span>完整交付</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/TraeCode_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「TraeCode」知识库（新窗口）"></a><div class="fig-card-meta"><span>09 / 主流 Agent 入门教程</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="mcp fig-card-cover"><div class="fig-cover-copy"><h4>TraeCode</h4></div></div><div class="fig-card-body"><p>从代码理解到 Git 与 CI，串起 AI 辅助开发流程。</p><div class="fig-tags"><!--[--><span>代码理解</span><span>Git 自动化</span><span>MCP</span><span>CI 集成</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/Kimi_Code_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Kimi Code」知识库（新窗口）"></a><div class="fig-card-meta"><span>10 / 主流 Agent 入门教程</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="mcp fig-card-cover"><div class="fig-cover-copy"><h4>Kimi Code</h4></div></div><div class="fig-card-body"><p>在项目中练习上下文、权限与多模态协作。</p><div class="fig-tags"><!--[--><span>权限管理</span><span>上下文</span><span>多模态</span><span>脚本化</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/MiniMax_Code_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「MiniMax Code」知识库（新窗口）"></a><div class="fig-card-meta"><span>11 / 主流 Agent 入门教程</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="fde fig-card-cover"><div class="fig-cover-copy"><h4>MiniMax Code</h4></div></div><div class="fig-card-body"><p>从调试到长任务，熟悉 Skills、MCP 与协作方式。</p><div class="fig-tags"><!--[--><span>长任务</span><span>Headless</span><span>MCP</span><span>协作</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/ZCode_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「ZCode」知识库（新窗口）"></a><div class="fig-card-meta"><span>12 / 主流 Agent 入门教程</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="fde fig-card-cover"><div class="fig-cover-copy"><h4>ZCode</h4></div></div><div class="fig-card-body"><p>认识 ZCode 的基本操作，探索 AI 辅助编码实践。</p><div class="fig-tags"><!--[--><span>工具入门</span><span>AI 辅助</span><span>开发流程</span><span>实践场景</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/DSH_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「DeepSeek Harness」知识库（新窗口）"></a><div class="fig-card-meta"><span>13 / 主流 Agent 入门教程</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="harness fig-card-cover"><div class="fig-cover-copy"><h4>DeepSeek Harness</h4></div></div><div class="fig-card-body"><p>从运行与配置入手，认识插件化 Agent 的工作方式。</p><div class="fig-tags"><!--[--><span>Agent 工具</span><span>插件化</span><span>运行配置</span><span>实践方式</span><!--]--></div></div></article><!--]--></div></section><section class="fig-topic-group" aria-label="工程化"><div class="fig-topic-group-head"><div><span class="fig-topic-index">03</span><h3>工程化</h3><p>让大模型应用与 Agent 系统可靠运行、可验证。</p></div><span class="fig-topic-count">7 个知识库</span></div><div class="fig-grid fig-topic-grid"><!--[--><article class="fig-card-long fig-card"><a href="/space/wiki/Harness_Engineering" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Harness Engineering」知识库（新窗口）"></a><div class="fig-card-meta"><span>14 / 工程化</span><em>精选</em><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="harness fig-card-cover"><div class="fig-cover-copy"><h4>Harness Engineering</h4></div></div><div class="fig-card-body"><p>把仓库改造成 Agent 能理解、能启动、能验证的环境。</p><div class="fig-tags"><!--[--><span>仓库改造</span><span>可启动</span><span>可验证</span><span>可观测</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/Loop_Engineering" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Loop Engineering」知识库（新窗口）"></a><div class="fig-card-meta"><span>15 / 工程化</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="fde fig-card-cover"><div class="fig-cover-copy"><h4>Loop Engineering</h4></div></div><div class="fig-card-body"><p>围绕状态、验证、重试与调度，构建可靠的 Agent 循环。</p><div class="fig-tags"><!--[--><span>状态管理</span><span>验证</span><span>重试</span><span>调度</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/LLM_App_Engineering" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「大模型应用工程化」知识库（新窗口）"></a><div class="fig-card-meta"><span>16 / 工程化</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="app fig-card-cover"><div class="fig-cover-copy"><h4>大模型应用工程化</h4></div></div><div class="fig-card-body"><p>从评估、部署到监控，推动大模型应用稳定落地。</p><div class="fig-tags"><!--[--><span>评估</span><span>部署</span><span>监控</span><span>持续迭代</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/Jev_Tutorial" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Jev」知识库（新窗口）"></a><div class="fig-card-meta"><span>17 / 工程化</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="harness fig-card-cover"><div class="fig-cover-copy"><h4>Jev</h4></div></div><div class="fig-card-body"><p>用类型化判断、置信度与人工复核降低决策风险。</p><div class="fig-tags"><!--[--><span>类型化判断</span><span>置信度</span><span>风险控制</span><span>人工复核</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/ai-dev-platform" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「AI 研发效能」知识库（新窗口）"></a><div class="fig-card-meta"><span>18 / 工程化</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="fde fig-card-cover"><div class="fig-cover-copy"><h4>AI 研发效能</h4></div></div><div class="fig-card-body"><p>从需求到受控交付，构建可观测、可评估的企业 AI 研发平台。</p><div class="fig-tags"><!--[--><span>研发知识库</span><span>代码交付</span><span>LLMOps</span><span>质量门禁</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/FDE_Intro" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「FDE 入门手册」知识库（新窗口）"></a><div class="fig-card-meta"><span>19 / 工程化</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="fde fig-card-cover"><div class="fig-cover-copy"><h4>FDE 入门手册</h4></div></div><div class="fig-card-body"><p>8 篇讲清 FDE 是什么、为什么是现在，以及怎么判断岗位与自己。</p><div class="fig-tags"><!--[--><span>岗位认知</span><span>中国机会</span><span>术语表</span><span>能力自评</span><!--]--></div></div></article><article class="fig-card"><a href="/space/wiki/Agent_Dev_Primer" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Agent 开发入门手册」知识库（新窗口）"></a><div class="fig-card-meta"><span>20 / 工程化</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="primer fig-card-cover"><div class="fig-cover-copy"><h4>Agent 开发入门手册</h4></div></div><div class="fig-card-body"><p>从五道判断题出发，讲清 Agent 开发练什么、怎么练。</p><div class="fig-tags"><!--[--><span>判断力</span><span>工程实践</span><span>技术选型</span><span>8 周路径</span><!--]--></div></div></article><!--]--></div></section><section class="fig-topic-group--paired fig-topic-group--wide fig-topic-group" aria-label="AI 落地案例"><div class="fig-topic-group-head"><div><span class="fig-topic-index">04</span><h3>AI 落地案例</h3><p>从真实项目中提炼可复用的方法。</p></div><span class="fig-topic-count">2 个知识库</span></div><div class="fig-grid fig-topic-grid"><!--[--><article class="fig-card"><a href="/space/wiki/AI_Case_Studies" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「AI 落地案例集」知识库（新窗口）"></a><div class="fig-card-meta"><span>21 / AI 落地案例</span><em>精选</em><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="case fig-card-cover"><div class="fig-cover-copy"><h4>AI 落地案例集</h4></div></div><div class="fig-card-body"><p>40 个真实案例，拆解 AI 落地方法。</p><div class="fig-tags"><!--[--><span>研发效能</span><span>AI 编程</span><span>流程自动化</span><span>行业应用</span><!--]--></div></div></article><article class="fig-card-long fig-card"><a href="/space/wiki/Anthropic_AI_Adoption" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「Anthropic 的 AI 落地实践」知识库（新窗口）"></a><div class="fig-card-meta"><span>22 / AI 落地案例</span><!----><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="anthropic fig-card-cover"><div class="fig-cover-copy"><h4>Anthropic 的 AI 落地实践</h4></div></div><div class="fig-card-body"><p>10 个团队的真实用法，外加一份组织推广指南：Anthropic 自己怎么把 Claude Code 用进业务。</p><div class="fig-tags"><!--[--><span>团队实录</span><span>组织推广</span><span>落地度量</span><span>安全前置</span><!--]--></div></div></article><!--]--></div></section><section class="fig-topic-group--paired fig-topic-group" aria-label="AI 面试"><div class="fig-topic-group-head"><div><span class="fig-topic-index">05</span><h3>AI 面试</h3><p>用考题检验理解，练习讲清工程思路。</p></div><span class="fig-topic-count">1 个知识库</span></div><div class="fig-grid fig-topic-grid"><!--[--><article class="fig-card"><a href="/space/wiki/AI_Interview" rel="noopener noreferrer" target="_blank" class="fig-topic-link" aria-label="打开「150 道 AI 面试题」知识库（新窗口）"></a><div class="fig-card-meta"><span>23 / AI 面试</span><em>精选</em><span class="fig-topic-open" aria-hidden="true">↗</span></div><div class="interview fig-card-cover"><div class="fig-cover-copy"><h4>150 道 AI 面试题</h4></div></div><div class="fig-card-body"><p>用 150 道题复盘 LLM、RAG、Agent 与工程实践。</p><div class="fig-tags"><!--[--><span>LLM</span><span>RAG</span><span>Agent</span><span>生产工程</span><!--]--></div></div></article><!--]--></div></section><!--]--></div><!----></section><section class="knowledge-qcon knowledge-qcon--desktop" aria-label="QCon 大会资料" data-v-3da1bdbc><a href="/space/qcon" class="knowledge-qcon__link" aria-label="浏览 QCon 大会 75 份技术讲义" data-v-3da1bdbc><div class="knowledge-qcon__copy" data-v-3da1bdbc><span class="knowledge-qcon__eyebrow" data-v-3da1bdbc>QCon 大会资料</span><h2 data-v-3da1bdbc>把现场洞察带回工作现场</h2><p data-v-3da1bdbc>75 份技术讲义，覆盖 Agent 工程、AI 研发与架构实践。在线阅读，也可下载 PDF。</p><span class="knowledge-qcon__cta" data-v-3da1bdbc>浏览全部资料 <span aria-hidden="true" data-v-3da1bdbc>↗</span></span></div><div class="knowledge-qcon__visual" aria-hidden="true" data-v-3da1bdbc><span class="knowledge-qcon__sheet knowledge-qcon__sheet--back" data-v-3da1bdbc>AI 研发</span><span class="knowledge-qcon__sheet knowledge-qcon__sheet--middle" data-v-3da1bdbc>架构实践</span><span class="knowledge-qcon__sheet knowledge-qcon__sheet--front" data-v-3da1bdbc><strong data-v-3da1bdbc>QCon</strong><small data-v-3da1bdbc>Agent 工程</small></span><span class="knowledge-qcon__count" data-v-3da1bdbc><strong data-v-3da1bdbc>75</strong> 份讲义</span></div></a></section><section id="paths" class="fig-container fig-courses"><header><h2>不知道从哪里开始?</h2><p>从你现在的位置出发，沿着一条路线持续深入。</p></header><div class="fig-grid"><!--[--><article class="fig-course"><div class="fig-course-image fig-vip-course"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/course-fde.jpg" alt="FDE 交付实战营封面"></div><div class="fig-course-body"><h3>FDE 交付实战营</h3><p title="曹犟 | 神策数据联合创始人 &amp; CTO…">曹犟 | 神策数据联合创始人 &amp; CTO…</p><div><span>10月15日开课</span><a class="fig-course-enroll" href="http://gk.link/a/12M2m">立即报名</a></div></div></article><article class="fig-course"><div class="fig-course-image fig-vip-course"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/course-ai-agent.png" alt="AI Agent 全栈工程师训练营封面"></div><div class="fig-course-body"><h3>AI Agent 全栈工程师训练营</h3><p title="尹会生 | 生成式 AI 与智能硬件融合…">尹会生 | 生成式 AI 与智能硬件融合…</p><div><span>08月18日开课</span><a class="fig-course-enroll" href="http://gk.link/a/12M2n">立即报名</a></div></div></article><article class="fig-course"><div class="fig-course-image fig-vip-course"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/course-ai-investment.png" alt="AI 投资实战营封面"></div><div class="fig-course-body"><h3>AI 投资实战营</h3><p title="王喆 | 前字节跳动高级技术经理">王喆 | 前字节跳动高级技术经理</p><div><span>09月15日开课</span><a class="fig-course-enroll" href="http://gk.link/a/12M2o">立即报名</a></div></div></article><article class="fig-course"><div class="fig-course-image fig-vip-course"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/vip-2026-envelope.jpg" alt="极客时间 VIP 2026 版封面"></div><div class="fig-course-body"><h3>极客时间 VIP 2026 版</h3><p title="450+ 门体系课｜前沿案例回看...">450+ 门体系课｜前沿案例回看...</p><div><span>限时特惠</span><a class="fig-course-enroll" href="http://gk.link/a/12M2c">查看详情</a></div></div></article><!--]--></div></section><footer class="knowledge-footer" aria-label="极客时间页脚" data-v-533cb129><div class="knowledge-footer-container" data-v-533cb129><div class="knowledge-footer-status" role="status" data-v-533cb129><span data-v-533cb129>页脚加载中…</span></div></div></footer></main></div><div class="responsive-h5"><main id="h5-top" class="h5-page"><header class="knowledge-header knowledge-header--mobile" data-tea-ignore="true" data-v-7ddc79c1><div class="knowledge-header-inner" data-v-7ddc79c1><a href="#h5-top" class="knowledge-header-brand" aria-label="返回极客知识库顶部" data-v-7ddc79c1><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/geek-knowledge-logo.png" alt="极客知识库" data-v-7ddc79c1></a><!----><div class="account-area" aria-label="账户" data-tea-ignore="true" data-v-7ddc79c1 data-v-a02b65c7><div class="account-error" role="status" data-v-a02b65c7><span data-v-a02b65c7>登录状态暂不可用</span><button class="n-button n-button--primary-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:#ed7410;--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" data-v-a02b65c7><!----><!----><span class="n-button__content"><!--[-->重试<!--]--></span><!----><!----><!----></button></div></div></div></header><a class="h5-announcement" href="https://time.geekbang.org/hybrid/next/channel-pvip/6yG5zxWrPqdoGcqjFK9YO2qnvQw1Bd?field=101">戳此免费领取「极客时间 7 天 VIP 年卡」&gt;&gt;&gt;</a><section class="h5-hero"><div class="h5-hero-copy"><h1>把 AI 新知识<br>变成你的工程能力</h1><p>从基础、工具到工程实践、案例与面试<br>23 个知识库，找到适合自己的学习路径</p></div><div class="h5-hero-visual"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/hero-mobile-agent.png" alt="AI Agent 极客知识库主视觉"></div><div class="h5-stats"><div><strong>23</strong><span>个</span><small>知识库专题</small></div><div><strong>5</strong><span>类</span><small>学习方向</small></div><div><strong>每周</strong><small>持续更新</small></div></div></section><section id="h5-library" class="h5-library"><div class="h5-section-head"><h2>你的 AI 能力地图</h2><p>23 个知识库，从入门到实战。</p></div><div class="h5-filters" role="group" aria-label="知识库分类"><!--[--><button class="n-button n-button--default-type n-button--medium-type active" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="true"><!----><!----><span class="n-button__content"><!--[-->全部<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->大模型通识<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->主流 Agent 入门教程<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->工程化<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->AI 落地案例<!--]--></span><!----><!----><!----></button><button class="n-button n-button--default-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:rgb(51, 54, 57);--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" aria-pressed="false"><!----><!----><span class="n-button__content"><!--[-->AI 面试<!--]--></span><!----><!----><!----></button><!--]--></div><div class="h5-topic-sections"><!--[--><section class="h5-topic-group" aria-label="大模型通识"><div class="h5-topic-group-head"><span class="h5-topic-index">01</span><div><h3>大模型通识</h3><p>从技术演进和理论基础入手，迈出应用开发第一步。</p></div><span class="h5-topic-count">4 个</span></div><div class="h5-list"><!--[--><article class="h5-card"><a href="/space/wiki/LLM_History" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「大模型技术演进」知识库（新窗口）"></a><div class="h5-card-meta"><span>01</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="theory h5-card-cover"><h4>大模型技术演进</h4></div><p>沿 2023—2026 时间线，看懂关键模型与技术路线的变化。</p><div class="h5-tags"><!--[--><span>技术演进</span><span>关键模型</span><span>能力变化</span><span>时间线</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/AI_Basic" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「AI 理论基础」知识库（新窗口）"></a><div class="h5-card-meta"><span>02</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="theory h5-card-cover"><h4>AI 理论基础</h4></div><p>从机器学习到生成式 AI，补齐读懂大模型的前置知识。</p><div class="h5-tags"><!--[--><span>机器学习</span><span>深度学习</span><span>生成式 AI</span><span>基础概念</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/LLM_Basic" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「大模型理论基础」知识库（新窗口）"></a><div class="h5-card-meta"><span>03</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="theory h5-card-cover"><h4>大模型理论基础</h4></div><p>理解模型架构、训练与推理，建立大模型原理框架。</p><div class="h5-tags"><!--[--><span>模型架构</span><span>模型训练</span><span>模型推理</span><span>核心原理</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/LLM_App_Develop_Basic" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「大模型应用开发入门」知识库（新窗口）"></a><div class="h5-card-meta"><span>04</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="app h5-card-cover"><h4>大模型应用开发入门</h4></div><p>从模型调用和提示词入手，动手构建第一个 AI 应用。</p><div class="h5-tags"><!--[--><span>模型调用</span><span>提示词</span><span>应用开发</span><span>入门实践</span><!--]--></div></article><!--]--></div></section><section class="h5-topic-group" aria-label="主流 Agent 入门教程"><div class="h5-topic-group-head"><span class="h5-topic-index">02</span><div><h3>主流 Agent 入门教程</h3><p>认识主流工具，把 AI Agent 用进日常开发。</p></div><span class="h5-topic-count">9 个</span></div><div class="h5-list"><!--[--><article class="h5-card"><a href="/space/wiki/Codex_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Codex」知识库（新窗口）"></a><div class="h5-card-meta"><span>05</span><b>精选</b><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="fde h5-card-cover"><h4>Codex</h4></div><p>从任务规划到代码交付，掌握 Codex 的开发工作流。</p><div class="h5-tags"><!--[--><span>AGENTS.md</span><span>Skills</span><span>MCP</span><span>自动化</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/Claude_Code_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Claude Code」知识库（新窗口）"></a><div class="h5-card-meta"><span>06</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="agent h5-card-cover"><h4>Claude Code</h4></div><p>结合真实项目，练习上下文管理、Hooks 与 MCP。</p><div class="h5-tags"><!--[--><span>CLAUDE.md</span><span>Hooks</span><span>MCP</span><span>上下文</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/CodeBuddy_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「CodeBuddy」知识库（新窗口）"></a><div class="h5-card-meta"><span>07</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="mcp h5-card-cover"><h4>CodeBuddy</h4></div><p>用 CodeBuddy 接手代码，完成测试、修复、重构与部署。</p><div class="h5-tags"><!--[--><span>代码接手</span><span>补测试</span><span>重构</span><span>部署</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/Qoder_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Qoder」知识库（新窗口）"></a><div class="h5-card-meta"><span>08</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="agent h5-card-cover"><h4>Qoder</h4></div><p>围绕真实项目，练习开发、测试、重构与交付。</p><div class="h5-tags"><!--[--><span>项目开发</span><span>测试</span><span>子代理</span><span>完整交付</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/TraeCode_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「TraeCode」知识库（新窗口）"></a><div class="h5-card-meta"><span>09</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="mcp h5-card-cover"><h4>TraeCode</h4></div><p>从代码理解到 Git 与 CI，串起 AI 辅助开发流程。</p><div class="h5-tags"><!--[--><span>代码理解</span><span>Git 自动化</span><span>MCP</span><span>CI 集成</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/Kimi_Code_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Kimi Code」知识库（新窗口）"></a><div class="h5-card-meta"><span>10</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="mcp h5-card-cover"><h4>Kimi Code</h4></div><p>在项目中练习上下文、权限与多模态协作。</p><div class="h5-tags"><!--[--><span>权限管理</span><span>上下文</span><span>多模态</span><span>脚本化</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/MiniMax_Code_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「MiniMax Code」知识库（新窗口）"></a><div class="h5-card-meta"><span>11</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="fde h5-card-cover"><h4>MiniMax Code</h4></div><p>从调试到长任务，熟悉 Skills、MCP 与协作方式。</p><div class="h5-tags"><!--[--><span>长任务</span><span>Headless</span><span>MCP</span><span>协作</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/ZCode_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「ZCode」知识库（新窗口）"></a><div class="h5-card-meta"><span>12</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="fde h5-card-cover"><h4>ZCode</h4></div><p>认识 ZCode 的基本操作，探索 AI 辅助编码实践。</p><div class="h5-tags"><!--[--><span>工具入门</span><span>AI 辅助</span><span>开发流程</span><span>实践场景</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/DSH_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「DeepSeek Harness」知识库（新窗口）"></a><div class="h5-card-meta"><span>13</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="harness h5-card-cover"><h4>DeepSeek Harness</h4></div><p>从运行与配置入手，认识插件化 Agent 的工作方式。</p><div class="h5-tags"><!--[--><span>Agent 工具</span><span>插件化</span><span>运行配置</span><span>实践方式</span><!--]--></div></article><!--]--></div></section><section class="h5-topic-group" aria-label="工程化"><div class="h5-topic-group-head"><span class="h5-topic-index">03</span><div><h3>工程化</h3><p>让大模型应用与 Agent 系统可靠运行、可验证。</p></div><span class="h5-topic-count">7 个</span></div><div class="h5-list"><!--[--><article class="h5-card-long h5-card"><a href="/space/wiki/Harness_Engineering" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Harness Engineering」知识库（新窗口）"></a><div class="h5-card-meta"><span>14</span><b>精选</b><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="harness h5-card-cover"><h4>Harness Engineering</h4></div><p>把仓库改造成 Agent 能理解、能启动、能验证的环境。</p><div class="h5-tags"><!--[--><span>仓库改造</span><span>可启动</span><span>可验证</span><span>可观测</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/Loop_Engineering" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Loop Engineering」知识库（新窗口）"></a><div class="h5-card-meta"><span>15</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="fde h5-card-cover"><h4>Loop Engineering</h4></div><p>围绕状态、验证、重试与调度，构建可靠的 Agent 循环。</p><div class="h5-tags"><!--[--><span>状态管理</span><span>验证</span><span>重试</span><span>调度</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/LLM_App_Engineering" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「大模型应用工程化」知识库（新窗口）"></a><div class="h5-card-meta"><span>16</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="app h5-card-cover"><h4>大模型应用工程化</h4></div><p>从评估、部署到监控，推动大模型应用稳定落地。</p><div class="h5-tags"><!--[--><span>评估</span><span>部署</span><span>监控</span><span>持续迭代</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/Jev_Tutorial" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Jev」知识库（新窗口）"></a><div class="h5-card-meta"><span>17</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="harness h5-card-cover"><h4>Jev</h4></div><p>用类型化判断、置信度与人工复核降低决策风险。</p><div class="h5-tags"><!--[--><span>类型化判断</span><span>置信度</span><span>风险控制</span><span>人工复核</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/ai-dev-platform" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「AI 研发效能」知识库（新窗口）"></a><div class="h5-card-meta"><span>18</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="fde h5-card-cover"><h4>AI 研发效能</h4></div><p>从需求到受控交付，构建可观测、可评估的企业 AI 研发平台。</p><div class="h5-tags"><!--[--><span>研发知识库</span><span>代码交付</span><span>LLMOps</span><span>质量门禁</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/FDE_Intro" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「FDE 入门手册」知识库（新窗口）"></a><div class="h5-card-meta"><span>19</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="fde h5-card-cover"><h4>FDE 入门手册</h4></div><p>8 篇讲清 FDE 是什么、为什么是现在，以及怎么判断岗位与自己。</p><div class="h5-tags"><!--[--><span>岗位认知</span><span>中国机会</span><span>术语表</span><span>能力自评</span><!--]--></div></article><article class="h5-card"><a href="/space/wiki/Agent_Dev_Primer" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Agent 开发入门手册」知识库（新窗口）"></a><div class="h5-card-meta"><span>20</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="primer h5-card-cover"><h4>Agent 开发入门手册</h4></div><p>从五道判断题出发，讲清 Agent 开发练什么、怎么练。</p><div class="h5-tags"><!--[--><span>判断力</span><span>工程实践</span><span>技术选型</span><span>8 周路径</span><!--]--></div></article><!--]--></div></section><section class="h5-topic-group--paired h5-topic-group" aria-label="AI 落地案例"><div class="h5-topic-group-head"><span class="h5-topic-index">04</span><div><h3>AI 落地案例</h3><p>从真实项目中提炼可复用的方法。</p></div><span class="h5-topic-count">2 个</span></div><div class="h5-list"><!--[--><article class="h5-card"><a href="/space/wiki/AI_Case_Studies" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「AI 落地案例集」知识库（新窗口）"></a><div class="h5-card-meta"><span>21</span><b>精选</b><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="case h5-card-cover"><h4>AI 落地案例集</h4></div><p>40 个真实案例，拆解 AI 落地方法。</p><div class="h5-tags"><!--[--><span>研发效能</span><span>AI 编程</span><span>流程自动化</span><span>行业应用</span><!--]--></div></article><article class="h5-card-long h5-card"><a href="/space/wiki/Anthropic_AI_Adoption" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「Anthropic 的 AI 落地实践」知识库（新窗口）"></a><div class="h5-card-meta"><span>22</span><!----><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="anthropic h5-card-cover"><h4>Anthropic 的 AI 落地实践</h4></div><p>10 个团队的真实用法，外加一份组织推广指南：Anthropic 自己怎么把 Claude Code 用进业务。</p><div class="h5-tags"><!--[--><span>团队实录</span><span>组织推广</span><span>落地度量</span><span>安全前置</span><!--]--></div></article><!--]--></div></section><section class="h5-topic-group--paired h5-topic-group" aria-label="AI 面试"><div class="h5-topic-group-head"><span class="h5-topic-index">05</span><div><h3>AI 面试</h3><p>用考题检验理解，练习讲清工程思路。</p></div><span class="h5-topic-count">1 个</span></div><div class="h5-list"><!--[--><article class="h5-card"><a href="/space/wiki/AI_Interview" rel="noopener noreferrer" target="_blank" class="h5-topic-link" aria-label="打开「150 道 AI 面试题」知识库（新窗口）"></a><div class="h5-card-meta"><span>23</span><b>精选</b><span class="h5-topic-open" aria-hidden="true">↗</span></div><div class="interview h5-card-cover"><h4>150 道 AI 面试题</h4></div><p>用 150 道题复盘 LLM、RAG、Agent 与工程实践。</p><div class="h5-tags"><!--[--><span>LLM</span><span>RAG</span><span>Agent</span><span>生产工程</span><!--]--></div></article><!--]--></div></section><!--]--></div></section><section class="knowledge-qcon knowledge-qcon--mobile" aria-label="QCon 大会资料" data-v-3da1bdbc><a href="/space/qcon" class="knowledge-qcon__link" aria-label="浏览 QCon 大会 75 份技术讲义" data-v-3da1bdbc><div class="knowledge-qcon__copy" data-v-3da1bdbc><span class="knowledge-qcon__eyebrow" data-v-3da1bdbc>QCon 大会资料</span><h2 data-v-3da1bdbc>把现场洞察带回工作现场</h2><p data-v-3da1bdbc>75 份技术讲义，覆盖 Agent 工程、AI 研发与架构实践。在线阅读，也可下载 PDF。</p><span class="knowledge-qcon__cta" data-v-3da1bdbc>浏览全部资料 <span aria-hidden="true" data-v-3da1bdbc>↗</span></span></div><div class="knowledge-qcon__visual" aria-hidden="true" data-v-3da1bdbc><span class="knowledge-qcon__sheet knowledge-qcon__sheet--back" data-v-3da1bdbc>AI 研发</span><span class="knowledge-qcon__sheet knowledge-qcon__sheet--middle" data-v-3da1bdbc>架构实践</span><span class="knowledge-qcon__sheet knowledge-qcon__sheet--front" data-v-3da1bdbc><strong data-v-3da1bdbc>QCon</strong><small data-v-3da1bdbc>Agent 工程</small></span><span class="knowledge-qcon__count" data-v-3da1bdbc><strong data-v-3da1bdbc>75</strong> 份讲义</span></div></a></section><section id="h5-paths" class="h5-courses"><div class="h5-section-head"><h2>不知道从哪里开始？</h2><p>从你现在的位置出发，选择适合自己的训练营</p></div><div class="h5-course-list"><!--[--><article class="h5-course"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/course-ai-agent.png" alt="AI Agent 全栈工程师训练营封面"><div><h3>AI Agent 全栈工程师训练营</h3><p>尹会生｜生成式 AI 与智能硬件融合</p><footer><span>08月18日开课</span><a href="http://gk.link/a/12M2n">立即报名</a></footer></div></article><article class="h5-course"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/vip-2026-envelope.jpg" alt="极客时间 VIP 2026 版封面"><div><h3>极客时间 VIP 2026 版</h3><p>450+ 门体系课｜前沿案例回看</p><footer><span>限时特惠</span><a href="http://gk.link/a/12M2c">查看详情</a></footer></div></article><article class="h5-course"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/course-fde.jpg" alt="FDE 交付实战营封面"><div><h3>FDE 交付实战营</h3><p>曹犟｜神策数据联合创始人 &amp; CTO</p><footer><span>10月15日开课</span><a href="http://gk.link/a/12M2m">立即报名</a></footer></div></article><article class="h5-course"><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/knowledge-hub/course-ai-investment.png" alt="AI 投资实战营封面"><div><h3>AI 投资实战营</h3><p>王喆｜前字节跳动高级技术经理</p><footer><span>09月15日开课</span><a href="http://gk.link/a/12M2o">立即报名</a></footer></div></article><!--]--></div></section></main></div></div></div><!--]--><!--]--><!--]--><!----><!--]--></div></div><div id="teleports"></div><script>window.__NUXT__={};window.__NUXT__.config={public:{backend:{environment:"prod",prod:{time:"https://time.geekbang.org",account:"https://account.geekbang.org",business:"https://b.geekbang.org",infoq:"https://www.infoq.cn"},prodCom:{time:"https://time.geekbang.com",account:"https://account.geekbang.com",business:"https://b.geekbang.com",infoq:"https://www.infoq.cn"},test:{time:"",account:"",business:"",infoq:""}},analytics:{mode:"send",appId:20000743,channelDomain:"https://gator.volces.com",sdkUrl:"https://lf3-data.volccdn.com/obj/data-static/log-sdk/collect/5.0/collect-rangers-v5.1.4.js"}},app:{baseURL:"/space/",buildId:"496f5697-ebe2-4dc2-b029-ada003bd0b1c",buildAssetsDir:"/_nuxt/",cdnURL:"https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/"}}</script><script type="application/json" data-nuxt-data="nuxt-app" data-ssr="true" id="__NUXT_DATA__">[["ShallowReactive",1],{"data":2,"state":4,"once":7,"_errors":8,"serverRendered":16,"path":20},["ShallowReactive",3],{},["Reactive",5],{"$spage-share":6},null,["Set"],["ShallowReactive",9],{"knowledge-training-menu:prod:time.geekbang.com:":-1,"[\"geek\",\"account\",\"\u002Fserv\u002Fv1\u002Fuser\u002Fauth\",\"GET\",null,\"session\",\"prod\",\"auto\"]":10},["NuxtError",11],{"message":12,"statusCode":13,"statusMessage":14,"data":15},"[GET] \"\u002Fspace\u002Fapi\u002Fbackend\u002Faccount\u002Fserv\u002Fv1\u002Fuser\u002Fauth\": 503 Trusted gateway is not configured",503,"Trusted gateway is not configured",{"error":16,"url":17,"statusCode":13,"statusMessage":14,"message":14,"data":18},true,"http:\u002F\u002Flocalhost\u002Fspace\u002Fapi\u002Fbackend\u002Faccount\u002Fserv\u002Fv1\u002Fuser\u002Fauth",{"hint":19},"内网会话需要由部署方配置 NUXT_BACKEND_TRUSTED_PROXY_CIDRS；本地日常调试请使用 public。","\u002Fknowledge\u002F"]</script></body></html>

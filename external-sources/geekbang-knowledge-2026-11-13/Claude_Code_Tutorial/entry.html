@@ -1,0 +1,925 @@
+<!DOCTYPE html><html  lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Claude Code｜极客知识库</title><script src="//g.alicdn.com/frontend-lib/frontend-lib/2.3.74/antidom.js"></script><script src="//o.alicdn.com/frontend-lib/common-lib/jquery.min.js"></script><script src="//g.alicdn.com/frontend-lib/frontend-lib/2.3.74/antidom.js"></script><script src="//o.alicdn.com/frontend-lib/common-lib/jquery.min.js"></script><script type="importmap">{"imports":{"#entry":"https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CgMbsdLZ.js"}}</script><style cssr-id="n-popover" data-hid="n-popover">
+.n-popover {
+
+ transition:
+ box-shadow .3s var(--n-bezier),
+ background-color .3s var(--n-bezier),
+ color .3s var(--n-bezier);
+ position: relative;
+ font-size: var(--n-font-size);
+ color: var(--n-text-color);
+ box-shadow: var(--n-box-shadow);
+ word-break: break-word;
+ 
+}
+
+.n-popover > .n-scrollbar {
+
+ height: inherit;
+ max-height: inherit;
+ 
+}
+
+.n-popover:not(.n-popover--raw) {
+
+ background-color: var(--n-color);
+ border-radius: var(--n-border-radius);
+ 
+}
+
+.n-popover:not(.n-popover--raw):not(.n-popover--scrollable):not(.n-popover--show-header-or-footer) {
+padding: var(--n-padding);
+}
+
+.n-popover .n-popover__header {
+
+ padding: var(--n-padding);
+ border-bottom: 1px solid var(--n-divider-color);
+ transition: border-color .3s var(--n-bezier);
+ 
+}
+
+.n-popover .n-popover__footer {
+
+ padding: var(--n-padding);
+ border-top: 1px solid var(--n-divider-color);
+ transition: border-color .3s var(--n-bezier);
+ 
+}
+
+.n-popover.n-popover--scrollable .n-popover__content, .n-popover.n-popover--show-header-or-footer .n-popover__content {
+
+ padding: var(--n-padding);
+ 
+}
+
+.n-popover-shared {
+
+ transform-origin: inherit;
+ 
+}
+
+.n-popover-shared .n-popover-arrow-wrapper {
+
+ position: absolute;
+ overflow: hidden;
+ pointer-events: none;
+ 
+}
+
+.n-popover-shared .n-popover-arrow-wrapper .n-popover-arrow {
+
+ transition: background-color .3s var(--n-bezier);
+ position: absolute;
+ display: block;
+ width: calc(var(--n-arrow-height) * 1.414);
+ height: calc(var(--n-arrow-height) * 1.414);
+ box-shadow: 0 0 8px 0 rgba(0, 0, 0, .12);
+ transform: rotate(45deg);
+ background-color: var(--n-color);
+ pointer-events: all;
+ 
+}
+
+.n-popover-shared.popover-transition-enter-from, .n-popover-shared.popover-transition-leave-to {
+
+ opacity: 0;
+ transform: scale(.85);
+ 
+}
+
+.n-popover-shared.popover-transition-enter-to, .n-popover-shared.popover-transition-leave-from {
+
+ transform: scale(1);
+ opacity: 1;
+ 
+}
+
+.n-popover-shared.popover-transition-enter-active {
+
+ transition:
+ box-shadow .3s var(--n-bezier),
+ background-color .3s var(--n-bezier),
+ color .3s var(--n-bezier),
+ opacity .15s var(--n-bezier-ease-out),
+ transform .15s var(--n-bezier-ease-out);
+ 
+}
+
+.n-popover-shared.popover-transition-leave-active {
+
+ transition:
+ box-shadow .3s var(--n-bezier),
+ background-color .3s var(--n-bezier),
+ color .3s var(--n-bezier),
+ opacity .15s var(--n-bezier-ease-in),
+ transform .15s var(--n-bezier-ease-in);
+ 
+}
+
+[v-placement="top-start"] > .n-popover-shared {
+
+ margin-bottom: var(--n-space);
+ 
+}
+
+[v-placement="top-start"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-bottom: var(--n-space-arrow);
+ 
+}
+
+[v-placement="top-start"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="top-start"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ top: 100%;
+ bottom: auto;
+ height: var(--n-space-arrow);
+ 
+}
+
+[v-placement="top-start"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ top: calc(var(--n-arrow-height) * 1.414 / -2);
+ left: calc(var(--n-arrow-offset) - var(--v-offset-left));
+ 
+}
+
+[v-placement="top"] > .n-popover-shared {
+
+ margin-bottom: var(--n-space);
+ 
+}
+
+[v-placement="top"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-bottom: var(--n-space-arrow);
+ 
+}
+
+[v-placement="top"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="top"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ top: 100%;
+ bottom: auto;
+ height: var(--n-space-arrow);
+ 
+}
+
+[v-placement="top"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ top: calc(var(--n-arrow-height) * 1.414 / -2);
+ transform: translateX(calc(var(--n-arrow-height) * 1.414 / -2)) rotate(45deg);
+ left: 50%;
+ 
+}
+
+[v-placement="top-end"] > .n-popover-shared {
+
+ margin-bottom: var(--n-space);
+ 
+}
+
+[v-placement="top-end"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-bottom: var(--n-space-arrow);
+ 
+}
+
+[v-placement="top-end"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="top-end"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ top: 100%;
+ bottom: auto;
+ height: var(--n-space-arrow);
+ 
+}
+
+[v-placement="top-end"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ top: calc(var(--n-arrow-height) * 1.414 / -2);
+ right: calc(var(--n-arrow-offset) + var(--v-offset-left));
+ 
+}
+
+[v-placement="bottom-start"] > .n-popover-shared {
+
+ margin-top: var(--n-space);
+ 
+}
+
+[v-placement="bottom-start"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-top: var(--n-space-arrow);
+ 
+}
+
+[v-placement="bottom-start"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="bottom-start"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ bottom: 100%;
+ top: auto;
+ height: var(--n-space-arrow);
+ 
+}
+
+[v-placement="bottom-start"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ bottom: calc(var(--n-arrow-height) * 1.414 / -2);
+ left: calc(var(--n-arrow-offset) - var(--v-offset-left));
+ 
+}
+
+[v-placement="bottom"] > .n-popover-shared {
+
+ margin-top: var(--n-space);
+ 
+}
+
+[v-placement="bottom"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-top: var(--n-space-arrow);
+ 
+}
+
+[v-placement="bottom"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="bottom"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ bottom: 100%;
+ top: auto;
+ height: var(--n-space-arrow);
+ 
+}
+
+[v-placement="bottom"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ bottom: calc(var(--n-arrow-height) * 1.414 / -2);
+ transform: translateX(calc(var(--n-arrow-height) * 1.414 / -2)) rotate(45deg);
+ left: 50%;
+ 
+}
+
+[v-placement="bottom-end"] > .n-popover-shared {
+
+ margin-top: var(--n-space);
+ 
+}
+
+[v-placement="bottom-end"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-top: var(--n-space-arrow);
+ 
+}
+
+[v-placement="bottom-end"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="bottom-end"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ bottom: 100%;
+ top: auto;
+ height: var(--n-space-arrow);
+ 
+}
+
+[v-placement="bottom-end"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ bottom: calc(var(--n-arrow-height) * 1.414 / -2);
+ right: calc(var(--n-arrow-offset) + var(--v-offset-left));
+ 
+}
+
+[v-placement="left-start"] > .n-popover-shared {
+
+ margin-right: var(--n-space);
+ 
+}
+
+[v-placement="left-start"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-right: var(--n-space-arrow);
+ 
+}
+
+[v-placement="left-start"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="left-start"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ left: 100%;
+ right: auto;
+ width: var(--n-space-arrow);
+ 
+}
+
+[v-placement="left-start"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ left: calc(var(--n-arrow-height) * 1.414 / -2);
+ top: calc(var(--n-arrow-offset-vertical) - var(--v-offset-top));
+ 
+}
+
+[v-placement="left"] > .n-popover-shared {
+
+ margin-right: var(--n-space);
+ 
+}
+
+[v-placement="left"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-right: var(--n-space-arrow);
+ 
+}
+
+[v-placement="left"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="left"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ left: 100%;
+ right: auto;
+ width: var(--n-space-arrow);
+ 
+}
+
+[v-placement="left"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ left: calc(var(--n-arrow-height) * 1.414 / -2);
+ transform: translateY(calc(var(--n-arrow-height) * 1.414 / -2)) rotate(45deg);
+ top: 50%;
+ 
+}
+
+[v-placement="left-end"] > .n-popover-shared {
+
+ margin-right: var(--n-space);
+ 
+}
+
+[v-placement="left-end"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-right: var(--n-space-arrow);
+ 
+}
+
+[v-placement="left-end"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="left-end"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ left: 100%;
+ right: auto;
+ width: var(--n-space-arrow);
+ 
+}
+
+[v-placement="left-end"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ left: calc(var(--n-arrow-height) * 1.414 / -2);
+ bottom: calc(var(--n-arrow-offset-vertical) + var(--v-offset-top));
+ 
+}
+
+[v-placement="right-start"] > .n-popover-shared {
+
+ margin-left: var(--n-space);
+ 
+}
+
+[v-placement="right-start"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-left: var(--n-space-arrow);
+ 
+}
+
+[v-placement="right-start"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="right-start"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ right: 100%;
+ left: auto;
+ width: var(--n-space-arrow);
+ 
+}
+
+[v-placement="right-start"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ right: calc(var(--n-arrow-height) * 1.414 / -2);
+ top: calc(var(--n-arrow-offset-vertical) - var(--v-offset-top));
+ 
+}
+
+[v-placement="right"] > .n-popover-shared {
+
+ margin-left: var(--n-space);
+ 
+}
+
+[v-placement="right"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-left: var(--n-space-arrow);
+ 
+}
+
+[v-placement="right"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="right"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ right: 100%;
+ left: auto;
+ width: var(--n-space-arrow);
+ 
+}
+
+[v-placement="right"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ right: calc(var(--n-arrow-height) * 1.414 / -2);
+ transform: translateY(calc(var(--n-arrow-height) * 1.414 / -2)) rotate(45deg);
+ top: 50%;
+ 
+}
+
+[v-placement="right-end"] > .n-popover-shared {
+
+ margin-left: var(--n-space);
+ 
+}
+
+[v-placement="right-end"] > .n-popover-shared.n-popover-shared--show-arrow {
+
+ margin-left: var(--n-space-arrow);
+ 
+}
+
+[v-placement="right-end"] > .n-popover-shared.n-popover-shared--overlap {
+
+ margin: 0;
+ 
+}
+
+[v-placement="right-end"] > .n-popover-shared > .n-popover-arrow-wrapper {
+
+ right: 0;
+ left: 0;
+ top: 0;
+ bottom: 0;
+ right: 100%;
+ left: auto;
+ width: var(--n-space-arrow);
+ 
+}
+
+[v-placement="right-end"] > .n-popover-shared > .n-popover-arrow-wrapper .n-popover-arrow {
+
+ right: calc(var(--n-arrow-height) * 1.414 / -2);
+ bottom: calc(var(--n-arrow-offset-vertical) + var(--v-offset-top));
+ 
+}
+
+[v-placement="right-start"] > .n-popover-shared.n-popover-shared--center-arrow .n-popover-arrow {
+top: calc(max(calc((var(--v-target-height, 0px) - var(--n-arrow-height) * 1.414) / 2), var(--n-arrow-offset-vertical)) - var(--v-offset-top));
+}
+
+[v-placement="left-start"] > .n-popover-shared.n-popover-shared--center-arrow .n-popover-arrow {
+top: calc(max(calc((var(--v-target-height, 0px) - var(--n-arrow-height) * 1.414) / 2), var(--n-arrow-offset-vertical)) - var(--v-offset-top));
+}
+
+[v-placement="top-end"] > .n-popover-shared.n-popover-shared--center-arrow .n-popover-arrow {
+right: calc(max(calc((var(--v-target-width, 0px) - var(--n-arrow-height) * 1.414) / 2), var(--n-arrow-offset)) + var(--v-offset-left));
+}
+
+[v-placement="bottom-end"] > .n-popover-shared.n-popover-shared--center-arrow .n-popover-arrow {
+right: calc(max(calc((var(--v-target-width, 0px) - var(--n-arrow-height) * 1.414) / 2), var(--n-arrow-offset)) + var(--v-offset-left));
+}
+
+[v-placement="right-end"] > .n-popover-shared.n-popover-shared--center-arrow .n-popover-arrow {
+bottom: calc(max(calc((var(--v-target-height, 0px) - var(--n-arrow-height) * 1.414) / 2), var(--n-arrow-offset-vertical)) + var(--v-offset-top));
+}
+
+[v-placement="left-end"] > .n-popover-shared.n-popover-shared--center-arrow .n-popover-arrow {
+bottom: calc(max(calc((var(--v-target-height, 0px) - var(--n-arrow-height) * 1.414) / 2), var(--n-arrow-offset-vertical)) + var(--v-offset-top));
+}
+
+[v-placement="top-start"] > .n-popover-shared.n-popover-shared--center-arrow .n-popover-arrow {
+left: calc(max(calc((var(--v-target-width, 0px) - var(--n-arrow-height) * 1.414) / 2), var(--n-arrow-offset)) - var(--v-offset-left));
+}
+
+[v-placement="bottom-start"] > .n-popover-shared.n-popover-shared--center-arrow .n-popover-arrow {
+left: calc(max(calc((var(--v-target-width, 0px) - var(--n-arrow-height) * 1.414) / 2), var(--n-arrow-offset)) - var(--v-offset-left));
+}
+</style><style cssr-id="n-global" data-hid="n-global">
+body {
+
+ margin: 0;
+ font-size: 14px;
+ font-family: v-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+ line-height: 1.6;
+ -webkit-text-size-adjust: 100%;
+ -webkit-tap-highlight-color: transparent;
+
+}
+
+body input {
+
+ font-family: inherit;
+ font-size: inherit;
+ 
+}
+</style><style cssr-id="vueuc/binder" data-hid="vueuc/binder">
+.v-binder-follower-container {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: auto;
+}
+
+.v-binder-follower-content {
+  position: absolute;
+  z-index: auto;
+}
+
+.v-binder-follower-content > * {
+  pointer-events: all;
+}
+</style><style cssr-id="n-button" data-hid="n-button">
+.n-button {
+
+ margin: 0;
+ font-weight: var(--n-font-weight);
+ line-height: 1;
+ font-family: inherit;
+ padding: var(--n-padding);
+ height: var(--n-height);
+ font-size: var(--n-font-size);
+ border-radius: var(--n-border-radius);
+ color: var(--n-text-color);
+ background-color: var(--n-color);
+ width: var(--n-width);
+ white-space: nowrap;
+ outline: none;
+ position: relative;
+ z-index: auto;
+ border: none;
+ display: inline-flex;
+ flex-wrap: nowrap;
+ flex-shrink: 0;
+ align-items: center;
+ justify-content: center;
+ user-select: none;
+ -webkit-user-select: none;
+ text-align: center;
+ cursor: pointer;
+ text-decoration: none;
+ transition:
+ color .3s var(--n-bezier),
+ background-color .3s var(--n-bezier),
+ opacity .3s var(--n-bezier),
+ border-color .3s var(--n-bezier);
+ 
+}
+
+.n-button.n-button--color .n-button__border {
+  border-color: var(--n-border-color);
+}
+
+.n-button.n-button--color.n-button--disabled .n-button__border {
+  border-color: var(--n-border-color-disabled);
+}
+
+.n-button.n-button--color:not(.n-button--disabled):focus .n-button__state-border {
+  border-color: var(--n-border-color-focus);
+}
+
+.n-button.n-button--color:not(.n-button--disabled):hover .n-button__state-border {
+  border-color: var(--n-border-color-hover);
+}
+
+.n-button.n-button--color:not(.n-button--disabled):active .n-button__state-border {
+  border-color: var(--n-border-color-pressed);
+}
+
+.n-button.n-button--color:not(.n-button--disabled).n-button--pressed .n-button__state-border {
+  border-color: var(--n-border-color-pressed);
+}
+
+.n-button.n-button--disabled {
+  background-color: var(--n-color-disabled);
+  color: var(--n-text-color-disabled);
+}
+
+.n-button.n-button--disabled .n-button__border {
+  border: var(--n-border-disabled);
+}
+
+.n-button:not(.n-button--disabled):focus {
+  background-color: var(--n-color-focus);
+  color: var(--n-text-color-focus);
+}
+
+.n-button:not(.n-button--disabled):focus .n-button__state-border {
+  border: var(--n-border-focus);
+}
+
+.n-button:not(.n-button--disabled):hover {
+  background-color: var(--n-color-hover);
+  color: var(--n-text-color-hover);
+}
+
+.n-button:not(.n-button--disabled):hover .n-button__state-border {
+  border: var(--n-border-hover);
+}
+
+.n-button:not(.n-button--disabled):active {
+  background-color: var(--n-color-pressed);
+  color: var(--n-text-color-pressed);
+}
+
+.n-button:not(.n-button--disabled):active .n-button__state-border {
+  border: var(--n-border-pressed);
+}
+
+.n-button:not(.n-button--disabled).n-button--pressed {
+  background-color: var(--n-color-pressed);
+  color: var(--n-text-color-pressed);
+}
+
+.n-button:not(.n-button--disabled).n-button--pressed .n-button__state-border {
+  border: var(--n-border-pressed);
+}
+
+.n-button.n-button--loading {
+cursor: wait;
+}
+
+.n-button .n-base-wave {
+
+ pointer-events: none;
+ top: 0;
+ right: 0;
+ bottom: 0;
+ left: 0;
+ animation-iteration-count: 1;
+ animation-duration: var(--n-ripple-duration);
+ animation-timing-function: var(--n-bezier-ease-out), var(--n-bezier-ease-out);
+ 
+}
+
+.n-button .n-base-wave.n-base-wave--active {
+  z-index: 1;
+  animation-name: button-wave-spread, button-wave-opacity;
+}
+
+.n-button .n-button__border, .n-button .n-button__state-border {
+
+ position: absolute;
+ left: 0;
+ top: 0;
+ right: 0;
+ bottom: 0;
+ border-radius: inherit;
+ transition: border-color .3s var(--n-bezier);
+ pointer-events: none;
+ 
+}
+
+.n-button .n-button__border {
+
+ border: var(--n-border);
+ 
+}
+
+.n-button .n-button__state-border {
+
+ border: var(--n-border);
+ border-color: #0000;
+ z-index: 1;
+ 
+}
+
+.n-button .n-button__icon {
+
+ margin: var(--n-icon-margin);
+ margin-left: 0;
+ height: var(--n-icon-size);
+ width: var(--n-icon-size);
+ max-width: var(--n-icon-size);
+ font-size: var(--n-icon-size);
+ position: relative;
+ flex-shrink: 0;
+ 
+}
+
+.n-button .n-button__icon .n-icon-slot {
+
+ height: var(--n-icon-size);
+ width: var(--n-icon-size);
+ position: absolute;
+ left: 0;
+ top: 50%;
+ transform: translateY(-50%);
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ 
+}
+
+.n-button .n-button__icon .n-icon-slot.icon-switch-transition-enter-from, .n-button .n-button__icon .n-icon-slot.icon-switch-transition-leave-to {
+  transform: translateY(-50%) scale(0.75);
+  left: 0;
+  top: 50%;
+  opacity: 0;
+}
+
+.n-button .n-button__icon .n-icon-slot.icon-switch-transition-enter-to, .n-button .n-button__icon .n-icon-slot.icon-switch-transition-leave-from {
+  transform: scale(1) translateY(-50%);
+  left: 0;
+  top: 50%;
+  opacity: 1;
+}
+
+.n-button .n-button__icon .n-icon-slot.icon-switch-transition-enter-active, .n-button .n-button__icon .n-icon-slot.icon-switch-transition-leave-active {
+  transform-origin: center;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transition: all .3s cubic-bezier(.4, 0, .2, 1) !important;
+}
+
+.n-button .n-button__icon.fade-in-width-expand-transition-leave-from, .n-button .n-button__icon.fade-in-width-expand-transition-enter-to {
+  opacity: 1;
+}
+
+.n-button .n-button__icon.fade-in-width-expand-transition-leave-to, .n-button .n-button__icon.fade-in-width-expand-transition-enter-from {
+
+ opacity: 0!important;
+ margin-left: 0!important;
+ margin-right: 0!important;
+ 
+}
+
+.n-button .n-button__icon.fade-in-width-expand-transition-leave-active {
+
+ overflow: hidden;
+ transition:
+ opacity .2s cubic-bezier(.4, 0, .2, 1),
+ max-width .2s cubic-bezier(.4, 0, .2, 1) .1s,
+ margin-left .2s cubic-bezier(.4, 0, .2, 1) .1s,
+ margin-right .2s cubic-bezier(.4, 0, .2, 1) .1s;
+ 
+}
+
+.n-button .n-button__icon.fade-in-width-expand-transition-enter-active {
+
+ overflow: hidden;
+ transition:
+ opacity .2s cubic-bezier(.4, 0, .2, 1) .1s,
+ max-width .2s cubic-bezier(.4, 0, .2, 1),
+ margin-left .2s cubic-bezier(.4, 0, .2, 1),
+ margin-right .2s cubic-bezier(.4, 0, .2, 1);
+ 
+}
+
+.n-button .n-button__content {
+
+ display: flex;
+ align-items: center;
+ flex-wrap: nowrap;
+ min-width: 0;
+ 
+}
+
+.n-button .n-button__content ~ .n-button__icon {
+  margin: var(--n-icon-margin);
+  margin-right: 0;
+}
+
+.n-button.n-button--block {
+
+ display: flex;
+ width: 100%;
+ 
+}
+
+.n-button.n-button--dashed .n-button__border, .n-button.n-button--dashed .n-button__state-border {
+  border-style: dashed !important;
+}
+
+.n-button.n-button--disabled {
+  cursor: not-allowed;
+  opacity: var(--n-opacity-disabled);
+}
+
+@keyframes button-wave-spread {
+  from {
+    box-shadow: 0 0 0.5px 0 var(--n-ripple-color);
+  }
+  to {
+    box-shadow: 0 0 0.5px 4.5px var(--n-ripple-color);
+  }
+}
+
+@keyframes button-wave-opacity {
+  from {
+    opacity: var(--n-wave-opacity);
+  }
+  to {
+    opacity: 0;
+  }
+}
+</style><style>.wiki-root{background-color:#f5f5f5;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,Helvetica Neue,Arial,sans-serif}</style><style>.wiki-entry[data-v-d52cb7fc]{background:#fff;min-height:100vh}.session-error[data-v-d52cb7fc],.session-loading[data-v-d52cb7fc]{z-index:90;color:#6f4b1d;background:#fffaf2;border:1px solid #f1e0c9;border-radius:8px;align-items:center;gap:8px;padding:8px 12px;font-size:13px;display:inline-flex;position:fixed;top:14px;left:50%;transform:translate(-50%)}</style><style>.wiki-reader[data-v-e1ff8991]{--color-primary:#ff890d;--color-surface:#fff;--color-text:#404040;--color-text-title:#404040;--color-text-nav:#353535;--color-text-secondary:#888;--color-text-tertiary:#b2b2b2;--color-border:#e8e8e8;--color-divider:#eee;--shadow-sm:0 1px 3px #0000000f;--shadow-lg:0 8px 24px #0000001a;--radius-sm:6px;--radius-md:10px;--space-xs:4px;--space-sm:8px;--space-md:16px;--space-lg:24px;--space-xl:32px;--space-xxl:48px;--navbar-height:66px;--sidebar-width:280px;min-height:calc(100vh - var(--navbar-height));color:var(--color-text);background-color:#fff}@media (width<=1440px){.wiki-reader[data-v-e1ff8991]{--sidebar-width:240px}}.site-header[data-v-e1ff8991]{z-index:100;height:var(--navbar-height);background:#fff;position:sticky;top:0;box-shadow:0 1px 3px #0000000f}.site-nav[data-v-e1ff8991]{width:100%;height:100%;padding:0 24px 0 calc(var(--sidebar-width) + 24px);justify-content:space-between;align-items:center;transition:padding .2s;display:flex}.site-nav.collapsed[data-v-e1ff8991]{padding-left:24px}.nav-left[data-v-e1ff8991]{gap:12px;min-width:0}.nav-left[data-v-e1ff8991],.sidebar-toggle[data-v-e1ff8991]{align-items:center;display:flex}.sidebar-toggle[data-v-e1ff8991]{border-radius:var(--radius-sm);width:36px;height:36px;color:var(--color-text-nav);font:inherit;cursor:pointer;background:0 0;border:none;flex-shrink:0;justify-content:center;font-size:18px;transition:color .2s,background-color .2s}.sidebar-toggle[data-v-e1ff8991]:hover{color:var(--color-primary);background-color:#f5f5f5}.nav-course-name[data-v-e1ff8991]{color:var(--color-text-nav);white-space:nowrap;text-overflow:ellipsis;font-size:15px;font-weight:500;overflow:hidden}.nav-actions[data-v-e1ff8991]{align-items:center;gap:var(--space-md);display:flex}.reader-layout[data-v-e1ff8991]{align-items:flex-start;display:flex}.reader-sidebar[data-v-e1ff8991]{z-index:101;width:var(--sidebar-width);background-color:#fff;flex-direction:column;transition:width .2s;display:flex;position:fixed;top:0;bottom:0;left:0}.sidebar-brand[data-v-e1ff8991]{height:var(--navbar-height);flex-shrink:0;align-items:center;padding:0 16px 0 32px;display:flex}.sidebar-brand img[data-v-e1ff8991]{width:132px;height:auto;display:block}.sidebar-tree[data-v-e1ff8991]{min-height:0;padding:var(--space-md);flex:1;overflow-y:auto}.reader-content[data-v-e1ff8991]{min-width:0;margin-left:var(--sidebar-width);padding:var(--space-md) var(--space-xl) var(--space-xxl);background-color:#fff;flex:1;transition:margin-left .2s}.wiki-reader.sidebar-collapsed .reader-content[data-v-e1ff8991]{margin-left:0}.mobile-menu-btn[data-v-e1ff8991]{margin-bottom:var(--space-md);padding:var(--space-sm) var(--space-md);border:1px solid var(--color-border);border-radius:var(--radius-sm);color:var(--color-primary);font:inherit;cursor:pointer;font-size:.9rem;display:none}.content-card[data-v-e1ff8991],.mobile-menu-btn[data-v-e1ff8991]{background-color:var(--color-surface)}.content-card[data-v-e1ff8991]{max-width:748px;padding:var(--space-xl) 0 var(--space-xxl);margin:0 auto}.article-header[data-v-e1ff8991]{margin-bottom:var(--space-xl);text-align:center}.article-title[data-v-e1ff8991]{color:var(--color-text-title);margin:0;font-size:28px;font-weight:500;line-height:1.5}.wiki-author-card[data-v-e1ff8991]{background:#fff8ee;border-radius:10px;align-items:center;gap:12px;margin:-8px 0 20px;padding:10px 14px;display:flex}.wiki-author-card__avatar[data-v-e1ff8991]{-o-object-fit:cover;object-fit:cover;background:#f3e3cf;border-radius:50%;flex:none;width:44px;height:44px;margin:0;box-shadow:0 0 0 2px #fff}.wiki-author-card__meta[data-v-e1ff8991]{min-width:0;line-height:1.4}.wiki-author-card__name[data-v-e1ff8991]{color:#3c3c3c;font-weight:600}.wiki-author-card__role[data-v-e1ff8991]{color:#999;font-size:13px}@media (width<=1500px){.content-card[data-v-e1ff8991]{max-width:680px}}.preview-banner[data-v-e1ff8991]{justify-content:space-between;align-items:center;gap:var(--space-md);margin-bottom:var(--space-xl);padding:var(--space-md) var(--space-lg);border-radius:var(--radius-md);border:1px solid var(--color-border);background-color:#f6f7fb;font-size:14px;display:flex}.preview-banner-content[data-v-e1ff8991]{align-items:center;gap:var(--space-sm);color:var(--color-text-secondary);display:flex}.preview-icon[data-v-e1ff8991]{font-size:1rem}.preview-login-link[data-v-e1ff8991]{color:var(--color-primary);flex-shrink:0;font-weight:500;transition:opacity .2s}.preview-login-link[data-v-e1ff8991]:hover{opacity:.8}.preview-footer-cta[data-v-e1ff8991]{margin:var(--space-xxl) 0;padding:var(--space-xl);text-align:center;border-radius:var(--radius-md);border:1px dashed var(--color-primary);background:linear-gradient(135deg,#fff5f0,#fff)}.preview-footer-cta p[data-v-e1ff8991]{margin:0 0 var(--space-md);color:var(--color-text-secondary);font-size:.95rem}.preview-login-btn[data-v-e1ff8991]{border-radius:var(--radius-sm);background-color:var(--color-primary);color:#fff;padding:.6em 1.6em;font-weight:500;transition:opacity .2s;display:inline-block}.preview-login-btn[data-v-e1ff8991]:hover{opacity:.9}.section-nav[data-v-e1ff8991]{justify-content:space-between;gap:var(--space-lg);margin-top:var(--space-xxl);padding-top:var(--space-xl);border-top:1px solid var(--color-divider);display:flex}.nav-btn[data-v-e1ff8991]{max-width:45%;padding:var(--space-md) var(--space-lg);border-radius:var(--radius-md);background-color:var(--color-surface);border:1px solid var(--color-border);color:inherit;font:inherit;text-align:left;cursor:pointer;flex-direction:column;transition:all .2s;display:flex}.nav-btn[data-v-e1ff8991]:hover{border-color:var(--color-primary);box-shadow:var(--shadow-sm)}.nav-btn.next[data-v-e1ff8991]{text-align:right;align-items:flex-end;margin-left:auto}.nav-label[data-v-e1ff8991]{color:var(--color-text-tertiary);margin-bottom:var(--space-xs);font-size:.8rem}.nav-title[data-v-e1ff8991]{color:var(--color-text);font-size:.95rem;font-weight:500}.nav-placeholder[data-v-e1ff8991]{flex:1;max-width:45%}.drawer-overlay[data-v-e1ff8991]{z-index:150;background-color:#0006;border:0;position:fixed;inset:0}.mobile-drawer[data-v-e1ff8991]{z-index:160;background-color:var(--color-surface);width:80%;max-width:320px;box-shadow:var(--shadow-lg);flex-direction:column;display:flex;position:fixed;top:0;bottom:0;left:0}.drawer-header[data-v-e1ff8991]{padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--color-border);justify-content:space-between;align-items:center;display:flex}.drawer-body[data-v-e1ff8991]{min-height:0;padding:var(--space-md);flex:1;overflow-y:auto}.wiki-fade-enter-active[data-v-e1ff8991],.wiki-fade-leave-active[data-v-e1ff8991]{transition:opacity .25s}.wiki-fade-enter-from[data-v-e1ff8991],.wiki-fade-leave-to[data-v-e1ff8991]{opacity:0}.wiki-slide-enter-active[data-v-e1ff8991],.wiki-slide-leave-active[data-v-e1ff8991]{transition:transform .25s}.wiki-slide-enter-from[data-v-e1ff8991],.wiki-slide-leave-to[data-v-e1ff8991]{transform:translate(-100%)}@media (width<=1024px){.site-nav[data-v-e1ff8991]{padding:0 16px}.reader-sidebar[data-v-e1ff8991],.sidebar-toggle[data-v-e1ff8991]{display:none}.mobile-menu-btn[data-v-e1ff8991]{display:inline-flex}.reader-content[data-v-e1ff8991]{padding:var(--space-md) var(--space-lg) var(--space-xl);margin-left:0}.content-card[data-v-e1ff8991]{max-width:none;padding:var(--space-md) var(--space-sm) var(--space-xl);margin:0}.article-title[data-v-e1ff8991]{font-size:1.5rem}.preview-banner[data-v-e1ff8991]{flex-direction:column;align-items:flex-start}}@media (width<=640px){.section-nav[data-v-e1ff8991]{gap:var(--space-md);flex-direction:column}.nav-btn[data-v-e1ff8991],.nav-placeholder[data-v-e1ff8991]{max-width:100%}.nav-btn.next[data-v-e1ff8991]{text-align:left;align-items:flex-start;margin-left:0}}</style><style>.account-area[data-v-a02b65c7]{align-items:center;min-height:36px;font-size:14px;display:flex}.account-error[data-v-a02b65c7],.account-status[data-v-a02b65c7]{color:var(--muted);font-size:12px}.account-error[data-v-a02b65c7]{gap:8px}.account-error[data-v-a02b65c7],.account-links[data-v-a02b65c7]{align-items:center;display:flex}.account-links[data-v-a02b65c7]{color:#39483f;gap:12px}.account-links span[data-v-a02b65c7]{color:#bbc3bc}.avatar[data-v-a02b65c7]{-o-object-fit:cover;object-fit:cover;cursor:pointer;border:2px solid #fff;border-radius:50%;width:40px;height:40px;transition:transform .2s;display:block;box-shadow:0 2px 8px #0000001a}.avatar[data-v-a02b65c7]:hover{transform:scale(1.05)}.dropdown[data-v-a02b65c7]{background:#fff;border-radius:8px;min-width:120px;overflow:hidden;box-shadow:0 4px 20px #0000001f}.dropdown-info[data-v-a02b65c7]{cursor:pointer;padding:12px 16px;transition:all .2s}.dropdown-info[data-v-a02b65c7]:hover{color:#269fdc;background:#f5f5f5}.dropdown-nickname[data-v-a02b65c7]{color:#333;margin-bottom:4px;font-family:-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,sans-serif;font-size:16px;font-weight:500;line-height:22px}.dropdown-phone[data-v-a02b65c7]{color:#999;font-size:13px;line-height:18px}.dropdown-divider[data-v-a02b65c7]{background:#f0f0f0;height:1px}.dropdown-item[data-v-a02b65c7]{color:#666;cursor:pointer;padding:10px 16px;font-size:14px;transition:all .2s}.dropdown-item[data-v-a02b65c7]:hover{color:#269fdc;background:#f5f5f5}@media (width<=760px){.account-links[data-v-a02b65c7]{gap:9px;font-size:14px}.account-error[data-v-a02b65c7],.account-status[data-v-a02b65c7]{max-width:140px}}</style><style>.chapter-tree[data-v-20024386]{--color-primary:#ff890d;--color-text-title:#404040;--color-text-nav:#353535;--color-text-secondary:#888;--color-text-tertiary:#b2b2b2;--color-border:#e8e8e8;--radius-sm:6px;--space-xs:4px;--space-sm:8px;--space-md:16px;--space-xl:32px;gap:0;height:100%;display:block;overflow-y:auto}.course-intro[data-v-20024386]{padding:0 16px}.course-name[data-v-20024386]{color:var(--color-text-title);white-space:pre-line;margin:0;font-size:20px;font-weight:500;line-height:1.4}.course-desc[data-v-20024386]{-webkit-line-clamp:2;color:var(--color-text-secondary);-webkit-box-orient:vertical;margin:4px 0 0;font-size:12px;line-height:1.6;display:-webkit-box;overflow:hidden}.course-desc.is-clickable[data-v-20024386]{cursor:pointer}.course-desc.is-expanded[data-v-20024386]{-webkit-line-clamp:unset;display:block;overflow:visible}.course-desc[data-v-20024386]:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px;border-radius:4px}.course-desc-toggle[data-v-20024386]{color:var(--color-primary);cursor:pointer;background:0 0;border:none;margin-top:2px;padding:0;font-size:12px;line-height:1.6}.course-desc-toggle[data-v-20024386]:hover{text-decoration:underline}.search-box[data-v-20024386]{margin:12px 16px 8px;position:relative}.search-icon[data-v-20024386]{color:var(--color-text-tertiary);pointer-events:none;position:absolute;top:50%;right:10px;transform:translateY(-50%)}.search-input[data-v-20024386]{border:1px solid var(--color-border);border-radius:var(--radius-sm);width:100%;color:var(--color-text-title);background-color:#fff;outline:none;padding:.5em 2em .5em .9em;font-size:13px;transition:border-color .2s}.search-input[data-v-20024386]::placeholder{color:var(--color-text-tertiary)}.search-input[data-v-20024386]:focus{border-color:var(--color-primary)}.tree-content[data-v-20024386]{padding-bottom:var(--space-xl)}.tree-head[data-v-20024386]{flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin-bottom:4px;padding:0 16px;display:flex}.tree-title[data-v-20024386]{color:var(--color-text-title);padding-left:11px;font-size:14px;font-weight:500;position:relative}.tree-title[data-v-20024386]:before{content:"";background-color:var(--color-primary);border-radius:2px;width:3px;height:12px;position:absolute;top:50%;left:0;transform:translateY(-50%)}.tree-count[data-v-20024386]{color:var(--color-text-tertiary);font-size:12px}.chapter-item[data-v-20024386]{position:relative}.chapter-header[data-v-20024386]{justify-content:space-between;align-items:center;gap:var(--space-sm);width:100%;color:var(--color-text-nav);text-align:left;cursor:pointer;background:0 0;border:none;padding:14px 12px;font-size:15px;font-weight:400;transition:color .2s;display:flex}.chapter-header[data-v-20024386]:hover{color:var(--color-primary)}.chapter-name[data-v-20024386]{flex:1;min-width:0}.chapter-count[data-v-20024386]{color:var(--color-text-secondary);margin-left:2px;font-size:13px;font-weight:400}.chapter-header .arrow[data-v-20024386]{color:var(--color-text-tertiary);flex-shrink:0;transition:transform .2s}.chapter-item.open .arrow[data-v-20024386]{transform:rotate(-180deg)}.section-list[data-v-20024386]{padding-bottom:4px}.section-row[data-v-20024386]{align-items:stretch;display:flex;position:relative}.section-link[data-v-20024386]{border-radius:var(--radius-sm);color:#4c4c4c;min-width:0;font:inherit;text-align:left;flex:1;padding:8px 12px 8px 16px;font-size:13px;line-height:1.6;display:block;position:relative}.section-link[data-v-20024386],.section-toggle[data-v-20024386]{cursor:pointer;background:0 0;border:none;transition:color .2s,background-color .2s}.section-toggle[data-v-20024386]{width:22px;height:22px;color:var(--color-text-tertiary);border-radius:50%;flex-shrink:0;justify-content:center;align-self:center;align-items:center;margin-right:8px;padding:0;display:flex}.section-toggle[data-v-20024386]:hover{color:var(--color-primary);background-color:#f5f5f5}.section-toggle .arrow[data-v-20024386],.section-toggle svg[data-v-20024386]{transition:transform .2s}.section-toggle[aria-expanded=true] svg[data-v-20024386]{transform:rotate(-180deg)}.heading-list[data-v-20024386]{padding:0 8px 6px 28px}.heading-link[data-v-20024386]{grid-template-columns:var(--int-w,1ch) var(--frac-w,0) 1fr;border-radius:var(--radius-sm);width:100%;color:var(--color-text-secondary);font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:baseline;padding:4px 8px;font-size:12px;line-height:1.55;transition:color .2s,background-color .2s;display:grid}.heading-num-int[data-v-20024386]{text-align:right}.heading-num-frac[data-v-20024386],.heading-num-int[data-v-20024386]{color:var(--color-text-tertiary);font-variant-numeric:tabular-nums}.heading-num-frac[data-v-20024386]{text-align:left}.heading-text[data-v-20024386]{min-width:0;padding-left:.5em}.heading-link[data-v-20024386]:hover{background-color:#fafafa}.heading-link[data-v-20024386]:hover,.heading-link:hover .heading-num-frac[data-v-20024386],.heading-link:hover .heading-num-int[data-v-20024386]{color:var(--color-primary)}.section-link[data-v-20024386]:before{content:"";background-color:#0000;border-radius:2px;width:3px;transition:background-color .2s;position:absolute;top:6px;bottom:6px;left:4px}.section-link.active[data-v-20024386],.section-link[data-v-20024386]:hover{color:var(--color-primary)}.section-link.active[data-v-20024386]{background-color:#fbf5ee}.section-link.active[data-v-20024386]:before{background-color:var(--color-primary)}.section-title[data-v-20024386]{display:block}.search-empty[data-v-20024386]{padding:var(--space-xl) var(--space-md);text-align:center;color:var(--color-text-tertiary);font-size:14px}</style><style>pre code.hljs{padding:1em;display:block;overflow-x:auto}code.hljs{padding:3px 5px}.hljs{color:#24292e;background:#fff}.hljs-doctag,.hljs-keyword,.hljs-meta .hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.language_{color:#d73a49}.hljs-title,.hljs-title.class_,.hljs-title.class_.inherited__,.hljs-title.function_{color:#6f42c1}.hljs-attr,.hljs-attribute,.hljs-literal,.hljs-meta,.hljs-number,.hljs-operator,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-variable{color:#005cc5}.hljs-meta .hljs-string,.hljs-regexp,.hljs-string{color:#032f62}.hljs-built_in,.hljs-symbol{color:#e36209}.hljs-code,.hljs-comment,.hljs-formula{color:#6a737d}.hljs-name,.hljs-quote,.hljs-selector-pseudo,.hljs-selector-tag{color:#22863a}.hljs-subst{color:#24292e}.hljs-section{color:#005cc5;font-weight:700}.hljs-bullet{color:#735c0f}.hljs-emphasis{color:#24292e;font-style:italic}.hljs-strong{color:#24292e;font-weight:700}.hljs-addition{color:#22863a;background-color:#f0fff4}.hljs-deletion{color:#b31d28;background-color:#ffeef0}</style><link rel="stylesheet" href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/entry.Bo5n87D6.css" crossorigin><link rel="stylesheet" href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/AccountMenu.BORGEd19.css" crossorigin><link rel="stylesheet" href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/WikiReader.B_JPOHke.css" crossorigin><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CgMbsdLZ.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/5Ji2c2dl.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/C0Aaq4UG.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/BolyE_LA.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/BMs3BltT.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/BnFfPZhb.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/DDw98r_w.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/IyGlSKZK.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/D4piKps2.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/DB3UXymD.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/Bsmrdcvo.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/C2iGKETx.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/BDNMzG2s.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CzVexbpP.js"><link rel="modulepreload" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/Dd_uD5pT.js"><script type="module" src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CgMbsdLZ.js" crossorigin></script><link rel="prefetch" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CGwADvkh.js"><link rel="prefetch" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/Bp7LmCdi.js"><link rel="prefetch" as="script" crossorigin href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/CH-KOtaU.js"><link rel="prefetch" as="image" type="image/png" href="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/geek-knowledge-logo.DBH1U-lY.png"><link rel="icon" type="image/jpeg" sizes="32x32" href="https://static001.geekbang.org/static/time/icon/favicon-32x32.jpg"><link rel="icon" type="image/jpeg" sizes="16x16" href="https://static001.geekbang.org/static/time/icon/favicon-16x16.jpg"><link rel="apple-touch-icon" sizes="180x180" href="https://static001.geekbang.org/static/time/icon/apple-touch-icon.jpg"><meta name="description" content="从安装到子智能体与自动化，通过 MealCraft 项目完整实战 Claude Code 工程化用法。"><meta property="og:title" content="Claude Code｜极客知识库"><meta property="og:description" content="从安装到子智能体与自动化，通过 MealCraft 项目完整实战 Claude Code 工程化用法。"><meta property="og:image" content="https://static001.geekbang.org/static/icon/time/logo-180.png"></head><body><!--teleport start anchor--><!----><!--teleport anchor--><div id="__nuxt"><div class="n-config-provider"><!--[--><!--[--><!--[--><!--[--><!--]--><!--[--><div></div><div class="wiki-root"><div class="wiki-entry" data-tea-ignore="true" data-v-d52cb7fc><!----><div class="wiki-reader is-preview" data-v-d52cb7fc data-v-e1ff8991><header class="site-header" data-v-e1ff8991><div class="site-nav" data-v-e1ff8991><div class="nav-left" data-v-e1ff8991><button class="sidebar-toggle" type="button" aria-expanded="true" aria-label="收起或展开目录栏" data-v-e1ff8991>☰</button><span class="nav-course-name" data-v-e1ff8991>Claude Code</span></div><div class="nav-actions" data-v-e1ff8991><div class="account-area" aria-label="账户" data-tea-ignore="true" data-v-e1ff8991 data-v-a02b65c7><div class="account-error" role="status" data-v-a02b65c7><span data-v-a02b65c7>登录状态暂不可用</span><button class="n-button n-button--primary-type n-button--medium-type" tabindex="0" type="button" style="--n-bezier:cubic-bezier(.4, 0, .2, 1);--n-bezier-ease-out:cubic-bezier(0, 0, .2, 1);--n-ripple-duration:.6s;--n-opacity-disabled:0.5;--n-wave-opacity:0.6;--n-font-weight:400;--n-color:#0000;--n-color-hover:#0000;--n-color-pressed:#0000;--n-color-focus:#0000;--n-color-disabled:#0000;--n-ripple-color:#0000;--n-text-color:#ed7410;--n-text-color-hover:#f28a24;--n-text-color-pressed:#d9640c;--n-text-color-focus:#f28a24;--n-text-color-disabled:rgb(51, 54, 57);--n-border:none;--n-border-hover:none;--n-border-pressed:none;--n-border-focus:none;--n-border-disabled:none;--n-width:initial;--n-height:initial;--n-font-size:14px;--n-padding:initial;--n-icon-size:18px;--n-icon-margin:6px;--n-border-radius:initial;" data-v-a02b65c7><!----><!----><span class="n-button__content"><!--[-->重试<!--]--></span><!----><!----><!----></button></div></div></div></div></header><!----><!----><main class="reader-layout" data-v-e1ff8991><aside class="reader-sidebar" style="" data-v-e1ff8991><a href="/space/knowledge/" class="sidebar-brand" aria-label="返回知识库首页" data-v-e1ff8991><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/_nuxt/geek-knowledge-logo.DBH1U-lY.png" alt="极客知识库" data-v-e1ff8991></a><div class="sidebar-tree" data-v-e1ff8991><nav class="chapter-tree" data-v-e1ff8991 data-v-20024386><div class="course-intro" data-v-20024386><h2 class="course-name" data-v-20024386>Claude Code</h2><!--[--><!--[--><!----><p class="course-desc" data-v-20024386>从安装到子智能体与自动化，通过 MealCraft 项目完整实战 Claude Code 工程化用法。</p><!----><!--]--><!----><!--]--></div><div class="search-box" data-v-20024386><svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" data-v-20024386><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" data-v-20024386></circle><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-v-20024386></line></svg><input value="" class="search-input" type="text" placeholder="搜索课程内容" data-v-20024386></div><div class="tree-content" data-v-20024386><div class="tree-head" data-v-20024386><span class="tree-title" data-v-20024386>课程目录</span><span class="tree-count" data-v-20024386>已更新 28 讲/共 28 讲</span></div><!--[--><div class="open chapter-item" data-v-20024386><button class="chapter-header" type="button" aria-expanded="true" data-v-20024386><span class="chapter-name" data-v-20024386>Claude Code <span class="chapter-count" data-v-20024386>(28讲)</span></span><svg class="arrow" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button><div class="section-list" style="" data-v-20024386><!--[--><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="active section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>学习交流群</span></button><!----></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>0. 学前须知</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>1. Claude Code到底是什么</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>2. 安装Claude Code</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>3. 登录模型与中转服务</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>4. 第一次使用Claude Code</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>5. 规划MealCraft第一版</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>6. 完成MealCraft第一版</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>7. 先复现再修复食材换算错误</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>8. 权限沙箱与安全配置</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>9. 用CLAUDE-md教会Claude理解项目</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>10. 管理长任务把MealCraft升级到2-0</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>11. 用技能和钩子固化工作流</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>12. MCP插件与代码智能</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>13. 子智能体与智能体团队</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>14. 使用claude-p实现自动化</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>15. 实战一修复个人博客搜索问题</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>16. 实战二批量升级旅行笔记</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>17. 实战三排查跨平台偶发测试</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>18. 常见问题与排查手册</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>19. 进阶学习</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>20. 附录1-CLI命令与参数速查</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>21. 附录2-斜杠命令与快捷键速查</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>22. 附录3-配置与项目说明示例</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>23. 附录4-高质量任务描述模板</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>24. 附录5-扩展能力选择指南</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>25. 附录6-安全检查与验收清单</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><div class="section-item" data-v-20024386><div class="section-row" data-v-20024386><button class="section-link" type="button" data-v-20024386><span class="section-title" data-v-20024386>26. 附录7-操作系统差异与学习资源</span></button><button class="section-toggle" type="button" aria-expanded="false" aria-label="展开或收起本节标题" data-v-20024386><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" data-v-20024386><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-v-20024386></polyline></svg></button></div><!----></div><!--]--></div></div><!--]--><!----></div></nav></div></aside><article class="reader-content" data-v-e1ff8991><button class="mobile-menu-btn" type="button" data-v-e1ff8991>☰ 章节目录</button><div class="content-card" data-v-e1ff8991><header class="article-header" data-v-e1ff8991><h1 class="article-title" data-v-e1ff8991>学习交流群</h1></header><!----><div class="preview-banner" data-v-e1ff8991><div class="preview-banner-content" data-v-e1ff8991><span class="preview-icon" aria-hidden="true" data-v-e1ff8991>🔒</span><span data-v-e1ff8991>本节为部分预览，登录后可免费阅读全文</span></div><a class="preview-login-link" href="https://account.geekbang.com/signin?redirect=http%3A%2F%2Ftime.geekbang.com%2Fspace%2Fwiki%2FClaude_Code_Tutorial&amp;gk_source=knowledge-hub" data-v-e1ff8991>登录后继续免费阅读</a></div><!--[--><article class="markdown-body"><p>知识库之外，我们还建了「主流 Agent 入门交流群」。</p>
+<p>进群和大家一起交流主流 Agent 的使用方法、适用场景和入门实践，分享不同工具的上手经验、工作流与真实案例，也会同步专题最新更新和实战资料。</p>
+<p><strong>扫码加入，一起找到适合自己的 Agent，真正用起来。</strong></p>
+<p><img src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/Claude_Code_Tutorial/images/【知识库】主流%20Agent%20入门交流群.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" alt="【知识库】主流 Agent 入门交流群"></p>
+</article><!--teleport start--><!--teleport end--><!--]--><div class="preview-footer-cta" data-v-e1ff8991><p data-v-e1ff8991>登录后可继续阅读完整内容</p><a class="preview-login-btn" href="https://account.geekbang.com/signin?redirect=http%3A%2F%2Ftime.geekbang.com%2Fspace%2Fwiki%2FClaude_Code_Tutorial&amp;gk_source=knowledge-hub" data-v-e1ff8991>立即登录</a></div><nav class="section-nav" aria-label="上下节导航" data-v-e1ff8991><span class="nav-placeholder" data-v-e1ff8991></span><button class="nav-btn next" type="button" data-v-e1ff8991><span class="nav-label" data-v-e1ff8991>下一节 →</span><span class="nav-title" data-v-e1ff8991>0. 学前须知</span></button></nav></div></article></main></div></div></div><!--]--><!--]--><!--]--><!----><!--]--></div></div><div id="teleports"></div><script>window.__NUXT__={};window.__NUXT__.config={public:{backend:{environment:"prod",prod:{time:"https://time.geekbang.org",account:"https://account.geekbang.org",business:"https://b.geekbang.org",infoq:"https://www.infoq.cn"},prodCom:{time:"https://time.geekbang.com",account:"https://account.geekbang.com",business:"https://b.geekbang.com",infoq:"https://www.infoq.cn"},test:{time:"",account:"",business:"",infoq:""}},analytics:{mode:"send",appId:20000743,channelDomain:"https://gator.volces.com",sdkUrl:"https://lf3-data.volccdn.com/obj/data-static/log-sdk/collect/5.0/collect-rangers-v5.1.4.js"}},app:{baseURL:"/space/",buildId:"496f5697-ebe2-4dc2-b029-ada003bd0b1c",buildAssetsDir:"/_nuxt/",cdnURL:"https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/"}}</script><script type="application/json" data-nuxt-data="nuxt-app" data-ssr="true" id="__NUXT_DATA__">[["ShallowReactive",1],{"data":2,"state":4,"once":7,"_errors":8,"serverRendered":16,"path":20},["ShallowReactive",3],{},["Reactive",5],{"$spage-share":6},null,["Set"],["ShallowReactive",9],{"[\"geek\",\"account\",\"\u002Fserv\u002Fv1\u002Fuser\u002Fauth\",\"GET\",null,\"session\",\"prod\",\"auto\"]":10},["NuxtError",11],{"message":12,"statusCode":13,"statusMessage":14,"data":15},"[GET] \"\u002Fspace\u002Fapi\u002Fbackend\u002Faccount\u002Fserv\u002Fv1\u002Fuser\u002Fauth\": 503 Trusted gateway is not configured",503,"Trusted gateway is not configured",{"error":16,"url":17,"statusCode":13,"statusMessage":14,"message":14,"data":18},true,"http:\u002F\u002Flocalhost\u002Fspace\u002Fapi\u002Fbackend\u002Faccount\u002Fserv\u002Fv1\u002Fuser\u002Fauth",{"hint":19},"内网会话需要由部署方配置 NUXT_BACKEND_TRUSTED_PROXY_CIDRS；本地日常调试请使用 public。","\u002Fwiki\u002FClaude_Code_Tutorial"]</script></body></html>

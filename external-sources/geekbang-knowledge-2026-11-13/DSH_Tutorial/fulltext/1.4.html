@@ -1,0 +1,143 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本文属于《DeepSeek Harness 入门教程（实战版）》· 第二部分 · 安装并完成第一次启动</p>
+</blockquote>
+<h1>第 3 章　选择桌面端还是 CLI/Web</h1>
+<p>旧版本的教程只有一条安装路线：先安装 Node.js，再通过 npm 启动 DSH。官方桌面端发布以后，这个前提已经发生了变化。</p>
+<p>现在需要先回答的是：<strong>你准备怎样使用 DSH？</strong></p>
+<p>这一章不安装任何东西。我们先选定路线、确认环境和准备凭证，下一章再按操作系统执行。选对路线以后，不必为了“学得更完整”而把另一套也安装一遍。</p>
+<h2 id="wiki-h-0">两条路线的差别</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th></th>
+<th>桌面端</th>
+<th>CLI/Web</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>启动方式</td>
+<td>打开 DeepSeek Harness 应用</td>
+<td>在终端运行 <code>dsh web</code> 或 <code>npx @deepseek-ai/dsh@0.1.7-rc.2 web</code></td>
+</tr>
+<tr>
+<td>DSH 自身是否需要系统 Node.js</td>
+<td>不需要，应用携带匹配的运行时</td>
+<td>需要</td>
+</tr>
+<tr>
+<td>工作区选择</td>
+<td>原生文件夹选择器</td>
+<td>Web 中的 Host 目录选择器</td>
+</tr>
+<tr>
+<td>插件安装环境</td>
+<td>使用 Desktop 内置 pnpm</td>
+<td>使用 CLI 所在的 Node/npm 环境</td>
+</tr>
+<tr>
+<td>适合场景</td>
+<td>本机日常使用、第一次体验</td>
+<td>Linux、Headless、脚本、服务器、自定义 Profile</td>
+</tr>
+<tr>
+<td>Profile</td>
+<td>独立的 <code>desktop</code> Profile</td>
+<td><code>web</code>、<code>headless</code> 等 CLI Profile</td>
+</tr>
+</tbody></table></div>
+<p>桌面端本质上是在 Electron 外壳中运行完整 Web 应用，并携带与桌面版本匹配的 DSH 运行时。它不是一个只有部分功能的“简化版”。不过，桌面端和 CLI 不共享插件激活、依赖锁文件和 <code>node_modules</code>，公共 CLI 也不能直接管理 Desktop Profile。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/desktop/README.zh.md">桌面端官方说明</a></p>
+<h2 id="wiki-h-1">用三个问题选路线</h2>
+<h3 id="wiki-h-2">1. 你的系统是什么</h3>
+<ul>
+<li><strong>macOS 或 Windows</strong>：优先考虑桌面端；</li>
+<li><strong>Linux</strong>：本教程走 CLI/Web；</li>
+<li><strong>远程服务器或只有 SSH 的环境</strong>：走 CLI/Web，不要依赖桌面窗口。</li>
+</ul>
+<p>桌面安装包的系统和处理器支持范围可能随版本变化。真正下载前，以<a href="https://github.com/deepseek-ai/deepseek-harness/releases">官方 Releases 页面</a>当期提供的资产为准，不要从不明网盘或第三方软件下载站获取安装包。</p>
+<h3 id="wiki-h-3">2. 你是否需要命令行自动化</h3>
+<p>如果你明确需要下面任意一项，建议同时保留 CLI/Web 路线：</p>
+<ul>
+<li>使用 Headless 在脚本或 CI 中运行任务；</li>
+<li>在没有图形界面的机器上使用；</li>
+<li>创建和管理自定义 CLI Profile；</li>
+<li>调试插件或从源码开发 Harness；</li>
+<li>通过标准输入和 JSON 事件流驱动任务。</li>
+</ul>
+<p>如果你当前只是想完成本教程，不必提前安装两套。桌面端用户会在第15章需要 Headless 时再补 CLI 环境。</p>
+<h3 id="wiki-h-4">3. 你只是运行 DSH，还是还要运行项目</h3>
+<p>这是最容易被忽略的一点。</p>
+<p>桌面端自带的 Node.js 和 pnpm 是给 DSH 自身及插件安装使用的私有运行环境，不会自动加入 Agent Shell 的 <code>PATH</code>。也就是说：<strong>桌面端可以在系统没有 Node.js 时启动，但 Agent 不一定能在终端里运行一个 Node.js 项目。</strong></p>
+<p>本教程的「日报助手」正是 Node.js 项目，因此无论选择哪条 DSH 路线，都需要让系统终端能够执行：</p>
+<pre><code class="hljs language-bash">$ node -v
+$ npm -v
+</code></pre><p>二者都显示版本号，才说明日报助手具备运行条件。区别只是：</p>
+<ul>
+<li>桌面端用户安装 Node.js 是为了运行练习项目；</li>
+<li>CLI/Web 用户安装 Node.js 既是为了运行 DSH，也是为了运行练习项目。</li>
+</ul>
+<h2 id="wiki-h-5">Node.js 应该装哪个版本</h2>
+<p>以 <code>v0.1.7-rc.2</code> 对应的官方仓库配置为准，DSH 的 Node.js 要求是：</p>
+<pre><code class="hljs language-text">^22.19.0 或 &gt;=24.0.0
+</code></pre><p>因此，本教程推荐安装符合要求的 Node.js 22 LTS 版本，并确认小版本不低于 22.19.0；如果你使用更新的 24 或更高版本，也要留意第三方插件的兼容性。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/package.json">官方 package.json</a></p>
+<p>不要继续沿用旧教程中“Node.js 20 或更高”的说法。当前 DSH 的版本约束已经更高，Node 20 即使能执行部分命令，也不属于官方声明的兼容范围。</p>
+<h2 id="wiki-h-6">开始前准备四样东西</h2>
+<h3 id="wiki-h-7">1. 一个专门的练习目录</h3>
+<p>不要把个人主目录、整个“文档”目录或正在工作的公司仓库直接交给 Agent。先准备一个空目录，例如：</p>
+<pre><code class="hljs language-text">Documents/dsh-learning/daily-report
+</code></pre><p>第7章会把这个空目录添加为工作区，并在里面创建日报助手。目录中不要放密钥、私人文件或其他不希望 Agent 读取的内容。</p>
+<h3 id="wiki-h-8">2. 可用的模型访问方式</h3>
+<p>后面第一次真正发送任务前，需要在下面两种方式中至少准备一种：</p>
+<ul>
+<li>可以登录 DeepSeek Harness 的账号；</li>
+<li>一个可用的模型 API Key。</li>
+</ul>
+<p>API Key 可以来自 DeepSeek 官方 Provider、内置第三方 Provider 或兼容 API。现在不需要把密钥复制到文本文件，更不要放进项目目录；第7、8章会在产品提供的凭证界面中配置。</p>
+<h3 id="wiki-h-9">3. 可以访问必要服务的网络</h3>
+<p>根据所选路线，安装过程可能访问：</p>
+<ul>
+<li>DeepSeek Harness 官方发布页；</li>
+<li>npm 包仓库；</li>
+<li>模型 Provider 的 API；</li>
+<li>后续插件使用的官方源或国内镜像。</li>
+</ul>
+<p>如果网页能打开但下载或 npm 安装失败，不要反复重装系统环境。先记录失败的域名和报错，第4～6章会给出对应检查方法，第10章还会说明插件镜像的选择。</p>
+<h3 id="wiki-h-10">4. 一点可恢复空间</h3>
+<p>安装前确认系统磁盘不是接近写满状态。桌面端包含应用运行时，CLI 首次通过 npx 启动也会下载并缓存包；后续插件、会话和工作区文件还会继续占用空间。</p>
+<p>不需要为了教程关闭杀毒软件或系统安全功能。遇到拦截时，应先核对文件来源、签名和具体权限，而不是把所有保护永久关闭。</p>
+<h2 id="wiki-h-11">先检查你现在的状态</h2>
+<p>打开系统终端，运行：</p>
+<pre><code class="hljs language-bash">$ node -v
+$ npm -v
+</code></pre><p>可能出现三种情况：</p>
+<h3 id="wiki-h-12">情况 A：两条命令都有符合要求的版本</h3>
+<p>例如：</p>
+<pre><code class="hljs language-text">v22.19.0
+10.x.x
+</code></pre><p>说明 Node.js 项目环境已经具备。下一章只需安装或启动 DSH。</p>
+<h3 id="wiki-h-13">情况 B：提示找不到命令</h3>
+<p>说明系统还没有可用的 Node.js。进入对应系统章节安装：</p>
+<ul>
+<li>macOS：第4章；</li>
+<li>Linux：第5章；</li>
+<li>Windows：第6章。</li>
+</ul>
+<h3 id="wiki-h-14">情况 C：有版本，但不满足 DSH 要求</h3>
+<p>先不要急着全局安装 DSH。按对应系统章节使用版本管理器或官方安装方式升级，然后重新打开终端验证。</p>
+<p>如果电脑上有其他项目依赖旧版 Node.js，优先使用版本管理器，不要直接删除原项目依赖的环境。</p>
+<h2 id="wiki-h-15">选定路线并记录下来</h2>
+<p>继续之前，应该能完成下面这张检查表：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">我选择了桌面端或 CLI/Web 作为当前主路线；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">我知道桌面端与 CLI 的插件状态不会自动同步；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">我准备了一个不含私人文件的空练习目录；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">我知道后面使用账号登录还是 API Key；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">系统终端中的 Node.js 满足练习项目需要，或者我知道去下一章安装；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">安装包只从 DeepSeek 官方页面或官方 GitHub Releases 获取。</li>
+</ul>
+<p>下一章从 macOS 开始。macOS 用户会先安装桌面端，再补齐练习项目需要的 Node.js；选择 CLI/Web 的用户则直接准备 Node.js 和 DSH 命令。</p>
+<hr>
+<p>← 上一章：DeepSeek Harness 能做什么　|　回目录　|　下一章：macOS 安装 →</p>
+<h2 id="wiki-h-16">版本与桌面 CLI 的区别</h2>
+<p>公共 npm CLI 与桌面附带的 dsh 命令不是同一条安装路线。官方 <code>dsh-v0.2.0-rc.2</code> 已增加桌面应用菜单中的 dsh 命令安装／管理入口，可管理桌面插件，不需要为此另装 Node 或 pnpm；菜单文案按该发行版实际语言显示。本文后续公共 CLI 实验继续使用显式固定的旧基线，桌面用户不要拿它直接管理 Desktop Profile。若迁移到新版，先备份配置并在独立 Profile 验证，而不是把部分参数混入旧命令。</p>
+<p>参考：<a href="https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.0-rc.2">官方发行说明</a>。</p>
+</article>

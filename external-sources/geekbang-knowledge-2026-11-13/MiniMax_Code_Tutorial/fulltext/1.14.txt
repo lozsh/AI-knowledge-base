@@ -1,0 +1,44 @@
+13.1 版本与数据目录
+
+本章按公开 npm CLI 0.4.12 文档修订。默认数据目录是 ~/.minimax，选 profile 时可为 ~/.minimax-<profile>，还可能被 MINIMAX_DATA_DIR／MAVIS_DATA_DIR 覆盖。安装器目录与数据目录不是一回事。Runtime 配置为当前数据目录的 config.yaml，自定义服务位于 custom_provider；不使用旧的 ~/.mcode/config.toml 模板。
+
+13.2 安全输入 Key
+
+不把真实 Key 发给 Agent，不 cat／Get-Content 整份凭证配置。可用密钥管理器注入 MCODE_PROVIDER_API_KEY，或在自己终端交互输入。
+
+bash/zsh：
+
+printf 'API Key: '
+stty -echo
+IFS= read -r MCODE_PROVIDER_API_KEY
+stty echo
+printf '\n'
+export MCODE_PROVIDER_API_KEY
+mcode provider set-minimax-key
+
+
+PowerShell：
+
+$secret = Read-Host "API Key" -AsSecureString
+$env:MCODE_PROVIDER_API_KEY = [System.Net.NetworkCredential]::new("", $secret).Password
+Remove-Variable secret
+mcode provider set-minimax-key
+if ($LASTEXITCODE -ne 0) { throw "Provider 配置失败" }
+
+
+环境会被子进程继承。结束后移除当前变量只清理本进程，不会撤回已保存的 Provider 配置；管理凭证使用 CLI 的相应配置／移除入口。
+
+13.3 自定义兼容服务
+
+以下 URL 和 model-id 是占位值，先替换为服务方提供的真实参数；不得直接复制当作可用账号：
+
+mcode provider add --name course-provider --base-url https://api.example.com/v1 --api-format openai-completions --model model-id --api-key-env MCODE_PROVIDER_API_KEY --use
+
+
+支持的 API format 包括 anthropic-messages、openai-completions、openai-responses。--use 会测试首个模型，成功后保存并选择。查看 mcode provider list，按返回的 provider-id 执行 mcode provider test <provider-id> --model <model-id>；尖括号需替换，不作为字面参数。不要打印配置验证 Key 是否正确。
+
+13.4 提交边界
+
+运行 git status --short --untracked-files=all，只暂存 AGENTS.md、无凭证 Skill 和测试 fixture；不要 git add .mcode/ 或把用户数据目录加入项目。若秘密曾提交，单加 .gitignore 无法撤销历史，应撤销秘密再处理仓库历史。
+
+参考：官方配置、0.4.12 源码说明。

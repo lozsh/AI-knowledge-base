@@ -1,0 +1,245 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计用时：55～75 分钟<br>本篇目标：在一个陌生但固定的个人博客项目中，先用测试和页面稳定复现异步竞态，再比较请求编号与 <code>AbortController</code> 两种方案，只修改一个控制器文件完成最小修复。</p>
+</blockquote>
+<p>前 14 篇一直围绕 MealCraft。本篇开始验证迁移能力：换成一个原生 HTML、CSS、JavaScript 的个人博客，没有框架、后端或企业流程。你已经知道如何调查、规划、控制权限、查看 Diff 和独立验收；现在要证明这些方法不依赖 MealCraft 的目录结构。</p>
+<p>原稿让 Claude 临场生成 20 篇文章和一个“可能存在”的竞态。不同读者会得到不同代码，后续步骤无法共享同一个失败。本篇改用课程固定夹具：请求延迟、失败名称、可修改文件和成功条件都确定；你仍然负责让 Claude 调查、比较方案并实施修复。</p>
+<h2 id="wiki-h-0">开始状态与额外前置</h2>
+<p>这个练习不修改 <code>mealcraft/</code>。需要：</p>
+<ul>
+<li>Claude Code、Git 与 Python 3.11+ 仍可用；</li>
+<li>Node.js 的受支持 LTS 版本可用；截至 2026-09-30，官方列出的 LTS 主版本是 22 和 24；</li>
+<li><code>~/claude-code-course/blog-search-lab</code> 尚不存在；</li>
+<li>知道修订版教程目录的实际位置。</li>
+</ul>
+<p>先检查运行时：</p>
+<pre><code class="hljs language-bash">claude --version
+git --version
+python3 --version
+node --version
+</code></pre><p>Windows PowerShell 把 <code>python3</code> 换成 <code>py</code>。若 <code>node</code> 不存在或版本已停止支持，从 <a href="https://nodejs.org/en/download">Node.js 官方下载页</a> 安装当前 LTS，重新打开终端后再检查。练习不执行 <code>npm install</code>，也不下载第三方包；Node 只用于运行实际 JavaScript 控制器的固定测试。</p>
+<h2 id="wiki-h-1">从课程素材建立独立仓库</h2>
+<p>把课程目录占位符替换成你的实际路径。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> COURSE_SOURCE=<span class="hljs-string">"/替换为实际路径/claude-code-tutorial-v0.2"</span>
+<span class="hljs-built_in">export</span> BLOG_SOURCE=<span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/blog-search-lab"</span>
+<span class="hljs-built_in">test</span> -f <span class="hljs-string">"<span class="hljs-variable">$BLOG_SOURCE</span>/scripts/verify_blog_lab.py"</span>
+<span class="hljs-built_in">cd</span> ~/claude-code-course
+<span class="hljs-built_in">test</span> ! -e blog-search-lab
+<span class="hljs-built_in">mkdir</span> blog-search-lab
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$BLOG_SOURCE</span>/."</span> blog-search-lab/
+<span class="hljs-built_in">cd</span> blog-search-lab
+git init
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$CourseSource</span> = <span class="hljs-string">"C:\替换为实际路径\claude-code-tutorial-v0.2"</span>
+<span class="hljs-variable">$BlogSource</span> = <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\blog-search-lab"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">"<span class="hljs-variable">$BlogSource</span>\scripts\verify_blog_lab.py"</span>)) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"博客素材路径错误"</span> }
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> blog<span class="hljs-literal">-search-lab</span>) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"blog-search-lab 已存在，请先检查旧目录"</span> }
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory blog<span class="hljs-literal">-search-lab</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$BlogSource</span>\*"</span> <span class="hljs-literal">-Destination</span> blog<span class="hljs-literal">-search-lab</span> <span class="hljs-literal">-Recurse</span>
+<span class="hljs-built_in">Set-Location</span> blog<span class="hljs-literal">-search-lab</span>
+git init
+</code></pre><p>先核对素材布局和不可修改文件的哈希：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_blog_lab.py --layout-only
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\verify_blog_lab.py <span class="hljs-literal">--layout-only</span>
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS layout: 20 posts and immutable fixture hashes
+</code></pre><p>目录的职责很小：</p>
+<pre><code class="hljs language-text">blog-search-lab/
+├── index.html
+├── styles.css
+├── data/posts.js
+├── src/
+│   ├── api.js
+│   ├── app.js
+│   └── search-controller.js       # 唯一允许修改的文件
+├── tests/run-tests.mjs
+├── baseline/search-controller.js # 重置用缺陷副本
+├── scripts/
+│   ├── verify_blog_lab.py
+│   └── reset_blog_lab.py
+└── README.md
+</code></pre><p>现在保存“已知有缺陷”的起点：</p>
+<pre><code class="hljs language-bash">git add .
+git diff --cached --check
+git commit -m <span class="hljs-string">"create deterministic blog search race lab"</span>
+git status --short
+</code></pre><p>最后一条命令应没有输出。如果 Git 提示缺少身份，只在当前练习仓库设置你的常用署名和邮箱，再提交；不要填写教程里的虚假值。</p>
+<h2 id="wiki-h-2">用命令行稳定复现三个竞态</h2>
+<p>直接运行测试：</p>
+<pre><code class="hljs language-bash">node tests/run-tests.mjs
+</code></pre><p>这次命令应以非零状态退出。稳定结果是 7 项中 4 项通过、3 项失败：</p>
+<pre><code class="hljs language-text">FAIL latest_query_wins: ...
+FAIL clearing_query_invalidates_pending_response: ...
+FAIL stale_error_does_not_replace_latest_success: ...
+PASS current_error_is_reported
+PASS chinese_query_filters_posts
+PASS english_query_filters_posts
+PASS empty_query_returns_no_posts
+SUMMARY total=7 passed=4 failed=3
+</code></pre><p>失败文字中的 JSON 细节是诊断信息，稳定判定条件是三个失败名称和 <code>total=7 passed=4 failed=3</code>。这证明问题不只是“慢请求覆盖快请求”：清空输入也可能被旧结果覆盖，旧请求的错误也可能覆盖新请求的成功。</p>
+<p>再让课程检查器确认这正是预设缺陷，而不是别的语法错误。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_blog_lab.py --expect-bug
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\verify_blog_lab.py <span class="hljs-literal">--expect-bug</span>
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS layout: 20 posts and immutable fixture hashes
+PASS bug state: 7 tests, 3 expected race failures
+</code></pre><p>检查器会真实运行 JavaScript 测试，并要求目标控制器与缺陷基线一致。它不会把“任意测试失败”误判为成功复现。</p>
+<h2 id="wiki-h-3">在页面中看见用户影响</h2>
+<p>从练习根目录启动只监听本机回环地址的静态服务器。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -m http.server 8000 --<span class="hljs-built_in">bind</span> 127.0.0.1
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> http.server <span class="hljs-number">8000</span> <span class="hljs-literal">--bind</span> <span class="hljs-number">127.0</span>.<span class="hljs-number">0.1</span>
+</code></pre><p>在普通浏览器打开 <code>http://127.0.0.1:8000/</code>，点击“运行确定性竞态”。页面会先发起耗时 220 ms 的 <code>JavaScript</code> 搜索，10 ms 后把输入改为 <code>CSS</code> 并发起耗时 35 ms 的搜索。</p>
+<p>缺陷态的稳定现象是：输入框最后显示 <code>CSS</code>，状态和列表却在稍后变回 <code>JavaScript</code> 的结果。记录这个现象后回到终端按 <code>Ctrl+C</code> 停止服务器。</p>
+<p>如果直接双击 <code>index.html</code>，浏览器可能因 <code>file://</code> 模块限制而拒绝加载 JavaScript；这不是目标缺陷，必须通过上面的 HTTP 地址访问。若 8000 端口已占用，换成 8001，并相应修改浏览器 URL。</p>
+<h2 id="wiki-h-4">让新会话先调查，不要立即改</h2>
+<p>在仓库根目录以 Plan Mode 启动一个全新 Claude Code 会话：</p>
+<pre><code class="hljs language-bash">claude --permission-mode plan
+</code></pre><p>发送：</p>
+<pre><code class="hljs language-text">这是一个我刚接手的个人博客搜索项目。先只读调查，不要修改文件。
+
+请完成：
+1. 阅读 README.md、src/app.js、src/api.js、src/search-controller.js 和 tests/run-tests.mjs；
+2. 运行 node tests/run-tests.mjs 和适合缺陷态的课程检查器；
+3. 追踪“输入 -&gt; 控制器 -&gt; 异步搜索 -&gt; 渲染”的数据流；
+4. 对三个失败分别说明请求开始顺序、完成顺序、预期最后事件和实际最后事件；
+5. 给出最小根因，指出哪些文件是固定证据、哪个文件允许修改。
+
+每个结论引用文件路径或测试输出。不要提出重写框架，也不要修改任何文件。
+</code></pre><p>合格的调查应能解释：<code>runSearch</code> 每次调用都独立等待结果，却没有记录“这还是不是当前查询”；所以 UI 的最终状态取决于响应完成顺序，而不是用户输入顺序。</p>
+<p>仅仅增加 debounce（防抖）不能证明修复。防抖可以减少请求数量，但一旦两个请求都已发出，它仍不能阻止旧响应晚到后覆盖新结果。</p>
+<h2 id="wiki-h-5">用当前项目证据比较两种最小方案</h2>
+<p>继续保持 Plan Mode，发送：</p>
+<pre><code class="hljs language-text">暂时不要修改。请只比较以下两种方案：
+
+A. 在 createSearchController 内递增请求编号，只允许最新编号渲染结果或错误；
+B. 在 createSearchController 内保存 AbortController，新查询开始时取消旧查询，并正确忽略 AbortError。
+
+请基于当前 src/api.js 是否接受 signal、三个失败覆盖什么行为、改动文件数量、旧工作的资源消耗和错误处理，推荐一种方案。两种机制不要叠加。最终修复必须只改 src/search-controller.js，并让已有测试证明结果。
+</code></pre><p>两种方案都能通过固定测试，但取舍不同：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>方案</th>
+<th>优点</th>
+<th>代价与前提</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>递增请求编号</td>
+<td>改动最小；即使底层不能取消也能阻止旧结果渲染</td>
+<td>旧搜索仍会继续消耗少量工作</td>
+</tr>
+<tr>
+<td><code>AbortController</code></td>
+<td>底层支持 <code>signal</code> 时可尽早停止旧工作</td>
+<td>必须把 <code>signal</code> 传给搜索函数，并只忽略 <code>AbortError</code>，不能吞掉当前请求的真实错误</td>
+</tr>
+</tbody></table></div>
+<p>本夹具的 <code>src/api.js</code> 已支持可选 <code>signal</code>，因此两种都成立。对这个 20 篇文章的本地假 API，请求编号通常是更小、更容易解释的修复；选择 <code>AbortController</code> 也可以，但理由应是取消能力，而不是“代码更新”。</p>
+<h2 id="wiki-h-6">只批准一个文件的最小修复</h2>
+<p>确认计划有以下四点后再离开 Plan Mode：</p>
+<ul>
+<li>新查询必须让旧查询失去渲染资格；</li>
+<li>清空输入也必须使在途查询失效；</li>
+<li>旧请求错误不能覆盖新成功，当前请求错误仍要显示；</li>
+<li>不修改 API、页面接线、文章数据、测试、baseline 或校验器。</li>
+</ul>
+<p>按 <code>Shift+Tab</code>，直到状态栏回到 Manual 模式。然后发送：</p>
+<pre><code class="hljs language-text">按刚才推荐的单一方案实施最小修复，只允许修改 src/search-controller.js。
+
+不要修改 tests、src/api.js、src/app.js、data、baseline、README 或检查器；不要增加依赖、固定延迟、防抖或第二套竞态机制。
+
+修改后运行 node tests/run-tests.mjs。若仍失败，先解释失败证据再继续；全部通过后停止，不要提交 Git。
+</code></pre><p>权限提示中的写入目标必须只有 <code>src/search-controller.js</code>。如果 Claude 要改测试来适配实现、延长延迟“让结果稳定”，或同时叠加请求编号和取消机制，拒绝并要求回到已批准范围。</p>
+<p>预期测试变为：</p>
+<pre><code class="hljs language-text">PASS latest_query_wins
+PASS clearing_query_invalidates_pending_response
+PASS stale_error_does_not_replace_latest_success
+PASS current_error_is_reported
+PASS chinese_query_filters_posts
+PASS english_query_filters_posts
+PASS empty_query_returns_no_posts
+SUMMARY total=7 passed=7 failed=0
+</code></pre><h2 id="wiki-h-7">独立验证修复没有篡改考卷</h2>
+<p>退出 Claude Code，先看实际改动范围：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --name-only
+git diff --check
+git diff -- src/search-controller.js
+</code></pre><p><code>git diff --name-only</code> 必须只列出：</p>
+<pre><code class="hljs language-text">src/search-controller.js
+</code></pre><p>再运行修复态检查。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_blog_lab.py --expect-fixed
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\verify_blog_lab.py <span class="hljs-literal">--expect-fixed</span>
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS layout: 20 posts and immutable fixture hashes
+PASS fixed state: 7 tests, latest-query contract holds
+</code></pre><p>这里的哈希检查会拒绝对 <code>src/api.js</code>、<code>src/app.js</code>、文章数据、测试和 baseline 的修改；行为检查则不限定你使用请求编号还是 <code>AbortController</code>。这比对答案代码逐字符比较更合理：保护考卷，但允许两种证据充分的实现。</p>
+<h2 id="wiki-h-8">做一次真实页面验收</h2>
+<p>重新启动静态服务器：</p>
+<pre><code class="hljs language-bash">python3 -m http.server 8000 --<span class="hljs-built_in">bind</span> 127.0.0.1
+</code></pre><p>Windows 使用 <code>py</code>。在浏览器刷新页面，依次验证：</p>
+<ol>
+<li>点击“运行确定性竞态”：输入框、状态和列表最终都应是 <code>CSS</code>；等待一秒也不能回到 <code>JavaScript</code>。</li>
+<li>搜索 <code>中文</code>：应至少出现“中文排版检查清单”。</li>
+<li>搜索 <code>javascript</code>：应出现多篇中英文结果。</li>
+<li>输入一个查询后立即清空：页面最终保持“请输入关键词”，旧结果不能回来。</li>
+<li>输入 <code>error</code>：当前请求的模拟失败必须显示，不能因为处理取消而吞掉全部错误。</li>
+</ol>
+<p>完成后按 <code>Ctrl+C</code> 停止服务器。命令行测试控制精确时序，页面验收证明用户可见接线仍然工作；两类证据互相补充。</p>
+<h2 id="wiki-h-9">审查 Diff 并保存修复</h2>
+<p>如果仍在 Claude Code 会话，可用 <code>/diff</code> 查看变更；最终仍回到普通终端检查并提交：</p>
+<pre><code class="hljs language-bash">git diff --check
+git diff --<span class="hljs-built_in">stat</span>
+git status --short
+git add src/search-controller.js
+git commit -m <span class="hljs-string">"prevent stale blog search results"</span>
+git status --short
+</code></pre><p>预期提交只含一个文件，最后工作区为空。请自己用一句话解释修复，而不是只复述实现：<strong>用户当前查询是唯一可渲染的状态，先前查询即使更晚完成也必须失去更新 UI 的资格。</strong></p>
+<h2 id="wiki-h-10">失败恢复</h2>
+<h3 id="wiki-h-11">初始测试不是恰好三个失败</h3>
+<p>先运行：</p>
+<pre><code class="hljs language-bash">git status --short
+python3 -B scripts/reset_blog_lab.py
+python3 -B scripts/verify_blog_lab.py --expect-bug
+</code></pre><p>Windows 把 <code>python3</code> 换成 <code>py</code>。重置脚本只覆盖 <code>src/search-controller.js</code>，不会清理其他文件或改写 Git 历史。若哈希检查仍失败，说明固定素材也被修改；查看 <code>git diff</code>，重新复制练习目录比盲目修测试可靠。</p>
+<h3 id="wiki-h-12">最新查询通过，但清空查询仍失败</h3>
+<p>这通常表示请求编号或取消动作发生在空字符串的提前返回<strong>之后</strong>。清空也是一次新的用户意图，必须先使旧请求失效，再渲染空状态。</p>
+<h3 id="wiki-h-13"><code>AbortController</code> 方案吞掉当前错误</h3>
+<p>只忽略 <code>error.name === "AbortError"</code> 且属于已经取消的请求。<code>current_error_is_reported</code> 失败说明 catch 分支过宽，把真实服务错误也当成取消处理了。</p>
+<h3 id="wiki-h-14">浏览器仍显示旧结果，但测试全绿</h3>
+<p>先强制刷新，再在开发者工具 Network 中确认浏览器加载的是当前仓库的 <code>src/search-controller.js</code>。同时检查服务器的工作目录；如果从 <code>~/claude-code-course</code> 而不是 <code>blog-search-lab</code> 启动，URL 需要多一层路径，容易误看旧页面。</p>
+<h3 id="wiki-h-15">8000 端口被占用</h3>
+<p>改用：</p>
+<pre><code class="hljs language-bash">python3 -m http.server 8001 --<span class="hljs-built_in">bind</span> 127.0.0.1
+</code></pre><p>然后访问 <code>http://127.0.0.1:8001/</code>。不要结束一个来历不明的系统进程来抢端口。</p>
+<h2 id="wiki-h-16">文章级验收</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">固定素材包含 20 篇文章，布局和哈希检查通过；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">缺陷态稳定为 7 项测试、3 个指定失败；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">页面能看见“输入是 CSS、结果却回到 JavaScript”的用户影响；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">Claude 在修改前追踪了完整异步数据流；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能解释为什么防抖不等于竞态修复；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">请求编号与 <code>AbortController</code> 的选择基于当前 API 能力和代价；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">最终只修改 <code>src/search-controller.js</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">修复态 7 项测试全绿，课程检查器通过；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">中文、英文、快速输入、清空和当前错误均完成页面验收；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">最终提交只含目标文件，工作区为空。</li>
+</ul>
+<p>本篇练习的是“陌生代码中的最小缺陷修复”，不是前端框架知识。第 16 篇会转向另一种风险：对一组个人旅行笔记做批量迁移。那时单个文件的正确性还不够，需要 dry-run、分批、幂等和回滚证据。</p>
+<p>官方参考：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/common-workflows">Claude Code common workflows</a></li>
+<li><a href="https://code.claude.com/docs/en/commands">Claude Code commands</a></li>
+<li><a href="https://nodejs.org/en/about/previous-releases">Node.js release status</a></li>
+</ul>
+</article>

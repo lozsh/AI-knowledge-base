@@ -1,0 +1,218 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与操作时间：50～65 分钟<br>本篇目标：让 ShelfCare 暴露健康状态、结构化请求日志、浏览器事件和可定位的 DOM 状态，并用一个可控搜索故障完成从用户现象到代码位置的诊断。</p>
+</blockquote>
+<h2 id="wiki-h-0">配套代码说明</h2>
+<p>本篇加入 <code>assets/lesson-06-observability/</code>，为“运行中的应用”补齐四类证据。它改动最多，但每一处都对应一个可诊断的问题：</p>
+<pre><code class="hljs language-text">lesson-06-observability/
+├── server.js                  # 结构化 JSON 日志 + /health 端点 + 请求 ID
+├── scripts/
+│   ├── doctor.js              # 终端健康检查：/health + /api/books
+│   ├── setup.js               # 必需文件清单加入 OBSERVABILITY.md、doctor.js
+│   └── check.js               # 新增 diagnostic syntax 阶段
+├── public/
+│   ├── index.html             # 加入 #runtime-status 状态节点
+│   └── app.js                 # 浏览器事件日志 + 显式故障注入
+├── docs/OBSERVABILITY.md      # 运行证据地图
+└── package.json               # 新增 npm run doctor
+</code></pre><p>各文件实现的功能：</p>
+<ul>
+<li><strong>server.js</strong> 把日志改成稳定的 JSON 事件：<code>server_started</code>（含 <code>url</code>、<code>pid</code>）、<code>request_completed</code>（含 <code>requestId</code>、<code>method</code>、<code>path</code>、<code>statusCode</code>、<code>durationMs</code>）、<code>request_failed</code>（含同一个 <code>requestId</code>，可与 500 响应关联）。新增 <code>GET /health</code> 返回 <code>{"status":"ok","books":8}</code>。日志只记请求元数据，<strong>不记搜索词、图书内容、Cookie 或文件路径</strong>。</li>
+<li><strong>scripts/doctor.js</strong> 是终端侧诊断入口：读取 <code>APP_URL</code>（默认 <code>127.0.0.1:3000</code>），依次请求 <code>/health</code> 和 <code>/api/books</code>，校验两者图书数一致后输出“Server-side diagnostics passed.”。它明确只覆盖服务端，不假装验证了浏览器。</li>
+<li><strong>public/index.html</strong> 加入一个视觉上隐藏、但语义可读的 <code>#runtime-status</code> 节点：<code>data-state</code>（loading/ready/error）、<code>data-visible-count</code>、<code>data-filters</code>，且是 <code>aria-live</code> 区域，对辅助技术同样有意义。</li>
+<li><strong>public/app.js</strong> 在浏览器侧补上过程证据：<code>books_loaded</code>、<code>books_rendered</code>（含 <code>totalCount</code>、<code>visibleCount</code>、<code>filters</code>）等 JSON 事件；<code>currentBooks()</code> 里实现了一个<strong>显式故障注入</strong>——仅当 URL 带 <code>?fault=search-empty</code> 且搜索词非空时，把关键词替换成不可能命中的值，并发出 <code>client_fault_active</code> 警告。这个故障是 opt-in 的，正常地址不受影响，专用于练习“从现象追到代码”的诊断闭环。</li>
+<li><strong>docs/OBSERVABILITY.md</strong> 是一张“证据地图”：把每个问题（服务是否启动、请求是否到达、能否读数据、浏览器加载了什么、用了什么筛选条件）对应到具体的日志事件或 DOM 属性。</li>
+</ul>
+<p>整套设计的核心是“<strong>证据相互印证、互不替代</strong>”：<code>/health</code> 返回 200 不代表搜索正确，一张截图也看不出控制台错误；只有把服务端日志、DOM 状态、浏览器事件串起来，才能从“页面显示 0 本书”一路定位到 <code>public/app.js</code> 的 <code>currentBooks()</code>。</p>
+<p>第五篇给标签任务加了机器验收，但验收脚本仍然只看文件和纯逻辑。真实页面出问题时，Agent 还可能面对一句非常模糊的报告：“我一搜索，书全没了。”</p>
+<p>仅有源码时，它只能猜：是数据没读到，API 返回空数组，还是浏览器筛选错了？如果每次都要人替它打开页面、复制日志、解释当前状态，Agent 就没有真正接手运行中的应用。</p>
+<p>OpenAI 的 Harness Engineering 案例中，团队不仅让 Codex 读代码，还让每个工作区的应用、DOM、截图、日志和指标对 Agent 可用。这样 Agent 才能复现用户现象并验证修复。<a href="https://openai.com/index/harness-engineering/">官方案例</a></p>
+<p>ShelfCare 不需要搭一套监控平台。我们只增加足够完成本地诊断的四类证据。</p>
+<h2 id="wiki-h-1">不同证据回答不同问题</h2>
+<p>先别急着“多打日志”。诊断时最有用的是知道每类证据能证明什么。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>证据</th>
+<th>最适合回答</th>
+<th>不能单独证明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>截图</td>
+<td>用户看到了什么、布局是否异常</td>
+<td>元素语义、请求原因、内部状态</td>
+</tr>
+<tr>
+<td>DOM 与可访问性状态</td>
+<td>控件、文本、属性和当前页面状态</td>
+<td>服务端为何返回这些数据</td>
+</tr>
+<tr>
+<td>浏览器控制台</td>
+<td>前端加载、事件、异常和筛选过程</td>
+<td>服务是否整体健康</td>
+</tr>
+<tr>
+<td>服务端日志</td>
+<td>请求是否到达、状态码、耗时和错误</td>
+<td>用户最终看到什么</td>
+</tr>
+<tr>
+<td>健康与诊断命令</td>
+<td>关键依赖能否工作、数据是否可读</td>
+<td>每一条用户路径都正确</td>
+</tr>
+</tbody></table></div>
+<p>它们应该相互印证，而不是互相替代。<code>/health</code> 返回 200，不代表搜索正确；一张看起来正常的截图，也不能证明浏览器控制台没有错误。</p>
+<h2 id="wiki-h-2">加入可观测性资产</h2>
+<p>确认 <code>shelfcare-lab</code> 位于干净的 <code>main</code>，第五篇验收契约已经提交：</p>
+<pre><code class="hljs language-bash">git status --short --branch
+git <span class="hljs-built_in">log</span> -1 --oneline
+</code></pre><p>复制本篇资产。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R ../assets/lesson-06-observability/. .
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> ..\assets\lesson<span class="hljs-literal">-06-observability</span>\* .
+</code></pre><p>主要变化包括：</p>
+<pre><code class="hljs language-text">server.js                 结构化启动、请求与错误日志；/health
+scripts/doctor.js         从终端检查健康与图书 API
+public/index.html         #runtime-status 状态节点
+public/app.js             浏览器事件与可控故障
+docs/OBSERVABILITY.md     运行证据地图
+</code></pre><p><code>package.json</code> 新增 <code>npm run doctor</code>，<code>setup</code> 与 <code>check</code> 也同步知道这些新文件。产品规则没有改变，标签筛选依然尚未实现。</p>
+<h2 id="wiki-h-3">先看服务端是否“活着”</h2>
+<p>在第一个终端运行：</p>
+<pre><code class="hljs language-bash">npm run dev
+</code></pre><p>启动信息现在是一行 JSON，示例：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"timestamp"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"2026-09-23T12:00:00.000Z"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"level"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"info"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"event"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"server_started"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"url"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"http://127.0.0.1:3000"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"pid"</span><span class="hljs-punctuation">:</span><span class="hljs-number">12345</span><span class="hljs-punctuation">}</span>
+</code></pre><p>时间和进程号会不同。结构化日志的价值不是看起来高级，而是字段稳定：Agent 可以直接找 <code>event=server_started</code> 和 <code>url</code>，不用从不同措辞里猜地址。</p>
+<p>保持服务运行，在第二个终端进入同一仓库，运行：</p>
+<pre><code class="hljs language-bash">npm run doctor
+</code></pre><p>预期输出：</p>
+<pre><code class="hljs language-text">[doctor] Target: http://127.0.0.1:3000
+[doctor] Health: ok; books=8
+[doctor] API: ok; returned 8 books
+[doctor] Server-side diagnostics passed.
+</code></pre><p>第一个终端同时会多出两条 <code>request_completed</code> 日志，分别对应 <code>/health</code> 和 <code>/api/books</code>，包含状态码、耗时与请求 ID。</p>
+<p>这条证据链说明：进程已启动，服务能读取 <code>data/books.json</code>，图书 API 返回 8 本书。它仍没有证明浏览器渲染或搜索逻辑正确，<code>doctor</code> 也明确把自己称为 server-side diagnostics。</p>
+<h3 id="wiki-h-4">使用自定义端口</h3>
+<p>如果服务运行在 3100，诊断命令也要指向同一地址。</p>
+<p>macOS、Linux 或 Git Bash：</p>
+<pre><code class="hljs language-bash">APP_URL=http://127.0.0.1:3100 npm run doctor
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$env:APP_URL</span>=<span class="hljs-string">"http://127.0.0.1:3100"</span>
+npm run doctor
+</code></pre><p>若忘记同步，<code>doctor</code> 会明确报告连接失败，而不是笼统地说项目坏了。</p>
+<h2 id="wiki-h-5">读懂结构化请求日志</h2>
+<p>浏览器打开 <code>http://127.0.0.1:3000</code>。服务端终端会出现若干日志，例如：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"level"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"info"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"event"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"request_completed"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"requestId"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"8a2f91c0"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"method"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"GET"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"path"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"/api/books"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"statusCode"</span><span class="hljs-punctuation">:</span><span class="hljs-number">200</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"durationMs"</span><span class="hljs-punctuation">:</span><span class="hljs-number">1.2</span><span class="hljs-punctuation">}</span>
+</code></pre><p>日志没有记录搜索词、图书内容、Cookie 或文件绝对路径，只保留本地诊断所需的请求元数据。即便是个人项目，也不要养成把完整请求、凭据和用户输入全部打印出来的习惯。</p>
+<p>如果 <code>/api/books</code> 读取数据时抛出异常，服务端会先产生 <code>request_failed</code>，返回的 500 响应中也包含同一个 <code>requestId</code>。这样 Agent 可以把一次失败响应与对应日志连起来。</p>
+<p>当前应用很小，日志直接写终端就够了。更大项目可以把同样的 JSON 行交给日志系统，但核心仍然是稳定事件名、可关联 ID 和必要字段，不是具体平台。</p>
+<h2 id="wiki-h-6">让页面状态进入 DOM</h2>
+<p>打开浏览器开发者工具的 Elements 面板，搜索 <code>runtime-status</code>。你会看到一个视觉上隐藏的节点，加载完成后类似：</p>
+<pre><code class="hljs language-html"><span class="hljs-tag">&lt;<span class="hljs-name">p</span>
+  <span class="hljs-attr">id</span>=<span class="hljs-string">"runtime-status"</span>
+  <span class="hljs-attr">data-state</span>=<span class="hljs-string">"ready"</span>
+  <span class="hljs-attr">data-visible-count</span>=<span class="hljs-string">"8"</span>
+  <span class="hljs-attr">data-filters</span>=<span class="hljs-string">'{"keyword":"","status":"all"}'</span>
+&gt;</span>
+  应用就绪，显示 8 本书
+<span class="hljs-tag">&lt;/<span class="hljs-name">p</span>&gt;</span>
+</code></pre><p>它没有为了自动化污染可见界面，同时也不是毫无语义的隐藏标记：节点使用 <code>aria-live</code>，加载和错误状态可以被辅助技术感知。</p>
+<p>浏览器工具或 DOM 快照现在可以直接回答：</p>
+<ul>
+<li>应用仍在 loading、已经 ready，还是进入 error；</li>
+<li>当前渲染多少本书；</li>
+<li>搜索和状态筛选的当前值是什么。</li>
+</ul>
+<p>这比让 Agent 根据截图数卡片可靠得多，也比从内部变量猜页面状态更接近用户实际看到的结果。</p>
+<h2 id="wiki-h-7">浏览器事件补上过程证据</h2>
+<p>切到开发者工具的 Console，刷新页面。应看到 JSON 格式的事件：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"browser"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"level"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"info"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"event"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"books_loaded"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"count"</span><span class="hljs-punctuation">:</span><span class="hljs-number">8</span><span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">{</span><span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"browser"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"level"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"info"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"event"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"books_rendered"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"totalCount"</span><span class="hljs-punctuation">:</span><span class="hljs-number">8</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"visibleCount"</span><span class="hljs-punctuation">:</span><span class="hljs-number">8</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"filters"</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">{</span><span class="hljs-attr">"keyword"</span><span class="hljs-punctuation">:</span><span class="hljs-string">""</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"all"</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre><p>输入“Martin”，第二条事件的 <code>visibleCount</code> 应变成 2，<code>filters.keyword</code> 应是 <code>martin</code>。</p>
+<p>DOM 状态告诉你“现在是什么”，事件日志告诉你“怎样走到这里”。两者结合，Agent 可以判断数据已经加载，但某次筛选之后可见数量异常。</p>
+<p>如果你的编码 Agent 没有浏览器或 DOM 工具，不要假装它已经拥有这些证据。你可以由人打开页面并把相关 DOM、控制台事件或截图交给它；也可以为工具接入受控浏览器。<code>npm run doctor</code> 只能覆盖服务端，不能替代这一层。</p>
+<h2 id="wiki-h-8">注入一个可重复的搜索故障</h2>
+<p>现在做本篇的核心练习。不要修改代码，直接打开：</p>
+<pre><code class="hljs language-text">http://127.0.0.1:3000/?fault=search-empty
+</code></pre><p>页面初始仍显示 8 本书。输入“Martin”后，页面会错误地显示 0 本，并出现空状态。</p>
+<p>这个故障通过查询参数显式开启，只影响当前 URL；正常地址不受影响。这样每个人都能复现同一种现象，也能随时移除参数恢复。</p>
+<p>按下面的顺序收集证据，不要一看到零结果就直接搜索代码。</p>
+<h3 id="wiki-h-9">第一步：确认用户现象</h3>
+<p>页面结果摘要应为“共找到 0 本书”。截图可以证明视觉结果，但继续检查 <code>#runtime-status</code>：</p>
+<pre><code class="hljs language-text">data-state="ready"
+data-visible-count="0"
+data-filters 包含 keyword=martin、status=all
+</code></pre><p>这说明应用不是加载失败，而是在 ready 状态下得出了零结果。</p>
+<h3 id="wiki-h-10">第二步：排除服务端数据问题</h3>
+<p>在第二个终端运行：</p>
+<pre><code class="hljs language-bash">npm run doctor
+</code></pre><p>它仍应报告 API 返回 8 本书。服务端日志中的 <code>/api/books</code> 也是 200。问题范围因此缩小到浏览器加载数据之后。</p>
+<h3 id="wiki-h-11">第三步：检查浏览器事件</h3>
+<p>Console 中应出现：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"browser"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"level"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"warn"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"event"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"client_fault_active"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"mode"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"search-empty"</span><span class="hljs-punctuation">}</span>
+</code></pre><p>紧接着的 <code>books_rendered</code> 会显示 <code>totalCount: 8</code>、<code>visibleCount: 0</code>。这已经给出很强的判断：数据存在，筛选阶段将结果归零，而且有一个名为 <code>search-empty</code> 的故障模式。</p>
+<h3 id="wiki-h-12">第四步：从稳定事件名回到代码</h3>
+<p>在仓库根目录搜索：</p>
+<pre><code class="hljs language-bash">rg <span class="hljs-string">"client_fault_active|search-empty"</span> public
+</code></pre><p>如果没有安装 <code>rg</code>，使用编辑器的全局搜索。结果会定位到 <code>public/app.js</code> 的 <code>currentBooks()</code>。你会看到只有在 URL 显式携带该故障参数且搜索词非空时，匹配关键词才被替换成一个不可能命中的值。</p>
+<h3 id="wiki-h-13">第五步：移除故障并复验</h3>
+<p>回到正常地址：</p>
+<pre><code class="hljs language-text">http://127.0.0.1:3000/
+</code></pre><p>再次搜索“Martin”，应恢复为 2 本。<code>client_fault_active</code> 不再出现，DOM 的 <code>data-visible-count</code> 为 2。</p>
+<p>到这里才形成闭环：复现现象、排除服务端、找到前端事件、定位代码、移除触发条件、验证恢复。</p>
+<h2 id="wiki-h-14">让 Agent 独立走一次诊断链</h2>
+<p>如果 Agent 有浏览器工具，让它直接处理下面的任务：</p>
+<pre><code class="hljs language-text">不要修改代码。请诊断这个现象：
+打开 http://127.0.0.1:3000/?fault=search-empty 后搜索 Martin，页面显示 0 本书。
+请依次给出用户界面证据、DOM 状态、浏览器事件、服务端诊断和代码定位；说明故障在哪一层，以及移除故障参数后如何确认恢复。
+</code></pre><p>如果 Agent 没有浏览器工具，就向它提供截图、<code>#runtime-status</code> 节点和两条浏览器事件，再让它运行 <code>npm run doctor</code> 与代码搜索。不要只发一句“页面不工作”。</p>
+<p>合格诊断应包含：</p>
+<ul>
+<li>UI 确实为 0 本；</li>
+<li>DOM 处于 <code>ready</code> 而不是 <code>error</code>；</li>
+<li>API 仍有 8 本书；</li>
+<li>浏览器事件显示故障模式在客户端生效；</li>
+<li>代码位置是 <code>public/app.js</code>；</li>
+<li>正常 URL 搜索 Martin 恢复 2 本；</li>
+<li>全程不需要修改数据或重启到另一个不明状态。</li>
+</ul>
+<h2 id="wiki-h-15">验证改造没有破坏主线</h2>
+<p>先停止开发服务器，再运行：</p>
+<pre><code class="hljs language-bash">npm run setup
+npm run check
+</code></pre><p>两条命令都应通过。标签任务验收仍然应该失败，因为本篇没有实现标签筛选：</p>
+<pre><code class="hljs language-bash">npm run accept:tag-filter
+</code></pre><p>确认失败仍指向缺少标签控件和筛选接口，而不是本篇新增日志或状态节点。</p>
+<p>然后审查改动：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --check
+git diff --<span class="hljs-built_in">stat</span>
+git diff -- server.js public scripts docs AGENTS.md package.json
+</code></pre><p>重点确认：没有把 <code>?fault=search-empty</code> 设成默认状态，没有在日志中加入敏感数据，也没有修改受保护的标签验收和产品规则。</p>
+<p>提交：</p>
+<pre><code class="hljs language-bash">git add server.js public scripts package.json AGENTS.md docs
+git commit -m <span class="hljs-string">"feat: expose local runtime diagnostics"</span>
+git status --short --branch
+</code></pre><h2 id="wiki-h-16">常见阻塞</h2>
+<h3 id="wiki-h-17">doctor 报 fetch failed</h3>
+<p>先确认另一个终端里的 <code>npm run dev</code> 仍在运行，再核对端口。若服务使用 3100，<code>APP_URL</code> 也必须是 3100。不要把连接失败误判成 API 返回错误。</p>
+<h3 id="wiki-h-18">服务端终端没有 request_completed</h3>
+<p>确认访问的是 <code>127.0.0.1</code> 上当前进程打印的 URL，而不是另一个旧服务。可以对照 <code>server_started</code> 中的 <code>pid</code>，停止所有旧 ShelfCare 进程后重新启动。</p>
+<h3 id="wiki-h-19">Console 里看不到 JSON 事件</h3>
+<p>先刷新页面，确认 Console 没有按级别隐藏 Info 或 Warnings。若页面缓存了旧 <code>app.js</code>，执行一次强制刷新。不要先改日志代码。</p>
+<h3 id="wiki-h-20">DOM 有 runtime-status，但仍是 loading</h3>
+<p>打开 <code>/api/books</code> 并查看 Console。如果 API 失败，状态最终应变为 <code>error</code>；如果一直 loading 且无错误，检查脚本是否实际加载以及 <code>defer</code> 是否仍在 <code>index.html</code> 中。</p>
+<h3 id="wiki-h-21">用截图能不能代替所有检查</h3>
+<p>不能。截图适合证明视觉现象，却看不到隐藏状态、请求 ID和异常堆栈。对当前故障，至少还需要 DOM、浏览器事件与服务端诊断中的两类证据来缩小范围。</p>
+<h2 id="wiki-h-22">本篇留下了什么</h2>
+<p>ShelfCare 现在有了一条可重复的运行诊断链：</p>
+<pre><code class="hljs language-text">用户现象
+  -&gt; DOM 状态与浏览器事件
+  -&gt; /health、/api/books 与请求日志
+  -&gt; 稳定事件名定位代码
+  -&gt; 移除故障后重新验证
+</code></pre><p>Agent 不再只能从源码推测页面发生了什么，也能明确说出每条证据证明到哪一层。下一篇会处理另一类问题：即使 Agent 看得见一切，它仍可能走捷径、跨过架构层或扩大权限。我们会把这些关键不变量从文字升级成可执行约束。</p>
+</article>

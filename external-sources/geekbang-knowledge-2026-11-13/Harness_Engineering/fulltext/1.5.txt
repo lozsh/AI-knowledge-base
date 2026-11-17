@@ -1,0 +1,304 @@
+预计阅读与操作时间：40～50 分钟
+本篇目标：为 ShelfCare 建立跨平台的 setup、dev、test 和 check 四个稳定入口，让 Agent 能自行判断环境是否可用、怎样启动项目，以及基础检查是否通过。
+
+配套代码说明
+
+本篇加入 assets/lesson-04-runtime/，把上一篇“写在文档里的低层命令”升级成可执行的稳定入口：
+
+lesson-04-runtime/
+├── package.json             # 四个 npm scripts + engines(node>=20)
+├── scripts/
+│   ├── setup.js             # 环境自检：Node 版本、必需文件、数据可解析
+│   └── check.js             # 分阶段组合检查：环境→语法→测试
+├── AGENTS.md                # 同步更新：稳定工作流 setup→dev→test→check
+└── docs/                    # 同步更新 ARCHITECTURE.md、DEVELOPMENT.md
+
+
+各文件实现的功能：
+
+package.json 只暴露四个稳定契约：setup、dev、test、check。底层实现以后可变，但 Agent 始终敲同一条命令。engines 声明 node >=20，但真正的版本校验放在 setup 里，因为 engines 不保证所有环境都拒绝旧版本。
+scripts/setup.js 做三件事：① 用 process.versions.node 检查主版本 ≥ 20；② 逐一确认 11 个必需文件（源码、数据、测试、知识文档）都存在；③ 解析 data/books.json 确认是非空数组。它只读、不安装、不改环境，可安全反复运行。
+scripts/check.js 用 spawnSync 依次跑 setup → 三个 JS 语法检查(--check) → 测试(--test)。每一阶段打印 [check] <name>，任一阶段失败立即停止并返回对应退出码。关键设计：全部用 Node API 而非 shell 拼接，因此 Windows/macOS/Linux 走同一份实现。
+同步更新的知识文件：AGENTS.md 不再教 Agent 记底层命令，而是给出 npm run setup → npm run dev → npm test → npm run check 的工作流；DEVELOPMENT.md 同步替换成新入口。
+
+值得注意的两个设计取舍：check 不启动长期服务、也不打开浏览器，所以可安全反复运行——但也因此只能证明“环境、语法、现有测试没问题”，还证明不了“标签筛选符合产品规则”，这个缺口正好引出下一篇。setup 刻意不自动装 Node、不改环境变量、不装系统软件，因为这些副作用不该藏在一个可被 Agent 随时触发的“准备”命令里。
+
+第三篇已经把低层命令写进 docs/DEVELOPMENT.md。Agent 现在能查到 node server.js 和 node --test tests/library.test.js，但这仍然有两个问题。
+
+第一，文档和命令可能分叉。将来测试目录或启动方式变化，每个 Agent 都要重新理解内部细节。第二，命令失败时，原始错误不一定告诉它应该检查什么。一个稳定入口的价值，不是少敲几个字符，而是把项目约定和诊断信息放进可执行代码。
+
+这一篇不会引入构建工具或第三方依赖。ShelfCare 很小，用 Node.js 和 npm 自带能力就够了。
+
+四个入口分别解决什么
+
+先确定它们的职责，避免做出四个名字不同、内容重复的脚本。
+
+入口	回答的问题	是否持续运行
+npm run setup	当前机器具备运行项目的基本条件吗	否
+npm run dev	怎样启动本地应用	是，直到按 Ctrl+C
+npm test	当前自动化测试是否通过	否
+npm run check	提交前的基础检查是否全部通过	否
+
+setup 不是“盲目安装一切”。本项目没有第三方依赖，它只检查 Node 版本、必要文件和示例数据，并给出下一步。这样的脚本可以重复运行，也不会悄悄改变机器状态。
+
+check 负责组合已有检查，但不假装覆盖还不存在的能力。到本篇结束，它能证明环境、JavaScript 语法和现有测试没有问题，却还不能证明标签筛选符合产品规则。这个缺口会自然引出第五篇。
+
+加入运行资产
+
+确认你位于 shelfcare-lab 的 main 分支，并且第三篇的知识文件已经提交：
+
+git status --short --branch
+git log -1 --oneline
+
+
+工作区应当干净，最近提交应是类似 docs: add repository knowledge map。如果你跳过了第三篇，先按上一课复制 assets/lesson-03-knowledge，否则 setup 会明确报告缺少知识文件。
+
+把本篇资产复制进仓库。
+
+macOS 或 Linux：
+
+cp -R ../assets/lesson-04-runtime/. .
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force ..\assets\lesson-04-runtime\* .
+
+
+这次会新增：
+
+package.json
+scripts/
+├── check.js
+└── setup.js
+
+
+同时更新 AGENTS.md、docs/ARCHITECTURE.md 和 docs/DEVELOPMENT.md。这不是顺手改文档，而是在兑现上一课的规则：项目命令和目录变化时，同一变更必须更新知识来源。
+
+package.json 只暴露稳定契约
+
+打开 package.json，核心只有四个脚本：
+
+{
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "dev": "node server.js",
+    "test": "node --test",
+    "check": "node scripts/check.js"
+  }
+}
+
+
+以后底层实现可以变化。例如测试可能从 Node 内置测试迁移到其他框架，但 Agent 仍然运行 npm test。稳定入口把“怎样做”藏在项目内部，把“要做什么”留给使用者。
+
+这里选择 npm scripts 还有一个朴素原因：Node.js 发行版通常同时提供 npm，同一命令可以在 macOS、Linux 和 Windows 使用。我们没有用 Bash 脚本作为唯一入口，否则 PowerShell 用户又需要另一套实现。
+
+package.json 的 engines 写了 node >=20，但它本身不保证所有环境都会拒绝旧版本。因此真正的版本检查仍放在 scripts/setup.js 中。
+
+setup 要检查环境，也要给出下一步
+
+运行：
+
+npm run setup
+
+
+预期看到类似：
+
+> shelfcare@0.1.0 setup
+> node scripts/setup.js
+
+[setup] Node 20.x.x: ok
+[setup] Required files: 11/11
+[setup] Sample data: 8 books
+[setup] Ready. Run `npm run dev` to start ShelfCare.
+
+
+具体 Node 小版本以你的机器为准。关键是四行都出现，并且命令以退出码 0 结束。
+
+打开 scripts/setup.js，可以看到它做了三类检查：
+
+process.versions.node 的主版本至少是 20；
+启动、源码、数据、测试和知识文件都存在；
+data/books.json 是可解析的非空数组。
+
+它没有自动下载 Node、修改环境变量或安装系统软件。这些操作副作用较大，也经常需要管理员权限，不应该藏在一个可被 Agent 随时运行的“准备”命令里。
+
+观察一次有用的失败
+
+不用破坏文件也能检查错误路径。切到项目父目录再运行脚本：
+
+cd ..
+node shelfcare-lab/scripts/setup.js
+
+
+脚本本身会根据所在文件定位仓库，因此仍应通过。这说明它没有依赖终端恰好位于某个绝对路径。
+
+真正给使用者的入口仍要求从仓库根目录运行 npm run setup，因为 npm 需要先找到 package.json。回到项目：
+
+cd shelfcare-lab
+
+
+Windows PowerShell 同样使用 Set-Location .. 和 Set-Location shelfcare-lab 即可。
+
+dev 入口必须给出可观察状态
+
+运行：
+
+npm run dev
+
+
+终端应打印：
+
+ShelfCare running at http://127.0.0.1:3000
+
+
+而且进程不会立刻结束。这两点共同说明本地服务正在监听：一条明确地址让人和 Agent 知道下一步去哪里，持续运行则说明这不是一次性构建命令。
+
+打开该地址，确认仍能看到 8 本书，然后按 Ctrl+C 停止服务。
+
+如果默认端口被占用，跨平台差异只留在设置环境变量这一步。
+
+macOS、Linux 或 Git Bash：
+
+PORT=3100 npm run dev
+
+
+Windows PowerShell：
+
+$env:PORT=3100
+npm run dev
+
+
+无论端口怎样变化，项目入口仍是 npm run dev。
+
+区分 test 和 check
+
+先运行当前测试：
+
+npm test
+
+
+预期是 2 个测试通过、0 个失败。npm test 适合开发过程中快速反馈；Node 的测试发现机制会自动查找符合命名规则的测试文件，因此以后新增测试不需要不断修改脚本参数。
+
+再运行完整基础检查：
+
+npm run check
+
+
+输出会按阶段展开：
+
+[check] environment
+...
+[check] server syntax
+[check] library syntax
+[check] browser syntax
+[check] tests
+...
+[check] All checks passed.
+
+
+scripts/check.js 没有把所有命令拼成一条很长的 shell 字符串，而是使用当前 Node 可执行文件逐步启动检查。这样有三个好处：
+
+Windows、macOS 和 Linux 走同一份实现；
+输出会明确停在哪个阶段；
+一个阶段失败后立即停止，不用从后续噪声里找第一处错误。
+
+现在的 check 顺序是：环境检查、三份 JavaScript 语法检查、自动测试。它没有启动长期服务，也没有打开浏览器，因此可以安全地反复运行。
+
+让 Agent 自己发现入口
+
+更新后的 AGENTS.md 不再教 Agent 记住底层命令，而是给出稳定工作流：
+
+npm run setup -> npm run dev -> npm test -> npm run check
+
+
+你可以开一个新 Agent 会话做只读检查：
+
+不要修改文件。请检查 ShelfCare 的本地开发入口：
+1. 验证环境是否就绪；
+2. 列出可用的项目脚本；
+3. 运行不会长期占用终端的自动检查；
+4. 告诉我哪些用户行为仍未被这些检查覆盖。
+
+
+合格结果应当：
+
+运行 npm run setup；
+通过 npm run 或 package.json 发现四个脚本；
+运行 npm run check；
+明确指出现有检查没有验证浏览器中的标签筛选行为。
+
+最后一点很关键。好的 Harness 不只是给 Agent 一条绿色命令，也让它知道绿色结果的证明范围。把“语法和两项数据测试通过”说成“标签筛选已经正确”，仍然是假完成。
+
+独立检查实际改动
+
+先看文件范围：
+
+git status --short
+git diff --stat
+git diff --check
+
+
+预期新增 package.json、scripts/setup.js、scripts/check.js，并修改三份知识文件。docs/PRODUCT_RULES.md 没有变化，因为本篇没有改变产品行为。
+
+再完整运行一次：
+
+npm run setup
+npm test
+npm run check
+
+
+三个命令都应以退出码 0 结束。npm run dev 已在前面通过浏览器独立确认，不要把长期运行命令塞进 check 后让自动流程一直挂住。
+
+确认无误后提交：
+
+git add package.json scripts AGENTS.md docs/ARCHITECTURE.md docs/DEVELOPMENT.md
+git commit -m "build: add stable local project commands"
+git status --short --branch
+
+
+预期位于 main 且工作区干净。
+
+常见阻塞
+PowerShell 提示不能运行 npm.ps1
+
+这是 PowerShell 执行策略拦截了同名脚本，不代表 ShelfCare 有问题。可以在当前命令中使用 npm.cmd：
+
+npm.cmd run setup
+npm.cmd run check
+
+
+不要为了这门课全局关闭系统执行策略。
+
+npm 提示找不到 package.json
+
+先运行 pwd，Windows PowerShell 使用 Get-Location，确认当前目录是 shelfcare-lab。再运行目录列表检查根目录是否真的有 package.json。这是工作目录问题，不要重复安装 npm。
+
+setup 报 Required files are missing
+
+错误后面会列出缺少的相对路径。若缺少 AGENTS.md 或 docs/，说明第三篇资产没有复制完整；若缺少源码或数据，重新从 Git 状态与历史确认文件为何消失，不要创建空文件骗过检查。
+
+check 停在 browser syntax
+
+先单独运行：
+
+node --check public/app.js
+
+
+Node 会给出更集中的语法位置。修复第一处语法错误，再重新运行 npm run check。不要从 check.js 里删除这个阶段。
+
+npm test 显示的测试数不是 2
+
+如果你还没有新增测试，先运行 git status 检查是否把其他实验文件留在 tests/ 下。Node 会自动发现测试文件，多出来的临时测试也会参与执行。若是你主动新增的测试，则以全部测试通过为准，不必追求固定数量。
+
+本篇留下了什么
+
+ShelfCare 现在有了四个跨平台项目入口：
+
+setup：确认能不能工作
+dev：启动可操作的应用
+test：获得快速自动反馈
+check：完成提交前的基础检查
+
+
+Agent 不必再从源码猜命令，也不会只得到一串没有阶段名称的失败输出。但 npm run check 目前只能证明“环境和现有代码没有明显基础错误”，还不能证明“标签筛选满足产品规则”。下一篇，我们会把完成标准变成机器可重复验证的行为，让 Agent 的“做完了”必须带着证据。

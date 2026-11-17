@@ -1,0 +1,181 @@
+原文：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P31-P34
+版本：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成
+译本：v1.0，2026-11
+时效：内容为 2025 年 8 月版本，功能名与命令以官方文档为准
+版权：原文 © Anthropic。非官方中文译本，仅供学习交流。
+
+用 Claude Code 定义需求
+
+Bash
+
+claude-code --task "Debug authentication failure in user dashboard - getting 500 errors on login attempts"
+
+
+Environment information
+
+Operating system: macOS Sonoma 14.2.1
+Node.js version: v18.17.1
+npm version: 9.8.1
+Framework: Express.js v4.18.2
+Database: PostgreSQL 15.3
+Key dependencies:
+jsonwebtoken: ^9.0.2
+bcryptjs: ^2.4.3
+pg: ^8.11.3
+express-rate-limit: ^6.10.0
+
+Full error information
+
+Error: Authentication failed during login process
+    at UserController.login (/Users/dev/myapp/controllers/userController.js:45)
+    at Layer.handle [as handle_request] (/Users/dev/myapp/node_modules/express/lib/router/layer.js:95)
+    at next (/Users/dev/myapp/node_modules/express/lib/router/route.js:144)
+    at Route.dispatch (/Users/dev/myapp/node_modules/express/lib/router/route.js:114)
+    at Layer.handle [as handle_request] (/Users/dev/myapp/node_modules/express/lib/router/layer.js:95)
+    at /Users/dev/myapp/node_modules/express/lib/router/index.js:284
+    at Function.process_params (/Users/dev/myapp/node_modules/express/lib/router/index.js:346)
+    at next (/Users/dev/myapp/node_modules/express/lib/router/index.js:280)
+    at /Users/dev/myapp/middleware/auth.js:23
+    at Layer.handle [as handle_request] (/Users/dev/myapp/node_modules/express/lib/router/layer.js:95)
+
+Database connection error in logs:
+[2024-01-15 14:23:15] ERROR: connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL: password authentication failed for user "myapp_user"
+[2024-01-15 14:23:15] ERROR: Query execution failed - relation "users" does not exist
+
+
+Browser console error
+
+POST http://localhost:3000/api/auth/login 500 (Internal Server Error)
+Uncaught (in promise) Error: Request failed with status code 500
+    at createError (createError.js:16:1)
+    at settle (settle.js:17:1)
+    at XMLHttpRequest.onloadend (xhr.js:66:1)
+
+
+Reproduction steps
+
+Start the application: npm run dev
+Navigate to http://localhost:3000/dashboard
+Enter credentials: testuser@example.com / password123
+Click “Sign In” button
+Observe 500 error in browser network tab
+
+Check terminal logs showing database connection failure
+
+Expected vs. actual behavior
+
+Expected: User successfully logs in, receives JWT token, and redirects to /dashboard with 200 status
+Actual: Login attempt returns 500 status with “Authentication failed” message, user remains on login page
+
+Relevant code files
+
+controllers/userController.js (Login method causing error):
+
+Javascript
+
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Find user by email
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Generate JWT token - LINE 45 WHERE ERROR OCCURS
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      message: 'Login successful',
+      token: token,
+      user: { id: user.id, email: user.email }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Authentication failed' });
+  }
+};
+
+
+config/database.js (Database configuration):
+
+Javascript
+
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  user: process.env.DB_USER || 'myapp_user',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'myapp_db',
+  password: process.env.DB_PASSWORD || 'defaultpassword',
+  port: process.env.DB_PORT || 5432,
+});
+
+module.exports = pool;
+
+
+current .env file
+
+NODE_ENV=development
+PORT=3000
+JWT_SECRET=your-secret-key-here
+DB_USER=myapp_user
+DB_HOST=localhost
+DB_NAME=myapp_db
+DB_PASSWORD=wrongpassword123
+DB_PORT=5432
+
+
+Database schema (users table)
+
+SQL
+
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+Visual context
+
+Login form UI: Standard email/password form with “Sign In” button
+Network tab: Shows POST request to /api/auth/login returning 500 status
+Console output: Application starts successfully on port 3000, but database connection fails immediately when login is attempted
+
+Additional context
+
+This worked fine yesterday before I updated some dependencies
+PostgreSQL service is running (confirmed with brew services list)
+Database exists and user table has test data
+Same issue occurs with different user accounts
+Problem started after running npm update this morning
+
+What I've tried
+
+Restarted PostgreSQL service
+Verified database credentials manually with psql
+Checked that users table exists and has data
+Cleared npm cache and reinstalled node_modules
+Rolled back to previous git commit - issue persists
+
+Please help identify the root cause and provide a fix that addresses both the database connection issue and any potential problems in the authentication flow.
+
+原文备注：本页除标题外为示例提示词原文，按原样保留英文，不附中文对照。

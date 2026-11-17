@@ -1,0 +1,209 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计学习时间：60—75 分钟<br>本篇目标：在 ChatGPT 桌面应用中完成三个非编程任务，并学会在 Codex、ChatGPT Work、本地与云端之间做选择。</p>
+</blockquote>
+<p>前面十几篇一直在终端和代码仓库里工作。这一篇换到桌面应用，但可靠完成任务的方法没有变：先限定资料范围，再让 Agent 提方案；执行后打开真实文件，用数量、公式和原始证据验收。</p>
+<p>先澄清一个容易混淆的名称：你安装的是 <strong>ChatGPT 桌面应用</strong>，应用中可以选择 ChatGPT 或 Codex；选择 ChatGPT 后，还可能在输入框上方切换 Chat 与 Work。它们不是三个独立客户端。<a href="https://learn.chatgpt.com/docs/app">官方桌面应用说明</a>给出的基本路径也是“选择 ChatGPT 或 Codex”，再在 ChatGPT 中选择 Chat 或 Work。</p>
+<p>这篇会这样分工：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>任务</th>
+<th>本篇选择</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>移动、重命名本机文件</td>
+<td>Codex · Local</td>
+<td>需要明确工作目录、文件操作和可检查的路径变化</td>
+</tr>
+<tr>
+<td>分析 CSV、生成办公成品</td>
+<td>ChatGPT · Work locally</td>
+<td>目标是可打开、可复核的表格与报告</td>
+</tr>
+<tr>
+<td>比较多份方案</td>
+<td>ChatGPT · Work locally</td>
+<td>需要跨文档提取证据并形成对比成品</td>
+</tr>
+</tbody></table></div>
+<p>ChatGPT Work 更强调“完成一个有明确产物的任务”，Codex 则会保留更多文件、命令和变更细节。官方也说明：非编程工作可以继续在 Codex 中完成；Work 是更偏日常工作的体验。若你的账号、地区或组织策略暂时没有 Work，后两个案例直接用 Codex · Local 也能练习，只是界面和产物预览方式可能不同。参见 <a href="https://learn.chatgpt.com/docs/get-started-with-work">Get started with ChatGPT Work</a> 和 <a href="https://learn.chatgpt.com/docs/use-chatgpt">Use ChatGPT</a>。</p>
+<h2 id="wiki-h-0">先准备一个不会误伤真实资料的练习区</h2>
+<p>新建下面的目录，不要把桌面、下载目录或整个个人主目录直接交给 Agent：</p>
+<pre><code class="hljs language-text">office-practice/
+├── file-sort/
+│   └── inbox/
+├── sales/
+└── vendors/
+</code></pre><p>三个目录只放脱敏副本：</p>
+<ul>
+<li><code>file-sort/inbox/</code>：复制 8—15 个不同类型的样例文件；</li>
+<li><code>sales/</code>：稍后保存 <code>sales.csv</code>；</li>
+<li><code>vendors/</code>：放三份脱敏方案，PDF、Word 或 Markdown 均可。</li>
+</ul>
+<p>如果前面已经安装 Codex CLI，可以在普通终端打开第一个目录。将路径替换为你电脑上的真实绝对路径：</p>
+<pre><code class="hljs language-bash">codex app <span class="hljs-string">"/绝对路径/office-practice/file-sort"</span>
+</code></pre><p>这个命令会启动桌面应用；没有安装时会进入安装流程。macOS 会直接打开给定工作区，Windows 当前会打印需要打开的路径，你再到应用里选择该目录。你也可以直接打开应用，选择 <strong>Codex</strong>，再用“打开文件夹”一类的入口选择 <code>file-sort</code>。界面文字可能随版本变化，但目的只有一个：让当前 Local 任务的根目录是 <code>file-sort</code>，而不是更大的目录。</p>
+<h2 id="wiki-h-1">案例一：先预演，再整理一批杂乱文件</h2>
+<p>这个案例选择 <strong>Codex · Local</strong>。Local 会直接在所选目录中工作，因此第一次一定使用副本。开始前先在文件管理器中确认 <code>inbox</code> 的文件数量，记作 <code>N</code>。</p>
+<p>也可以在应用的集成终端或系统终端中独立计数。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">find inbox -<span class="hljs-built_in">type</span> f ! -name <span class="hljs-string">'.DS_Store'</span> | <span class="hljs-built_in">wc</span> -l
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">(<span class="hljs-built_in">Get-ChildItem</span> .\inbox <span class="hljs-operator">-File</span> <span class="hljs-literal">-Recurse</span> | <span class="hljs-built_in">Where-Object</span> Name <span class="hljs-operator">-ne</span> <span class="hljs-string">'desktop.ini'</span>).Count
+</code></pre><p>记住这个数字。它是整理后的第一条验收证据。</p>
+<h3 id="wiki-h-2">1. 只读盘点，不让它立即开工</h3>
+<p>新建 Codex 任务，输入：</p>
+<pre><code class="hljs language-text">请只读盘点 inbox 中的文件，不要创建、移动、重命名、覆盖或删除任何文件。
+
+按表格列出：当前相对路径、文件类型、从文件名或可安全读取的内容中得到的主题、日期、建议类别、不确定项。
+
+边界：
+- 不访问 file-sort 之外的目录；
+- 不打开明显包含密码、证件号或其他敏感信息的文件；
+- 证据不足时写“待确认”，不要根据常识补全。
+
+最后报告实际发现的文件总数。
+</code></pre><p>预期先出现一份盘点表，文件数应与 <code>N</code> 一致，磁盘中的文件位置不变。若数字不同，先别继续：检查隐藏文件、子目录、无法读取的文件，或确认 Agent 是否遗漏了某种格式。</p>
+<h3 id="wiki-h-3">2. 把“怎么整理”变成可审查的计划</h3>
+<pre><code class="hljs language-text">根据盘点结果设计一个最多两层的目录结构，但暂时不要执行。
+
+请创建 ORGANIZE_PLAN.md，逐个记录：
+- 原相对路径；
+- 目标相对路径；
+- 重命名理由；
+- 判断置信度；
+- 是否存在重名或覆盖风险。
+
+规则：
+- 已确认文件放到 organized/ 下；
+- 无法可靠分类的文件放到 pending/；
+- 文件名尽量使用“日期-主题-类型”，日期未知时保留原文件名信息；
+- 不覆盖同名文件，不删除文件；
+- 给出按清单回退到 inbox 的方法。
+
+完成计划后停下来等我确认。
+</code></pre><p>打开 <code>ORGANIZE_PLAN.md</code>，重点看三件事：分类是否细得过头，文件名是否丢失重要信息，多个源文件是否指向同一个目标。这里发现问题只需改计划，还没有碰真实文件。</p>
+<h3 id="wiki-h-4">3. 执行后用路径和数量验收</h3>
+<p>确认计划后输入：</p>
+<pre><code class="hljs language-text">按我确认后的 ORGANIZE_PLAN.md 执行。
+
+同时创建 MANIFEST.csv，列为 source,target,status,note；每个源文件恰好一行。遇到目标重名、读取失败或判断不确定时不要猜，也不要覆盖，保留源文件并把状态写为 blocked。
+
+完成后报告 moved、blocked、failed 的数量，不删除任何文件。
+</code></pre><p>预期看到 <code>organized/</code>、可能存在的 <code>pending/</code>，以及计划和清单文件。现在不要只看 Agent 的“完成”消息，自己复核：</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">find organized pending -<span class="hljs-built_in">type</span> f 2&gt;/dev/null | <span class="hljs-built_in">wc</span> -l
+find inbox -<span class="hljs-built_in">type</span> f ! -name <span class="hljs-string">'.DS_Store'</span> | <span class="hljs-built_in">wc</span> -l
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">(<span class="hljs-built_in">Get-ChildItem</span> .\organized,.\pending <span class="hljs-operator">-File</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-ErrorAction</span> SilentlyContinue).Count
+(<span class="hljs-built_in">Get-ChildItem</span> .\inbox <span class="hljs-operator">-File</span> <span class="hljs-literal">-Recurse</span> | <span class="hljs-built_in">Where-Object</span> Name <span class="hljs-operator">-ne</span> <span class="hljs-string">'desktop.ini'</span>).Count
+</code></pre><p>第一项加上 <code>inbox</code> 中未移动的文件数，应等于原来的 <code>N</code>。再随机抽查三行 <code>MANIFEST.csv</code>，确认源路径、目标路径与磁盘实际位置一致，并打开两三个文件检查它们仍能正常读取。</p>
+<p>若整理结果不满意，不要让 Agent“凭记忆恢复”。要求它先读取 <code>MANIFEST.csv</code>，输出反向移动预览；你确认没有目标冲突后，再按 <code>target → source</code> 回退。清单的意义就在于让撤回也有证据。</p>
+<h2 id="wiki-h-5">案例二：分析 CSV，但先把口径说清楚</h2>
+<p>这个案例选择 <strong>ChatGPT · Work · Work locally</strong>。在桌面应用中切到 ChatGPT，再在输入框上方选择 Work；若输入框附近有 <code>Work locally</code> 与 <code>Cloud</code> 选项，保留 <code>Work locally</code>，因为源文件只在本机。官方说明中，Cloud 适合希望关机后继续运行或从网页、手机继续的任务；依赖本机文件或应用时应使用本地方式。</p>
+<p>为了让你能核对结果，把下面内容保存为 <code>office-practice/sales/sales.csv</code>：</p>
+<pre><code class="hljs language-csv"><span class="hljs-attribute">date</span>,order_id,region,product,amount,status
+<span class="hljs-attribute">2026</span>-<span class="hljs-number">01</span>-<span class="hljs-number">05</span>,O001,华东,A,<span class="hljs-number">1200</span>,paid
+<span class="hljs-attribute">2026</span>-<span class="hljs-number">01</span>-<span class="hljs-number">18</span>,O002,华南,B,<span class="hljs-number">800</span>,paid
+<span class="hljs-attribute">2026</span>-<span class="hljs-number">02</span>-<span class="hljs-number">04</span>,O003,华东,A,<span class="hljs-number">1500</span>,paid
+<span class="hljs-attribute">2026</span>-<span class="hljs-number">02</span>-<span class="hljs-number">20</span>,O004,华南,B,<span class="hljs-number">900</span>,paid
+<span class="hljs-attribute">2026</span>-<span class="hljs-number">03</span>-<span class="hljs-number">03</span>,O005,华东,B,<span class="hljs-number">1100</span>,paid
+<span class="hljs-attribute">2026</span>-<span class="hljs-number">03</span>-<span class="hljs-number">16</span>,O006,华南,A,<span class="hljs-number">1400</span>,paid
+<span class="hljs-attribute">2026</span>-<span class="hljs-number">03</span>-<span class="hljs-number">16</span>,O006,华南,A,<span class="hljs-number">1400</span>,paid
+<span class="hljs-attribute">2026</span>-<span class="hljs-number">03</span>-<span class="hljs-number">28</span>,O007,华北,A,-<span class="hljs-number">200</span>,refunded
+</code></pre><p>把 <code>sales.csv</code> 添加到任务，或将 <code>sales</code> 文件夹作为本地工作位置。先不要说“帮我分析一下”，而是先做数据体检：</p>
+<pre><code class="hljs language-text">请先检查 sales.csv，不修改原文件，也暂时不要生成业务结论。
+
+报告列名、总行数、日期范围、空值、重复 order_id、完全重复行、异常金额和 status 取值。请区分：
+1. 可以从数据直接确认的问题；
+2. 必须由我确认的业务口径；
+3. 你建议的处理规则及其影响。
+</code></pre><p>正确盘点应识别出 8 行数据、<code>O006</code> 的重复记录，以及一笔状态为 <code>refunded</code> 的负数金额。负数不应直接被删掉，因为它可能是合法退款。</p>
+<p>接着冻结口径：</p>
+<pre><code class="hljs language-text">采用以下口径完成分析：
+- 按 order_id 去重；完全相同的重复行只保留一行；
+- 净销售额包含 refunded 的负数金额；
+- 订单数只统计 paid 状态的不同 order_id；
+- 客单价 = 当月净销售额 / 当月 paid 订单数；
+- 原始 CSV 保持不变。
+
+请生成：
+1. sales-analysis.xlsx，至少包含 Raw、Cleaned、Monthly Summary 三个工作表；
+2. sales-brief.md，写给业务负责人，包含指标口径、月度表、三条观察和仍需确认的问题。
+
+不要把月份变化写成因果关系。完成后说明每个文件保存在哪里。
+</code></pre><p>如果当前界面不能生成 <code>.xlsx</code>，就让它改为输出 <code>sales-cleaned.csv</code>、<code>sales-monthly-summary.csv</code> 和 <code>sales-brief.md</code>；不要因为格式能力不同而放弃验收。</p>
+<p>打开实际产物。正确去重和退款口径下，月度结果应为：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>月份</th>
+<th align="right">净销售额</th>
+<th align="right">paid 订单数</th>
+<th align="right">客单价</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2026-01</td>
+<td align="right">2000</td>
+<td align="right">2</td>
+<td align="right">1000</td>
+</tr>
+<tr>
+<td>2026-02</td>
+<td align="right">2400</td>
+<td align="right">2</td>
+<td align="right">1200</td>
+</tr>
+<tr>
+<td>2026-03</td>
+<td align="right">2300</td>
+<td align="right">2</td>
+<td align="right">1150</td>
+</tr>
+</tbody></table></div>
+<p>至少手工复算三月：<code>1100 + 1400 - 200 = 2300</code>，重复的 <code>O006</code> 不能再加一次。再检查 Raw 工作表是否保留 8 行、Cleaned 是否只有 7 行。这样验证的是源数据、清洗规则和公式，而不是报告写得是否顺眼。</p>
+<p>真实工作中若退款应计入原订单月份，而不是退款发生月份，结果会不同。这不是 Agent 算错，而是业务口径不同；先确认口径再生成结论，正是这个练习要建立的习惯。</p>
+<h2 id="wiki-h-6">案例三：比较方案时，先建立证据链</h2>
+<p>把三份脱敏供应商方案放入 <code>vendors/</code>。仍使用 <strong>ChatGPT · Work locally</strong>；没有 Work 时用 Codex · Local，并明确输出文件名。开始时只提取事实：</p>
+<pre><code class="hljs language-text">请阅读 vendors 目录中的三份方案，暂时不要推荐供应商，也不要打分。
+
+统一提取：总价与计价口径、交付范围、时间计划、服务水平、付款条件、违约责任、数据安全、实施依赖和退出机制。
+
+请生成 vendor-evidence.xlsx：
+- 每个事实必须带文件名，以及可定位的章节或页码；
+- 原文未写的内容标为“未提供”；
+- 口径不一致时保留原始口径，并单列“无法直接比较”；
+- 扫描件或 OCR 无法确认的位置标为“引用待核对”，不要编造页码。
+</code></pre><p>打开表格，任意选择三条重要信息，回到原文件对应页核对。至少覆盖一条价格、一条交付时间和一条退出或违约条款。若三条中有一条找不到来源，先修正证据表，不要进入评分。</p>
+<p>然后让它列出决策缺口：</p>
+<pre><code class="hljs language-text">基于已核对的 vendor-evidence.xlsx，补充：
+1. 三份方案的关键差异；
+2. 互相冲突或无法直接比较的口径；
+3. 每家“未提供”的重要信息；
+4. 下一轮必须追问的 5 个问题。
+
+再生成一页 vendor-summary.md，说明各方案更适合什么情况、主要成本与风险，以及现在为何能或不能做决定。没有我确认的权重，不要给出“最佳供应商”。
+</code></pre><p>只有评价标准已经由决策者确认时，才加入评分。例如：价格 30%、能力 30%、交付 20%、风险 20%。要求同时保留每项原始证据、评分理由和总分公式；“未提供”不能悄悄按零分处理，应标记为信息缺口。最后把某一项权重上下调整 10%，看排序是否改变。排序轻易反转，说明结论对权重敏感，不适合写成确定推荐。</p>
+<p>这个案例的独立验收不是再让 Agent 读一遍自己的摘要，而是：原文件中能找到关键事实、表格公式能复算、缺失信息没有被补写成事实。</p>
+<h2 id="wiki-h-7">本地、Cloud、Worktree 和 Remote 不要混为一谈</h2>
+<p>做完三个案例，再把几个运行位置放回正确心智模型：</p>
+<ul>
+<li><strong>Work locally</strong>：任务需要电脑上的文件、应用或浏览器时使用；关闭电脑后不能指望它继续依赖本机执行。</li>
+<li><strong>Cloud</strong>：资料已上传或来自已连接服务，并且希望任务在关闭应用后继续时使用。它不会自动获得本机目录中的文件。</li>
+<li><strong>Codex · Local</strong>：直接作用于所选项目目录，适合本篇的批量文件操作，也最需要谨慎选择工作区。</li>
+<li><strong>Codex · Worktree</strong>：为 Git 仓库创建隔离工作树，适合并行代码改动；普通办公目录没有必要使用。</li>
+<li><strong>Remote</strong>：从另一台设备控制已连接主机上的任务；它使用的是那台主机的文件和权限，并不等于把文件搬进 Cloud。</li>
+</ul>
+<p>Codex 中 Local、Worktree 与 Cloud 的官方区别见 <a href="https://learn.chatgpt.com/docs/environments/modes">Environment modes</a>。如果界面没有某个入口，先考虑账号方案、操作系统、地区或管理员策略差异，不要根据教程中的名称强行寻找。</p>
+<h2 id="wiki-h-8">两个高频阻塞点</h2>
+<h3 id="wiki-h-9">Agent 看不到文件，或请求访问更大的目录</h3>
+<p>先检查当前任务打开的是哪个文件夹，以及文件是否真的位于该目录内。不要为了省一步就开放整个主目录；回到任务列表，新建一个以正确练习目录为根的 Local 任务更安全。</p>
+<h3 id="wiki-h-10">生成了文件，但打不开或内容不完整</h3>
+<p>先确认实际扩展名和保存路径，再打开每个工作表、页面或章节。若当前环境不支持目标格式，退回到 CSV、Markdown 等可检查格式。格式降级没有关系，不能降级的是原始数据保留、计算口径和证据来源。</p>
+<h2 id="wiki-h-11">本篇小结</h2>
+<p>桌面应用真正降低的，是同时处理文件、应用和成品的操作门槛，不是验收门槛。文件整理要用清单和数量证明没有丢失；数据分析要用固定口径和手算结果核对；方案比较要能从结论返回原始页码和条款。</p>
+<p>你现在也有了一条简单的选择原则：要直接处理本机目录并查看操作细节，用 Codex · Local；要交付表格、报告等办公成品，优先 ChatGPT Work；任务是否放到 Cloud，则取决于资料在哪里、是否需要离开电脑后继续。下一篇会按错误现象整理安装、登录、Provider、权限、项目和桌面应用的排查路径。</p>
+</article>

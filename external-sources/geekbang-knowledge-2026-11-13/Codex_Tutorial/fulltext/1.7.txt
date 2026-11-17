@@ -1,0 +1,466 @@
+预计阅读时间：50 分钟
+本篇目标：让 Codex 根据已经确认的计划完成 TaskFlow 1.0，并通过自动测试、手动操作和代码审查验证结果。
+
+现在，项目里应该有两份关键文档：
+
+PROJECT_BRIEF.md：说明 TaskFlow 1.0 要解决什么问题；
+PLAN.md：说明准备如何实现和验证。
+
+这一篇开始写代码。我们的关注点不只是“Codex 能不能生成一个程序”，而是怎样让它在明确范围内工作，并给出可以检查的证据。
+
+开始前检查项目状态
+
+进入项目目录。
+
+macOS、Linux 或 WSL2
+cd ~/codex-course/taskflow
+
+Windows PowerShell
+Set-Location "$HOME\codex-course\taskflow"
+
+
+检查文件和 Git 状态：
+
+git status
+
+
+目录中至少应该有：
+
+PROJECT_BRIEF.md
+PLAN.md
+
+
+如果规划文件还没有提交也可以继续，但先确认其中没有未检查的错误。Codex 会把它们当作本次任务的重要依据。
+
+以工作区可写模式启动 Codex
+
+运行：
+
+codex --sandbox workspace-write --ask-for-approval on-request
+
+
+进入后输入：
+
+/status
+
+
+确认：
+
+当前目录是 taskflow；
+权限模式是 Workspace(Ask for approval)；
+当前模型符合你的预期。
+
+TaskFlow 只使用 Python 标准库，不需要下载依赖，因此本篇没有开启网络访问的必要。
+
+把关键文档明确交给 Codex
+
+在 Codex CLI 中输入 @，可以搜索工作区文件并把路径加入提示词。
+
+比如，我们可以提交实现任务：
+
+请根据 @PROJECT_BRIEF.md 和 @PLAN.md 实现 TaskFlow 1.0。
+
+执行要求：
+
+1. 开始前先用几句话说明你理解的范围和预计修改的文件；
+2. 按 PLAN.md 的顺序实施，不增加计划外功能；
+3. 使用 Python 3.11+ 标准库，不安装第三方依赖；
+4. 测试必须使用临时目录，不能读写真实的 data/tasks.json；
+5. 每完成一个阶段就运行对应检查；
+6. 全部实现后运行完整测试；
+7. 再实际运行一次 add、list、done；
+8. 最后检查 Git Diff，报告修改文件、测试结果和仍然存在的限制。
+
+如果计划和项目现状冲突，请先说明冲突，不要自行扩大范围。
+
+
+这段提示词没有逐行告诉 Codex 怎样写代码。我们已经通过项目文档明确了目标和边界，具体实现细节可以由它完成。
+
+观察 Codex 的执行过程
+
+Codex 开始后，通常会依次读取规划文件、检查目录、创建程序、编写测试并运行命令。
+
+你不需要盯着每一行输出，但应该留意几类信号。
+
+1. 它有没有先读项目文档
+
+如果 Codex 没有读取 PROJECT_BRIEF.md 和 PLAN.md 就开始写代码，可以立即输入并按回车：
+
+先暂停实现，完整读取 PROJECT_BRIEF.md 和 PLAN.md，再按其中的范围继续。
+
+2. 它有没有安装依赖
+
+第一版只使用标准库，不应该运行 pip install、npm install 或访问外部网络。如果它准备安装依赖，拒绝相关权限请求，并提醒：
+
+本项目只使用 Python 标准库，不要安装任何依赖。请调整方案。
+
+3. 它有没有修改范围外文件
+
+预计新增或修改的文件是：
+
+taskflow.py
+tests/test_taskflow.py
+README.md
+.gitignore
+PROJECT_BRIEF.md（只在发现必要的小修正时）
+PLAN.md（一般不需要再改）
+
+
+如果出现数据库配置、Web 页面、打包脚本或其他大型结构，说明实现已经偏离范围。
+
+4. 它有没有真正运行测试
+
+“已经编写测试”和“测试已经通过”是两件事。观察它是否实际执行了测试命令，并报告测试数量和结果。
+
+TaskFlow 1.0 应该长什么样
+
+实现完成后，项目结构应大致如下：
+
+taskflow/
+├── .gitignore
+├── PLAN.md
+├── PROJECT_BRIEF.md
+├── README.md
+├── taskflow.py
+└── tests/
+    └── test_taskflow.py
+
+
+手动运行后还会出现：
+
+data/
+└── tasks.json
+
+
+data/tasks.json 是运行数据，不应该由自动测试写入，也通常不需要提交进 Git。
+
+你的实际结构可能略有差异。例如，本课程统一使用 tests/ 目录；如果生成的测试在根目录，先移动到 tests/ 并核对导入路径和测试发现。只要没有引入不必要的复杂度，并且命令、测试和文档保持一致，就不必为了完全匹配示例而返工。
+
+先检查文件变化
+
+Codex 报告完成后，输入：
+
+/diff
+
+
+不要急着看每一行 Python 语法，先从范围开始检查：
+
+新增了哪些文件？
+是否修改了计划外文件？
+是否包含真实 API Key、账号信息或本机绝对路径？
+.gitignore 是否忽略运行数据和 Python 缓存？
+README 中的命令是否与程序实际接口一致？
+
+.gitignore 至少应覆盖类似内容：
+
+__pycache__/
+*.pyc
+data/tasks.json
+
+
+不要求内容逐字相同，但不应把 PROJECT_BRIEF.md、PLAN.md、README 或测试文件误加入忽略列表。
+
+自己运行自动测试
+
+Codex 已经运行过测试，你仍然应该亲自再运行一次。这可以确认测试不依赖 Agent 会话中的临时状态。
+
+先退出 Codex，或者在 Codex 输入行前使用 ! 执行命令。
+
+macOS、Linux 或 WSL2
+
+在 Codex 中输入：
+
+!python3 -m unittest discover -s tests -v
+
+Windows
+
+输入：
+
+!py -m unittest discover -s tests -v
+
+
+如果你的 Windows 只能使用 python，把 py 替换成 python。
+
+成功时，你应该看到每个测试后面显示 ok，最后出现类似：
+
+Ran 6 tests in 0.0xxs
+
+OK
+
+
+测试数量不一定正好是 6，但至少应覆盖：
+
+添加第一条任务；
+连续添加时 ID 递增；
+查看空任务列表；
+查看未完成与已完成任务；
+完成存在的任务；
+完成不存在的任务时返回错误。
+如果测试失败
+
+不要只把最后一行“FAILED”交给 Codex。把完整测试命令和失败输出留在会话中，然后说：
+
+刚才的完整测试出现失败。请先阅读失败输出，说明哪个行为与需求不一致，
+再做最小修改。不要跳过或删除测试。修复后重新运行完整测试。
+
+
+这会让修复过程围绕行为和证据展开，而不是为了让测试变绿随意修改测试本身。
+
+手动完成一次真实操作
+
+自动测试通过后，再用真实数据文件走一遍用户流程。
+
+macOS、Linux 或 WSL2
+
+添加第一条任务：
+
+!python3 taskflow.py --data data/tasks.json add "完成 Codex 教程第六篇"
+
+
+查看任务：
+
+!python3 taskflow.py --data data/tasks.json list
+
+
+标记第一条任务完成：
+
+!python3 taskflow.py --data data/tasks.json done 1
+
+
+再次查看：
+
+!python3 taskflow.py --data data/tasks.json list
+
+Windows
+
+添加任务：
+
+!py taskflow.py --data data\tasks.json add "完成 Codex 教程第六篇"
+
+
+查看任务：
+
+!py taskflow.py --data data\tasks.json list
+
+
+完成任务：
+
+!py taskflow.py --data data\tasks.json done 1
+
+
+再次查看：
+
+!py taskflow.py --data data\tasks.json list
+
+
+输出格式由实现决定，可能是：
+
+Added task 1: 完成 Codex 教程第六篇
+
+[ ] 1  完成 Codex 教程第六篇
+
+Completed task 1
+
+[x] 1  完成 Codex 教程第六篇
+
+
+文字不必完全相同，但应该能够清楚看出任务 ID、标题和完成状态。
+
+测试错误路径
+
+再尝试完成一个不存在的任务：
+
+macOS、Linux 或 WSL2：
+
+!python3 taskflow.py --data data/tasks.json done 999; echo $?
+
+
+Windows：
+
+!py taskflow.py --data data\tasks.json done 999; $LASTEXITCODE
+
+
+程序应该给出明确错误，并返回非零退出码，而不是悄悄报告成功。
+
+检查 JSON 数据文件
+
+运行完手动流程后，让 Codex 检查数据：
+
+请读取 data/tasks.json，确认：
+
+1. 文件是合法 JSON；
+2. 第一条任务包含整数 ID、标题、完成状态和创建时间；
+3. 完成状态已经更新；
+4. 没有重复 ID；
+5. 不要修改文件，只报告检查结果。
+
+
+你也可以直接查看文件。
+
+macOS、Linux 或 WSL2：
+
+!python3 -m json.tool data/tasks.json
+
+
+Windows：
+
+!py -m json.tool data\tasks.json
+
+
+如果 JSON 合法，命令会把内容格式化输出；如果格式损坏，它会显示解析错误。
+
+让 Codex 解释实现，而不是只给总结
+
+现在项目已经可以运行，可以要求 Codex 帮助你理解代码：
+
+请解释 TaskFlow 1.0 的实现，面向刚开始学习 Python 的读者。
+
+按下面的顺序说明：
+1. 命令行参数怎样进入程序；
+2. JSON 数据怎样读取和保存；
+3. add、list、done 分别调用了哪些函数；
+4. 测试怎样避免修改真实数据；
+5. 如果以后增加筛选功能，最可能修改哪里。
+
+请引用实际文件和函数名，不要修改代码。
+
+
+这类解释比让它逐行翻译代码更有用，因为它展示了程序的结构和数据流。
+
+如果解释与实际代码不一致，指出具体位置，让它重新读取后回答。Agent 的总结也需要以文件内容为准。
+
+检查 README 是否真的能用
+
+打开 README.md，确认至少包含：
+
+项目是做什么的；
+Python 版本要求；
+三个子命令的用途；
+macOS、Linux、WSL2 使用 python3 的示例；
+Windows 使用 py 或 python 的示例；
+怎样运行测试；
+当前版本不支持哪些功能；
+数据默认保存在哪里。
+
+可以让 Codex 做一次“从零使用”检查：
+
+请只根据 README.md，模拟一个第一次接触项目的用户。
+检查他是否能够完成安装前检查、添加任务、查看任务、完成任务和运行测试。
+列出缺失或含糊的步骤。先报告问题，不要直接修改。
+
+
+确认问题后，再决定是否让它更新 README。
+
+使用 /review 做一次代码审查
+
+输入：
+
+/review
+
+
+选择审查未提交修改（Review uncommitted changes）。
+
+审查结果可能包含真正的问题，也可能只是改进建议。处理前先判断：
+
+这个问题能否实际触发？
+是否违反 PROJECT_BRIEF.md 的验收条件？
+修改会不会扩大第一版范围？
+是否可以用测试证明问题和修复？
+
+如果审查发现明确问题，可以说：
+
+请先为这个问题补充一个能够失败的测试，再做最小修复。
+不要处理其他风格建议。完成后运行完整测试。
+
+让 Codex 做最终验收
+
+输入：
+
+请对照 PROJECT_BRIEF.md 和 PLAN.md 做最终验收。
+
+逐项检查：
+- 三个子命令是否完成；
+- 数据格式是否符合要求；
+- 错误路径是否返回非零退出码；
+- 测试是否使用临时目录；
+- README 是否覆盖不同系统；
+- 是否出现计划外功能或依赖；
+- 完整测试是否通过。
+
+请把每项标记为“通过”“未通过”或“无法确认”，并给出对应证据。
+不要为了让结果全部通过而继续修改文件。
+
+
+“无法确认”并不一定代表失败。它提醒你还有某些结果需要亲自检查。比起笼统地说“全部完成”，带证据的验收表更值得信任。
+
+保存 TaskFlow 1.0
+
+退出 Codex：
+
+/exit
+
+
+回到终端后检查：
+
+git status
+git diff
+
+
+确认 data/tasks.json 没有出现在待提交文件中。如果出现，检查 .gitignore 是否正确。
+
+将项目文件加入暂存区：
+
+git add .
+
+
+查看即将提交的内容：
+
+git diff --cached
+
+
+确认没有密钥、本机隐私路径或运行数据后，提交：
+
+git commit -m "feat: implement TaskFlow 1.0"
+
+这一篇真正学到的流程
+
+回顾刚才的操作，你已经完成了一次完整的 Agent 开发循环：
+
+确认上下文
+→ 提交有边界的任务
+→ 观察执行范围
+→ 查看文件差异
+→ 运行自动测试
+→ 完成手动验证
+→ 检查数据文件
+→ 审查代码
+→ 对照需求验收
+→ 保存结果
+
+
+以后不管开发的是命令行工具、网站还是后端服务，都可以复用这条主线。项目会更复杂，验证方法会变化，但“目标、执行、证据、验收”的顺序不会变。
+
+本篇完成检查
+
+继续后面的调试教程之前，请确认：
+
+taskflow.py 可以运行；
+add 能新增任务；
+list 能显示任务状态；
+done 能完成指定 ID 的任务；
+不存在的 ID 会返回错误；
+data/tasks.json 是合法 JSON；
+自动测试全部通过；
+测试没有修改真实数据文件；
+README 中的命令可以直接执行；
+/diff 中没有计划外文件；
+/review 的问题已经逐项判断；
+TaskFlow 1.0 已经保存到 Git 提交中。
+
+下一篇，我们会给 TaskFlow 制造一个可以稳定复现的问题，再学习怎样让 Codex 先定位根因、补充回归测试，最后完成最小修复。
+
+参考资料
+Codex 使用建议
+Codex 提示词指南
+Codex 代码审查
+Codex CLI 命令参考

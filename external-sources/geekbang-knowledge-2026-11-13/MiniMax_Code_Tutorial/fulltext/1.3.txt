@@ -1,0 +1,125 @@
+这一章不写一行命令，只回答两个问题：贯穿整套教程的项目是什么、为什么选它、以及你需要提前准备好什么工具。
+学完这一章，你会知道接下来 12 章要一步步搭出来的 habitlog 长什么样。
+
+2.1 项目是什么
+
+我们要做的项目叫 habitlog：一个命令行下的个人习惯打卡工具。
+
+想象一下：你最近想坚持"每天读书 30 分钟"和"每周跑步 3 次"。你不想装一个臃肿的手机 App，只想在终端里敲两行命令就能：
+
+打卡一次：habitlog add 读书 "读了 50 页"
+看今天做了啥：habitlog list
+看"读书"连续坚持了多少天：habitlog streak 读书
+看总体统计：habitlog summary
+
+数据全部存在本地的 JSON 文件里，不需要联网。
+
+2.2 它最终长什么样
+
+到教程结束时，habitlog 会提供四个子命令：
+
+子命令	作用	何时学到
+habitlog add <habit> [note]	打卡一次	第 5 章
+habitlog list	列出今天的打卡	第 6 章
+habitlog streak <habit>	查某个习惯的连续天数	第 6 章
+habitlog summary	统计所有习惯的累计与最近打卡	第 6 章
+
+存储位置：~/.habitlog/data.json，一个普通文本文件，你可以随时打开看。
+
+测试框架：pytest（Python 最常用的测试工具）。
+
+2.3 为什么选这个项目
+
+挑项目有讲究，它要满足这些条件：
+
+个人、生活化 —— 每个人都想坚持点什么，自己用得上
+足够小 —— 不会被项目本身劝退
+足够自然地引入核心能力 —— git、测试、调试、重构、扩展，每个都有用武之地
+数据轻、容易重置 —— 错了就删 data.json 重来
+不依赖外部服务 —— 不需要 API Key、不需要数据库、不需要登录第三方
+
+habitlog 满足全部条件，而且它的功能边界刚好能把 CLI 的核心能力一条线串完：
+
+教程能力	在 habitlog 里怎么用
+mcode init + AGENTS.md	在第 4 章初始化项目时用到
+Plan Mode（计划模式）	在第 5 章设计 add 命令时用到
+权限模式	在第 5、6 章执行修改时用到
+TUI 操作（@、/steer、/queue 等）	在第 5、6 章写代码时用到
+/code-review 自审	在第 6、7 章每次提交前用到
+Skills / MCP / Plugin	在第 8 章演示接入一个外部 MCP 扩展能力
+Goal 推进长任务	在第 9 章演示一个跨多轮的重构任务
+Session 管理	在第 10 章演示暂停、恢复、分叉
+Headless 自动化	在第 11 章把测试跑起来
+ACP 接入编辑器	在第 12 章演示把 Agent 接到编辑器里
+Provider / 模型切换	在第 13 章演示不换项目的前提下换模型
+2.4 提前准备什么
+
+教程过程中会用到的工具，越早装好越省事。这一节只列出"是什么"和"在哪装"，具体怎么装等第 3 章讲 MiniMax Code CLI 时一起处理。
+
+Python 3.10+
+
+habitlog 用 Python 写。你需要：
+
+macOS：brew install python@3.11（如果你装了 Homebrew），或去 python.org 下安装包
+Linux：通常系统自带；版本低于 3.10 时用包管理器装新版
+Windows WSL2：在 Ubuntu 里 sudo apt update && sudo apt install python3 python3-pip
+Windows PowerShell：去 python.org 下安装包，安装时勾选 "Add Python to PATH"
+
+装好后验证：
+
+python3 --version
+
+
+预期看到 Python 3.10.x 或更高版本。
+
+git
+
+habitlog 是个本地项目，但我们会从头到尾用 git 管理版本。
+
+macOS：装 Xcode Command Line Tools（xcode-select --install）自带 git
+Linux：sudo apt install git（Debian/Ubuntu）或对应包管理器
+Windows WSL2：sudo apt install git
+Windows PowerShell：从 git-scm.com 下载安装包，一路下一步
+
+装好后配置一下身份（这是每台机器只需要做一次的全局配置）：
+
+git config --global user.name "你的名字"
+git config --global user.email "你的邮箱@example.com"
+
+一个你习惯的编辑器
+
+CLI 部分不需要编辑器，但阅读 AGENTS.md、看 diff（差异对比）、提交代码时有个编辑器更舒服。VS Code、Sublime Text、JetBrains 任意一个都行。
+
+一个能联网的环境
+
+安装 CLI 需要访问 filecdn.minimax.chat。如果你的网络有限制，先确认能打开这个域名。
+
+2.5 目录约定
+
+教程默认你把项目放在家目录下的 projects/habitlog：
+
+macOS / Linux：~/projects/habitlog
+Windows WSL2：~/projects/habitlog（在 WSL 内是 Linux 家目录）
+Windows PowerShell：%USERPROFILE%\projects\habitlog
+
+如果你想放别的地方也可以，只要后续章节里的命令里把路径替换掉就行。
+
+2.6 不在本教程范围
+
+下面这些功能 habitlog 不会做，避免你怀疑教程是不是漏了什么：
+
+没有云同步、没有手机 App、没有图形界面
+没有用户系统、没有多设备
+没有复杂的统计图表，只有简单的累计与连续天数
+不会接入通知系统、邮件、微信推送
+
+这些功能等你自己熟悉了之后可以再扩展。教程的重点是用 habitlog 把 CLI 能力练一遍。
+
+2.7 本章小结
+贯穿项目是 habitlog：一个本地习惯打卡 CLI，四个子命令
+数据存在 ~/.habitlog/data.json，用 pytest 做测试
+选这个项目是因为它个人化、足够小、能自然覆盖 CLI 核心能力
+提前准备：Python 3.10+、git、一个编辑器
+项目放在家目录下的 projects/habitlog
+
+下一章我们正式装 MiniMax Code CLI，并且区分 macOS / Linux / Windows WSL2 / Windows PowerShell 四种环境给出完整命令。

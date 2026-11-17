@@ -1,0 +1,333 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>核对日期：2026-09-30<br>适用范围：Claude Code 命令行；以个人项目和本课程 MealCraft 为例。</p>
+</blockquote>
+<p>Claude Code 的内置文件读取、搜索、编辑和命令执行工具已经能完成多数编码任务。扩展能力不是越多越好：它们会增加上下文、配置、权限、费用或供应链负担。</p>
+<p>最稳妥的顺序是：<strong>先用一次普通提示词；重复出现明确需求后，再选择最小的扩展。</strong></p>
+<h2 id="wiki-h-0">先看结论</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>你真正缺少什么</th>
+<th>优先选择</th>
+<th>何时加载或触发</th>
+<th>它能否强制执行</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>当前只做一次的说明</td>
+<td>普通提示词</td>
+<td>当前对话</td>
+<td>不能</td>
+</tr>
+<tr>
+<td>每次进入项目都要知道的事实或约定</td>
+<td><code>CLAUDE.md</code></td>
+<td>会话开始；嵌套文件按目录发现</td>
+<td>不能，只是指令</td>
+</tr>
+<tr>
+<td>只对某类文件生效的约定</td>
+<td><code>.claude/rules/</code></td>
+<td>会话开始或访问匹配路径时</td>
+<td>不能，只是指令</td>
+</tr>
+<tr>
+<td>偶尔使用的知识、清单或多步流程</td>
+<td>Skill</td>
+<td>手动调用或被模型匹配时</td>
+<td>不能；由 Claude 解释执行</td>
+</tr>
+<tr>
+<td>某个生命周期事件一到就运行同一动作</td>
+<td>Hook</td>
+<td>匹配事件发生时</td>
+<td>触发是确定的；处理器仍需正确实现</td>
+</tr>
+<tr>
+<td>限制可用工具、命令或文件边界</td>
+<td>权限规则、Sandbox，必要时配合 Hook</td>
+<td>工具调用前</td>
+<td>可以建立实际边界</td>
+</tr>
+<tr>
+<td>大量调查不想挤占主对话</td>
+<td>Subagent</td>
+<td>主 Agent 或用户按需启动</td>
+<td>独立上下文；权限仍需配置</td>
+</tr>
+<tr>
+<td>暂时离开、稍后查看一个完整任务</td>
+<td>后台会话 / Agent view</td>
+<td>用户启动独立会话</td>
+<td>不是扩展；是另一段完整会话</td>
+</tr>
+<tr>
+<td>多个独立会话需要共同维护任务与互相协调</td>
+<td>Agent Team</td>
+<td>显式创建团队时</td>
+<td>成本和协调复杂度较高，初学阶段少用</td>
+</tr>
+<tr>
+<td>读取仓库之外的数据或执行外部动作</td>
+<td>MCP</td>
+<td>连接后，具体工具按需调用</td>
+<td>取决于服务端与权限配置</td>
+</tr>
+<tr>
+<td>多个项目要安装同一组 Skill、Hook、Agent 或 MCP</td>
+<td>Plugin</td>
+<td>安装或临时加载插件时</td>
+<td>只是打包层，不自动提高安全性</td>
+</tr>
+<tr>
+<td>大型、强类型项目需要符号导航和实时诊断</td>
+<td>Code intelligence / LSP</td>
+<td>安装对应语言插件后按需使用</td>
+<td>提供代码证据，不替代测试</td>
+</tr>
+</tbody></table></div>
+<p>“必须遵守”不能只写进提示词、<code>CLAUDE.md</code>、Rule 或 Skill。需要阻止危险动作时，用权限 <code>deny</code>、Sandbox 或经过测试的 <code>PreToolUse</code> Hook；需要保护数据时，还要保留 Git、备份和人工审批。</p>
+<h2 id="wiki-h-1">七步选择法</h2>
+<p>按顺序回答，遇到第一个“是”就先用该方案，不必一次装齐。</p>
+<ol>
+<li><strong>内置工具能直接完成吗？</strong> 能，就用普通提示词；一次性任务不需要沉淀配置。</li>
+<li><strong>是长期知识吗？</strong> 全项目每次都要知道，放 <code>CLAUDE.md</code>；只对应路径，放 Rule；只在特定任务需要，做 Skill。</li>
+<li><strong>是事件自动化或安全边界吗？</strong> 自动格式化、记录和检查用 Hook；真正限制工具、命令或文件访问，用权限和 Sandbox。</li>
+<li><strong>需要隔离工作吗？</strong> 一项高输出调查用 Subagent；一个完整任务要稍后查看，用后台会话；只有多个独立会话必须互相协调时才考虑 Agent Team。</li>
+<li><strong>缺少外部数据或动作吗？</strong> 本地文件能读就不要接 MCP；确实要访问数据库、浏览器或在线服务时再接。</li>
+<li><strong>需要跨项目安装吗？</strong> 先在一个项目的 <code>.claude/</code> 中迭代；第二个项目也稳定需要时，再打包 Plugin。</li>
+<li><strong>普通搜索无法可靠处理大型强类型代码吗？</strong> 再安装对应语言的代码智能插件；小型 Python 项目通常不必为了完整而安装。</li>
+</ol>
+<p>如果两个选项都像答案，先选配置更少、权限更窄、清理更容易的那个，并为它写一条可观察的验证。</p>
+<h2 id="wiki-h-2">知识放在哪里：CLAUDE.md、Rules 还是 Skill</h2>
+<p>三者都向 Claude 提供指令或知识，但加载时机不同。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>问题</th>
+<th><code>CLAUDE.md</code></th>
+<th><code>.claude/rules/</code></th>
+<th>Skill</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>典型内容</td>
+<td>项目结构、固定命令、通用约定</td>
+<td>测试、前端或特定目录约定</td>
+<td>发布清单、审查流程、领域资料</td>
+</tr>
+<tr>
+<td>作用范围</td>
+<td>整个项目</td>
+<td>可用 <code>paths</code> 限定路径</td>
+<td>当前被调用的任务</td>
+</tr>
+<tr>
+<td>上下文成本</td>
+<td>全文随会话使用</td>
+<td>无条件或匹配路径时加载</td>
+<td>描述常驻；正文使用时加载</td>
+</tr>
+<tr>
+<td>用户入口</td>
+<td>自动加载</td>
+<td>自动匹配</td>
+<td><code>/&lt;skill-name&gt;</code>，也可由模型匹配</td>
+</tr>
+<tr>
+<td>最容易犯的错</td>
+<td>塞入很长的参考手册</td>
+<td>路径模式没有命中</td>
+<td>描述含糊、意外自动触发</td>
+</tr>
+</tbody></table></div>
+<p>选择原则：</p>
+<ul>
+<li>“每次写代码都用 <code>python3 -m unittest</code>”放 <code>CLAUDE.md</code>；</li>
+<li>“修改 <code>tests/**</code> 时不得删除失败断言”放带 <code>paths</code> 的 Rule；</li>
+<li>“生成本周菜单并逐项检查库存”做成 <code>weekly-menu</code> Skill；</li>
+<li>有副作用的 Skill 可设 <code>disable-model-invocation: true</code>，只允许用户显式调用；</li>
+<li><code>allowed-tools</code> 只表示调用该 Skill 的那一轮可预批准哪些工具，不是全局工具白名单。</li>
+</ul>
+<p>Skill 也可设置 <code>context: fork</code>，在隔离上下文运行后把结果带回。它适合“固定工作流本身需要隔离”；如果你需要一个长期可复用、具有独立提示词、工具、模型、权限和预加载 Skills 的角色，则定义自定义 Subagent。</p>
+<h2 id="wiki-h-3">流程自动化：Skill、Hook 还是权限</h2>
+<p>用三个问题区分：</p>
+<ol>
+<li><strong>需要 Claude 判断怎样完成吗？</strong> 用 Skill。例如“根据本周菜谱生成采购检查报告”。</li>
+<li><strong>事件发生时必须自动运行吗？</strong> 用 Hook。例如每次编辑 Python 文件后运行格式或静态检查。</li>
+<li><strong>不满足条件时必须阻止调用吗？</strong> 优先用权限规则或 Sandbox；只有需要检查动态输入时，再使用 <code>PreToolUse</code> Hook。</li>
+</ol>
+<p>Hook 的“确定性”只指匹配事件一定会触发，不代表脚本一定正确，也不代表所有 Hook 都会阻止动作。必须验证：</p>
+<ul>
+<li>matcher 是否真的匹配目标工具；</li>
+<li>脚本在 macOS、Linux、WSL2 或 Windows 的运行方式；</li>
+<li>正常输入的退出码和输出；</li>
+<li>阻止输入的退出码、错误信息和 Claude Code 行为；</li>
+<li>Hook 失败后的最小停用方法。</li>
+</ul>
+<p>可复现实操见第 11 篇，完整配置片段见附录 03。</p>
+<h2 id="wiki-h-4">隔离工作：四种方式不要混用</h2>
+<h3 id="wiki-h-5">1. Skill 的 <code>context: fork</code></h3>
+<p>固定 Skill 在父对话的分支上下文中执行，适合把一个稳定工作流的中间材料隔离出去。它首先仍是“可复用流程”，不是一个单独维护的专家角色。</p>
+<h3 id="wiki-h-6">2. Subagent</h3>
+<p>Subagent 有自己的上下文，完成后向调用它的主 Agent 返回摘要。适合：</p>
+<ul>
+<li>阅读很多文件后只返回结论；</li>
+<li>独立审查、调查或验证一个窄问题；</li>
+<li>用工具白名单限制一个专门角色；</li>
+<li>多项互不写同一文件的工作并行进行。</li>
+</ul>
+<p>每个模型 Agent 都会消耗用量。并行并不会让依赖关系消失；同一文件、多步串行修改或很小的任务通常由主 Agent 完成更可靠。</p>
+<h3 id="wiki-h-7">3. 后台会话 / Agent view</h3>
+<p>这是完整、独立的 Claude Code 会话，适合启动一个任务后离开，再用 <code>claude agents</code>、<code>claude attach</code>、<code>claude logs</code> 或 <code>claude stop</code> 查看和管理。它不是 Subagent：主对话不会自动得到一份简短返回值，工作目录和变更也可能与其他会话发生冲突。</p>
+<h3 id="wiki-h-8">4. Agent Team</h3>
+<p>Agent Team 让多个独立 Claude Code 会话共享任务并互相协调。只有任务能真正拆成独立工作流、协调收益高于额外用量和冲突风险时才使用。</p>
+<p>对 MealCraft 这种个人项目，默认不需要 Agent Team。先掌握一个主会话、一个只读 Subagent 和一个后台会话，已经覆盖绝大多数学习场景。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>需求</th>
+<th>选择</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>固定流程，但不想让中间内容留在主上下文</td>
+<td>Skill <code>context: fork</code></td>
+</tr>
+<tr>
+<td>一次窄调查，完成后主 Agent 要拿到摘要</td>
+<td>Subagent</td>
+</tr>
+<tr>
+<td>一个完整任务要长期运行或稍后手动接管</td>
+<td>后台会话</td>
+</tr>
+<tr>
+<td>多个会话必须共享任务、持续互相沟通</td>
+<td>Agent Team，进阶选学</td>
+</tr>
+</tbody></table></div>
+<p>Subagent 完整练习见第 13 篇，后台会话练习见第 10 篇。</p>
+<h2 id="wiki-h-9">访问外部世界：MCP 还是内置工具</h2>
+<p>当前仓库中的源码、JSON、Markdown 和命令不需要 MCP。内置 Read、Glob、Grep、Edit 和 Bash 已能处理。</p>
+<p>只有出现下面的真实缺口才接 MCP：</p>
+<ul>
+<li>数据只存在于外部服务或独立数据库；</li>
+<li>某动作需要服务的专用 API；</li>
+<li>需要一个内置工具没有的受控能力。</li>
+</ul>
+<p>第一次连接遵循四步：</p>
+<ol>
+<li>从本地、只读、测试数据或测试账户开始；</li>
+<li>检查服务来源、启动命令、凭据范围和会产生的费用；</li>
+<li>用 <code>/mcp</code> 确认连接状态，并只调用一个无副作用工具；</li>
+<li>验证输出后再开放写操作，最后练习 disable、reconnect 或 remove。</li>
+</ol>
+<p>MCP 提供“连接和工具”，Skill 提供“怎样正确使用这些工具的知识”。两者可以组合，但不要用 Skill 冒充外部连接，也不要为了保存一段检查清单搭建 MCP。可运行示例见第 12 篇。</p>
+<h2 id="wiki-h-10">何时才值得打包 Plugin</h2>
+<p>Plugin 是分发层，可以打包 Skills、Hooks、Subagents、MCP 服务等组件。它不是新的执行模型，也不会自动解决权限问题。</p>
+<p>满足以下条件再打包：</p>
+<ul>
+<li>能力已在单个项目的 <code>.claude/</code> 中稳定运行；</li>
+<li>至少第二个项目需要相同组合；</li>
+<li>组件有版本、来源、验证和停用方法；</li>
+<li>使用者知道插件可能运行 Hook、启动 MCP 或暴露工具。</li>
+</ul>
+<p>个人项目的推荐顺序：</p>
+<pre><code class="hljs language-text">项目内配置 -&gt; 完整验证 -&gt; 第二个项目复用 -&gt; 本地插件 -&gt; 再考虑分发
+</code></pre><p>安装第三方插件前，阅读 manifest 和所含 Hook、MCP 启动命令；不要因为它来自 marketplace 就默认可信。练习插件时先临时加载，用 <code>claude plugin validate</code> 检查结构，再验证命名空间调用和停用路径。</p>
+<h2 id="wiki-h-11">代码智能何时有价值</h2>
+<p>Code intelligence 通过语言服务器提供符号定义、引用和编辑后的类型诊断。只有安装对应语言的代码智能插件后，LSP 工具才会启用。</p>
+<p>适合：大型 TypeScript、Go、Rust、Java 等强类型代码库，或同名符号很多、普通文本搜索难以判断真实引用的项目。</p>
+<p>不适合：为了“功能齐全”给 MealCraft 这样的轻量 Python 教学项目额外安装复杂工具链。即使用了 LSP，也要运行真实测试；类型诊断不能证明用户路径正确。</p>
+<h2 id="wiki-h-12">MealCraft 的最小演进路线</h2>
+<p>不要一次把九种能力全装进去。MealCraft 可以按出现的需求逐层增加：</p>
+<ol>
+<li><strong>普通提示词</strong>：第一次规划、实现和修复。</li>
+<li><strong><code>CLAUDE.md</code></strong>：固定启动、测试、验收命令和项目边界。</li>
+<li><strong>Rule</strong>：只在修改测试文件时加载测试约定。</li>
+<li><strong>Skill</strong>：把“生成周菜单并检查结果”做成手动调用流程。</li>
+<li><strong>Hook</strong>：每次相关编辑后自动记录或运行快速检查。</li>
+<li><strong>Subagent</strong>：只读审查菜谱换算和购物清单，不污染主上下文。</li>
+<li><strong>MCP</strong>：只有库存来自外部服务时才连接 pantry；本地 JSON 继续用内置工具。</li>
+<li><strong>Plugin</strong>：上述 Skill、Hook、Agent、MCP 在第二个个人项目也需要时再打包。</li>
+</ol>
+<p>这条路线不需要 Agent Team，也不需要 LSP。能力少并不落后；每项都能说明目的、边界和验证方法才是完成。</p>
+<h2 id="wiki-h-13">五分钟验证表</h2>
+<p>添加任何能力后，不要只问 Claude“加载成功了吗”。使用独立入口检查：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>能力</th>
+<th>首个检查</th>
+<th>通过标准</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CLAUDE.md</code> / Rule</td>
+<td><code>/context</code>，再开一个新会话做只读提问</td>
+<td>文件在正确来源出现；新会话能引用真实约定</td>
+</tr>
+<tr>
+<td>Skill</td>
+<td><code>/skills</code>，必要时 <code>/reload-skills</code>，再显式调用</td>
+<td>名称可见；输入、输出和副作用符合约定</td>
+</tr>
+<tr>
+<td>Hook</td>
+<td><code>/hooks</code>，分别运行正常和阻止样例</td>
+<td>matcher 命中；两条路径退出行为正确</td>
+</tr>
+<tr>
+<td>Subagent</td>
+<td><code>claude agents --json</code> 或会话内显式调用</td>
+<td>定义可发现；工具、权限和返回格式受控</td>
+</tr>
+<tr>
+<td>后台会话</td>
+<td><code>claude agents</code>，再查看日志或 attach</td>
+<td>能定位正确会话，磁盘变更可核对</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td><code>/mcp</code>，调用只读探针</td>
+<td>状态已连接；结果来自预期服务和测试数据</td>
+</tr>
+<tr>
+<td>Plugin</td>
+<td><code>claude plugin validate &lt;路径&gt; --strict</code>，再临时加载</td>
+<td>结构检查通过；组件用预期命名空间出现</td>
+</tr>
+<tr>
+<td>Code intelligence</td>
+<td>查询一个已知符号并制造可恢复的类型错误</td>
+<td>定义/引用位置正确；诊断能出现并在恢复后消失</td>
+</tr>
+</tbody></table></div>
+<p>如果验证失败，先停用刚添加的一层，再检查作用域、文件名、frontmatter、JSON、路径和当前版本帮助。不要同时改多个扩展，否则无法判断是哪一层造成问题。</p>
+<h2 id="wiki-h-14">成本与安全检查</h2>
+<p>采用某项能力前，逐项回答：</p>
+<ul>
+<li>它会不会让更多说明常驻上下文？</li>
+<li>它会不会启动额外模型 Agent，增加用量？</li>
+<li>它能读取哪些文件、环境变量或外部数据？</li>
+<li>它能写文件、发请求、修改数据库或触发费用吗？</li>
+<li>来源是否可信，启动命令是否已读过？</li>
+<li>如何独立证明它工作正常？</li>
+<li>如何在一分钟内停用或移除？</li>
+</ul>
+<p>答不出最后两项时，不要把它加入日常项目。</p>
+<h2 id="wiki-h-15">官方资料</h2>
+<ul>
+<li><a href="https://code.claude.com/docs/en/features-overview">扩展能力总览与选择比较</a></li>
+<li><a href="https://code.claude.com/docs/en/skills">Skills</a></li>
+<li><a href="https://code.claude.com/docs/en/hooks">Hooks</a></li>
+<li><a href="https://code.claude.com/docs/en/sub-agents">Subagents</a></li>
+<li><a href="https://code.claude.com/docs/en/agent-view">后台会话与 Agent view</a></li>
+<li><a href="https://code.claude.com/docs/en/agent-teams">Agent Teams</a></li>
+<li><a href="https://code.claude.com/docs/en/mcp">MCP</a></li>
+<li><a href="https://code.claude.com/docs/en/plugins">Plugins</a></li>
+<li><a href="https://code.claude.com/docs/en/tools-reference">工具与代码智能参考</a></li>
+</ul>
+<p>官方行为会随版本变化。命令不可用时，先运行 <code>claude --help</code>、对应子命令的 <code>--help</code>，并查看当前官方页面；不要用旧教程中的截图猜测。</p>
+</article>

@@ -1,0 +1,274 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本课按能力区分调查 read-only 与实施 workspace-write。若 /permissions 未显示只读，退出后用 <code>codex --sandbox read-only --ask-for-approval on-request</code> 启动；写入前明确切换 workspace-write 并提供计划。以实际权限摘要为准。</p>
+</blockquote>
+<blockquote>
+<p>本篇用途：遇到问题时先确定故障发生在哪一层，再做最小修复。不要一上来重装、删除配置或切到 Full Access。</p>
+</blockquote>
+<p>这套教程最后不再增加功能，而是把前面最容易卡住的环节串成一条排查路径。Codex 的问题通常落在五层：安装与版本、认证与 Provider、配置与权限、项目与工具、任务本身。顺序查清楚，比反复换提示词更有效。</p>
+<p>命令和界面会更新。本篇以修订时的稳定 CLI 为准；你的第一依据仍应是本机 <code>--help</code> 和 <a href="https://learn.chatgpt.com/docs/developer-commands">OpenAI 官方 Developer commands</a>。</p>
+<h2 id="wiki-h-0">先留住现场：四项基础检查</h2>
+<p>除非终端已经提示 <code>codex: command not found</code>，否则先在<strong>普通系统终端</strong>中运行：</p>
+<pre><code class="hljs language-bash">codex --version
+codex login status
+codex doctor --summary
+git status --short
+</code></pre><p>PowerShell 中命令相同。最后一条需要在项目目录执行；若当前不是 Git 仓库，它会直接告诉你。</p>
+<p>这四条分别回答：</p>
+<ul>
+<li>终端实际调用的是哪个版本；</li>
+<li>本机是否保存了可用的 OpenAI 登录凭据；</li>
+<li>安装、配置、认证、运行时、Git 和终端等基础检查是否有警告；</li>
+<li>故障发生前，项目里是否已经有未提交改动。</li>
+</ul>
+<p>当前 CLI 的 <code>codex doctor</code> 会生成诊断报告；<code>--summary</code> 只显示分组结果。先记下失败项，不要看到一条警告就立刻改多个设置。修复一项后重复同一组命令，才能知道到底是哪一步起作用。</p>
+<p>如果问题只在某个项目出现，再补两条：</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">pwd</span>
+git rev-parse --show-toplevel
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Location</span>
+git rev<span class="hljs-literal">-parse</span> <span class="hljs-literal">--show-toplevel</span>
+</code></pre><p>两个路径应该与你准备交给 Codex 的项目一致。很多“读不到文件”“规则没生效”，根因只是从错误目录启动。</p>
+<h2 id="wiki-h-1">终端找不到 <code>codex</code>，或运行的不是预期版本</h2>
+<h3 id="wiki-h-2">症状：<code>codex: command not found</code> 或“无法将 codex 识别为命令”</h3>
+<p>先确认系统能否定位可执行文件。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">command</span> -v codex
+<span class="hljs-built_in">type</span> -a codex
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Command</span> codex <span class="hljs-literal">-All</span> <span class="hljs-literal">-ErrorAction</span> SilentlyContinue
+</code></pre><p>没有输出，说明当前 shell 的 <code>PATH</code> 中没有 Codex；出现多个路径，则可能同时装过独立安装版、npm 或 Homebrew 版本。先回忆第二篇使用的安装方式，按照<a href="https://learn.chatgpt.com/docs/codex/cli">当前 Codex CLI 安装页</a>为同一种方式修复或更新，不要同时叠加另一套安装器。</p>
+<p>重新安装或修正 <code>PATH</code> 后，关闭并新开一个终端，再运行：</p>
+<pre><code class="hljs language-bash">codex --version
+codex --<span class="hljs-built_in">help</span>
+</code></pre><p>两条都能输出才算恢复。只看到安装包存在，不等于当前终端能调用它。</p>
+<h3 id="wiki-h-3">症状：教程里的参数不存在，或 CLI 与桌面应用表现不同</h3>
+<p>先比较版本，不要直接判断功能被删除：</p>
+<pre><code class="hljs language-bash">codex --version
+codex update
+codex --version
+</code></pre><p><code>codex update</code> 只在当前发行版支持自更新时生效；若它提示使用安装器更新，就按原安装渠道更新。更新后用目标子命令的帮助核对，例如：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --<span class="hljs-built_in">help</span>
+codex review --<span class="hljs-built_in">help</span>
+</code></pre><p>桌面应用与单独安装的 CLI 可能捆绑不同 Codex 版本，功能到达时间也可能不同，这是官方排障页明确列出的情况。不要用系统 CLI 的版本号推断桌面应用一定拥有同一功能。参见 <a href="https://learn.chatgpt.com/docs/reference/troubleshooting">Troubleshooting</a>。</p>
+<h3 id="wiki-h-4">Windows 特别检查：你到底在 PowerShell 还是 WSL</h3>
+<p>原生 Windows 与 WSL2 是两个运行环境，可以分别拥有不同的 Codex、配置和登录状态。在 PowerShell 中用 Windows 路径，在 WSL 中用 Linux 路径；不要把 <code>C:\project</code>、<code>/mnt/c/project</code> 和 <code>/home/user/project</code> 当成同一个工作目录。</p>
+<p>在 WSL 中运行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">"<span class="hljs-variable">$WSL_DISTRO_NAME</span>"</span>
+<span class="hljs-built_in">which</span> codex
+</code></pre><p>如果第一个命令有发行版名称、第二个找不到 Codex，说明你可能只在 Windows 侧安装过。当前官方文档要求使用 WSL2；新版 Linux 沙箱不再支持 WSL1。代码仓库若主要在 WSL 中使用，优先放在 <code>~/code/...</code>，避免大型项目长期跨 <code>/mnt/c</code> 读写。详见 <a href="https://learn.chatgpt.com/docs/windows/wsl">WSL 指南</a>。</p>
+<h2 id="wiki-h-5">Codex 启动失败：先查配置，不要先删配置</h2>
+<h3 id="wiki-h-6">症状：出现 TOML 解析错误、未知配置项，或更新后无法启动</h3>
+<p>先运行：</p>
+<pre><code class="hljs language-bash">codex doctor --summary
+</code></pre><p>然后打开用户级配置，但不要把内容整份贴到聊天或工单中：</p>
+<ul>
+<li>macOS、Linux、WSL：<code>~/.codex/config.toml</code></li>
+<li>Windows：<code>%USERPROFILE%\.codex\config.toml</code></li>
+</ul>
+<p>高频问题包括：同一个顶层键写了两次、字符串引号未闭合、顶层键误放进某个 <code>[table]</code>、复制了旧版本已移除的配置。当前版本已不再支持：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">approval_policy</span> = <span class="hljs-string">"untrusted"</span>
+</code></pre><p>如果配置中仍有这行，删除它或改用当前支持的审批策略；项目是否可信应通过用户配置中的项目 <code>trust_level</code> 表达，不能把旧的 <code>approval_policy</code> 原样保留。官方迁移说明见 <a href="https://learn.chatgpt.com/docs/agent-approvals-security">Agent approvals &amp; security</a>。</p>
+<p>修改前先备份配置。macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> ~/.codex/config.toml ~/.codex/config.toml.before-fix
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\.codex\config.toml"</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\.codex\config.toml.before-fix"</span>
+</code></pre><p>一次只改一个可疑项，保存后重跑 <code>codex doctor --summary</code>。如果 Codex 可以进入交互界面，再输入：</p>
+<pre><code class="hljs language-text">/debug-config
+</code></pre><p>它会显示配置层的加载顺序和策略来源，适合排查“文件里明明这样写，实际却不是这样”的问题。Provider、认证路由和模型服务商配置必须放在用户级配置中；项目级 <code>.codex/config.toml</code> 不允许覆盖这些机器级设置。参见 <a href="https://learn.chatgpt.com/docs/config-file/config-reference">Configuration Reference</a>。</p>
+<h2 id="wiki-h-7">登录正常不等于 Provider 正常</h2>
+<p>认证排障要先分清两条链路：</p>
+<ul>
+<li><code>codex login</code> 管理 ChatGPT OAuth、OpenAI API Key 或访问令牌；</li>
+<li>自定义 Provider 通常从它在 <code>config.toml</code> 中声明的 <code>env_key</code> 读取第三方密钥。</li>
+</ul>
+<p>因此，<code>codex login status</code> 成功，只能证明本机有 OpenAI 登录凭据，不能证明第三方中转平台的密钥和接口可用。</p>
+<h3 id="wiki-h-8">症状：ChatGPT 登录失败，浏览器授权后没有返回</h3>
+<p>先检查状态：</p>
+<pre><code class="hljs language-bash">codex login status
+</code></pre><p>如果未登录，重新运行：</p>
+<pre><code class="hljs language-bash">codex login
+</code></pre><p>浏览器回调受公司网络、代理或浏览器插件影响时，可以使用设备码流程：</p>
+<pre><code class="hljs language-bash">codex login --device-auth
+</code></pre><p>按这一次终端显示的地址和代码操作，不要复用旧页面。完成后重新执行 <code>codex login status</code>；官方命令说明中，凭据存在时该命令会以退出码 <code>0</code> 结束。</p>
+<p>不要为了“重新来一遍”随意运行 <code>codex logout</code>。它会移除已保存的 ChatGPT 与 API Key 认证；只有确认要清除本机凭据时才使用。</p>
+<h3 id="wiki-h-9">症状：从第三方 Provider 切回 ChatGPT 后仍走中转平台</h3>
+<p>只重新登录不够，因为 Provider 路由仍可能指向第三方。先备份用户级 <code>config.toml</code>，再核对这些位置：</p>
+<ol>
+<li>将顶层 <code>model_provider</code> 恢复为 <code>"openai"</code>；</li>
+<li>如果 <code>openai_base_url</code> 曾被改为中转地址，删除该覆盖；</li>
+<li>删除或改掉只属于第三方平台的顶层 <code>model</code>，之后在 <code>/model</code> 中选择账号可用模型；</li>
+<li>启动命令不要再带第三方 <code>--profile</code>；</li>
+<li>自定义 <code>[model_providers.xxx]</code> 表可以暂时保留，只要它不再被选中。</li>
+</ol>
+<p>然后运行：</p>
+<pre><code class="hljs language-bash">codex login
+codex login status
+codex
+</code></pre><p>进入交互界面后输入 <code>/status</code>，核对有效 Provider、模型和权限。第三方密钥环境变量即使仍存在，也不会自动证明当前正在使用它；最终以有效配置和 <code>/status</code> 为准。</p>
+<h3 id="wiki-h-10">症状：401、403、模型不存在或第三方接口能聊天但不会用工具</h3>
+<p>按下面顺序查，不要同时改地址、密钥和模型名：</p>
+<ol>
+<li>用平台文档核对 <code>base_url</code>，尤其是是否应包含 <code>/v1</code>；</li>
+<li>核对 <code>env_key</code> 写的是<strong>环境变量名</strong>，不是密钥本身；</li>
+<li>只检查变量是否存在，不打印值；</li>
+<li>核对准确模型 ID 与账号权限；</li>
+<li>确认平台支持 Codex 所需的 Responses API、流式事件和工具调用，而不只是普通文本对话。</li>
+</ol>
+<p>macOS、Linux 或 WSL，假设配置中的变量名是 <code>RELAY_API_KEY</code>：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">test</span> -n <span class="hljs-string">"<span class="hljs-variable">$RELAY_API_KEY</span>"</span> &amp;&amp; <span class="hljs-built_in">echo</span> <span class="hljs-built_in">set</span> || <span class="hljs-built_in">echo</span> missing
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-keyword">if</span> (<span class="hljs-variable">$env:RELAY_API_KEY</span>) { <span class="hljs-string">"set"</span> } <span class="hljs-keyword">else</span> { <span class="hljs-string">"missing"</span> }
+</code></pre><p>若变量只在某个终端设置，必须从同一终端启动 Codex。最小验证顺序是：简单回答 → 列出当前目录 → 读取一个样例文件 → 在练习目录创建一个文件。前两步成功而文件工具失败，问题更可能在接口能力或工具调用兼容性，而不是提示词。</p>
+<h3 id="wiki-h-11">症状：429、用量或限流错误</h3>
+<p>429 可能来自账号用量、请求速率、并发数或第三方平台余额。先停止并行 Agent 和自动重试，稍后再执行一个最小请求；然后到实际 Provider 的控制台核对限额。ChatGPT 订阅额度与第三方 API 余额不是同一件事，先用 <code>/status</code> 确认当前到底走哪条链路。</p>
+<h2 id="wiki-h-12">能对话，但读不到文件或改不了文件</h2>
+<h3 id="wiki-h-13">症状：Codex 看不到你说的项目</h3>
+<p>在交互界面输入：</p>
+<pre><code class="hljs language-text">/status
+</code></pre><p>核对当前目录和 writable roots，再在终端执行本篇开头的 <code>pwd</code>/<code>Get-Location</code> 与 <code>git rev-parse --show-toplevel</code>。如果启动目录错了，退出后进入正确项目再运行 <code>codex</code>，或者显式使用：</p>
+<pre><code class="hljs language-bash">codex --<span class="hljs-built_in">cd</span> <span class="hljs-string">"/绝对路径/项目目录"</span>
+</code></pre><p>桌面应用中则取消当前错误任务，重新以正确文件夹创建 Local 任务。不要为了让文件“可见”，把整个个人主目录加成可写范围。</p>
+<h3 id="wiki-h-14">症状：Codex 一直请求批准</h3>
+<p>审批策略与沙箱不是一回事：沙箱决定技术上能访问哪里，审批策略决定何时停下来问你。输入 <code>/permissions</code> 和 <code>/status</code>，检查当前是否为 Read Only、任务是否越过工作区，以及是否需要网络。</p>
+<p>日常仓库修改通常使用 Auto，即 <code>workspace-write</code> 加 <code>on-request</code>。下面这些动作仍可能触发审批：</p>
+<ul>
+<li>写工作区之外的路径；</li>
+<li>默认关闭时访问命令网络；</li>
+<li>安装依赖或启动外部应用；</li>
+<li>调用带副作用的 App 或 MCP 工具。</li>
+</ul>
+<p>不要用 Full Access 消灭所有提示。先看请求中的命令、目标路径和原因；如果任务确实只需仓库内部，就让 Codex 改成不越界的方案。官方权限模型见 <a href="https://learn.chatgpt.com/docs/agent-approvals-security">Agent approvals &amp; security</a>。</p>
+<h3 id="wiki-h-15">症状：已经是 Workspace Write，某些目录仍写不了</h3>
+<p>先看准确错误路径。当前默认策略会继续保护工作区中的 <code>.git</code>、<code>.agents</code> 和 <code>.codex</code> 等敏感目录；操作系统权限、文件锁定和组织策略也可能进一步收紧。不要把“工作区可写”理解成目录内每个位置都无条件可写。</p>
+<p>如果需要创建 Skill、修改配置或执行 Git 内部操作，应让对应受控能力发起精确审批，而不是把整个会话升级到 Full Access。修复后用 <code>git status --short</code> 或实际文件列表验证变化范围。</p>
+<h3 id="wiki-h-16">症状：联网失败，但网页搜索还能用；或反过来</h3>
+<p>本地命令的网络访问与 Codex 的网页搜索是两条不同通道。<code>workspace-write</code> 默认不会让 shell 命令自由联网；网页搜索可能仍使用缓存索引。先判断失败的是 <code>curl</code>、包管理器等本地命令，还是 Web Search 工具，再检查对应设置，不能用其中一项成功证明另一项也已开放。</p>
+<h2 id="wiki-h-17">项目规则没生效，或结果越做越偏</h2>
+<h3 id="wiki-h-18">症状：Codex 没有遵守 <code>AGENTS.md</code></h3>
+<p>先确认文件名、目录与会话时机：</p>
+<ul>
+<li>根规则应为项目路径上的 <code>AGENTS.md</code>；</li>
+<li>更近目录中的 <code>AGENTS.md</code> 或 <code>AGENTS.override.md</code> 可能追加或覆盖规则；</li>
+<li>你必须从正确项目目录启动；</li>
+<li>新增或修改规则后，最好开一个新会话验证。</li>
+</ul>
+<p>在交互界面运行 <code>/debug-config</code>，查看配置和项目层来源；再让新会话只读复述测试命令、数据边界和完成标准。能复述后，还要用一个小任务观察它是否真的按规则执行。</p>
+<h3 id="wiki-h-19">症状：Codex 一上来大范围重构</h3>
+<p>立即在当前回合输入转向指令：</p>
+<pre><code class="hljs language-text">暂停扩大修改范围。先列出当前已经变更的文件和原因，不再继续编辑。
+
+请回到最小目标：先复现问题，给出根因证据和最小修改计划，等我确认后再改。不要提交、推送或重构无关代码。
+</code></pre><p>随后输入 <code>/diff</code>，并在终端运行：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --<span class="hljs-built_in">stat</span>
+</code></pre><p>不要直接要求“全部恢复”，因为工作树里可能混有你原来的未提交内容。先分清哪些变化属于本轮，再决定逐项保留或撤回。</p>
+<h3 id="wiki-h-20">症状：Codex 说测试通过，但结果仍不可信</h3>
+<p>要求它给出真实命令、工作目录、退出码、测试数量与关键输出。然后自己在普通终端重跑同一条命令，并检查 <code>git diff</code>。至少区分四件事：</p>
+<ul>
+<li>Codex 进程是否正常结束；</li>
+<li>目标测试是否真的运行；</li>
+<li>完整测试是否回归通过；</li>
+<li>实际 Diff 是否只包含预期修改。</li>
+</ul>
+<p>“写了测试文件”不等于运行过，“退出码 0”也不等于测试覆盖了你关心的行为。</p>
+<h3 id="wiki-h-21">症状：会话很长，反复遗忘已确认决定</h3>
+<p>先把当前状态写入仓库中的 <code>STATUS.md</code>、任务计划或其他项目文件，再使用 <code>/compact</code>；或者新建会话，把目标、已完成项、测试结果、Git 状态和下一步一起交给它。不要只说“继续刚才的任务”，也不要让一个会话长期混合多个无关目标。</p>
+<h2 id="wiki-h-22">Skill、Plugin、MCP 或 App 看不见</h2>
+<p>先分清你在找哪一层：Skill 是本地流程说明，Plugin 是可安装能力包，MCP 是工具连接，App/connector 是用户连接的外部服务。把它们都叫“插件”，会让排查入口错位。</p>
+<h3 id="wiki-h-23">Skill 刚创建，但 <code>/skills</code> 中没有</h3>
+<p>仓库 Skill 应位于：</p>
+<pre><code class="hljs language-text">.agents/skills/&lt;skill-name&gt;/SKILL.md
+</code></pre><p>检查 <code>SKILL.md</code> 的 YAML frontmatter 是否包含准确的 <code>name</code> 和能说明触发场景的 <code>description</code>，然后从项目根目录开启新会话，再输入 <code>/skills</code>。若仍没有，确认当前会话不是在另一个工作区，以及父目录或组织策略没有限制本地 Skill。</p>
+<h3 id="wiki-h-24">Plugin 已安装，但当前会话中不可用</h3>
+<p>先在普通终端查看安装状态：</p>
+<pre><code class="hljs language-bash">codex plugin list
+</code></pre><p>再在交互界面输入 <code>/plugins</code>，确认插件是否启用，以及当前安装包到底提供了哪些 Skills、MCP 工具或 Apps。安装状态不等于每项能力都适用于当前平台和账号；刚安装或切换启用状态后，新开会话再测一次。</p>
+<h3 id="wiki-h-25">MCP 显示已配置，但工具调用失败</h3>
+<p>从“配置存在”逐层验证到“工具可调用”：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">codex mcp list
+codex mcp get &lt;服务器名称&gt;
+</code></pre><p>然后在交互界面输入：</p>
+<pre><code class="hljs language-text">/mcp verbose
+</code></pre><p>依次检查：STDIO 启动命令是否存在、所需环境变量是否进入 Codex 进程、远程 URL 是否可达、OAuth 是否完成、服务器是否真的暴露了预期工具。远程服务器需要重新认证时，使用：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">codex mcp login &lt;服务器名称&gt;
+</code></pre><p>先调用一个最小只读工具，确认返回了真实数据，再测试写操作。不要用高权限写入调用来证明“连接成功”。官方 MCP 命令与配置见 <a href="https://learn.chatgpt.com/docs/extend/mcp">Model Context Protocol</a>。</p>
+<h3 id="wiki-h-26">找不到某个 App，或连接后没有权限</h3>
+<p>在交互界面输入 <code>/apps</code>，它用于浏览可用 App 并把 App 引用插入提示词。若列表中没有目标服务，可能是插件未安装、账号/地区不提供、组织管理员禁用，或当前 Surface 不支持；这不是靠重启 MCP 就一定能解决的问题。</p>
+<p>连接成功后仍要区分读取权限和写入权限。先完成一次只读查询，再执行任何发消息、改记录或外部发布动作。</p>
+<h2 id="wiki-h-27"><code>codex exec</code> 与 CI 的问题</h2>
+<h3 id="wiki-h-28">症状：<code>codex exec</code> 只分析，没有修改文件</h3>
+<p>先看本机帮助：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --<span class="hljs-built_in">help</span>
+</code></pre><p>需要写入且目录可信时，显式设置：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --sandbox workspace-write <span class="hljs-string">"&lt;你的任务&gt;"</span>
+</code></pre><p>再用 <code>git status --short</code> 和测试验证。不要因为无人值守就使用 <code>--dangerously-bypass-approvals-and-sandbox</code>；非交互任务更需要最小工作目录和明确边界。</p>
+<h3 id="wiki-h-29">症状：提示不是 Git 仓库，或处理了错误目录</h3>
+<p>先执行：</p>
+<pre><code class="hljs language-bash">git rev-parse --show-toplevel
+</code></pre><p>不在正确目录时，先进入仓库，或显式指定：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --<span class="hljs-built_in">cd</span> <span class="hljs-string">"/绝对路径/仓库"</span> --sandbox read-only <span class="hljs-string">"&lt;只读任务&gt;"</span>
+</code></pre><p><code>--skip-git-repo-check</code> 只适合你明确了解的可信非仓库目录；它绕过的是检查，不会让目录自动变安全。</p>
+<h3 id="wiki-h-30">症状：<code>--json</code> 生成的文件无法按普通 JSON 解析</h3>
+<p><code>--json</code> 输出的是 JSONL：每行一个独立事件，不是外层数组。逐行解析，或只需要最终回复时使用：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --output-last-message result.md --sandbox read-only <span class="hljs-string">"&lt;任务&gt;"</span>
+</code></pre><p>若需要稳定字段，再配合 <code>--output-schema</code>。无论哪种格式，CLI 退出码只说明 Codex 运行是否完成；测试、扫描或业务检查是否通过，必须保留它们自己的状态字段或退出码。</p>
+<h3 id="wiki-h-31">症状：本地成功，CI 中却未登录、读不到 Key 或表现不同</h3>
+<p>CI 是新的非交互环境，不会自动继承你电脑上的登录和 shell 配置。检查：</p>
+<ul>
+<li><code>codex login status</code> 在 CI 是否成功；</li>
+<li>API Key 是否只注入运行 Codex 的步骤；</li>
+<li>工作目录和 checkout 是否正确；</li>
+<li>脚本是否依赖本机 profile、未提交文件或用户级 <code>config.toml</code>；</li>
+<li>外部贡献的代码是否可能读取 Secret。</li>
+</ul>
+<p>不要把密钥写入命令参数、仓库、日志或构建产物。失败时先打印变量是否存在，绝不打印变量值。</p>
+<h2 id="wiki-h-32">桌面应用的问题</h2>
+<h3 id="wiki-h-33">症状：打开了项目，但文件、分支或 Diff 不对</h3>
+<p>先确认任务目标是 Local、Worktree 还是 Cloud。Local 直接使用本机项目；Worktree 是另一个 Git 工作目录；Cloud 使用远端环境。选错目标时取消当前运行，回到正确项目重新建任务，不要在错误环境里补路径凑合。</p>
+<p>Review 面板还可能显示项目中原本就存在的 Git 变化，而不只显示 Codex 本轮修改。想看本轮时切到 <code>Last turn</code>；想看真实工作树则用 <code>git status --short</code> 和 <code>git diff</code> 复核。</p>
+<h3 id="wiki-h-34">症状：桌面任务一直不动</h3>
+<p>按顺序看：</p>
+<ol>
+<li>当前回合是否在等待审批或你的回答；</li>
+<li>集成终端能否运行 <code>pwd</code> 或 <code>git status</code>；</li>
+<li>当前任务是否仍在正确目录；</li>
+<li>是否可以取消后用更小、更明确的提示新开任务。</li>
+</ol>
+<p>终端面板卡住时，关闭后重新打开，再运行一个基础命令。等待其他活跃任务结束后重启应用，通常比强制终止所有任务更安全。官方恢复步骤见 <a href="https://learn.chatgpt.com/docs/reference/troubleshooting">Troubleshooting</a>。</p>
+<h3 id="wiki-h-35">症状：ChatGPT 看不到或无法操作桌面应用</h3>
+<p>这属于 Computer Use 权限，不是 Codex 工作区权限。macOS 需要在“系统设置 → 隐私与安全性”中检查屏幕录制与辅助功能；Windows 要确保目标应用显示在当前活动桌面。ChatGPT 内部还会单独询问是否允许使用某个 App。</p>
+<p>系统权限、App 允许列表、文件沙箱是三层不同边界：能看见窗口不等于能写项目文件，允许一个 App 也不等于获得全盘访问。参见 <a href="https://learn.chatgpt.com/docs/computer-use">Computer Use</a>。</p>
+<h3 id="wiki-h-36">Windows 桌面应用找不到 WSL 项目</h3>
+<p>添加项目时在文件选择器中输入 <code>\\wsl$\</code>，再进入对应发行版。如果希望 Agent 本身在 WSL2 中运行，到 Settings 切换 Agent environment，并重启应用；集成终端使用 PowerShell 还是 WSL 是另一项独立设置。具体路径与限制见 <a href="https://learn.chatgpt.com/docs/windows/windows-app">Windows desktop app</a>。</p>
+<h2 id="wiki-h-37">仍未解决时，生成一份可复现的故障报告</h2>
+<p>先保存诊断信息：</p>
+<pre><code class="hljs language-bash">codex doctor --json &gt; codex-doctor.json
+</code></pre><p><code>--json</code> 会生成脱敏的机器可读报告，但分享前仍要亲自检查文件，删除个人路径、项目名、内部地址或其他不希望外传的内容。日志和会话记录也可能包含提示词、文件路径与工具输出，不能未经检查直接上传。</p>
+<p>提交问题时使用下面的模板：</p>
+<pre><code class="hljs language-text">操作系统与版本：
+运行环境：macOS / Windows 原生 / WSL2 / Linux
+Codex 入口：CLI / ChatGPT 桌面应用 / IDE / codex exec
+Codex 版本：
+安装方式：独立安装器 / npm / Homebrew / 其他
+当前目录与是否为 Git 仓库：
+认证方式：ChatGPT / OpenAI API Key / 自定义 Provider（不要附密钥）
+权限模式与沙箱：
+
+最小复现步骤：
+1.
+2.
+3.
+
+预期结果：
+实际结果：
+完整错误文本（已脱敏）：
+codex doctor 中失败的检查：
+已经尝试过的单项修复：
+</code></pre><p>好的故障报告不需要堆满所有配置，而要让别人能在同一入口、同一目录和同一权限模式下复现。不要附 API Key、访问令牌、客户资料、完整环境变量或未经审查的会话记录。</p>
+<h2 id="wiki-h-38">本篇小结</h2>
+<p>排查 Codex 时，先确认“哪一层坏了”：命令能不能找到，版本是否一致，登录和 Provider 是否走对，配置是否被正确加载，工作区与权限是否覆盖目标，工具连接是否真的完成最小只读调用，最后才判断是不是提示词或模型表现问题。</p>
+<p>到这里，这套教程的主线完成了：你不仅能用 Codex 完成从 TaskFlow 开发到发布准备的完整流程，也能把同样的方法迁移到桌面办公任务，并在出错时保留现场、缩小范围、独立验证修复结果。以后遇到新功能，先用本机帮助和官方文档确认当前行为，再把它放进一个可以验收的小任务里。</p>
+</article>

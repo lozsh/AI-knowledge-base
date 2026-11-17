@@ -1,0 +1,31 @@
+原文：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P23
+版本：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成
+译本：v1.0，2026-11
+时效：内容为 2025 年 8 月版本，功能名与命令以官方文档为准
+版权：原文 © Anthropic。非官方中文译本，仅供学习交流。
+
+示例：项目级 CLAUDE.md 结构
+
+# Project Feline - Cloud Task Scheduler
+
+## Development Environment
+- Use Node.js 18+ with nvm for version management
+- Run `npm run setup` for initial environment configuration
+- All database changes require migration files in `/migrations`
+
+## Claude Code Guidelines
+- Always run tests before committing: `npm test`
+- Use TypeScript for all new modules
+- Follow our API naming convention: `/api/v2/tasks/{resource}`
+- Security: Never commit API keys or database credentials in code
+
+## Architecture Notes
+- Task scheduling uses Redis queues for job management
+- All external API calls must include retry logic and timeouts
+- Database queries should use connection pooling for performance
+
+## Current Sprint Focus
+- Implementing distributed task execution
+- Focus on fault-tolerance and recovery patterns
+- All scheduling logic requires unit tests + integration tests
+

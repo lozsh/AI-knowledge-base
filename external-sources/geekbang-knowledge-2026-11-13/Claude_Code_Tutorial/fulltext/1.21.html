@@ -1,0 +1,519 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>核对日期：2026-09-30<br>核对环境：Claude Code 2.1.281<br>用法：先按目的找入口，再运行本机帮助确认。此表服务于本课程，不替代完整参数手册。</p>
+</blockquote>
+<p>Claude Code 更新很快。遇到本附录与本机不同，以以下命令和当前官方文档为准：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">claude --version
+claude --help
+claude &lt;子命令&gt; --help
+</code></pre><p>尖括号表示必须替换的占位符，例如 <code>&lt;session-id&gt;</code>；方括号只在命令说明中表示可选项，不要原样输入。</p>
+<h2 id="wiki-h-0">安装、健康与认证</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+<th>结果或注意点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>查看版本</td>
+<td><code>claude --version</code></td>
+<td>先记录版本再排查参数差异</td>
+</tr>
+<tr>
+<td>查看顶层帮助</td>
+<td><code>claude --help</code></td>
+<td>当前机器可用项的第一证据</td>
+</tr>
+<tr>
+<td>只读健康检查</td>
+<td><code>claude doctor</code></td>
+<td>不启动会话；读取当前目录设置，可信目录内运行</td>
+</tr>
+<tr>
+<td>原生安装版更新</td>
+<td><code>claude update</code></td>
+<td>包管理器安装要用对应包管理器更新</td>
+</tr>
+<tr>
+<td>登录 Anthropic</td>
+<td><code>claude auth login</code></td>
+<td>按终端提示选择支持的认证方式</td>
+</tr>
+<tr>
+<td>查看认证状态</td>
+<td><code>claude auth status --text</code></td>
+<td>不输出密钥；适合排查凭据来源</td>
+</tr>
+<tr>
+<td>JSON 认证状态</td>
+<td><code>claude auth status --json</code></td>
+<td>适合脚本读取</td>
+</tr>
+<tr>
+<td>退出登录</td>
+<td><code>claude auth logout</code></td>
+<td>只在确实要切换身份时使用</td>
+</tr>
+</tbody></table></div>
+<p><code>claude doctor</code> 是只读诊断；交互会话中的 <code>/doctor</code> 能提出修复，并在你确认后应用。安装与认证的完整流程分别见第 2 篇和第 3 篇。</p>
+<h2 id="wiki-h-1">启动与恢复会话</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+<th>结果或注意点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>在当前目录启动</td>
+<td><code>claude</code></td>
+<td>进入交互会话</td>
+</tr>
+<tr>
+<td>带初始任务启动</td>
+<td><code>claude "解释这个项目的入口和测试命令"</code></td>
+<td>第一条消息直接发送</td>
+</tr>
+<tr>
+<td>继续当前目录最近会话</td>
+<td><code>claude --continue</code> 或 <code>claude -c</code></td>
+<td>继续最近可恢复会话</td>
+</tr>
+<tr>
+<td>打开会话选择器</td>
+<td><code>claude --resume</code></td>
+<td>交互选择历史会话</td>
+</tr>
+<tr>
+<td>恢复指定会话</td>
+<td><code>claude --resume &lt;session-id&gt;</code></td>
+<td>ID 可从历史或后台列表获得</td>
+</tr>
+<tr>
+<td>恢复时另建会话 ID</td>
+<td><code>claude --resume &lt;session-id&gt; --fork-session</code></td>
+<td>保留原会话分支</td>
+</tr>
+<tr>
+<td>指定模型</td>
+<td><code>claude --model sonnet</code></td>
+<td>可用模型以 <code>/model</code> 和账号权限为准</td>
+</tr>
+<tr>
+<td>指定推理强度</td>
+<td><code>claude --effort high</code></td>
+<td>可用级别取决于模型</td>
+</tr>
+<tr>
+<td>增加可访问目录</td>
+<td><code>claude --add-dir ../shared</code></td>
+<td>不等于自动加载该目录所有配置</td>
+</tr>
+<tr>
+<td>指定权限模式</td>
+<td><code>claude --permission-mode plan</code></td>
+<td>可用值见下一节</td>
+</tr>
+<tr>
+<td>在隔离 worktree 启动</td>
+<td><code>claude --worktree mealcraft-fix</code></td>
+<td>仅适用于 Git 仓库；先理解分支与未提交改动</td>
+</tr>
+</tbody></table></div>
+<p>会话恢复不会证明磁盘状态正确。接手长任务后先运行 <code>git status --short</code>、测试和项目验收脚本。完整流程见第 10 篇。</p>
+<h2 id="wiki-h-2">权限模式与工具边界</h2>
+<h3 id="wiki-h-3">1. 权限模式</h3>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">claude --permission-mode &lt;mode&gt;
+</code></pre><div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>mode</th>
+<th>适合场景</th>
+<th>关键边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>manual</code></td>
+<td>日常学习和逐项批准</td>
+<td>是 <code>default</code> 的别名；UI 显示 Manual</td>
+</tr>
+<tr>
+<td><code>acceptEdits</code></td>
+<td>信任当前编辑范围，仍审查其他风险动作</td>
+<td>不是无条件批准 Bash</td>
+</tr>
+<tr>
+<td><code>plan</code></td>
+<td>只调查和规划</td>
+<td>不应修改项目源文件</td>
+</tr>
+<tr>
+<td><code>auto</code></td>
+<td>让自动模式分类器判断动作</td>
+<td>仍受设置、策略和 Sandbox 约束</td>
+</tr>
+<tr>
+<td><code>dontAsk</code></td>
+<td>无人值守时自动拒绝本来需要询问的动作</td>
+<td>原本允许的读取或预批准动作仍可执行</td>
+</tr>
+<tr>
+<td><code>bypassPermissions</code></td>
+<td>仅限外部强隔离环境</td>
+<td>跳过权限提示；不是 Sandbox</td>
+</tr>
+</tbody></table></div>
+<p>不要把 <code>--dangerously-skip-permissions</code> 写进 Shell 别名、课程默认命令或普通自动化。它等价于 <code>--permission-mode bypassPermissions</code>。</p>
+<h3 id="wiki-h-4">2. 三个容易混淆的工具参数</h3>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>实际作用</th>
+<th>不会做什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--tools "Read,Grep,Glob"</code></td>
+<td>限制 Claude 可见的<strong>内置工具</strong></td>
+<td>不限制 MCP 工具</td>
+</tr>
+<tr>
+<td><code>--allowedTools "Read" "Bash(git diff *)"</code></td>
+<td>让匹配调用免审批</td>
+<td>不是工具白名单，不会移除其他工具</td>
+</tr>
+<tr>
+<td><code>--disallowedTools "Edit" "mcp__*"</code></td>
+<td>裸工具名可移除工具；带范围的规则拒绝匹配调用</td>
+<td>不能替代操作系统级隔离</td>
+</tr>
+</tbody></table></div>
+<p>常用组合：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># 纯文本推理：移除全部内置工具，并拒绝 MCP 工具</span>
+claude -p \
+  --tools <span class="hljs-string">""</span> \
+  --disallowedTools <span class="hljs-string">"mcp__*"</span> \
+  --permission-mode dontAsk \
+  --permission-prompts none \
+  <span class="hljs-string">"把输入归类为 bug、feature 或 question"</span>
+
+<span class="hljs-comment"># 只暴露读取类内置工具；MCP 仍单独拒绝</span>
+claude -p \
+  --tools <span class="hljs-string">"Read,Grep,Glob"</span> \
+  --disallowedTools <span class="hljs-string">"mcp__*"</span> \
+  --permission-mode dontAsk \
+  --permission-prompts none \
+  <span class="hljs-string">"只读检查当前项目入口"</span>
+</code></pre><p><code>--tools ""</code> 是否实现真正的“无工具”还取决于 MCP 是否存在，因此课程示例同时拒绝 <code>mcp__*</code>。权限规则、OS Sandbox 和恢复策略见第 8 篇。</p>
+<h2 id="wiki-h-5">Safe、Restricted 与 Bare</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>主要用途</th>
+<th>配置与认证</th>
+<th>工具与安全边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>claude --safe-mode</code></td>
+<td>排查自定义配置</td>
+<td>关闭 CLAUDE.md、Skills、普通插件、Hooks、MCP、Agents 等；正常认证仍可用；托管策略仍可生效</td>
+<td>内置工具和正常权限仍在，不是只读模式</td>
+</tr>
+<tr>
+<td><code>claude --restricted</code></td>
+<td>共享机器上的评测或受控运行</td>
+<td>忽略用户、项目、本地 settings，只保留托管策略和显式 <code>--settings</code></td>
+<td>移除执行代码/命令的工具和 WebFetch，限制文件工具范围，拒绝 bypass；若也不要 MCP，加 <code>--strict-mcp-config</code></td>
+</tr>
+<tr>
+<td><code>claude --bare</code></td>
+<td>追求最小启动面和脚本性能</td>
+<td>跳过常规自定义项、钥匙串和订阅 OAuth；官方 Anthropic API 需 <code>ANTHROPIC_API_KEY</code> 或显式 <code>apiKeyHelper</code></td>
+<td>Bash、读写文件工具仍在；不是只读、安全或 Sandbox 模式</td>
+</tr>
+</tbody></table></div>
+<p>关键判断：</p>
+<ul>
+<li>自定义配置疑似损坏：先用 <code>--safe-mode</code>；</li>
+<li>受控评测：考虑 <code>--restricted</code>，再显式收紧工具和 MCP；</li>
+<li>极简 API 脚本：才考虑 <code>--bare</code>，并自行设计权限与工具边界。</li>
+</ul>
+<p>Bare Mode 的完整更正和自动化样例见第 14 篇。</p>
+<h2 id="wiki-h-6">后台会话</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+<th>结果或注意点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>后台启动 Claude 会话</td>
+<td><code>claude --background "运行测试并修复失败"</code></td>
+<td>立即返回短 ID；不能与 <code>-p</code> 同用</td>
+</tr>
+<tr>
+<td>查看 Agent 视图</td>
+<td><code>claude agents</code></td>
+<td>需要交互终端</td>
+</tr>
+<tr>
+<td>JSON 列出活跃会话</td>
+<td><code>claude agents --json</code></td>
+<td>适合脚本和排障</td>
+</tr>
+<tr>
+<td>连已完成会话也列出</td>
+<td><code>claude agents --json --all</code></td>
+<td>包含已完成后台会话</td>
+</tr>
+<tr>
+<td>查看最近输出</td>
+<td><code>claude logs &lt;session-id&gt;</code></td>
+<td>只读查看终端输出</td>
+</tr>
+<tr>
+<td>接管会话</td>
+<td><code>claude attach &lt;session-id&gt;</code></td>
+<td>附着后可交互；离开不等于停止</td>
+</tr>
+<tr>
+<td>停止会话</td>
+<td><code>claude stop &lt;session-id&gt;</code></td>
+<td>保留对话，之后仍可 attach</td>
+</tr>
+</tbody></table></div>
+<p><code>claude rm &lt;session-id&gt;</code> 会移除后台项，并在安全时清理其 worktree，属于可能丢失工作区状态的清理命令；本速查表不把它列为常规步骤。先检查提交、未推送提交和未跟踪文件，再按命令给出的明确提示处理。</p>
+<h2 id="wiki-h-7"><code>claude -p</code> 非交互模式</h2>
+<h3 id="wiki-h-8">1. 输入与输出</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令或参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>一次性执行</td>
+<td><code>claude -p "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>从 stdin 读取</td>
+<td><code>printf '%s\n' '&lt;输入&gt;' | claude -p "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>纯文本输出</td>
+<td><code>--output-format text</code></td>
+</tr>
+<tr>
+<td>单个 JSON 结果</td>
+<td><code>--output-format json</code></td>
+</tr>
+<tr>
+<td>流式事件</td>
+<td><code>--output-format stream-json --verbose</code></td>
+</tr>
+<tr>
+<td>约束业务结构</td>
+<td><code>--json-schema '&lt;JSON-Schema&gt;'</code></td>
+</tr>
+<tr>
+<td>限制 Agentic turns</td>
+<td><code>--max-turns &lt;正整数&gt;</code></td>
+</tr>
+<tr>
+<td>限制估算 API 花费</td>
+<td><code>--max-budget-usd &lt;金额&gt;</code></td>
+</tr>
+<tr>
+<td>不保存会话</td>
+<td><code>--no-session-persistence</code></td>
+</tr>
+</tbody></table></div>
+<p><code>--output-format json</code> 只固定 Claude Code 的外壳；要固定业务字段，必须配合 <code>--json-schema</code>，并读取 <code>structured_output</code>。Schema 只验证形状，不验证内容是否符合真实项目。</p>
+<h3 id="wiki-h-9">2. 一个完整的结构化样例</h3>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">claude -p \
+  --tools <span class="hljs-string">""</span> \
+  --disallowedTools <span class="hljs-string">"mcp__*"</span> \
+  --permission-mode dontAsk \
+  --permission-prompts none \
+  --output-format json \
+  --json-schema <span class="hljs-string">'{"type":"object","properties":{"category":{"enum":["bug","feature","question"]}},"required":["category"],"additionalProperties":false}'</span> \
+  --max-turns 1 \
+  --max-budget-usd 0.20 \
+  <span class="hljs-string">"只输出分类：搜索结果会显示旧请求。"</span>
+</code></pre><p>Windows PowerShell 需改用适合 PowerShell 的换行与引号；可直接复制第 14 篇的跨平台脚本，不要把 Bash 续行符照搬过去。</p>
+<p>自动化至少同时检查 stdout、stderr 和退出码。参数、Schema 或认证失败都可能非零退出；不要只搜索输出中的“成功”。</p>
+<h2 id="wiki-h-10">MCP</h2>
+<p>先看当前子命令：</p>
+<pre><code class="hljs language-bash">claude mcp --<span class="hljs-built_in">help</span>
+</code></pre><div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>列出并健康检查</td>
+<td><code>claude mcp list</code></td>
+</tr>
+<tr>
+<td>查看单个服务与审批状态</td>
+<td><code>claude mcp get &lt;name&gt;</code></td>
+</tr>
+<tr>
+<td>添加 HTTP 服务</td>
+<td><code>claude mcp add --transport http --scope local &lt;name&gt; &lt;url&gt;</code></td>
+</tr>
+<tr>
+<td>添加本地 stdio 服务</td>
+<td><code>claude mcp add --transport stdio --scope local &lt;name&gt; -- &lt;command&gt; [args...]</code></td>
+</tr>
+<tr>
+<td>登录远程服务</td>
+<td><code>claude mcp login &lt;name&gt;</code></td>
+</tr>
+<tr>
+<td>清除该服务 OAuth</td>
+<td><code>claude mcp logout &lt;name&gt;</code></td>
+</tr>
+<tr>
+<td>移除配置</td>
+<td><code>claude mcp remove --scope local &lt;name&gt;</code></td>
+</tr>
+</tbody></table></div>
+<p><code>local</code> 是当前项目的个人配置；要把服务器写入可共享的项目 <code>.mcp.json</code>，明确改用 <code>--scope project</code> 并先审查命令、URL、环境变量和凭据。项目服务器还需要一次信任审批。可运行的只读 MCP 练习见第 12 篇。</p>
+<h2 id="wiki-h-11">插件与自定义 Agent</h2>
+<h3 id="wiki-h-12">插件</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>查看帮助</td>
+<td><code>claude plugin --help</code></td>
+</tr>
+<tr>
+<td>列出已安装插件</td>
+<td><code>claude plugin list</code></td>
+</tr>
+<tr>
+<td>查看组件和上下文成本</td>
+<td><code>claude plugin details &lt;name&gt;</code></td>
+</tr>
+<tr>
+<td>严格验证本地插件</td>
+<td><code>claude plugin validate &lt;plugin-path&gt; --strict</code></td>
+</tr>
+<tr>
+<td>仅当前会话加载</td>
+<td><code>claude --plugin-dir &lt;plugin-path&gt;</code></td>
+</tr>
+<tr>
+<td>暂停已安装插件</td>
+<td><code>claude plugin disable &lt;name&gt;</code></td>
+</tr>
+<tr>
+<td>重新启用</td>
+<td><code>claude plugin enable &lt;name&gt;</code></td>
+</tr>
+</tbody></table></div>
+<p><code>validate</code> 只证明结构符合规范，不证明插件安全。插件可携带 Hooks、MCP、Skills 和 Agents，只加载已审查的代码。</p>
+<h3 id="wiki-h-13">自定义 Agent</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令或位置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>项目 Agent</td>
+<td><code>.claude/agents/&lt;name&gt;.md</code></td>
+</tr>
+<tr>
+<td>用户 Agent</td>
+<td><code>~/.claude/agents/&lt;name&gt;.md</code></td>
+</tr>
+<tr>
+<td>当前会话选择 Agent</td>
+<td><code>claude --agent &lt;name&gt;</code></td>
+</tr>
+<tr>
+<td>临时传入 Agent 定义</td>
+<td><code>claude --agents '&lt;JSON&gt;'</code></td>
+</tr>
+<tr>
+<td>严格校验 Agent 目录</td>
+<td><code>claude plugin validate .claude/agents --strict</code></td>
+</tr>
+<tr>
+<td>检查重复定义等问题</td>
+<td><code>claude doctor</code></td>
+</tr>
+</tbody></table></div>
+<p>当前 <code>plugin validate</code> 也能检查目录中的 Skills、Agents 和 Commands，但结构通过不代表工具范围合理。当前 <code>/agents</code> 不再是旧版创建向导。完整实操见第 13 篇。</p>
+<h2 id="wiki-h-14">快速选择</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>你现在要做什么</th>
+<th>先用哪个入口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>正常交互开发</td>
+<td><code>claude</code>，默认保持 Manual</td>
+</tr>
+<tr>
+<td>只调查、不改代码</td>
+<td><code>claude --permission-mode plan</code></td>
+</tr>
+<tr>
+<td>配置疑似导致异常</td>
+<td><code>claude --safe-mode</code></td>
+</tr>
+<tr>
+<td>恢复最近任务</td>
+<td><code>claude --continue</code>，随后检查磁盘证据</td>
+</tr>
+<tr>
+<td>让长任务在后台继续</td>
+<td><code>claude --background "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>无人值守结构化任务</td>
+<td><code>claude -p</code> + 工具限制 + <code>dontAsk</code> + <code>--permission-prompts none</code> + Schema</td>
+</tr>
+<tr>
+<td>共享机器上的受控评测</td>
+<td><code>claude --restricted</code>，再显式处理 MCP 和允许工具</td>
+</tr>
+<tr>
+<td>最小 API 启动面</td>
+<td><code>claude --bare</code>，但不要把它当安全模式</td>
+</tr>
+</tbody></table></div>
+<p>若命令报 <code>unknown option</code>，不要寻找“差不多”的危险替代项。先运行 <code>claude --version</code> 和相应 <code>--help</code>，再对照第 18 篇排查手册。</p>
+<p>官方入口：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/cli-reference">CLI reference</a></li>
+<li><a href="https://code.claude.com/docs/en/authentication">Authentication</a></li>
+<li><a href="https://code.claude.com/docs/en/agent-view">Agent view 与后台会话</a></li>
+<li><a href="https://code.claude.com/docs/en/mcp">MCP</a></li>
+<li><a href="https://code.claude.com/docs/en/plugins/cli-reference">Plugin commands reference</a></li>
+</ul>
+</article>

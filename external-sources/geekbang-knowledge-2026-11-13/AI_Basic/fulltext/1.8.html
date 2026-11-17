@@ -1,0 +1,211 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你把复习笔记分别保存在两份清单里，想找出“只出现在其中一份”的笔记，以便检查两份清单是否同步。</p>
+<p>对每篇笔记，只记录两个数字：<code>x₁</code> 表示它是否在清单 A 中，<code>x₂</code> 表示它是否在清单 B 中；在记作 1，不在记作 0。希望输出的结果如下：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th align="right">x₁：在 A 中</th>
+<th align="right">x₂：在 B 中</th>
+<th align="right">是否需要检查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">0</td>
+</tr>
+</tbody></table></div>
+<p>这个规则写成普通程序很简单：两个值不一样就标记。我们借它提出一个不同的问题：<strong>模型能否通过分层计算，表示“两个条件怎样组合才算成立”？</strong></p>
+<p>本篇会搭出一个可以手算的神经网络，解释权重、偏置、激活函数和隐藏层。例子中的参数由我们直接指定，用来展示机制，本篇没有进行训练实验；实际开发清单同步功能，也没有必要为这种明确规则训练网络。</p>
+<p>读完以后，你应该能看懂一个小网络怎样产生输出，并分清“网络能表示什么”“训练能否找到合适参数”“真实项目是否可靠”这三个问题。</p>
+<h2 id="wiki-h-0">从一个计算单元开始：加权相加，再做变换</h2>
+<p>前面几篇已经出现过按特征计算分数的模型。一个常见的神经网络计算单元，也可以先从这一步理解：</p>
+<pre><code class="hljs language-text">中间分数 z = w₁ × x₁ + w₂ × x₂ + b
+单元输出 h = 激活函数(z)
+</code></pre><p><code>x₁、x₂</code> 是输入；<code>w₁、w₂</code> 是<strong>权重，weight</strong>，决定输入怎样参与相加；<code>b</code> 是<strong>偏置，bias</strong>，是在加权结果上再加的一个数。权重和偏置通常属于训练要调整的参数。</p>
+<p>例如，暂时取 <code>w₁=2、w₂=-1、b=-0.5</code>。输入 <code>[1,0]</code> 时，中间分数是 <code>2×1-1×0-0.5=1.5</code>。权重为负，并不是出现了“负概率”；我们此时算的是一个中间分数。偏置也不是“数据偏见”的意思，而是这个公式里的平移项。</p>
+<p>如果输入全为 0，没有偏置时分数只能是 0；有偏置时，它可以是 <code>b</code>。这让模型不必把所有输入关系都限制在经过零点的形式中。</p>
+<p>这里的“神经元”可以先理解为计算单元，不需要把它想象成一颗会思考的小脑细胞。把多个单元放在一起，一次得到一组输出，就是构建一层的基本方式。<a href="https://developers.google.com/machine-learning/crash-course/neural-networks/nodes-hidden-layers">Google：神经网络的节点与隐藏层</a></p>
+<h2 id="wiki-h-1">为什么还需要激活函数</h2>
+<p><strong>激活函数，activation function</strong>，是对中间分数进行的变换。先认识一种最容易手算的选择：<strong>ReLU</strong>。</p>
+<pre><code class="hljs language-text">ReLU(z) = max(0, z)
+
+z 小于 0：输出 0
+z 大于或等于 0：保留 z
+</code></pre><p>因此 <code>ReLU(-2)=0</code>，<code>ReLU(0)=0</code>，<code>ReLU(1.5)=1.5</code>。它不是“负数变成 0、正数变成 1”，也不会把所有输出限制在 0 到 1 之间。<a href="https://keras.io/api/layers/activation_layers/relu/">Keras：ReLU 的定义</a></p>
+<p>这一步引入了<strong>非线性</strong>。这里不必先学抽象定义，可以看输入增加 1 时会怎样：从 -2 变成 -1，输出仍为 0；从 1 变成 2，输出则增加 1。同样的输入增量，在不同区域产生不同效果。</p>
+<p>这种变化让后续层能够有条件地利用前面算出的信号。ReLU 只是一个易懂的例子，神经网络还有其他激活函数；本篇不要求背名字，也不意味着所有大模型都使用同一种激活函数。</p>
+<h2 id="wiki-h-2">单纯多算几层，为什么还不够</h2>
+<p>假设没有这种非线性变换，第一层只算：</p>
+<pre><code class="hljs language-text">h = 2x + 1
+</code></pre><p>第二层再算：</p>
+<pre><code class="hljs language-text">y = 3h - 4
+</code></pre><p>把第一层的结果代进去，就得到：</p>
+<pre><code class="hljs language-text">y = 3(2x + 1) - 4 = 6x - 1
+</code></pre><p>看上去经历了两层，结果却能合并成一次同类计算。在只由“乘权重、相加、加偏置”组成的串联网络里，这种合并同样适用于向量输入。因此，多堆这样的层，并不会自动获得非线性关系的表达能力。严格说，带偏置的这类变换叫作“仿射变换”；入门资料里也常把它归在“线性层”这一说法中。<a href="https://d2l.ai/chapter_multilayer-perceptrons/mlp.html">《动手学深度学习》：从线性到非线性</a></p>
+<p>这解释了激活函数的位置为什么重要：它插在计算之间，让整个映射不再总能被压回一层加权相加。</p>
+<p>不过，加入非线性也不是自动成功的保证。如果参数设置让所有单元始终只在 ReLU 的同一段上工作，网络在那些输入范围里仍可能表现得很简单。结构提供了可能性，参数和数据决定实际用上了什么。</p>
+<h2 id="wiki-h-3">用两个隐藏单元，完成开头的判断</h2>
+<p>现在返回两份复习清单。我们设置两个单元：</p>
+<pre><code class="hljs language-text">h₁ = ReLU(x₁ - x₂)
+h₂ = ReLU(x₂ - x₁)
+
+最终输出 y = h₁ + h₂
+</code></pre><p>第一单元的两个权重为 <code>[1,-1]</code>，第二单元为 <code>[-1,1]</code>，偏置都取 0。输出层的权重为 <code>[1,1]</code>，偏置取 0，直接相加。</p>
+<p>先手算“只在 A 中”的情况，也就是输入 <code>[1,0]</code>：</p>
+<pre><code class="hljs language-text">h₁ = ReLU(1 - 0) = 1
+h₂ = ReLU(0 - 1) = 0
+y  = 1 + 0 = 1
+</code></pre><p>再看两份清单里都有，即 <code>[1,1]</code>：两个差值都是 0，输出也是 0。</p>
+<p>四种情况全部展开如下：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>输入 [x₁,x₂]</th>
+<th align="right">h₁</th>
+<th align="right">h₂</th>
+<th align="right">输出 y</th>
+<th>与目标是否一致</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>[0,0]</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td>一致</td>
+</tr>
+<tr>
+<td>[1,0]</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td>一致</td>
+</tr>
+<tr>
+<td>[0,1]</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td>一致</td>
+</tr>
+<tr>
+<td>[1,1]</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td>一致</td>
+</tr>
+</tbody></table></div>
+<p>在这个二值输入范围内，<code>h₁</code> 检出“只在 A 中”，<code>h₂</code> 检出“只在 B 中”，输出层把两种需要检查的情况合并起来。这就是一个完整的计算过程：</p>
+<pre><code class="hljs language-text">输入层                  隐藏层                     输出层
+[x₁, x₂] ────────→ [ReLU(x₁-x₂), ReLU(x₂-x₁)] ────────→ 相加
+ 清单记录                两个方向的差异                  是否检查
+</code></pre><p>这里的“隐藏”，是说这些值处在输入与最终输出之间。它们不是我们直接提供的原始记录，也不是最终要求的目标；有模型内部访问权限时，完全可以把它们读出来。“隐藏”不等于系统不允许查看。</p>
+<p>这套逻辑也叫<strong>异或，XOR</strong>。它揭示了组合关系的重要性：当 B 中没有记录时，把 A 从 0 改成 1，会让目标从 0 变成 1；当 B 中已有记录时，同样修改 A，却让目标从 1 变成 0。一个对 A 始终采用固定正向或负向影响的加权打分器，再配固定阈值，不能同时完成这四项判断。</p>
+<p>可以再做一个反例：把网络里的两个 ReLU 去掉，输出就变成 <code>(x₁-x₂)+(x₂-x₁)=0</code>，无论输入是哪一种都得 0。非线性在这里确实做了工作。</p>
+<p>注意，我们只证明了这组指定参数能完成四种输入的规则。输出恰好是 0 或 1，并不意味着这是经过校准的概率模型；输入如果改成任意实数，这个公式也不保证输出落在 0 到 1 之间。</p>
+<h2 id="wiki-h-4">层、宽度与参数量，分别在数什么</h2>
+<p>上面这个网络包含两个输入值、一个有两个单元的隐藏层，以及一个输出单元。从输入依次算到输出，叫作一次<strong>前向传播，forward propagation</strong>。</p>
+<p>为了避免数层数时混乱，本篇把“带参数的隐藏层和输出层”计入层数，输入层不算计算层。因此它是一个有两个参数层、一个隐藏层的小网络。不同资料可能采用不同计数口径，读结构图比只看“几层”更可靠。</p>
+<p>对于这里这种<strong>全连接层</strong>，下一层的每个单元都接收上一层的全部输入，各连接有自己的权重。多个单元的权重可以排成矩阵，偏置排成向量；软件就能批量完成这些运算。第 05 篇的矩阵在这里有了具体用途。<a href="https://keras.io/api/layers/core_layers/dense/">Keras：Dense 全连接层的计算形式</a></p>
+<p>假设保留所有权重和偏置作为可调整参数，即使当前数值为 0 也计算在内，那么参数数量是：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th align="right">权重数量</th>
+<th align="right">偏置数量</th>
+<th align="right">合计</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>两个输入到两个隐藏单元</td>
+<td align="right">2×2=4</td>
+<td align="right">2</td>
+<td align="right">6</td>
+</tr>
+<tr>
+<td>两个隐藏单元到一个输出单元</td>
+<td align="right">2×1=2</td>
+<td align="right">1</td>
+<td align="right">3</td>
+</tr>
+<tr>
+<td>总计</td>
+<td align="right">6</td>
+<td align="right">3</td>
+<td align="right">9</td>
+</tr>
+</tbody></table></div>
+<p>两个输入值不是参数，某一次算出的 <code>h₁、h₂</code> 也不是参数。换一篇笔记，中间值会改变，权重却可以保持不变。<strong>参数决定怎样算，中间值是这一次算出的结果。</strong></p>
+<p>层的<strong>宽度</strong>通常关注它有多少单元或表示维度；网络的<strong>深度</strong>关注串联了多少层计算。增加宽度与增加深度不是一回事，参数多也不一定代表层数更多。</p>
+<h2 id="wiki-h-5">多层表示怎样帮上忙</h2>
+<p>第 05 篇提到，表示决定哪些信息容易被后续模型使用。这个小网络给出了一个看得见的例子：输入描述“各清单是否存在记录”，隐藏层把它改写成“哪个方向存在差异”。在新表示上，最后一步只要相加。</p>
+<p>更复杂的任务也可以利用这种分层组合。以识别手写数字为直觉例子，局部像素变化可以组合成笔画，再组合成更大的形状模式。深层网络允许后续计算反复使用前面形成的表示，而不是每一步都重新从原始像素开始。对某些函数，这样的组合能比非常宽的浅层网络表达得更紧凑。<a href="https://d2l.ai/chapter_multilayer-perceptrons/mlp.html">《动手学深度学习》：隐藏表示与多层结构</a></p>
+<p>但不能把这个直觉写成固定分工表，认为“第一层一定认识笔画、第二层一定理解文字、第三层一定掌握逻辑”。实际中间表示由结构、数据和训练目标共同影响，并不保证每个单元都有一个人类能命名的含义。一个概念也可能由多个数值共同表达。</p>
+<p>本篇恰好能给 <code>h₁、h₂</code> 命名，是因为我们亲手设计了它们。通常训练神经网络时，不必逐个告诉中间单元应该识别什么，而是给最终任务设定目标，让参数更新逐步改变这些中间计算。具体怎样更新，将在下一篇讲。</p>
+<p>“深度学习”关注的正是利用多层计算学习表示与映射。这里的一层隐藏层小例子帮助理解组成方式，不应被当作现代大模型的规模或完整结构。</p>
+<h2 id="wiki-h-6">从小网络到大模型，需要跨过哪些距离</h2>
+<p>大语言模型中的计算规模更大，连接方式也更复杂。Transformer 使用注意力机制以及前馈网络等组件组织信息，不能把本篇的两输入网络简单放大，就当作它的完整架构。第二部分会分别解释这些组件。<a href="https://arxiv.org/abs/1706.03762">Transformer 原始论文：Attention Is All You Need</a></p>
+<p>但我们已经获得了几个继续学习的支点：输入要变成数值表示；参数参与计算；中间表示层层变化；最终输出还要根据任务解释成分数、概率或其他结果。</p>
+<p>多层结构也会带来训练难题。更深不等于自然更好训；残差网络的研究就专门针对深层网络的优化困难，提出让层学习相对于输入的变化，以帮助训练更深的模型。这里无需掌握具体结构，只需知道网络设计还要考虑“怎样学得动”。<a href="https://arxiv.org/abs/1512.03385">原始论文：Deep Residual Learning for Image Recognition</a></p>
+<p>把这些区别放回个人项目中，会更容易判断问题发生在哪一层：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>你看到的现象</th>
+<th>需要进一步检查什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>某种网络在数学上能表达所需映射</td>
+<td>训练是否真的找到了合适参数</td>
+</tr>
+<tr>
+<td>模型在训练样本上表现很好</td>
+<td>对新的笔记是否仍然有效</td>
+</tr>
+<tr>
+<td>模型能生成一张看起来不错的卡片</td>
+<td>内容是否忠实、文件是否真的保存</td>
+</tr>
+<tr>
+<td>新模型参数更多、结构更深</td>
+<td>在自己的任务上，质量、速度和成本是否合适</td>
+</tr>
+</tbody></table></div>
+<p>因此，架构提供表达方式，训练决定学到的参数，评估检验实际表现，应用程序还要完成文件、界面和流程。它们彼此相关，却不能相互代替。</p>
+<h2 id="wiki-h-7">理解检查：自己算一遍这个小网络</h2>
+<ol>
+<li>计算单元先算 <code>z=2x₁-x₂-0.5</code>，再经过 ReLU。输入 <code>[0,1]</code> 时，<code>z</code> 和单元输出各是多少？</li>
+<li>清单网络输入 <code>[0,1]</code> 时，两个隐藏值和最终输出分别是多少？</li>
+<li>若把清单网络中的两个 ReLU 去掉，再增加几个只做加权相加与偏置的串联层，是否就能获得非线性表达能力？</li>
+<li>一个全连接网络有 2 个输入、3 个隐藏单元、1 个输出单元；隐藏层与输出层都使用偏置。共有多少参数？</li>
+<li>某层输出一个 100 维向量，是否意味着它有 100 个参数，或者其中每一维都代表一个固定概念？</li>
+</ol>
+<p><strong>第 1 题：</strong> <code>z=2×0-1-0.5=-1.5</code>；ReLU 输出 0。中间负分数是合法的，它不是负概率。</p>
+<p><strong>第 2 题：</strong> <code>h₁=ReLU(-1)=0</code>，<code>h₂=ReLU(1)=1</code>，因此 <code>y=1</code>，表示两份清单的记录不一致。</p>
+<p><strong>第 3 题：</strong> 不能。这样的串联仍能合并成一个仿射变换。增加层数本身不能替代非线性操作。</p>
+<p><strong>第 4 题：</strong> 隐藏层有 <code>2×3+3=9</code> 个参数，输出层有 <code>3×1+1=4</code> 个，共 13 个。输入值和当前隐藏值不另算参数。</p>
+<p><strong>第 5 题：</strong> 都不意味着。100 是该输出的维度；产生它需要多少参数取决于层的结构与输入大小。每个坐标的意义也不能仅凭维度推断。</p>
+<p>现在你已经能把“输入 → 模型 → 输出”中的模型拆开了。不过，本篇的权重是我们手选的，真实训练往往有太多参数，不能靠人逐个试。下一篇就把这里的前向计算与第 06 篇的损失接起来：梯度下降、反向传播和参数更新，分别负责什么？</p>
+<hr>
+<p>上一篇：06｜概率、预测与损失：模型怎样知道自己需要改进</p>
+<p>下一篇：08｜训练究竟在做什么：梯度下降、反向传播与参数更新</p>
+<p>返回：第一部分大纲</p>
+</article>

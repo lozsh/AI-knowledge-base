@@ -1,0 +1,28 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P6-P8<br><strong>版本</strong>：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 8 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<p>最成功的智能体编程（agentic coding）推广，都遵循一条审慎的扩张策略，让专业能力与热情自然生长。以下是我们观察到的有效做法：</p>
+<h2 id="wiki-h-0">从高级用户（power user）开始</h2>
+<p>先从一支由 20–50 名已经用得惯 AI 辅助工具的开发者组成的试点（pilot）小组开始。他们不只是你的早期采用者——更是你未来智能体编程的推广骨干。给他们布置以下任务：</p>
+<ul>
+<li>请他们花时间把 Claude Code 用于常见用例。这是弄清哪些定制真正有用、并确保工具与你的代码库配合良好的最佳方式。</li>
+<li>在 Claude Code 中创建贴合本组织代码库与规范的自定义斜杠命令（slash command），例如用于数据库模式更新的 <code>/migrate-db</code>、带公司专属样板代码的 <code>/add-feature</code>，以及用于常见漏洞修补的 <code>/fix security</code>。</li>
+<li>通过 CLAUDE.md 文件创建文档，写明你的编码标准、列出常见陷阱、点明最佳实践。CLAUDE.md 是一类特殊文件，Claude 在开始新对话时会自动将其拉入上下文（context）。（记住：要像打磨其他任何智能体（agent）提示词（prompt）那样，花时间迭代你的 CLAUDE.md 文件。魔鬼藏在细节里！）</li>
+<li>与整个组织的开发团队、DevOps 工程师和技术负责人沟通，了解他们的痛点，找出 Claude Code 能自动化的重复性编码工作流（workflow）——例如样板代码生成、测试套件创建、文档更新、代码重构任务、API 客户端生成、依赖更新，以及耗费开发者大量时间的日常缺陷修复。</li>
+<li>建立专门的 Slack 或 Teams 频道，用于分享最佳实践、排查问题和更广泛的讨论。</li>
+<li>构建包装脚本，为 AWS、GCP 等第三方工具处理身份验证（authentication）。</li>
+</ul>
+<p>更多技巧，见我们工程博客（Eng Blog）上关于 Claude Code 最佳实践的文章。</p>
+<h2 id="wiki-h-1">用黑客松（hackathon）启动</h2>
+<p>与其让各团队排着队等轮到自己，不如用一场启动黑客松（hackathon）把整个组织凝聚起来。你的试点用户会成为导师，在大家共同学习中分享提示词与技巧。这会形成网络效应，加速采用、催生自发的经验。若能再订些披萨充饥、拉高参与度，还能加分。</p>
+<h2 id="wiki-h-2">通过内部专长扩大规模</h2>
+<p>随着采用范围扩大，你的试点用户会成长为内部顾问。最终，你的组织会发展到能自行举办智能体编程工作坊的地步：由早期采用者主持课程，并受自身所学启发，持续产出教学内容。</p>
+<h2 id="wiki-h-3">共享 CLAUDE.md 文件</h2>
+<p>CLAUDE.md 文件是记录仓库规约、开发者环境配置，以及特定项目才有的意外行为的理想场所。然而，CLAUDE.md 文件的真正威力，在于它们跨团队、跨组织地被有策略地共享时才显现——由此形成一层可规模化支撑 AI 驱动开发的知识层。以下是在规模化场景中使用它们的一些最佳实践：</p>
+<p><strong>创建项目级 CLAUDE.md 文件</strong>：把它命名为 CLAUDE.md 并提交进 git，这样你就能跨会话、与团队共享。这个简单的做法，把一次次单独的 Claude Code 会话变成与团队对齐的开发体验。</p>
+<p><strong>提交到主分支</strong>：把 CLAUDE.md 放在仓库根目录，并提交到主分支。这确保每个克隆仓库的开发者都自动继承项目的 Claude Code 配置与上下文。</p>
+<p><strong>纳入上手（onboarding）清单</strong>：把审阅并理解项目的 CLAUDE.md 文件纳入开发者上手（onboarding）流程。新成员要理解的不只是代码库，还要理解在项目上下文中应如何使用 Claude Code。</p>
+<p><strong>像文档一样做版本管理</strong>：以对待文档更新的同等严谨，对待 CLAUDE.md 的变更。当架构决策改变、新的开发模式出现或团队约定演进时，把相应更新纳入拉取请求（Pull Request）。</p>
+<p><strong>分支专属变体</strong>：对于各分支（功能分支、发布分支）开发模式差异显著的项目，考虑使用能反映当前开发重点的分支专属 CLAUDE.md 内容。</p>
+<p>项目级 CLAUDE.md 的结构示例见附录。</p>
+</article>

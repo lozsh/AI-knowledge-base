@@ -1,0 +1,193 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>笔记助手已经会制作复习卡。如果你说“把N1和N2安排在10月5日复习20分钟”，它也可能写出一段很像计划的文字。但屏幕上出现“已经安排好了”，不代表任何文件真的保存了，更不代表日历里有了提醒。</p>
+<p>本篇让这句话经过一条可核对的执行链：模型提出结构化安排，程序校验，用户确认，本地函数保存JSON，再把结果交还模型解释。目标是完成一次真实的本地操作，并清楚地区分“提出请求”“允许执行”“已经执行”这三件事。</p>
+<p>承接第09篇的独立快照，使用 Python 3.11+、<code>openai==3.24.0</code> 和 DeepSeek 官方 API。接口核实日期为2026年10月4日。必做演示不联网、不读Key；输入确认词后会实际写入演示目录。真实模式可能产生最多两次模型调用费用，本课没有代你做线上调用。</p>
+<h2 id="wiki-h-0">工具调用到底是谁在执行</h2>
+<p>模型并不直接运行你的Python函数。应用先把可用工具的名称和参数说明发给它，它返回“建议调用哪个工具、传哪些参数”，应用再决定是否执行。官方指南也明确说明，具体函数由开发者提供。<a href="https://api-docs.deepseek.com/guides/tool_calls/">DeepSeek：Tool Calls</a></p>
+<p>这次我们只提供一个工具：<code>save_review_plan</code>，中文含义是“保存复习计划”。它只能在当前项目的固定目录中新建一个JSON文件，不操作日历、不发消息，也不执行命令。</p>
+<pre><code class="hljs language-text">用户提出安排
+   ↓
+模型返回工具名称 + arguments字符串
+   ↓
+程序检查工具和参数
+   ↓
+展示规范化后的计划，等待用户输入SAVE
+   ↓
+本地函数保存，或记录用户取消
+   ↓
+把真实结果作为tool消息回传
+   ↓
+模型解释结果，流程结束
+</code></pre><p>这张图中，模型给出参数之后、Python写文件之前，还有两道门：程序校验与人的确认。工具描述里写“请先确认”可以帮助模型理解，但不能代替这两道实际程序逻辑。</p>
+<h2 id="wiki-h-1">先把工具做小</h2>
+<p>我们沿用项目里的N1、N2、N3三条笔记。计划只需要四个字段：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>例子</th>
+<th>本课约束</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>title</td>
+<td>RAG基础复习</td>
+<td>去除两端空白后1—80字符，不含不可打印字符</td>
+</tr>
+<tr>
+<td>note_ids</td>
+<td>["N1", "N2"]</td>
+<td>1—3个现有笔记ID，不能重复</td>
+</tr>
+<tr>
+<td>date</td>
+<td>2026-10-05</td>
+<td>有效日历日期，严格YYYY-MM-DD形式</td>
+</tr>
+<tr>
+<td>minutes</td>
+<td>20</td>
+<td>1—120的整数，不能是字符串或布尔值</td>
+</tr>
+</tbody></table></div>
+<p>日期只表示复习日，分钟数只表示持续时长。本课没有时区、具体开始时间、通知渠道和日历接入，因此保存成功也不会自动提醒你。这个范围足够小，你可以直接打开文件检查。</p>
+<p>参数中没有 <code>path</code>、<code>command</code>、<code>code</code> 或 <code>approved</code>。保存位置由应用生成，是否确认由终端输入决定，模型不能靠加一个 <code>"approved": true</code> 越过确认。</p>
+<p>review_tool.py 中的 <code>TOOLS</code> 定义了名称、说明和参数结构。<code>required</code> 说明四项都需要，<code>additionalProperties: false</code> 表示不应多带字段。但这些描述不能代替本地检查，应用仍会解析并验证实际返回的数据。</p>
+<p>这是一个适合入门的权限设计：给模型一个用途明确的小动作，而不是让它决定任意文件路径，再寄希望于提示词能覆盖所有风险。</p>
+<h2 id="wiki-h-2">这与复习卡的JSON输出有什么区别</h2>
+<p>复习卡入口要求模型的正文 <code>content</code> 是一个JSON对象。工具调用则把函数名和参数放在 <code>message.tool_calls</code> 中，其中 <code>function.arguments</code> 是一段JSON<strong>字符串</strong>；应用需要再解析它。</p>
+<p>一个作者构造的提议大致如下，省略外围响应字段：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"demo-call-01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"function"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"function"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"save_review_plan"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"arguments"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"{\"title\":\"RAG基础复习\",\"note_ids\":[\"N1\",\"N2\"],\"date\":\"2026-10-05\",\"minutes\":20}"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>不要把arguments当Python代码执行，也不要用 <code>eval()</code>。我们复用第06篇的JSON解析函数：拒绝重复键、非标准数值和过长内容，再检查字段、类型、日期和笔记ID。函数名必须等于白名单中的 <code>save_review_plan</code>，没有动态导入或按任意函数名执行的通道。</p>
+<p>本课新建 <code>planner.py</code> 入口，保留 <code>cards.py</code> 原来的结构化复习卡任务。工具请求使用非流式、关闭思考，第一步为 <code>tool_choice: auto</code>，第二步为 <code>none</code>。<code>auto</code> 允许模型选择提议工具或直接询问缺少的信息；<code>none</code> 用于工具执行后的解释阶段。<a href="https://api-docs.deepseek.com/api/create-chat-completion/">DeepSeek：tools与tool_choice参数</a></p>
+<p>这里不传复习卡的 <code>response_format: json_object</code>，因为最终说明可以是普通文字。也没有把卡片的 <code>--thinking</code>、<code>--attempts</code> 参数扩展到这个新入口。先把一次完整协议流程讲清，再增加模式和循环，比同时混合所有功能更容易验证。</p>
+<p>官方另有strict模式，但当前它属于Beta并要求相应地址和配置。本课用普通接口与本地验证，不把普通工具声明写成服务端严格保证。即使以后使用strict，合理日期、用户意图和是否允许写入，仍需要应用检查。<a href="https://api-docs.deepseek.com/guides/tool_calls/">DeepSeek：strict模式说明</a></p>
+<h2 id="wiki-h-3">准备独立代码，先看将要发什么</h2>
+<p>下载 lesson-10完整代码包，解压并进入 <code>lesson-10</code> 目录。新增三个文件：</p>
+<ul>
+<li><code>review_tool.py</code>：工具说明、参数检查与本地保存。</li>
+<li><code>tool_flow.py</code>：模型请求、确认、执行、结果回传和停止。</li>
+<li><code>planner.py</code>：命令行入口与固定离线演示。</li>
+</ul>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+<span class="hljs-built_in">cp</span> config.example.json config.json
+.venv/bin/python planner.py --dry-run
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements.txt
+<span class="hljs-built_in">Copy-Item</span> config.example.json config.json
+.\.venv\Scripts\python.exe planner.py <span class="hljs-literal">--dry-run</span>
+</code></pre><p>已有配置不要覆盖。Windows只有 <code>python</code> 时，可替换 <code>py -3</code>。依赖与此前相同，安装需要网络，预演不会联网或写记录。</p>
+<p>预演会打印首次请求：模型来自配置，两条消息包含说明和笔记，<code>tools</code> 数组只有一个函数，<code>tool_choice</code> 为 <code>auto</code>，<code>thinking.type</code> 为 <code>disabled</code>，<code>stream</code> 为 <code>false</code>。检查它没有额外工具、任意路径或授权字段。</p>
+<p>默认输入是“请把N1和N2安排在2026-10-05复习20分钟，标题为RAG基础复习。只保存本地计划”。它是固定教学日期，不会自动理解成你运行当天的“明天”。实际使用请给出自己要的日期。</p>
+<h2 id="wiki-h-4">离线走完一次确认保存</h2>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python planner.py --demo
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe planner.py <span class="hljs-literal">--demo</span>
+</code></pre><p>演示中的模型回复由作者构造；它不会真正请求模型。程序会打印本次记录目录、规范化的四个字段和目标文件，最后提示：</p>
+<pre><code class="hljs language-text">仅输入大写SAVE才保存；其他输入取消：
+</code></pre><p>先核对日期、笔记和分钟数，再输入大写 <code>SAVE</code> 并回车。不要在命令行里预先绕过这一步；正是这一步把模型提议变成你的明确决定。</p>
+<p>成功后应该先看到程序自己的“本地文件已保存”，随后才看到模型演示说明。新文件位于 <code>demo-plans/一串ID.json</code>，例如内容结构为：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"simulated"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"plan"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"title"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"RAG基础复习"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"note_ids"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"N1"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"N2"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"date"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-10-05"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"minutes"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>ID每次不同，以终端打印的实际路径为准。打开那个文件，独立核对四个字段和 <code>simulated: true</code>。这是判断保存成功的依据，不是最后一段自然语言说了什么。</p>
+<p>程序同时在 <code>tool-records/同一串ID/</code> 下保存五个文件：两次请求、两次响应和 <code>summary.json</code>。summary会在过程中更新，最终保存 <code>status: complete</code>、<code>approved: true</code>、<code>tool_result.status: saved</code>。它不是追加式事件日志。</p>
+<p>再运行一次演示，这次直接回车。应看到程序确认取消；这次summary的 <code>approved</code> 为false、工具结果为cancelled，<strong>本次打印的目标文件不应存在</strong>。以前保存的文件不会被删除，因此不能只看目录是不是空的。</p>
+<p>离线演示确实会写演示文件，但不会写到真实模式的 <code>plans</code> 目录，也不产生通知。改动 <code>--request</code> 不会改变固定演示；程序会拒绝把自定义请求与 <code>--demo</code> 混用，防止你误以为演示是在理解新任务。</p>
+<h2 id="wiki-h-5">确认前，程序到底检查了什么</h2>
+<p>看到提议后，程序不会立刻问“保存吗”。它先检查响应只有一个选项，工具调用是完整的 <code>tool_calls</code> 结束状态，并且本课只出现一项工具提议；出现多项、截断、未知函数或错误参数时，直接停止。</p>
+<p>例如，模型返回 <code>"minutes": "20"</code>，对人来说很好理解，但程序要求整数20。它不会悄悄转换，再让你确认一个与原始提议有所不同的动作。不存在的N9、无效日期2026-02-30、重复笔记ID、多余的文件路径，也会被拒绝。</p>
+<p>通过结构检查之后，程序展示清理过两端空白的标题和完整计划，让你核对是否符合自己的原意。日期格式正确不等于日期就是你想要的，字段合法不等于模型理解正确，这一层仍需要人判断。</p>
+<p>保存函数使用应用生成的路径，并以独占创建方式打开文件：</p>
+<pre><code class="hljs language-python">    <span class="hljs-keyword">with</span> path.<span class="hljs-built_in">open</span>(<span class="hljs-string">"x"</span>, encoding=<span class="hljs-string">"utf-8"</span>) <span class="hljs-keyword">as</span> file:
+        json.dump({<span class="hljs-string">"simulated"</span>: simulated, <span class="hljs-string">"plan"</span>: plan}, file, ensure_ascii=<span class="hljs-literal">False</span>, indent=<span class="hljs-number">2</span>)
+</code></pre><p><code>x</code> 的意思是只创建新文件，如果目标已存在便报错，不覆盖。它不能保证断电时文件仍完整，也不是跨进程数据库事务；写入出错时要打开目标文件检查，不能自动认定完全没写过。<a href="https://docs.python.org/3.11/library/functions.html#open">Python：open文件模式</a></p>
+<p>每次新运行会生成新ID。它能避免同一路径被覆盖，却不会自动识别“两次运行其实是同一个复习安排”。不要把随机ID当成业务去重；重复启动并再次确认，仍可能保存两份相同计划。持久化去重将在第14篇继续处理。</p>
+<h2 id="wiki-h-6">执行结果怎样交还模型</h2>
+<p>模型提出工具后，下一次请求不能只写一句“保存好了”。程序需要保留原assistant工具提议，并添加与其ID对应的tool消息。配套代码原样如下：</p>
+<pre><code class="hljs language-python">        messages.append({<span class="hljs-string">"role"</span>: <span class="hljs-string">"assistant"</span>, <span class="hljs-string">"content"</span>: message.get(<span class="hljs-string">"content"</span>), <span class="hljs-string">"tool_calls"</span>: calls})
+        messages.append({<span class="hljs-string">"role"</span>: <span class="hljs-string">"tool"</span>, <span class="hljs-string">"tool_call_id"</span>: call[<span class="hljs-string">"id"</span>],
+                         <span class="hljs-string">"content"</span>: json.dumps(state[<span class="hljs-string">"tool_result"</span>], ensure_ascii=<span class="hljs-literal">False</span>)})
+</code></pre><p>此时消息顺序为 <code>system → user → assistant工具提议 → tool执行结果</code>。<code>tool_call_id</code> 用于说明结果对应哪项提议；它由响应提供，只用于协议关联，不作为磁盘路径。</p>
+<p>打开本次 <code>02-request.json</code>，可以独立验证这四条消息、相同的调用ID、真实的saved或cancelled，以及 <code>tool_choice: none</code>。确认取消也会回传cancelled，不能编造一次成功结果来让对话看起来完整。</p>
+<p>第二次响应如果还要求工具、正文为空或未正常结束，程序会停止，不再进行第三次调用。这是应用中的硬边界；提示模型“不要循环”只是补充说明。</p>
+<p>模型解释仍可能说错，所以界面明确把它标为“模型说明”，把程序保存结果另行打印。如果文件确实保存了，模型却说没有保存，应以本地文件与程序结果核对；反过来，模型说“已加入日历”也不会凭空产生日历事件。</p>
+<h2 id="wiki-h-7">最容易误判的失败：文件已保存，总结却失败</h2>
+<p>考虑这条过程：</p>
+<pre><code class="hljs language-text">第一次模型请求成功 → 用户SAVE → 文件保存成功 → 第二次请求超时
+</code></pre><p>整个流程最后可能显示 <code>stopped</code>，但保存动作并没有因此撤销。<code>summary.tool_result.status</code> 仍应是saved，计划文件也仍在那里。程序不会为了得到一句漂亮的总结，再把整个流程重跑。</p>
+<p>本篇新工具入口没有自动重试，客户端仍为 <code>max_retries=0</code>，最多发两次模型请求、最多执行一次本地动作。第08篇的有限重试仍保留在卡片入口；不要把生成文本的重试循环直接包在“请求—写文件—再请求”整段代码外面。</p>
+<p>程序在写计划前先保存执行意图。如果这一步失败，便不执行；写计划成功但后续记录失败时，则停止并提示核对实际文件。如果进程被强制终止，记录也可能只停在执行中。只有文件与记录共同提供足够证据，才能判断发生了什么。</p>
+<p>等待确认时按Ctrl+C会中断，不保存计划；按回车或输入其他字符表示取消。若在写入阶段中断，不能只凭Ctrl+C就断言没有副作用，应核对打印出的目标路径。</p>
+<h2 id="wiki-h-8">真实调用和费用记录要分别看清</h2>
+<p>完成离线验证后，如果你决定用自己的账户，可运行下面命令。它会隐藏输入Key，进行最多两次可能计费的模型请求；保存仍需另行输入SAVE。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python planner.py --request <span class="hljs-string">"请把N1和N2安排在2026-10-05复习20分钟，标题为RAG基础复习。只保存本地计划。"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe planner.py <span class="hljs-literal">--request</span> <span class="hljs-string">"请把N1和N2安排在2026-10-05复习20分钟，标题为RAG基础复习。只保存本地计划。"</span>
+</code></pre><p>先把日期改成自己的实际安排。真实输出不保证与演示逐字一致：如果模型认为缺少信息，它可能直接询问，此时只有一次模型请求，状态为 <code>no_tool</code>，不会保存计划。你补充完整请求后再开始新运行，本课还没有交互式追问循环。</p>
+<p>真实计划写入 <code>plans</code>，演示计划写入 <code>demo-plans</code>。请求与响应可能包含笔记和安排，分享记录前要检查内容。</p>
+<p>一次工具任务可能花两次模型调用的费用。<code>summary.calls</code> 分别保留两次请求的usage和调用耗时，第二次输入还包括工具定义、提议和结果，不能只看最终回答的字数估算开销。演示usage与耗时为null。</p>
+<p>第09篇的 <code>costs.py</code> 仍只读取卡片格式的 <code>records/*-result.json</code>。本篇工具记录放在单独的 <code>tool-records</code>，不能把summary硬塞进旧估算器就说获得了整个任务成本。若要手动核对，分别读取每次usage，按第09篇公式计算已知部分；有一次未知，就保留总成本缺口。这里先保留数据，不默默改变旧工具的输入协议。</p>
+<h2 id="wiki-h-9">用两个场景检查边界</h2>
+<p><strong>场景一：</strong>模型返回合法的四个字段，但日期是你没有要求的下周。程序字段检查通过，你应该输入SAVE吗？</p>
+<p>不应该。结构检查只证明这是一项格式合理的计划。应取消，重新说明实际日期；程序不负责猜测你内心真正想安排哪天。</p>
+<p><strong>场景二：</strong>计划文件已存在，第二次模型请求失败。重新运行并再次SAVE能修复这个失败吗？</p>
+<p>它可能新增另一份计划，不能自动修复原任务。先打开原文件与summary，确认保存已经完成；本课宁可保留“计划已保存、总结失败”的状态，也不重复执行。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>检查方向</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>模型直接问日期，没有工具提议</td>
+<td>auto允许直接回答；补全请求后再运行</td>
+</tr>
+<tr>
+<td>没出现SAVE提示便停止</td>
+<td>查看工具名、字段、结束状态；不要绕过校验</td>
+</tr>
+<tr>
+<td>输入save却没保存</td>
+<td>确认词严格为大写SAVE，其他输入均取消</td>
+</tr>
+<tr>
+<td>取消后目录里仍有文件</td>
+<td>核对本次ID；以前的计划不会被删除</td>
+</tr>
+<tr>
+<td>最后报错但文件存在</td>
+<td>检查tool_result与第二次调用，不盲目重跑</td>
+</tr>
+<tr>
+<td>模型说设置了提醒，但没有提醒</td>
+<td>本课仅写本地JSON；以程序功能和文件为准</td>
+</tr>
+<tr>
+<td>旧费用工具看不到计划任务</td>
+<td>两类记录格式不同，tool-records的calls需分别核对</td>
+</tr>
+</tbody></table></div>
+<p>这一步让助手从生成文字迈向受控执行。下一篇回到它所依据的资料：读取自己的文本和Markdown文件，同时保留来源与版本，让复习卡和后续检索有真实、可追溯的输入。</p>
+<hr>
+<p>上一篇：用量与缓存 · 本部分大纲 · 代码包 · 运行说明</p>
+<p>验证范围：47项离线测试通过，含前篇回归与实际SDK模拟HTTP、工具参数、确认/取消、截断/多调用、写盘失败和执行后请求失败。无真实API或外部日历操作，Windows/Linux命令未实机执行。</p>
+</article>

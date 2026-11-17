@@ -1,0 +1,230 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>用法：复制最接近的模板，只保留适用字段，把 <code>&lt;占位符&gt;</code> 全部替换。<br>适用范围：个人项目与本课程练习；不需要为了“专业”改写成企业流程。</p>
+</blockquote>
+<p>好任务描述不追求长，而是让五件事可判定：从哪里开始、要得到什么、哪些不能动、怎样证明完成、哪些仍未验证。</p>
+<p>提示词只能表达意图，不能代替权限、Sandbox、Git、备份或 Hook。涉及写入、网络、费用、登录、发布和删除时，仍要使用对应控制。</p>
+<h2 id="wiki-h-0">通用任务骨架</h2>
+<pre><code class="hljs language-text">目标：&lt;用户最终能观察到什么&gt;
+
+起点：
+- 工作目录：&lt;相对或绝对路径&gt;
+- 当前状态：&lt;分支/提交/素材版本/已知测试结果&gt;
+- 先读：&lt;真实文件或文档&gt;
+- 需要保留：&lt;现有未提交改动或个人数据&gt;
+
+范围：
+- 可以改：&lt;文件、目录或组件&gt;
+- 不要改：&lt;明确排除项&gt;
+- 不做：&lt;本次非目标&gt;
+
+要求：
+1. &lt;行为一&gt;
+2. &lt;行为二&gt;
+
+验收：
+- &lt;命令一&gt;：预期 &lt;退出码/通过数/关键输出&gt;
+- &lt;命令二&gt;：预期 &lt;可观察行为&gt;
+- 人工检查：&lt;页面、CLI 或文件结果&gt;
+
+安全与副作用：
+- &lt;是否允许安装、联网、修改配置、提交、推送、发布&gt;
+- &lt;敏感数据、费用或删除边界&gt;
+
+工作方式：
+先检查磁盘现状和 Git Diff。若歧义会改变用户行为、数据格式或外部副作用，暂停并提问；否则记录最小假设后继续。每阶段验证，完成时报告改动、实际命令与结果、未验证项和已知限制。
+</code></pre><p>不清楚某个字段时，不要用“按最佳实践处理”填空。先让 Claude 只读调查，或把该字段明确列为待确认。</p>
+<h2 id="wiki-h-1">理解陌生项目</h2>
+<pre><code class="hljs language-text">请在 Plan Mode 只读调查当前项目，不修改文件，也不安装依赖。
+
+目标：让我能用 5 分钟说明项目如何启动、核心数据怎样流动、从哪里验证。
+
+请输出：
+1. 项目目标和用户主路径；
+2. 真实入口、关键目录和调用链，每项引用文件路径；
+3. 从 README、配置或脚本确认的启动、测试和验收命令；
+4. 外部服务、环境变量和生成数据，只列名称，不显示凭据值；
+5. 当前 `git status --short`；
+6. 已由文件/命令证明的结论；
+7. 推测和仍无法确认的问题，单独列出。
+
+不要用“通常”“可能”补全缺失事实。没有执行的命令标为“未验证”。
+</code></pre><p>预期结果：一份带证据的项目地图，而不是泛化架构介绍。调查完成后，人应能挑出一条最小用户路径做真实运行。</p>
+<h2 id="wiki-h-2">实现功能</h2>
+<pre><code class="hljs language-text">目标：&lt;用户最终能完成什么&gt;
+
+起点：&lt;目录、当前测试结果、现有接口或固定素材&gt;
+
+需求：
+1. &lt;输入、动作和输出&gt;
+2. &lt;边界或错误行为&gt;
+
+范围：
+- 可以改：&lt;路径&gt;
+- 不要改：&lt;路径/接口/数据&gt;
+- 不在范围：&lt;本次不做的增强&gt;
+
+验收：
+- 目标测试：&lt;完整命令和预期&gt;
+- 完整回归：&lt;完整命令和预期&gt;
+- 真实运行：&lt;步骤和可观察结果&gt;
+
+先只读调查现状和相邻实现。若存在会改变接口或数据的歧义，先问我；否则给出简短计划后直接实施。做最小必要改动，不顺手重构。完成时列出 Diff、验证证据和未验证项。
+</code></pre><h3 id="wiki-h-3">填好的 MealCraft 示例</h3>
+<pre><code class="hljs language-text">目标：用户生成 MealCraft 2.0 周菜单时，可以用可选的 `--title` 自定义 Markdown 报告标题。
+
+起点：
+- 工作目录：MealCraft 课程副本根目录
+- 当前状态：`python3 scripts/verify_2_0.py --stage complete` 通过
+- 先读：`CLAUDE.md`、换算逻辑、菜谱详情与购物清单测试
+- 保留所有现有未提交修改；不要 reset 或覆盖
+
+范围：
+- 可以改：`scripts/generate_week.py`、报告模块及直接对应测试
+- 不要改：菜单算法、购物清单算法、固定菜谱 JSON、验收脚本
+
+行为：
+1. `--title "周末菜单"` 生成的 Markdown 第一行是 `# 周末菜单`；
+2. 不传 `--title` 时，保留当前默认标题，已有命令和测试不变；
+3. 标题只影响报告展示，不修改菜单、购物清单或源菜谱数据。
+
+验收：
+- 先补“自定义标题”和“默认标题兼容”两项测试；
+- 运行报告目标测试，再运行 23 项完整测试；
+- 运行 `python3 scripts/verify_2_0.py --stage complete`；
+- 实际生成一份 `output/weekend.md`，检查第一行和完整报告内容。
+
+不要安装依赖、提交、推送或联网。先复现，再做最小修复；最终报告测试数量、验收输出和未验证项。
+</code></pre><p>Windows 学员应把示例中的 <code>python3</code> 换成 <code>py</code>，不要同时改任务目标。</p>
+<h2 id="wiki-h-4">修复缺陷</h2>
+<pre><code class="hljs language-text">现象：&lt;实际发生什么&gt;
+环境：&lt;操作系统、版本、浏览器或输入条件&gt;
+稳定复现：&lt;完整步骤或命令&gt;
+当前结果：&lt;错误、退出码、失败测试&gt;
+预期结果：&lt;可观察的正确行为&gt;
+
+已知范围：&lt;怀疑路径；若只是猜测请注明&gt;
+不能破坏：&lt;兼容性、数据或相邻行为&gt;
+
+先不要修改。请：
+1. 按给定步骤复现并保存证据；
+2. 沿真实调用路径定位根因，区分事实与假设；
+3. 补一个修复前稳定失败、修复后通过的回归测试；
+4. 做最小修复；
+5. 运行目标测试、完整回归和真实用户路径。
+
+不要通过跳过测试、增加重试、吞掉错误或扩大超时掩盖问题。若不能复现，停在调查阶段并报告缺少的证据。
+</code></pre><p>“修复前失败、修复后通过”只能证明这项回归；还要跑完整回归并检查真实行为。</p>
+<h2 id="wiki-h-5">批量修改</h2>
+<pre><code class="hljs language-text">目标：&lt;要迁移的文件与最终格式&gt;
+输入目录：&lt;只处理哪里&gt;
+明确排除：&lt;草稿、归档、受保护项、符号链接等&gt;
+迁移规则：&lt;可机械判定的规则&gt;
+异常处理：&lt;缺字段、冲突、无法解析时怎样做&gt;
+
+第一阶段只读盘点，输出：
+- 总数、可自动处理数、已符合数、阻塞数；
+- 每一类的文件清单；
+- Dry Run 的逐文件 before/after 摘要；
+- 回滚方法。
+
+确认规则后：
+1. 在练习副本或独立分支执行第一批 &lt;N&gt; 个；
+2. 运行结构、正文、数量和保护项检查；
+3. 通过后再处理剩余文件；
+4. 第二次 Dry Run 必须显示 0 个待改，证明幂等。
+
+默认不删除、不覆盖异常项、不猜测缺失数据、不提交或发布。最终报告每类计数、失败清单、哈希/测试证据和恢复入口。
+</code></pre><p>批量任务至少需要清单、Dry Run、小批量、全量、幂等和回滚六个证据点。可直接参考第 16 篇。</p>
+<h2 id="wiki-h-6">代码审查</h2>
+<pre><code class="hljs language-text">请只读审查 &lt;当前 Diff / 指定文件 / 指定提交&gt;，不要修改。
+
+目标：找出会影响正确性、数据、安全、兼容性和可验证性的具体问题。
+
+每个发现必须包含：
+- 严重程度；
+- 文件和精确位置；
+- 触发条件；
+- 用户或数据影响；
+- 代码/测试证据；
+- 最小验证方法。
+
+不要报告纯格式偏好，不要重复同一根因。若没有高置信发现，明确写“未发现”，并列出审查范围和未覆盖风险。不要因为测试通过就假定实现正确。
+</code></pre><p>审查输出不是判决。对每个高风险发现都应由主会话或人用独立命令复现。</p>
+<h2 id="wiki-h-7">使用 Subagents 调查独立假设</h2>
+<pre><code class="hljs language-text">请使用只读 Subagents 分别调查以下互斥或独立方向：
+- Agent A：&lt;假设 A 与限定文件&gt;
+- Agent B：&lt;假设 B 与限定文件&gt;
+
+每个 Agent 只能使用 Read、Grep、Glob 和明确列出的只读命令，不修改文件。输出固定为：
+- verdict：SUPPORTED / REFUTED / INCONCLUSIVE
+- evidence：文件、行号或命令结果
+- counterevidence
+- next_experiment
+
+返回后由主 Agent：
+1. 去重；
+2. 检查 Agent 是否读了正确输入；
+3. 亲自运行最小区分实验；
+4. 只根据独立证据提出修复计划。
+</code></pre><p>不要为一个小问题机械派多个 Agent，也不要让多个 Agent 重复读全仓库。第 17 篇提供了路径与时间两个互斥假设的完整样例。</p>
+<h2 id="wiki-h-8">中断后继续任务</h2>
+<pre><code class="hljs language-text">继续之前中断的任务。不要仅依赖聊天摘要，也不要立刻继续写入。
+
+请先从磁盘恢复事实：
+1. 读取项目进度文件、计划和最近修改的目标文件；
+2. 检查 `git status --short`、Diff、测试/验收状态和后台任务；
+3. 区分已完成、部分完成、未开始和需要重做的项；
+4. 检查是否存在来自其他会话的并发修改，不覆盖未知变化；
+5. 用一段简短状态说明确认下一项，然后继续。
+
+每完成一个可验收单元就更新磁盘进度。若发现同一文件有无法归属的冲突，停止写入并报告证据。
+</code></pre><p>这个模板尤其适合长教程、迁移任务和后台会话。聊天记忆是线索，磁盘状态和测试才是依据。</p>
+<h2 id="wiki-h-9">中途纠偏</h2>
+<pre><code class="hljs language-text">暂停当前写入。当前工作偏离了：&lt;原目标&gt;。
+
+请只读列出：
+1. 已修改和新增的文件；
+2. 与目标无关的变化；
+3. 当前测试、构建和验收状态；
+4. 哪些变化属于任务前已有工作；
+5. 能保留有效工作、又收缩范围的最小方案。
+
+暂时不要 reset、删除、覆盖或继续重构。等范围明确后，只撤回可确认由本任务产生且不再需要的变化。
+</code></pre><p>如果只是某一项实现方式不理想，优先针对性修改，不要用破坏性命令清空整个工作树。</p>
+<h2 id="wiki-h-10">最终验收</h2>
+<pre><code class="hljs language-text">请对 &lt;明确范围&gt; 做最终验收；除发布阻塞且明确属于本次范围的问题外，不再扩展功能。
+
+依次检查：
+1. `git status --short` 与完整 Diff；
+2. 目标测试、完整测试、构建和独立验收脚本；
+3. 至少一条真实用户主路径；
+4. 文档命令与当前实现是否一致；
+5. 密钥、个人路径、缓存、运行数据和意外生成物；
+6. 兼容性、失败路径和恢复入口。
+
+最终报告必须分为：
+- Changed：实际改了什么；
+- Verified：运行的命令、退出码和关键结果；
+- Not verified：没运行或无法确认的内容；
+- Known limits：仍存在的边界；
+- Recovery：出问题时怎样恢复。
+
+不要用“应该可以”“已完成”代替证据；不要把未运行的检查写成通过。
+</code></pre><h2 id="wiki-h-11">发送前自检</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">所有 <code>&lt;占位符&gt;</code> 已替换，路径和命令真实存在；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">目标是用户可观察结果，不只是“写一段代码”；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">起点、现有改动和固定素材状态明确；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">允许修改与明确排除范围都写了；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">验收包含命令、预期结果和真实行为；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已说明安装、联网、费用、提交、发布和删除边界；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">要求区分实际证据、假设和未验证项；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">提示词没有被当作权限或 Sandbox。</li>
+</ul>
+<p>官方入口：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/best-practices">Best practices</a></li>
+<li><a href="https://code.claude.com/docs/en/common-workflows">Common workflows</a></li>
+<li><a href="https://code.claude.com/docs/en/permissions">Permissions</a></li>
+</ul>
+</article>

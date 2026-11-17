@@ -1,0 +1,182 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>应用岗的核心技能：怎么稳定地调用 LLM API、怎么拿回可靠的结构化结果、怎么处理多轮状态。全是"落地会踩的坑"。</p>
+</blockquote>
+<h3 id="wiki-h-0">17. 流式输出和结构化解析有矛盾，怎么兼顾？</h3>
+<p><strong>直接答案</strong>：流式输出（边生成边返回、低首字延迟）和结构化输出（要拿到合法 JSON 才能被下游解析）确实矛盾——<strong>流式给你的是一段段不完整的文本，任何中间分片都不是合法 JSON</strong>。直接对每个分片调 <code>JSON.parse</code> 会立刻抛错。</p>
+<p>兼顾的核心思路是<strong>"分片展示、完整解析"</strong>，把两种需求拆到两条路径：</p>
+<ol>
+<li><strong>对用户展示</strong>：把原始分片拼起来实时显示（打字机效果）。</li>
+<li><strong>对程序解析</strong>：在<strong>流结束后</strong>，对完整 buffer 一次性解析。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>关键判断</strong>："流式"和"结构化"是给不同消费者的——流式给"人看"，结构化给"程序用"。两者不应混在一条路径上。</li>
+<li><strong>反直觉的正确实践</strong>：结构化输出场景里，流式常是<strong>不必要甚至有害的</strong>——为了打字机效果引入解析复杂度，得不偿失。若下游只关心最终 JSON，直接用非流式 + Structured Output 更稳。</li>
+<li><strong>JSON 分片的本质问题</strong>：JSON 是树结构，前缀片段既不闭合、也无完整语义，所以"增量解析"只能做<strong>尽力而为</strong>，不能保证正确。</li>
+<li><strong>兜底层次（从强到弱）</strong>：Structured Output/JSON Mode 保证合法性 → 完整 buffer 解析 → 失败用 <code>json_repair</code> 修复 → 带错误信息重试一次 → 降级纯文本。</li>
+<li><strong>增量解析器</strong>（<code>partial-json-parser</code> 等）用于"边流边预览"场景，但最终仍以完整解析结果为准。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-1">18. 多轮对话的上下文会越滚越大，怎么设计"截断 + 摘要"策略？</h3>
+<p><strong>直接答案</strong>：多轮状态维护的核心难点不是"存历史"，而是<strong>上下文超限时怎么优雅地丢旧信息</strong>。策略是<strong>分层截断 + 摘要</strong>：</p>
+<ol>
+<li><strong>置顶保护（Pinned）</strong>：system prompt、用户关键约束、任务目标这些<strong>全局信息永久置顶</strong>，不参与截断。</li>
+<li><strong>滑动窗口保留近期原文</strong>：最近 N 轮（如 3 轮）保留完整原文，保证当前话题连贯。</li>
+<li><strong>摘要压缩更早历史</strong>：更早的轮次用一个便宜模型压缩成摘要，只保留要点，原文丢弃。</li>
+<li><strong>重组</strong>：每次请求拼成 <code>system + 摘要 + 近期原文</code> 的结构。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>压缩优先级（有损性递增）</strong>：原文 &gt; 紧凑化（去冗余词）&gt; 摘要（有信息损失）——优先保留原文，不够了才摘要。</li>
+<li><strong>常见错误的代价</strong>：单纯"固定窗口截断"会把用户开头说的"输出要严谨""别改格式"这类全局指令截掉，导致 Agent 突然失忆变傻。</li>
+<li><strong>摘要的时机和粒度</strong>：可以按 token 阈值触发（如超过窗口 70% 就压缩），或按"话题切换"触发；摘要模型选便宜小模型即可，不必用主力大模型。</li>
+<li><strong>摘要引入的风险</strong>：摘要会丢失精确数值、引用、约束细节，所以<strong>关键约束必须置顶，不能进摘要</strong>。</li>
+<li>加分点：能说出"置顶保护 + 滑动窗口 + 摘要"是工业界标配三件套，并讲清每一层各自保护什么。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-2">19. 为什么一次带工具的回答会触发两次模型调用？成本该怎么估？</h3>
+<p><strong>直接答案</strong>：一次带工具的完整回答，通常需要<strong>两次模型调用</strong>：</p>
+<ol>
+<li><strong>第一次</strong>：模型分析用户意图，返回 <code>tool_calls</code>（决定调哪个工具 + 参数），但不生成最终答案。</li>
+<li>你的代码执行工具，把结果以 <code>tool</code> 角色消息回传。</li>
+<li><strong>第二次</strong>：模型拿到工具结果，生成最终自然语言回答。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>成本盲区</strong>：很多人以为一次回答就一次调用，实际可能 2 次；多轮工具调用则 N+1 次（N 次工具调用 + 1 次最终回答）。</li>
+<li><strong>成本估算公式</strong>：工具调用场景按"调用次数 × 每次 token 量"估，而非"用户问题数"。且<strong>第一次调用的输入 token 会连同工具结果一起，在第二次调用时被重发</strong>，所以输入成本也是翻倍的。</li>
+<li><strong>优化手段</strong>：<ol>
+<li>减少不必要的工具数量（工具越多，模型越可能乱调、多调）。</li>
+<li>让模型<strong>一次性批量调用多个独立工具</strong>（parallel tool calls），减少往返次数。</li>
+<li>工具返回结果<strong>裁剪</strong>——只回传必要字段，而非整段原始响应，降低第二次调用的输入 token。</li>
+</ol>
+</li>
+<li><strong>延迟也翻倍</strong>：两次调用 = 两段延迟，实时场景要评估这是否可接受，或考虑流式 + 单次调用方案。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-3">20. 用 Pydantic / JSON Schema 做结构化输出，怎么落地？</h3>
+<p><strong>直接答案</strong>：用类型或 JSON Schema 定义结构，选择支持该 Schema 的供应商能力，再对返回值做本地校验。三层配合：</p>
+<ol>
+<li><strong>定义 Schema</strong>：用 Pydantic 模型或 JSON Schema 声明期望结构。</li>
+<li><strong>启用供应商约束</strong>：OpenAI 严格 Structured Outputs 是供应商侧约束；LangChain <code>with_structured_output()</code> 会随模型及 method 选择工具调用、原生 Schema 等实现；Spring AI <code>.entity(MyRecord.class)</code> 是转换接口。</li>
+<li><strong>本地校验</strong>：拿到结果后用本地校验器（Pydantic）二次验证。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>不要从方法名反推能力</strong>：<code>with_structured_output()</code> / <code>.entity()</code> 只是转换接口，<strong>不能仅凭方法名断定已启用原生约束</strong>——要检查实际请求、配置与所用框架版本（不同版本默认实现不同）。</li>
+<li><strong>最小验收用例</strong>：正常对象、额外字段、错误类型、拒答、截断五种情况都要测。</li>
+<li><strong>格式校验 ≠ 业务校验</strong>：格式验证通过后仍需验证业务含义，例如起始日期不得晚于结束日期、金额必须非负。</li>
+<li><strong>版本敏感</strong>：结构化输出的底层实现（工具调用 vs 原生 Schema）随框架和模型版本变化，升级时要回归测试。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-4">21. API 返回的 JSON 不合法怎么办？有哪些兜底手段？</h3>
+<p><strong>直接答案</strong>：先<strong>分类</strong>错误，再决定处理策略，而不是一律重试：</p>
+<ul>
+<li><strong>格式错误</strong>（不是合法 JSON）</li>
+<li><strong>Schema 不匹配</strong>（合法 JSON 但字段/类型不符）</li>
+<li><strong>业务值错误</strong>（格式对但值不对，如日期倒置）</li>
+<li><strong>输出不完整</strong>（截断、拒答）</li>
+</ul>
+<p><strong>处理策略</strong>：</p>
+<ol>
+<li>受支持时启用严格 Schema，从源头保证合法性。</li>
+<li>接收后使用本地校验器验证。</li>
+<li>若失败，可在<strong>剩余预算内</strong>把简短的校验错误反馈给模型重新生成，<strong>不无限循环</strong>。</li>
+<li>不完整/拒答应独立处理。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>JSON mode 只保证语法</strong>：它保证是有效 JSON，但不保证 Schema 匹配，这是两个层次（对应大模型通识第 9 题）。</li>
+<li><strong>危险反模式</strong>：涉及金额、身份或工具参数时，<strong>不得靠静默字符串修补后执行</strong>。例如 <code>{"amount":"十元"}</code> 对整数分字段不合法，正确处理是拒绝或重新抽取并核对原文，<strong>不能擅自猜成 1000</strong>。</li>
+<li><strong>重试的边界</strong>：重试要有次数和预算上限；若模型反复返回同样错误，说明是 prompt/Schema 设计问题，重试无益，应降级或转人工。</li>
+<li><strong>修复工具</strong>：<code>json_repair</code> 能修常见语法错误（缺引号、尾逗号），但<strong>只能用于展示/降级路径，不能用于需要精确语义的执行路径</strong>。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-5">22. 批量调用 LLM 有什么坑？怎么优化吞吐？</h3>
+<p><strong>直接答案</strong>：批量调用（如处理 1 万条文本）的坑和优化：</p>
+<p><strong>坑</strong>：</p>
+<ol>
+<li><strong>串行太慢</strong>：一条条调用，延迟线性累加。</li>
+<li><strong>并发限流</strong>：同时发太多触发 429 限流。</li>
+<li><strong>成本失控</strong>：不设预算，批量任务烧穿账单。</li>
+<li><strong>失败丢失</strong>：中途失败没有断点，重跑浪费已完成的量。</li>
+</ol>
+<p><strong>优化</strong>：</p>
+<ol>
+<li><strong>异步并发 + 限速</strong>：用 <code>asyncio</code>/线程池并发，但用信号量控制并发度。</li>
+<li><strong>Batch API</strong>：用供应商的异步批处理接口（如 OpenAI Batch API），成本可降约 50%，且不占实时限流配额。</li>
+<li><strong>重试 + 退避</strong>：失败请求按指数退避 + jitter 重试。</li>
+<li><strong>断点续跑</strong>：记录进度，失败后能从中断处继续。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>并发度要压测确定</strong>：太高触发限流（429），太低浪费吞吐。经验做法是从保守值起步，逐步上调并观察限流率和成功率。</li>
+<li><strong>批量任务三件套</strong>：进度持久化 + 幂等 + 成本上限，缺一不可。</li>
+<li><strong>Batch API 的适用边界</strong>：适合离线、对延迟不敏感的任务（摘要、打标、批量生成）；不适合实时交互。</li>
+<li><strong>成本量化</strong>：Batch API 通常半价，但完成时间可能数小时，是"用延迟换成本"。</li>
+<li>面试金句："批量任务的三件套：并发限速、重试退避、断点续跑。"</li>
+</ul>
+<hr>
+<h3 id="wiki-h-6">23. 多轮 Function Calling 里，怎么避免模型"反复调同一个工具"死循环？</h3>
+<p><strong>直接答案</strong>：运行时同时设置<strong>步数、总时间和费用预算</strong>，再检测<strong>重复调用与无进展</strong>，多管齐下：</p>
+<ol>
+<li><strong>步数上限</strong>：限制最大工具调用轮数（如 5 轮）。</li>
+<li><strong>时间/费用预算</strong>：设总耗时和总成本上限，任一超限即停。</li>
+<li><strong>重复检测</strong>：对同一工具及规范化参数，缓存实际执行结果，避免重复业务操作。</li>
+<li><strong>无进展检测</strong>：连续多轮结果不变或无新信息时终止。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>关键约束</strong>：每个新的 <code>tool_call_id</code>/<code>call_id</code> 都需回传与之对应的结果，<strong>不能因"内容重复"留下悬空调用</strong>（悬空的 tool_call 会导致请求格式错误）。</li>
+<li><strong>写操作的幂等</strong>：去重对读操作可缓存，但<strong>写操作必须用业务幂等键</strong>，不能靠"参数相同就跳过"。</li>
+<li><strong>停止条件的正确处理</strong>：达到停止条件时，先关闭本轮调用状态，再停止请求模型并记录原因。</li>
+<li><strong>prompt 的局限性</strong>：提示词里的"不要重复调用"只能辅助，<strong>不能代替执行层上限</strong>——模型可能不遵守。</li>
+<li>加分点：能区分"读操作缓存去重"和"写操作幂等键"两种不同的防重机制。</li>
+</ul>
+<p>参考：<a href="https://developers.openai.com/api/docs/guides/function-calling">OpenAI Function Calling</a>。</p>
+<hr>
+<h3 id="wiki-h-7">24. 工具结果如何正确注入多轮对话？tool_call_id 配错会怎样？</h3>
+<p><strong>直接答案</strong>：工具结果注入指把工具执行结果以 <code>tool</code> 角色消息<strong>插回对话历史的正确位置</strong>，让模型基于结果继续推理。顺序错了模型就会"对不上号"。</p>
+<p><strong>正确结构</strong>：<code>assistant 消息（含 tool_calls）→ 每个 tool_call 对应一条 tool 消息（带 tool_call_id）</code>，且 tool 消息必须紧跟在对应的 assistant 消息之后。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>一一对应原则</strong>：每个 <code>tool_call_id</code> 必须和 <code>tool</code> 消息精确对应，错配会导致模型无法关联结果与请求，产生错误推理。</li>
+<li><strong>并行调用尤其易错</strong>：并行调用多个工具时，要按 <code>tool_call_id</code> 精确配对，<strong>不能只按顺序</strong>（结果返回顺序可能与调用顺序不一致）。</li>
+<li><strong>手写循环的坑</strong>：这是手写 Function Calling 循环（不用框架）时最容易出 bug 的地方；框架（LangChain、Spring AI）已封装，但仍要理解底层协议。</li>
+<li><strong>消息顺序的协议约束</strong>：<code>tool</code> 消息必须在产生它的 <code>assistant</code> 消息之后、且连续出现，中间插入其他消息会破坏协议。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-8">25. 调用 LLM API 时，超时时间怎么设？</h3>
+<p><strong>直接答案</strong>：不能只设一个"总超时"，要<strong>分层设置</strong>，并存多种超时：</p>
+<ol>
+<li><strong>连接超时</strong>：建立 TCP/TLS 连接的最长时间。</li>
+<li><strong>首字/首事件超时</strong>：发出请求到收到第一个 token/事件的最长时间（对用户体验最关键）。</li>
+<li><strong>流式读空闲超时</strong>：流式过程中连续无新事件的最长时间。</li>
+<li><strong>端到端总截止时间</strong>：整个请求的硬上限。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>示例（非通用值）</strong>：总预算 60 秒，建立连接最多 5 秒，连续 15 秒无新事件视为读空闲——这些数字要<strong>按延迟分布和用户要求调整</strong>，不能照搬。</li>
+<li><strong>总截止时间的意义</strong>：即使每 10 秒收到一个 chunk，总截止时间仍能终止无限延长的响应（防止"慢但不断"的挂起）。</li>
+<li><strong>共享预算</strong>：重试、退避、工具执行都要<strong>共享总预算</strong>，否则"重试几次"后总耗时远超预期。</li>
+<li><strong>超时 ≠ 远端停止</strong>：客户端超时取消等待，<strong>不证明远端已停止</strong>。涉及副作用要用状态查询、取消协议和幂等机制兜底。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-9">26. 如何统一封装多家 LLM 的 API，避免厂商锁定？</h3>
+<p><strong>直接答案</strong>：用<strong>统一抽象层</strong>屏蔽各家 API 差异（消息格式、结构化输出、工具调用、流式的实现都不同），业务代码只依赖抽象接口，不直接依赖某家 SDK。</p>
+<p><strong>做法</strong>：</p>
+<ol>
+<li>定义统一接口（如 <code>ChatModel</code>、<code>EmbeddingModel</code>）。</li>
+<li>每家厂商写一个适配器（adapter）。</li>
+<li>业务代码依赖接口，切换厂商只需换配置。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>现成方案优先</strong>：LangChain、Spring AI 已做了这层抽象，直接复用而非自研；网关方案（LiteLLM）也能统一路由多家模型。</li>
+<li><strong>抽象的度</strong>：别把抽象做得太厚——"当抽象泄漏、增加延迟、不如一层薄封装时，就该删掉多余的层"。抽象层应是<strong>薄而稳定</strong>的，不是把每家 API 的所有能力都抽象一遍。</li>
+<li><strong>抽象泄漏的现实</strong>：各家在结构化输出、工具调用、流式上的能力差异，很难完全屏蔽，抽象层要预留"能力探测"或"降级"的机制。</li>
+<li><strong>收益</strong>：便于 A/B 测试不同模型、降级切换、压测对比成本、避免单点供应商风险。</li>
+<li><strong>加分点</strong>：能说出"抽象的价值是隔离变化，代价是损失各家的差异化能力，要在两者间找平衡"。</li>
+</ul>
+<hr>
+</article>

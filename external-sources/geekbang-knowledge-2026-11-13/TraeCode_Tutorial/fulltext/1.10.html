@@ -1,0 +1,18 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">9.1 固定 CLI 2.0 文档基线</h2>
+<p>本次按 2026-10-02 官方 CLI 2.0 参考修订；本机未安装该产品，产品操作仍需按本机发行版验收。先保存 <code>traecli --version</code>、<code>traecli --help</code>、<code>traecli exec --help</code>。不能把旧使用场景页的 YAML 与 2.0 TOML 混用。</p>
+<p>用户配置为 <code>~/.trae/traecli.toml</code>。日常优先用 <code>/model</code>、<code>/permissions</code>、<code>/login</code>。最小默认策略：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">approval_policy</span> = <span class="hljs-string">"on-request"</span>
+<span class="hljs-attr">default_permissions</span> = <span class="hljs-string">":workspace"</span>
+</code></pre><p>修改配置前保留自己的备份，重启后核对生效范围；模型名由实际账号列表选择，不复制无权限的占位模型。</p>
+<h2 id="wiki-h-1">9.2 先给分析角色准备可读数据</h2>
+<p>文本 Read/cat 工具不能把 SQLite 文件当 CSV。主线先用第 5 章 summary 导出结果，再交给只读分析角色：</p>
+<pre><code class="hljs language-bash">python -m src.cli_app --data data/ledger.db add --amount 40 --<span class="hljs-built_in">type</span> 支出 --category 餐饮 --<span class="hljs-built_in">date</span> 2026-08-02
+python -m src.cli_app --data data/ledger.db summary --month 2026-08 &gt; august.json
+python -m src.cli_app --data data/ledger.db summary --month 2026-09 &gt; september.json
+</code></pre><p>这笔八月数据只在课程数据库中追加一次。另建 budget.json：<code>{"month":"2026-09","expense_budget_cents":4500}</code>。预期八月支出 4000 分，九月 4700 分，环比增加 17.5%，超预算 200 分；这是练习结果，不是个人财务建议。</p>
+<h2 id="wiki-h-2">9.3 限定分析任务</h2>
+<p>给角色的任务只引用 august.json、september.json、budget.json，要求列数据来源、计算式和未知项。使用只读沙箱，不授权任意 Bash；与第 10 章的数据库 MCP 路线二选一，不同时堆叠配置。没有上月数据时不能编造环比。</p>
+<h2 id="wiki-h-3">9.4 记忆与执行边界</h2>
+<p>AGENTS.md 记录已验证的入口、整数分单位、数据忽略规则与测试命令。它是上下文约定，不是强制执行测试或数据库权限的机制；结果仍由独立命令验收。</p>
+<p>参考：<a href="https://docs.trae.cn/cli_config-file">官方配置参考</a>。</p>
+</article>

@@ -1,0 +1,253 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>权限名称可能随版本和配置变化。本课按能力选择：调查用 read-only，实施用 workspace-write。若 /permissions 没有只读选项，退出后运行 <code>codex --sandbox read-only --ask-for-approval on-request</code>；实施前用 workspace-write 重新启动并明确提供计划，不凭 Read Only／Auto 等标签猜权限。</p>
+</blockquote>
+<blockquote>
+<p>预计学习时间：70—85 分钟<br>本篇目标：审查第 15 篇提交的 TaskFlow 3.0，验证而不是照单全收 Review 发现，只处理已证实的发布阻塞项，在行为证据保护下决定是否重构，并生成可核对的发布材料。</p>
+</blockquote>
+<p>功能完成后最危险的两个动作，一是看到 Review 结论就立刻全改，二是趁发布前“顺手把代码整理漂亮”。前者会把误报变成真实改动，后者会让功能变化和结构变化混在一起。</p>
+<p>这一篇不增加任何新功能。最终要留下五类证据：</p>
+<ul>
+<li>审查目标确实是 TaskFlow 3.0 的那次提交；</li>
+<li>每个接受的发现都有复现或测试证据；</li>
+<li>修复与重构前后，用户可见行为保持在已确认范围内；</li>
+<li>README、CHANGELOG、发布说明和实际功能一致；</li>
+<li>最终测试、升级演练、Git 状态与发布检查全部通过。</li>
+</ul>
+<h2 id="wiki-h-0">先确认你审查的是哪一份代码</h2>
+<p>上一篇最后创建了 <code>add priority and due dates</code> 提交，并留下干净工作树。进入 TaskFlow 根目录后运行：</p>
+<pre><code class="hljs language-bash">git branch --show-current
+git status --short
+git <span class="hljs-built_in">log</span> --oneline --decorate -5
+git show --<span class="hljs-built_in">stat</span> --oneline HEAD
+</code></pre><p>你需要看到：</p>
+<ul>
+<li>当前位于 3.0 功能分支；</li>
+<li><code>git status --short</code> 没有输出；</li>
+<li><code>HEAD</code> 正是第 15 篇的 3.0 提交；</li>
+<li><code>git show --stat HEAD</code> 的文件范围与优先级、截止日期、测试和文档有关。</li>
+</ul>
+<p>如果 <code>HEAD</code> 不是 3.0 提交，先不要运行 Review。审查工具会忠实检查你指定的范围，范围选错后，结论再具体也没有意义。</p>
+<p>再建立发布候选基线。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v
+git status --short
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+git status <span class="hljs-literal">--short</span>
+</code></pre><p>完整测试应通过，工作树仍应干净。若这里已经失败，先把它作为“3.0 功能未完成”返回上一篇处理，不要让 Review 替代基本测试。</p>
+<h2 id="wiki-h-1">先用独立 Reviewer 审查那个提交</h2>
+<p>Codex CLI 提供两种常用入口：</p>
+<ul>
+<li>在交互界面输入 <code>/review</code>，从预设中选择基准分支、未提交改动或某个提交；</li>
+<li>在普通终端运行 <code>codex review</code>，完成一次非交互审查后退出。</li>
+</ul>
+<p>本篇先用第二种，因为上一篇把整个 3.0 功能放进了最新提交。退出当前 Codex 交互界面或打开另一个终端，在 TaskFlow 根目录执行：</p>
+<pre><code class="hljs language-bash">codex review --commit HEAD &gt; ../taskflow-review-1.txt 2&gt;&amp;1
+</code></pre><p>保存第一轮输出后立即检查退出码：bash 为 <code>$?</code>，PowerShell 为 <code>$LASTEXITCODE</code>；非零先解决错误。文件放项目外，所以后续工作区检查仍应干净。PowerShell 7+ 读取时使用 UTF-8。当前本机帮助中，<code>--commit</code>、<code>--base</code>、<code>--uncommitted</code> 和自定义 <code>PROMPT</code> 是互斥审查目标，不能在同一条命令中叠加多个范围。执行前可用下面的命令核对你安装版本的实际参数：</p>
+<pre><code class="hljs language-bash">codex review --<span class="hljs-built_in">help</span>
+</code></pre><p>可见结果应该是一份按优先级组织、带文件位置和影响说明的审查，而不是一批文件修改。官方文档明确说明，专用 Reviewer 读取选定 Diff 并报告发现，不会自行修改工作树；只有你随后要求 Codex 应用修复时，才重新受当前沙箱和审批设置约束。审查范围和行为见 <a href="https://learn.chatgpt.com/docs/code-review?surface=cli">Code review</a> 与 <a href="https://learn.chatgpt.com/docs/developer-commands">Developer commands</a>。</p>
+<p>Review 结束后立即验证这一点：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>结果应仍为空。如果出现文件变化，先确认是否是你同时运行的其他任务产生的，不要默认它来自 Reviewer。</p>
+<h2 id="wiki-h-2">第二轮 Review 要带着业务契约，而不是只说“再仔细看看”</h2>
+<p>默认 Review 适合发现广泛问题，但 TaskFlow 3.0 还有一套在第 15 篇冻结的业务规则。现在启动 Codex 交互界面：</p>
+<pre><code class="hljs language-bash">codex --sandbox read-only --ask-for-approval on-request
+</code></pre><p>输入 <code>/review</code>，选择 <code>Custom review instructions</code>，提交下面的范围：</p>
+<pre><code class="hljs language-text">请审查最新的 TaskFlow 3.0 提交，只报告会影响正确性、数据、兼容性或可验证发布的发现，不修改文件。
+
+重点核对：
+1. 旧记录缺少 priority/due 时能读取，非法现有值不会被静默吞掉；
+2. list、stats、report 等纯读取命令不会改写旧 JSON；
+3. 排序严格按状态、优先级、日期、任务 ID；
+4. stats、report 摘要与明细共用同一逾期定义；
+5. 截止当天不逾期，已完成任务不逾期；
+6. 测试不会依赖运行当天；
+7. README 示例、默认值和真实 --help 一致；
+8. 仓库中没有临时数据、缓存、密钥或个人绝对路径。
+
+每个发现必须给出：优先级、文件与位置、触发输入、用户影响、现有证据、最小复现。无法证实的内容标为“待验证”，不要当作缺陷。
+</code></pre><p>这次审查与上一轮的区别，不是模型“更认真”，而是检查标准更贴近产品契约。Review 最有价值的输入通常是准确范围、不能破坏的行为和可复现条件，而不是泛泛要求“全面审查”。</p>
+<h2 id="wiki-h-3">先验证发现，再决定接不接受</h2>
+<p>把两轮结果交给当前会话整理：</p>
+<pre><code class="hljs language-text">先读取我提供的 ../taskflow-review-1.txt，并记录两轮审查对应的提交号；若无法读取请停止合并。再合并该文件中的第一轮与本会话第二轮 Review 的发现，去除重复项，暂时不要修改。
+
+按下面四类输出：
+- 已有命令或测试能够复现的发布阻塞缺陷；
+- 需要补一个最小测试才能判断的风险；
+- 有证据但不阻塞 3.0 的改进建议；
+- 缺乏触发路径或与当前需求不符的疑似误报。
+
+每项写明验证命令、预期结果、实际结果和你为何归入该类。不要仅根据 Reviewer 给出的优先级下结论。
+</code></pre><p>然后逐项执行前两类的最小复现。判断一个发现是否成立，至少要回答：</p>
+<ol>
+<li>这个输入在当前产品规则中是否允许出现？</li>
+<li>它是否真的经过 Review 指出的代码路径？</li>
+<li>实际结果是否违反第 15 篇确认的契约？</li>
+<li>有没有自动化测试或可重复命令证明？</li>
+</ol>
+<p>如果 Review 说“可能有问题”，但无法给出合法输入和错误结果，就先保留为待验证风险。不要为了让报告里“零发现”而修改稳定代码。</p>
+<h2 id="wiki-h-4">只修已证实的发布阻塞项</h2>
+<p>若确有阻塞项，先用 <code>/permissions</code> 把当前会话从 <code>Read Only</code> 切换到 <code>Auto</code>，再逐项修复：</p>
+<pre><code class="hljs language-text">只处理已经复现的发布阻塞项，一次处理一项。
+
+每项遵循：
+1. 先增加最小回归测试，并证明修改业务代码前该测试失败；
+2. 做最小修复，不顺带重构；
+3. 运行目标测试；
+4. 运行完整测试；
+5. 重跑原始复现命令；
+6. 展示本项 Git Diff 与剩余风险。
+
+某项无法稳定复现时停止，不要猜着修。不要提交、打标签、推送或发布。
+</code></pre><p>如果两轮 Review 都没有发现可复现阻塞项，不需要故意制造修改。记录“没有接受的阻塞发现”也是有效结果，前提是基线测试、升级演练和发布检查仍会重新执行。</p>
+<p>修复后在终端独立验证：</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v
+git diff --check
+git diff --<span class="hljs-built_in">stat</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+git <span class="hljs-built_in">diff</span> <span class="hljs-literal">--check</span>
+git <span class="hljs-built_in">diff</span> <span class="hljs-literal">--stat</span>
+</code></pre><p>预期结果是完整测试通过、没有空白错误，而且变化只覆盖回归测试、根因修复和必要说明。Review 本身不是成功证据；它只是帮你找到值得验证的问题。</p>
+<h2 id="wiki-h-5">重构必须通过一道“现在值得做吗”的门</h2>
+<p>TaskFlow 从 1.0 升到 3.0 后，代码中可能出现重复解析、过长函数或职责混合。它们不一定都值得在发布前处理。先让 Codex 只评估：</p>
+<pre><code class="hljs language-text">请评估当前 TaskFlow 3.0 是否存在会明显提高下一次修改风险的结构问题，暂时不要改代码。
+
+最多提出 3 个候选。每个候选必须说明：
+- 已有证据，而不是只说文件太长；
+- 如果现在不改，下一次最可能在哪类需求中出错；
+- 需要保持不变的 CLI、JSON、排序、统计和报告行为；
+- 现有测试是否足以保护；
+- 修改规模、失败时回退方法和是否值得阻塞 3.0 发布。
+
+最后给出“现在做一个”“全部延期”二选一建议。
+</code></pre><p>只有同时满足下面三点，才选一个候选实施：</p>
+<ul>
+<li>风险具体，例如同一校验或排序键存在多份实现；</li>
+<li>用户可见行为已经有测试和冒烟证据保护；</li>
+<li>Diff 能保持小而独立，不夹带新功能。</li>
+</ul>
+<p>若满足条件，先锁定行为：</p>
+<pre><code class="hljs language-text">只实施刚才选中的一个有限重构，不增加功能。
+
+实施前：
+- 运行完整测试；
+- 用临时数据记录 add、list、stats、report 的关键输出；
+- 记录临时 JSON 和 Markdown 报告的内容或哈希。
+
+实施后：
+- 重跑同一组命令；
+- 比较输出、JSON 语义和报告内容；
+- 运行完整测试；
+- 展示只属于这次重构的 Diff。
+
+如果行为证据发生计划外变化，恢复这次重构并报告，不要修改验收标准。
+</code></pre><p>“全部延期”不是失败。发布前重构的目标是降低已知风险；如果收益模糊或测试保护不足，保留稳定实现通常更负责。把延期项写入发布说明的已知限制或后续计划即可。</p>
+<h2 id="wiki-h-6">根据仓库事实生成发布材料</h2>
+<p>现在让 Codex 根据 Git、测试和 README 起草材料，而不是根据聊天记忆编写：</p>
+<pre><code class="hljs language-text">请根据 TaskFlow 2.0 到当前 3.0 的实际 Git 提交、README、测试和已验证命令，准备发布材料。
+
+1. 在 CHANGELOG.md 增加 3.0 条目；
+2. 创建 RELEASE_NOTES.md；
+3. 更新 README 中已经过时的命令或排序说明；
+4. 更新 STATUS.md，写明已接受的 Review 发现、已延期建议和最近验证。
+
+发布材料必须包含：
+- 新增 priority 与 due；
+- 默认排序的用户可见变化；
+- 旧 JSON 兼容和纯读取不改写的边界；
+- 逾期定义；
+- 实际验证过的操作系统与命令；
+- 已知限制。
+
+不要编造性能提升、支持平台、零缺陷或“完全兼容”等无法由证据支持的结论。不要提交、打标签、推送或发布。
+</code></pre><p>打开两个发布文件逐条核对。一个简单方法是让 Codex 为每条重要声明附上证据来源：对应测试名、README 小节、Git 提交或手工验证命令。来源可以在起草阶段使用，最终面向用户的发布说明不必写成测试报告。</p>
+<p>尤其要检查“兼容”这个词。当前证据支持的是：旧记录缺少新字段仍能读取，纯读取命令不改写旧 JSON，后续主动写入可以按当前格式保存且语义不变。它不自动等于所有历史版本、损坏文件和未来格式都兼容。</p>
+<h2 id="wiki-h-7">用发布检查 Skill 做最终证据索引</h2>
+<p>显式调用第 11 篇创建的 Skill：</p>
+<pre><code class="hljs language-text">$taskflow-release 请执行 TaskFlow 3.0 最终发布检查。
+
+重点核对：
+- 完整测试；
+- 2.0 旧数据升级演练；
+- add/list/stats/report 冒烟命令；
+- README、CHANGELOG、RELEASE_NOTES 的事实一致性；
+- Git Diff 与仓库清洁度；
+- 是否含真实数据、密钥、缓存、临时文件或个人绝对路径。
+
+只生成或更新 RELEASE_CHECK.md。把每个结论对应到实际命令和结果；无法验证的项目标为 unknown。不要修改业务代码，不要提交、打标签、推送或发布。
+</code></pre><p>打开 <code>RELEASE_CHECK.md</code>，确认每一个 <code>pass</code> 都有证据。报告写“测试通过”，至少应能看到真实测试命令和结果；写“旧数据兼容”，应能对应上一篇的升级演练或本轮重跑结果。</p>
+<p>如果 Skill 为了消除阻塞而修改业务代码，说明它越过了第 11 篇设定的边界。先停止，审查 Skill 和 Diff，再恢复到“只检查、只写报告”。</p>
+<h2 id="wiki-h-8">再审一次未提交变化</h2>
+<p>3.0 功能提交已经审过；这一轮又可能产生了修复、有限重构和发布文档。现在审查<strong>未提交工作树</strong>：</p>
+<pre><code class="hljs language-bash">codex review --uncommitted
+</code></pre><p>这一范围包括已暂存、未暂存和未跟踪文件。它与前面的 <code>--commit HEAD</code> 不是同一个问题：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>审查对象</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>codex review --commit HEAD</code></td>
+<td>已提交的 3.0 功能提交</td>
+</tr>
+<tr>
+<td><code>codex review --uncommitted</code></td>
+<td>本轮尚未提交的修复、重构与发布材料</td>
+</tr>
+</tbody></table></div>
+<p>不要同时传 <code>--commit</code> 和 <code>--uncommitted</code>。如果未提交 Review 发现问题，仍先复现、确认范围，再做最小修改和完整验证。</p>
+<h2 id="wiki-h-9">人工完成最后一道发布门</h2>
+<p>在 TaskFlow 根目录亲自执行：</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v
+git diff --check
+git status --short
+git diff --<span class="hljs-built_in">stat</span>
+git diff --name-only
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+git <span class="hljs-built_in">diff</span> <span class="hljs-literal">--check</span>
+git status <span class="hljs-literal">--short</span>
+git <span class="hljs-built_in">diff</span> <span class="hljs-literal">--stat</span>
+git <span class="hljs-built_in">diff</span> <span class="hljs-literal">--name-only</span>
+</code></pre><p>还要人工确认：</p>
+<ul>
+<li>临时升级 JSON、真实 <code>data/tasks.json</code>、缓存和生成过程日志没有进入 Diff；</li>
+<li>没有 <code>.env</code>、API Key、个人绝对路径或敏感任务内容；</li>
+<li>README 中复制命令与当前 <code>--help</code> 一致；</li>
+<li>CHANGELOG 和 RELEASE_NOTES 没有夸大验证范围；</li>
+<li>RELEASE_CHECK 的阻塞项为零，<code>unknown</code> 已经明确处理或写入限制；</li>
+<li>本轮没有执行 <code>git push</code>、创建远程 Release 或发布包。</li>
+</ul>
+<p>输入 <code>/diff</code> 再看一遍实际内容，然后按 <code>git diff --name-only</code> 明确暂存。常见文件可以这样写：</p>
+<pre><code class="hljs language-bash">git add taskflow.py tests README.md CHANGELOG.md RELEASE_NOTES.md STATUS.md RELEASE_CHECK.md
+git diff --cached --check
+git diff --cached --<span class="hljs-built_in">stat</span>
+git commit -m <span class="hljs-string">"prepare TaskFlow 3.0 release"</span>
+git status --short
+</code></pre><p>如果本轮没有修改业务代码或测试，就不要为了照抄命令而添加它们；按实际文件列表逐个暂存。提交后工作树应干净。</p>
+<p>最后创建本地标签前，先检查是否重名：</p>
+<pre><code class="hljs language-bash">git tag --list taskflow-3.0
+</code></pre><p>没有输出时再创建带说明的本地标签：</p>
+<pre><code class="hljs language-bash">git tag -a taskflow-3.0 -m <span class="hljs-string">"TaskFlow 3.0"</span>
+git show --no-patch --decorate taskflow-3.0
+</code></pre><p><code>git show</code> 应指向刚才的发布准备提交。若标签已存在，先确认它指向哪里，不要强行覆盖。本教程到此只完成本地发布准备，不执行 <code>git push</code>、<code>git push --tags</code> 或任何真实发布；那些动作会影响远端和其他协作者，需要你单独确认目标仓库与发布权限。</p>
+<h2 id="wiki-h-10">卡住时先看 Review 范围与证据</h2>
+<h3 id="wiki-h-11">Review 没发现问题，但完整测试失败</h3>
+<p>两者并不矛盾。Review 分析选定 Diff，测试执行实际代码路径。先修复可复现测试失败，不能用“无 Review 发现”覆盖红灯。</p>
+<h3 id="wiki-h-12">Review 报告的文件不属于 3.0</h3>
+<p>检查你选的是 <code>--commit HEAD</code>、<code>--uncommitted</code> 还是基准分支范围，再用 <code>git show --name-only HEAD</code> 或 <code>git status --short</code> 核对。范围不对时重新审查，不要解释错误目标上的发现。</p>
+<h3 id="wiki-h-13">修完发现后，Reviewer 又提出风格建议</h3>
+<p>回到发布门槛：是否有合法触发输入、用户影响和回归证据。纯命名、格式或个人偏好可以记录，但不必在发布前清零。</p>
+<h3 id="wiki-h-14">重构后测试通过，手工输出发生变化</h3>
+<p>测试保护不完整。把变化补成明确回归测试；若变化不是已批准需求，就撤回这次重构，而不是把发布说明改成“新行为”。</p>
+<h3 id="wiki-h-15">RELEASE_CHECK 写着通过，但工作树很脏</h3>
+<p>报告只是某一时刻的汇总。以当前 <code>git status</code>、测试和实际 Diff 为准，清理或解释新增文件后重新运行检查。</p>
+<h2 id="wiki-h-16">本篇小结</h2>
+<p>这次发布准备把“审查、修复、重构、文档、检查”拆成了五个不同判断。Review 负责提出值得验证的风险，复现和测试决定发现是否成立；重构只有在风险具体且行为被锁定时才进行；发布材料从仓库事实生成；最终仍由真实命令、Diff 和人工确认封口。</p>
+<p>到这里，TaskFlow 的 CLI 主线完成了从规划、实现、调试、扩展、自动化到发布准备的完整闭环。下一篇转向 ChatGPT 桌面端与 Codex 工作模式，用文件整理、数据分析和方案比较三个非编程案例，把同样的“先限定范围、再执行、最后验收”迁移到办公任务。</p>
+</article>

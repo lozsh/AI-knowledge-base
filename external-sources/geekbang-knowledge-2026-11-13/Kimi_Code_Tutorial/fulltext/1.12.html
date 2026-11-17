@@ -1,0 +1,116 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>前十章我们围着终端转。这一章换个"战场"：把 Kimi 装进你已经在用的编辑器里，以及用 API Key 接入第三方工具。背后是同一个账号、同一份会员权益，只是交互的地方变了。</p>
+<p>先建立一个大局观：不管是 VS Code 扩展、Zed 还是 JetBrains，它们背后跑的核心仍然是 <strong>Kimi Code CLI</strong>。编辑器只是换了个壳，干活的还是那个你已经很熟的引擎——所以你在 CLI 里养成的习惯、写好的 AGENTS.md 和 Skill，在编辑器里大多依然管用。</p>
+<h2 id="wiki-h-0">11.1 VS Code 扩展：图形化里的 Kimi</h2>
+<p>如果你平时就在 VS Code 里写代码，这条路最顺。三步走：</p>
+<ol>
+<li>打开 VS Code，进入左侧"扩展"面板（快捷键 <code>Cmd+Shift+X</code> / <code>Ctrl+Shift+X</code>），搜索 <strong>Kimi Code</strong>，点"安装"；</li>
+<li>安装后按提示登录你的 Kimi 账号（和第 2 章 CLI 的登录是同一个账号，额度共享）；</li>
+<li>用"文件 → 打开文件夹"打开你的项目（比如我们的 <code>weight-tracker</code>），就能在侧边栏里和 Kimi 对话了。</li>
+</ol>
+<p>几个新手常遇到的问题，提前说清：</p>
+<ul>
+<li><strong>提示"没有打开工作区"</strong>：这个扩展必须在一个<strong>已打开的文件夹</strong>里工作，光开一个单独文件不行。解决办法就是打开项目文件夹。</li>
+<li><strong>提示"找不到 CLI"</strong>：扩展底层依赖 CLI。如果你已经按第 2 章装好了 CLI，在 VS Code 设置里把 <code>kimi.executablePath</code> 指向 <code>kimi</code> 的绝对路径即可；还没装的话，先回第 2 章装好。</li>
+<li><strong>登录失败</strong>：检查网络，或者改用 API Key 方式登录（见 11.3），稍后重试。</li>
+</ul>
+<p>在 VS Code 里，Kimi 的能力和在终端里基本一致，但体验上有图形化的加成：它改动的代码可以直接在编辑器里看到 diff，文件引用用 <code>@</code> 一样能唤起。适合"习惯在图形界面里边看代码边协作"的用户。</p>
+<h2 id="wiki-h-1">11.2 接入 Zed / JetBrains：ACP 协议</h2>
+<p>除了 VS Code，Kimi Code CLI 还支持一种叫 <strong>ACP（Agent Client Protocol）</strong> 的标准协议，任何支持 ACP 的编辑器都能接入。原理一句话：<strong>编辑器把 <code>kimi acp</code> 这个子命令当作一个子进程启动，通过它和 CLI 对话</strong>。因为你的 CLI 已经登录过了，所以编辑器里不用再登录一次。</p>
+<p><strong>一个共同的坑先排掉</strong>：编辑器里配置时，如果 <code>kimi</code> 不在系统 PATH 里，GUI 启动的子进程可能找不到它。最稳妥的办法是用绝对路径——在终端里运行 <code>which kimi</code>（Windows PowerShell 用 <code>Get-Command kimi</code>），把显示的路径抄下来。</p>
+<p><strong>接入 Zed</strong>：编辑 <code>~/.config/zed/settings.json</code>，加入：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"agent_servers"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"Kimi Code CLI"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"custom"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"command"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"kimi"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"args"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"acp"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"env"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p><code>command</code> 就是上面查到的路径（如果在 PATH 里可直接写 <code>kimi</code>）。保存后，在 Zed 的 Agent 面板里新建对话，就能选用 Kimi Code 了。</p>
+<p><strong>接入 JetBrains 系列</strong>（IntelliJ IDEA、PyCharm、WebStorm 等）：通过 AI chat 插件支持 ACP。在 AI chat 面板的菜单里选 <strong>Configure ACP agents</strong>，加入：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"agent_servers"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"Kimi Code CLI"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"command"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"/Users/你的用户名/.local/bin/kimi"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"args"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"acp"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"env"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>JetBrains 对 <code>command</code> 字段要求严格，<strong>必须用绝对路径</strong>。保存后，Kimi Code 会出现在 AI chat 的 agent 选择列表里。</p>
+<p><strong>遇到问题怎么排查</strong>：IDE 里提示"agent exited"或"auth required"，先在终端里手动运行 <code>kimi acp</code>——如果它停在那里等待输入，说明 CLI 本身没问题，是 IDE 配置错了（多半是路径）；如果立刻报错退出，按提示处理（最常见的是没登录，回终端 <code>/login</code> 一下再重启 IDE）。</p>
+<h2 id="wiki-h-2">11.3 API Key 接入第三方工具</h2>
+<p>还有一种更灵活的方式：你已经习惯了某个第三方工具（比如 Claude Code、OpenCode、Codex 等），不想换环境，只想把 Kimi 的模型能力接进去。这时用 <strong>API Key</strong>。</p>
+<p><strong>第 1 步：获取 Key。</strong> 到 Kimi Code 控制台（Console）创建 API Key。注意两点：每个账号最多 5 个；<strong>Key 只在创建时显示一次</strong>，务必立刻复制保存好，丢了只能重新创建。</p>
+<p><strong>第 2 步：配置地址。</strong> 第三方工具需要两样东西：Base URL 和 API Key。Base URL 按你的工具和所在地区二选一（配置在工具的环境变量或设置里）：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>协议</th>
+<th>国内</th>
+<th>海外</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OpenAI 兼容</td>
+<td><code>https://api.kimi.com/coding/v1</code></td>
+<td><code>https://api.kimi.ai/coding/v1</code></td>
+</tr>
+<tr>
+<td>Anthropic 兼容</td>
+<td><code>https://api.kimi.com/coding/</code></td>
+<td><code>https://api.kimi.ai/coding/</code></td>
+</tr>
+</tbody></table></div>
+<p>不同工具对地址的要求不同：有的（如 Claude Code）只填 Base URL，工具会自动补全后面的路径；有的（如 Trae）要填完整的请求地址，比如 OpenAI 兼容的完整地址是 <code>https://api.kimi.com/coding/v1/chat/completions</code>。</p>
+<p><strong>第 3 步：选模型 ID。</strong> 在工具里把模型设成下面四个之一（具体能用哪个取决于你的会员等级，详见官方<a href="https://www.kimi.com/code/docs/en/kimi-code/membership.html">会员权益</a>说明）：</p>
+<ul>
+<li><code>k3</code>：旗舰模型，适合大型代码库分析、多文件重构；</li>
+<li><code>k3-256k</code>：K3 的 256K 上下文版本，日常问答和小改动够用，比 k3（1M）省约一半额度，<strong>不支持视频输入</strong>；</li>
+<li><code>kimi-for-coding</code>：K2.8 Preview，最高支持 1M 上下文；</li>
+<li><code>kimi-for-coding-highspeed</code>：K2.7 Code HighSpeed，输出快，适合追求响应速度的场景。</li>
+</ul>
+<p><strong>两个合规提醒</strong>：一是配置时保留工具的真实身份标识（User-Agent），篡改它属于违规，可能导致会员权益被暂停；二是再次强调——<strong>这里的 API Key 走的是 Kimi Code 会员权益</strong>（含额度、有速率限制），和 Kimi 开放平台那个按量计费的 API 是两套体系，别把两套的地址和 Key 混着用。</p>
+<h2 id="wiki-h-3">11.4 四种形态怎么选：一张对照表</h2>
+<p>学到这里，四种形态你都见过了。把它们放在一起，帮你按场景对号入座：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐形态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>想完整学透 Kimi Code、做自动化、写脚本</td>
+<td>CLI（本教程主线）</td>
+</tr>
+<tr>
+<td>平时在 VS Code 里写代码，想边看 diff 边协作</td>
+<td>VS Code 扩展</td>
+</tr>
+<tr>
+<td>用 Zed / JetBrains，想在熟悉的环境里用</td>
+<td>ACP 接入</td>
+</tr>
+<tr>
+<td>已有顺手的第三方工具，只想接入 Kimi 模型</td>
+<td>API Key</td>
+</tr>
+<tr>
+<td>不想碰终端，要一个开箱即用的图形应用</td>
+<td>Desktop（下一章）</td>
+</tr>
+</tbody></table></div>
+<p>它们不互斥——同一个账号可以在多台设备、多种形态里同时用。我自己（教程作者视角）的日常是：复杂任务和自动化在 CLI，随手改代码在 VS Code 扩展，两者额度共享、会话各自独立。</p>
+<h2 id="wiki-h-4">本章小结</h2>
+<p>这一章我们把 Kimi 从终端请进了更多地方：</p>
+<ul>
+<li><strong>VS Code 扩展</strong>：扩展面板搜索安装、登录、打开文件夹即可用；记得它必须工作在"已打开文件夹"里；</li>
+<li><strong>Zed / JetBrains</strong>：通过 ACP 协议接入，编辑器启动 <code>kimi acp</code> 子进程复用 CLI 的登录态；<code>command</code> 用绝对路径最稳妥，出问题先在终端手动跑 <code>kimi acp</code> 排查；</li>
+<li><strong>API Key</strong>：控制台创建（最多 5 个、只显示一次），配合对应的 Base URL 填进第三方工具，模型按会员等级四选一；</li>
+<li>四种形态同一账号、额度共享，按场景各取所需。</li>
+</ul>
+<p>还剩最后一站：给完全不碰终端的用户准备的 Desktop 桌面客户端，以及一份结课清单——我们下章见。</p>
+</article>

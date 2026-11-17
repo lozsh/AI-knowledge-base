@@ -1,0 +1,305 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>应用岗的 LLM 基础不是背架构，而是「选型、参数、Token、能力边界」——知道什么场景用什么模型、什么参数怎么调、模型会踩哪些坑，并且能讲清背后的原理与量化依据。</p>
+</blockquote>
+<h3 id="wiki-h-0">1. 怎么给一个业务场景选 LLM？选型要考虑哪些维度？如何量化决策？</h3>
+<p><strong>直接答案</strong>：选 LLM 不是"谁大谁强就用谁"，而是围绕业务约束做多维权衡，核心是<strong>把"质量、延迟、成本"三个目标量化后求平衡点</strong>。六个维度：</p>
+<ol>
+<li><strong>任务类型</strong>：生成/对话（decoder-only）、嵌入（embedding）、重排（reranker）、代码（code model）、多模态——先确定要的是哪一类模型，而不是笼统"一个大模型"。</li>
+<li><strong>质量需求</strong>：复杂推理、长上下文、多语言、工具调用稳定性，需要旗舰模型；简单分类/抽取/改写，小模型即可，且小模型质量往往"够用"。</li>
+<li><strong>延迟（Latency）</strong>：实时对话要求 TTFT（首字延迟）低；离线批量可放宽。延迟和模型规模、是否流式、部署方式直接相关。</li>
+<li><strong>成本（Cost）</strong>：按每百万 token 计价差异可达数十倍，高频场景成本是硬约束。</li>
+<li><strong>上下文长度</strong>：一次要处理多少 token（几 KB 还是整本书），决定选长上下文模型还是靠 RAG 拆解。</li>
+<li><strong>合规与部署</strong>：数据能否出域？需要私有化（开源模型）还是可调 API？</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>量化决策方法</strong>：先把业务需求转成可测指标——准确率门槛、P95 延迟上限、每请求预算上限，然后在候选模型上跑一个 50~200 条的评测集，<strong>用数据而不是感觉</strong>筛模型。这是和"背选型口诀"的本质区别。</li>
+<li><strong>模型路由（Model Router）</strong>：简单任务路由到便宜小模型、复杂任务上大模型。路由本身有成本（分类器误判、重试），只有当大小模型价差足够大、简单任务占比高时才划算，一般可降 30%~60% 成本。</li>
+<li><strong>私有化组合</strong>：开源模型（Qwen、DeepSeek、Llama）+ 推理框架（vLLM 高吞吐/Ollama 本地便捷）要评估 GPU 显存、并发、量化后的质量损失。</li>
+<li><strong>易忽略的隐藏成本</strong>：输出 token 通常比输入贵 3~5 倍；长上下文模型即使输入很短也按上下文计费；模型切换是"破坏性变更"（prompt、评测基线都要重跑）。</li>
+<li>加分点：能说出"选型是约束优化问题，不是排行榜挑选"。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-1">2. BPE、WordPiece、Unigram 三种分词算法有什么区别？词表大小怎么权衡？</h3>
+<p><strong>直接答案</strong>：BPE、WordPiece 和 Unigram 都是<strong>子词（subword）分词</strong>，目的是在"词粒度（OOV 严重）"和"字符粒度（序列过长）"之间折中，但三者的构建与切分机制不同：</p>
+<ul>
+<li><strong>BPE（字节对编码）</strong>：从字符开始，<strong>反复合并语料中最高频的相邻符号对</strong>，直到词表达到目标大小。切分时用学到的合并规则贪心合并。</li>
+<li><strong>WordPiece</strong>：合并依据不是频率，而是<strong>最大化训练语料的似然</strong>——选择"合并后最能提升语言模型概率"的符号对。切分时用最长匹配。</li>
+<li><strong>Unigram</strong>：思路相反，<strong>从一个大候选词表出发，逐步删除对似然贡献最小的符号</strong>，最终保留最优子集，切分时在所有可能切分中选概率最高的（Viterbi）。</li>
+</ul>
+<p><strong>子词本身不保证覆盖任意字符</strong>：只含拉丁字符的 WordPiece 词表处理未收录汉字，仍会产生 <code>[UNK]</code>。字节级 BPE（byte-level BPE，GPT-2 起）以字节为底层单位，因此天然能表示任意 Unicode 字符。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>词表大小的权衡</strong>：词表大 → 平均每 token 覆盖更多字符 → 序列更短 → 更省推理时间和成本，但<strong>嵌入矩阵和 softmax 输出层更大</strong>（训练和显存成本上升，词表 × 隐藏维度）。词表小则相反。经验值：现代 LLM 词表约 32k~256k，中文场景偏大词表更友好。</li>
+<li><strong>换分词器是破坏性变更</strong>：token ID 与权重的对应关系完全改变，必须同步调整词表、嵌入层、输出层并做适配训练 + 回归评测。<strong>不能只换 tokenizer 不改权重</strong>。</li>
+<li><strong>分词直接影响能力边界</strong>：数字被切成 <code>["3", ".", "11"]</code>、单词被切成 <code>["straw", "berry"]</code> 正是"数不清 r、算错小数"的根因。</li>
+<li><strong>选型参考</strong>：用目标语言实际 token 占比、序列长度、速度、任务质量做对比，而不是看"哪个算法名字新"。</li>
+</ul>
+<p>参考：<a href="https://huggingface.co/learn/llm-course/chapter6/6">HuggingFace LLM Course 分词章节</a>。</p>
+<hr>
+<h3 id="wiki-h-2">3. 上下文窗口（Context Window）是什么？窗口大就一定好吗？</h3>
+<p><strong>直接答案</strong>：上下文窗口是模型<strong>单次能"看到"的最大 token 数</strong>，包括输入和输出，由位置编码 + 训练配置决定。它决定了模型一次能处理多少信息。</p>
+<p><strong>窗口大不一定好</strong>，有四个代价：</p>
+<ol>
+<li><strong>成本线性上涨</strong>：输入 token 越多越贵，且<strong>每次调用都要为整段上下文付费</strong>，多轮对话中重复发送历史导致成本随轮次平方级增长。</li>
+<li><strong>"中间遗忘效应"（Lost in the Middle）</strong>：模型对长上下文<strong>开头和结尾</strong>关注度高、<strong>中间部分</strong>关注度显著下降，塞得多不代表用得上。</li>
+<li><strong>延迟上升</strong>：预填充（prefill）阶段要对所有输入 token 并行做注意力计算，窗口越大 TTFT 越高，且 KV Cache 占用显存线性增长。</li>
+<li><strong>质量稀释</strong>：无关内容会稀释关键信号，模型更容易被噪声带偏或产生幻觉。</li>
+</ol>
+<p><strong>正确认知</strong>：窗口是"能力上限"，不是"应该塞满的容量"。工程上应<strong>主动 curate（精选）</strong>放什么进去。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>成本量化</strong>：多轮对话若每轮重发全部历史，第 n 轮成本 ≈ O(n²)。因此生产必须做<strong>上下文裁剪/摘要</strong>（见第 16 题和 Agent 运行工程章节）。</li>
+<li><strong>长窗口模型</strong>（128k、200k、1M）适合"单次处理大文档"（如整份合同分析），但<strong>长期多轮对话仍要靠摘要、检索、分层记忆</strong>，而非无限堆历史。</li>
+<li><strong>KV Cache 的隐性代价</strong>：长上下文的显存瓶颈不在权重而在 KV Cache，这是选长上下文模型时容易忽略的部署约束。</li>
+<li>面试金句："别用 200k 上下文去装 200k 的垃圾，要 curate。"</li>
+</ul>
+<hr>
+<h3 id="wiki-h-3">4. 为什么 LLM 会算错 3.11 和 3.9 谁大、数不清 "strawberry" 有几个 r？根因是什么？</h3>
+<p><strong>直接答案</strong>：这类错误的根因是<strong>分词（Tokenization）遮蔽了底层结构</strong>，叠加 LLM 本身没有内置算术/计数能力。</p>
+<ul>
+<li><strong>数字比较</strong>："3.11" 和 "3.9" 会被分词器切成 <code>["3", ".", "11"]</code> 和 <code>["3", ".", "9"]</code> 之类，模型看不到完整的数值语义，只能靠训练中见过的模式"猜"，于是可能把 11 &gt; 9 错误套用到小数比较上。</li>
+<li><strong>数字母</strong>："strawberry" 可能被切成 <code>["straw", "berry"]</code>，模型<strong>根本没"看到"单个字母 r</strong>，无法直接数，只能靠训练分布里学到的近似来回答。</li>
+</ul>
+<p><strong>本质</strong>：LLM 是"预测下一个 token"的模式匹配器，不是计算器。它没有逐位运算或逐字符计数的机制，只能从 token 序列中"推断"。这属于 LLM 的<strong>系统性质</strong>，不是单点 bug。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>为什么"推理增强"不能根治</strong>：CoT 能降低算术错误率，但模型仍可能在中间步骤出错，且多步推理会累积误差。根本解法是<strong>外接工具</strong>。</li>
+<li><strong>工程正确姿势</strong>：凡涉及精确数值，走"LLM 生成表达式/代码 → 代码求值 → 结果回填"的混合方案（如 function calling 接 calculator、代码解释器）。这是能力边界题的实战延伸。</li>
+<li><strong>digit-splitting</strong>：部分模型刻意把数字按位切分以改善算术，但只是缓解。</li>
+<li>加分点：能把这个现象和"给模型装工具"的设计原则串起来讲，并指出"判断交给模型、计算交给代码、执行交给人工兜底"的分工。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-4">5. Prompt、RAG、微调三种手段，如何按问题类型选型？决策优先级是什么？</h3>
+<p><strong>直接答案</strong>：这是三个不同的"调节杠杆"，本质区别在<strong>改的是什么</strong>：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>手段</th>
+<th>改的是什么</th>
+<th>成本</th>
+<th>迭代速度</th>
+<th>适用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Prompt</strong></td>
+<td>输入指令，不动权重</td>
+<td>极低</td>
+<td>秒级</td>
+<td>输出格式、语气、规则遵循</td>
+</tr>
+<tr>
+<td><strong>RAG</strong></td>
+<td>推理时注入外部知识</td>
+<td>低（建索引+检索）</td>
+<td>分钟级</td>
+<td>私有知识、实时信息、需溯源</td>
+</tr>
+<tr>
+<td><strong>微调</strong></td>
+<td>模型权重</td>
+<td>高（数据+算力+维护）</td>
+<td>天/周级</td>
+<td>稳定格式、领域风格、降延迟</td>
+</tr>
+</tbody></table></div>
+<p><strong>决策优先级（务必按顺序）</strong>：</p>
+<ol>
+<li><strong>先 Prompt</strong>：几乎所有问题都从这里起步，能改格式、语气、规则。</li>
+<li><strong>知识缺口用 RAG</strong>：模型"不知道"的东西（私有数据、实时信息、可溯源内容）在推理时检索注入。</li>
+<li><strong>行为/格式问题才微调</strong>：前两者都无法解决时才用，且微调目标是"改行为"而非"灌知识"。</li>
+</ol>
+<p><strong>核心结论</strong>：微调是"最后手段"而非首选。口诀——<strong>先 Prompt → 知识缺口用 RAG → 行为/格式问题才微调</strong>。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>为什么"灌新事实"不靠微调</strong>：① 训练完就过时；② 不可溯源（无法回答"你从哪知道的"）；③ 更新要重训。而 RAG 更新只需改索引，且能给出引用。</li>
+<li><strong>微调的真正适用</strong>：需要稳定 JSON 输出格式、特定领域语气、把小模型微调成"大模型平替"以降低延迟和成本。</li>
+<li><strong>三者可组合</strong>：真实系统常是"强 Prompt + RAG"，微调作为定向手段；很多团队完全跳过微调。</li>
+<li><strong>反模式</strong>：一上来就微调，或用微调去记会变的知识——两者都会在面试中暴露"没做过真实项目"。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-5">6. 幻觉产生的根因是什么？生产环境如何系统性地降低它？</h3>
+<p><strong>直接答案</strong>：幻觉指模型生成<strong>流畅、自信但事实错误、或不被上下文支持</strong>的内容（编造论文、网址、数据）。根本原因是<strong>训练目标错位</strong>：大模型优化的是"预测合理的下一个 token"而非"验证事实"，流畅性与准确性是两个不同的优化目标。因此幻觉<strong>无法被根除，只能被系统性降低</strong>。</p>
+<p><strong>系统性降低手段（分层）</strong>：</p>
+<ol>
+<li><strong>接地（Grounding）</strong>：用 RAG 让答案锚定在检索到的真实资料上，而非依赖参数记忆。</li>
+<li><strong>强制引用（Citations）</strong>：要求逐句引用来源，便于核查。</li>
+<li><strong>允许拒绝（Refusal）</strong>：检索无结果或置信度低时，明确让模型答"我不知道"，而非硬编。</li>
+<li><strong>忠实度校验</strong>：用 NLI 或 LLM-as-judge 检查答案每个论断是否被上下文支持。</li>
+<li><strong>采样控制</strong>：事实性任务降低 temperature。</li>
+<li><strong>约束 prompt</strong>：明确"只根据提供的上下文回答"。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>反效果认知</strong>："加大上下文窗口塞更多内容"反而会降低精度、增加成本——是错误直觉。</li>
+<li><strong>幻觉的两种类型要区分</strong>：<strong>内在幻觉</strong>（违背参数知识/事实）靠 grounding + 校验；<strong>外在幻觉</strong>（违背给定上下文）靠引用约束 + 忠实度评估。</li>
+<li><strong>工程兜底</strong>：对高风险场景（医疗、法律、金融）设<strong>门禁</strong>——低置信度或不可溯源时转人工或拒绝回答，这是护栏（guardrail）的一部分。</li>
+<li><strong>量化评估</strong>：用忠实度、答案相关性等指标持续监控，而非凭感觉判断"幻觉多不多"。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-6">7. temperature、top-p、top-k 有什么区别？怎么调？</h3>
+<p><strong>直接答案</strong>：三者都是控制采样随机性的参数，作用在解码的不同环节：</p>
+<ul>
+<li><strong>temperature（T）</strong>：在 softmax 前对 logits 除以 T 缩放。T→0 时分布趋近 one-hot（近似贪心，确定性最强），T 越大分布越平（越随机）。<strong>改变的是整个分布的"尖锐度"</strong>。</li>
+<li><strong>top-k</strong>：只保留概率最高的 k 个 token，其余概率置零后重新归一化采样。<strong>固定数量裁剪</strong>。</li>
+<li><strong>top-p（核采样/nucleus）</strong>：按概率从高到低累积，保留"累积概率刚超过 p"的最小集合。<strong>动态裁剪长尾</strong>——分布集中时保留少，分布平坦时保留多。</li>
+</ul>
+<p><strong>实践调参</strong>：确定性任务（事实问答、抽取、结构化）用 temperature≈0（仅在模型支持时，且不保证绝对确定）；开放式创作 0.7<del>1.0；top-p 常用 0.9，top-k 常用 40</del>50。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>三者的关系</strong>：top-k 和 top-p 是"截断 + 重采样"，temperature 是"缩放 + 重采样"。它们可以叠加，但<strong>方向一致才有效</strong>——"高温 + 低 top-p"一个想更随机、一个想更收敛，会互相抵消。</li>
+<li><strong>temperature=0 的误区</strong>：很多 API 下 temperature=0 仍非严格贪心，且<strong>不保证跨调用可复现</strong>（受 batch、浮点、调度影响）。要确定性输出，结构化输出（JSON Mode/Structured Output）比调 temperature 更可靠。</li>
+<li><strong>为什么采样参数调不动根因问题</strong>：随机性只影响"选哪个 token"，不影响"模型是否知道答案"。幻觉、算错这类问题靠采样参数无法解决。</li>
+<li>应用岗重点是"知道什么时候要确定性、用什么手段获得确定性"，而非背公式。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-7">8. Function Calling 和 Structured Output 都让模型"返回 JSON"，它们本质区别是什么？怎么选？</h3>
+<p><strong>直接答案</strong>：先按用途区分，再看所用 API 的约束能力。</p>
+<ul>
+<li><strong>Function Calling</strong>：让模型发出<strong>工具调用请求</strong>（工具名、参数、调用 ID），由应用校验和执行工具，再按 ID 返回结果。目的是<strong>触发外部动作</strong>。</li>
+<li><strong>Structured Outputs</strong>：约束模型生成的数据<strong>符合受支持的 JSON Schema</strong>，可用于最终答复，也可用于工具调用参数。目的是<strong>保证输出形状</strong>。</li>
+</ul>
+<p>两者可同时使用：工具的参数本身就可以用 Structured Output 约束。以 OpenAI Responses API 为例：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"function"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"get_weather"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"description"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"查询指定城市的天气"</span><span class="hljs-punctuation">,</span>
+ <span class="hljs-attr">"strict"</span><span class="hljs-punctuation">:</span><span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><span class="hljs-attr">"parameters"</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">{</span><span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"object"</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"properties"</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">{</span><span class="hljs-attr">"city"</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">{</span><span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span><span class="hljs-string">"string"</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+ <span class="hljs-attr">"required"</span><span class="hljs-punctuation">:</span><span class="hljs-punctuation">[</span><span class="hljs-string">"city"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><span class="hljs-attr">"additionalProperties"</span><span class="hljs-punctuation">:</span><span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre><p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong><code>strict</code> 约束的是"形状"不是"正确性"<strong>：它保证 city 是 string 且无多余字段，但</strong>不能保证城市存在、工具选择正确、执行获授权</strong>。这是高频误解点。</li>
+<li><strong>三个层次的区分</strong>（对应第 9 题）：文字提示（仅行为要求）→ JSON Mode（保证有效 JSON，不保证 Schema）→ Strict Structured Output（约束 Schema）。</li>
+<li><strong>工具结果的回填</strong>：工具结果通常由应用生成，不必再调一次模型才能结构化；但读取调用结果后，仍要处理拒答、不完整响应、业务字段及权限校验。</li>
+<li><strong>校验责任在应用侧</strong>：本地 Pydantic/JSON Schema 校验负责接收后验证，不反向约束供应商解码。</li>
+</ul>
+<p>参考：<a href="https://developers.openai.com/api/docs/guides/structured-outputs">OpenAI Structured Outputs</a>；<a href="https://developers.openai.com/api/docs/guides/function-calling">Function Calling</a>。</p>
+<hr>
+<h3 id="wiki-h-8">9. 为什么大模型需要"结构化输出"？和"在 prompt 里说返回 JSON"有什么区别？</h3>
+<p><strong>直接答案</strong>：文字提示、JSON Mode、Schema 约束是<strong>三个不同层次的保证</strong>，可靠性依次递增：</p>
+<ol>
+<li><strong>文字提示</strong>（"请返回 JSON"）：只有行为要求，<strong>无任何保证</strong>，可能多出解释文字、少括号、字段名错。</li>
+<li><strong>JSON Mode</strong>：保证输出是<strong>有效 JSON</strong>，但不保证字段符合你的 Schema（可能字段名、类型、结构都不对）。</li>
+<li><strong>Strict Structured Outputs</strong>：约束输出<strong>符合指定 JSON Schema</strong>（受支持的子集），这是最强保证。</li>
+</ol>
+<p><strong>为什么需要</strong>：下游代码要 <code>json.loads</code> 后按字段取值，若格式不可靠，每次都要写容错/重试，且脆弱的解析会导致线上事故。结构化输出把"格式可靠性"从概率问题变成保证。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>能力边界要实测</strong>：Structured Outputs 依赖模型、API 和 Schema 子集的支持，<strong>先检查支持范围再启用</strong>（如是否支持 <code>oneOf</code>、<code>additionalProperties:false</code>、嵌套深度）。</li>
+<li><strong>Schema 合法 ≠ 业务正确</strong>：即使 Schema 校验通过，金额、权限、事实、字段间依赖仍需业务校验。<strong>不要默默"修复"金额或工具参数后直接执行副作用</strong>。</li>
+<li><strong>错误分支要显式</strong>：拒答、截断、连接中断应进入明确错误分支，而非静默兜底。</li>
+<li><strong>本地校验是最后一道防线</strong>：Pydantic 等本地校验器负责接收后验证，不反向约束供应商解码。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-9">10. 静态 Embedding 和上下文相关 Embedding 有什么区别？选 embedding 模型看什么？</h3>
+<p><strong>直接答案</strong>：</p>
+<ul>
+<li><strong>静态 Embedding</strong>（Word2Vec、GloVe）：一个词一个<strong>固定向量</strong>，无论上下文。"bank"（银行/河岸）永远是同一个向量，无法区分一词多义。</li>
+<li><strong>上下文相关 Embedding</strong>（BERT、GPT 产出）：同一个词<strong>随上下文变化</strong>得到不同向量，"river bank" 和 "bank account" 里的 "bank" 向量不同。</li>
+</ul>
+<p><strong>选 embedding 模型看四个维度</strong>：</p>
+<ol>
+<li><strong>检索质量</strong>：MTEB 等 benchmark 的检索子项，但要在自己的语料上实测。</li>
+<li><strong>维度</strong>：向量维度（768/1024/1536）要和向量库、存储成本对齐，维度越高存储和检索计算越大。</li>
+<li><strong>多语言</strong>：中文场景选中文友好的（BGE、Qwen 系），否则中文语义会失真。</li>
+<li><strong>最大输入长度</strong>：能否一次嵌入你的 chunk 大小，超长要截断或分段。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>Matryoshka Embedding（套娃嵌入）</strong>：部分模型（OpenAI v3、Nomic）支持<strong>截断维度</strong>——从 1536 截到 512 维，质量优雅下降，能省存储和计算。这是选型时值得问的加分项。</li>
+<li><strong>换 embedding 模型是破坏性变更</strong>：向量空间变了，必须重建全部索引，所以"从源头锁好"。</li>
+<li><strong>query 和 passage 的对称性</strong>：检索场景里 query 和文档要分别用合适的指令前缀（非对称检索），否则召回质量受影响。</li>
+<li><strong>加分点</strong>：能说出"静态 vs 上下文相关"的本质是"一词一义 vs 一词多义"，并能区分"生成式 LLM 的 embedding"和"专用 embedding 模型"的用途差异。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-10">11. 多模态模型的"多模态"是怎么实现的？为什么不能简单把图片转文字再喂给文本模型？</h3>
+<p><strong>直接答案</strong>：常见视觉语言架构由<strong>视觉编码器 + 视觉到语言的连接层 + 语言主干</strong>组成，但具体设计因模型与版本不同。</p>
+<p>以公开的 LLaVA 为例：视觉编码器（如 CLIP ViT）提取图像特征 → 投影层映射到语言模型可使用的表示 → 配合图文指令训练。其他模型可能采用不同编码器、连接方式或训练目标。GPT-4o、Gemini 等未完整公开的内部结构不能从产品功能反推，也不能断言都使用 CLIP 式训练。</p>
+<p><strong>为什么不能简单"图片转文字再喂"</strong>：OCR/图片转文字会<strong>丢失布局、颜色、空间关系等信息</strong>。例如两条曲线的相交位置、图表里的相对大小、UI 元素的层级关系，仅凭文字转录可能无法回答。反过来，清晰文档的字段抽取可能用 OCR 就足够。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>按任务选方案</strong>：需要理解图像内容（识别、VQA、图表推理）→ 真多模态模型；只需抽取字段/文字 → OCR + 文本模型可能更便宜更稳定。</li>
+<li><strong>不要持刻板印象</strong>："多模态更贵更慢"不是通则，要按<strong>图像分辨率、token 化方式、延迟、费用和任务质量实测</strong>。</li>
+<li><strong>图像 token 化成本</strong>：图像会切分成大量视觉 token（几百到上千），输入成本可能远高于纯文本，这是成本估算的盲点。</li>
+</ul>
+<p>参考：<a href="https://arxiv.org/abs/2304.08485">LLaVA 论文</a>。</p>
+<hr>
+<h3 id="wiki-h-11">12. 开源模型和闭源 API 怎么选？</h3>
+<p><strong>直接答案</strong>：核心权衡是<strong>可控性 vs 省事</strong>：</p>
+<ul>
+<li><strong>闭源 API</strong>（GPT-4o、Claude、Gemini）：质量通常顶尖、开箱即用、免运维，但数据出域、成本按量计、无法私有化、有合规风险、受供应商稳定性影响。</li>
+<li><strong>开源模型</strong>（Qwen、DeepSeek、Llama、Mistral）：可私有化部署、数据不出域、长期成本可控、可微调定制，但要自建推理服务、维护、负责性能和运维。</li>
+</ul>
+<p><strong>选型结论</strong>：</p>
+<ul>
+<li>数据敏感/合规要求高 → 开源私有化。</li>
+<li>追求最快上线、最强质量 → 闭源 API。</li>
+<li>高频调用、想长期省钱 → 开源自部署（但要把 GPU 服务器成本算进去）。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>中间路线（推荐）</strong>：先用闭源 API 验证 PMF，量大后再迁移到开源私有化，用<strong>统一抽象层</strong>（框架的 ChatModel 接口、LiteLLM 这类网关）降低切换成本，避免供应商锁定。</li>
+<li><strong>开源部署的隐性成本</strong>：GPU 显存、并发能力、量化后的质量损失、升级维护，都要纳入 TCO 对比，不能只比"每 token 单价"。</li>
+<li><strong>质量差距在缩小</strong>：开源 7B~70B 模型在多数应用任务上已接近闭源，但<strong>复杂推理、长上下文、工具调用的稳定性</strong>仍是闭源优势区。</li>
+<li>面试加分点：能说出"闭源打样、开源降本、抽象层解耦"的组合策略，并讲清迁移时机的量化判断（调用量、数据敏感性阈值）。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-12">13. RoPE 位置编码如何支撑长上下文外推？为什么"标称窗口"常大于"有效窗口"？</h3>
+<p><strong>直接答案</strong>：RoPE（旋转位置编码）通过<strong>旋转 query 和 key 的表示</strong>，使注意力分数自然包含<strong>相对位置信息</strong>——注意力只依赖两个 token 的相对距离，而非绝对位置。这为长度外推提供了基础，但<strong>这一性质不保证模型在任意超出训练长度的位置仍能可靠工作</strong>。</p>
+<p>长上下文扩展常结合<strong>位置插值、频率缩放及长序列适配训练</strong>：例如位置插值（Position Interpolation）把更长序列的位置映射回模型训练过的范围（如把 8k 位置压回 4k），随后需验证任务质量。</p>
+<p><strong>为什么"标称窗口"常大于"有效窗口"</strong>：标称窗口只说明<strong>能接受的输入长度</strong>；有效窗口还受<strong>任务难度、训练分布、中间信息检索能力</strong>影响。模型可能"接受"128k 输入，但中间位置的证据实际上检索不到。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>验收方法</strong>：不要只把文本塞满测一次。把相同证据分别放在<strong>开头、中间、末尾</strong>，分别测检索与多跳推理，报告<strong>质量随长度变化的曲线</strong>——这条曲线比"标称值"更真实。</li>
+<li><strong>外推 vs 内插</strong>：直接外推（超过训练长度）通常质量骤降；内插（缩放到训练范围内）能保质量但位置分辨率下降；YaRN 等方法在二者间折中。</li>
+<li><strong>成本连带</strong>：长上下文 = 更大 KV Cache = 更高显存和延迟，所以"能塞"不等于"该塞"。</li>
+</ul>
+<p>参考：<a href="https://arxiv.org/abs/2306.15595">RoPE 扩展相关论文</a>。</p>
+<hr>
+<h3 id="wiki-h-13">14. RLHF 和 DPO 有什么区别？为什么现在很多团队改用 DPO？</h3>
+<p><strong>直接答案</strong>：两者都是对齐（Alignment）技术，目标都是让输出更符合人类偏好，但机制不同：</p>
+<ul>
+<li><strong>RLHF（人类反馈强化学习）</strong>：三步走——SFT → <strong>单独训练一个奖励模型</strong>（用人类偏好排序数据）→ 用奖励模型当奖励信号，通过强化学习（PPO）优化语言模型。</li>
+<li><strong>DPO（直接偏好优化）</strong>：<strong>跳过奖励模型和强化学习</strong>，用数学推导把"人类偏好"直接建模成一个分类损失（对比 chosen 与 rejected 响应的对数概率），在 SFT 模型上一步优化完成。</li>
+</ul>
+<p><strong>为什么改用 DPO</strong>：</p>
+<ol>
+<li><strong>更简单</strong>：不需要单独训练奖励模型，不需要 RL 复杂调参（奖励函数、策略更新稳定性、KL 约束）。</li>
+<li><strong>更稳定</strong>：PPO 训练不稳定、易崩；DPO 是监督式损失，稳定得多。</li>
+<li><strong>成本低</strong>：省掉奖励模型 + RL 两个环节。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>RLHF 的核心局限</strong>：依赖大量人类标注；奖励模型可能被"钻空子"（reward hacking，模型学会刷分而非真变好）；PPO 的 reward-KL 权衡调参敏感。</li>
+<li><strong>DPO 的局限</strong>：对偏好数据质量敏感，离线偏好数据用完后需迭代补充；本质仍是"拟合偏好分布"，不能解决偏好本身有偏的问题。</li>
+<li><strong>后续变体</strong>：ORPO（连 SFT 也省）、KTO（不需配对偏好）等，趋势是"让对齐越来越省、对标注要求越来越低"。</li>
+<li>加分点：能说清"RLHF 是奖励模型 + RL 两段式，DPO 用数学证明把偏好直接变损失"，并理解 DPO 目标函数的直觉（抬高 chosen、压低 rejected）。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-14">15. 流式输出用 SSE 还是 WebSocket？大模型场景怎么选协议？</h3>
+<p><strong>直接答案</strong>：单向文本生成常用 <strong>HTTP 流 + SSE 格式</strong>；需要<strong>持续双向交互</strong>（如语音对话、多轮实时协作）时可考虑 WebSocket。具体仍取决于接口、认证及客户端。</p>
+<p>SSE 是事件格式：浏览器 <code>EventSource</code> 提供自动重连能力，但 POST 请求及自定义认证常用 <code>fetch</code> 读取流，需要应用自己实现重连。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong><code>Last-Event-ID</code> 的续传前提<strong>：只有在服务端分配事件 ID、保存并重放事件时才能形成续传；</strong>模型 API 不一定支持重放</strong>，断线后往往只能重新生成。</li>
+<li><strong>分帧是高频坑</strong>：接收端必须处理跨网络 chunk 的 UTF-8 和事件分帧，<strong>不能把一次网络读取当成一个完整 JSON</strong>（一个 JSON 可能被拆到多个 chunk，多个 JSON 也可能在一个 chunk 里）。</li>
+<li><strong>断线处理</strong>：连接中断后应标记答案不完整，再按服务端能力选择恢复或重新生成，<strong>避免重复拼接</strong>造成内容错乱。</li>
+<li><strong>工程要验证的边界</strong>：代理缓冲、心跳、空闲超时、端到端截止时间，这些是流式在真实网关下容易出问题的地方。</li>
+</ul>
+<p>参考：<a href="https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events">MDN SSE 文档</a>。</p>
+<hr>
+<h3 id="wiki-h-15">16. "参数记忆"和"检索记忆"怎么分工？什么知识该微调进模型、什么该走 RAG？</h3>
+<p><strong>直接答案</strong>：这是解决"模型知识过时/缺失"的核心判断，两条路各有适用边界：</p>
+<ul>
+<li><strong>参数记忆（微调进权重）</strong>：适合<strong>稳定、静态</strong>的知识——不会频繁变化、且需要模型"内化"的东西，如领域写作风格、固定输出格式、术语用法。微调后不依赖外部检索，延迟低。</li>
+<li><strong>检索记忆（RAG/搜索）</strong>：适合<strong>动态、会变、需要可溯源</strong>的知识——股价、库存、政策、内部文档、实时信息。这些必须走检索。</li>
+</ul>
+<p><strong>判断口诀</strong>：<strong>静态知识可以微调，动态知识必须 RAG；需要溯源、更新的，一律 RAG</strong>。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>微调的致命弱点</strong>：不适合可靠地"灌新事实"——① 训练完就过时；② 无法回答"你从哪知道的"（不可溯源）；③ 更新要重训。</li>
+<li><strong>RAG 的优势</strong>：知识更新只需更新索引，不用重训模型；能给出引用来源；知识边界清晰（检索不到就明确说没有）。</li>
+<li><strong>现实组合</strong>：强 Prompt + RAG 为主，微调只用于"行为/格式/风格"这类稳定需求。</li>
+<li><strong>决策的一个判断轴</strong>：<strong>变化频率 × 溯源需求</strong>——频率越高、越要溯源，越偏向 RAG；越稳定、越内化，越偏向微调。</li>
+<li>加分点：能说出"会变的信息别指望模型记住，要让它去查"。</li>
+</ul>
+<hr>
+</article>

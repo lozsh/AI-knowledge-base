@@ -1,0 +1,372 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：45～60 分钟<br>本篇目标：为 Decision Inbox 增加人工复核通道，让低置信度、模糊判断和高风险动作无法悄悄进入自动处理路径。</p>
+</blockquote>
+<p>上一篇的策略有意留下了一个漏洞：<code>0.501</code> 和 <code>0.499</code> 会落入两个不同分支，尽管它们都接近“无法判断”。一个可靠的判断系统不能只有“是”和“否”，还要有“目前证据不足，先别自动处理”。</p>
+<p>TypeSafe 官方把置信度的用途分成三条路径：高置信度可以自动行动，中等置信度应谨慎处理，低置信度不应行动；具体边界取决于误判代价。官方还强调，校准是对一组预测的统计性质，并不保证某一次高置信度回答必然正确。详见 <a href="https://docs.typesafe.ai/confidence">Confidence 文档</a> 和 <a href="https://docs.typesafe.ai/concepts/system-one">System One 文档</a>。</p>
+<p>这一篇不会寻找一个“放之四海而皆准”的神奇阈值，而是给项目建立可解释的拒绝机制。</p>
+<h2 id="wiki-h-0">先分清 probability 和 confidence</h2>
+<p>在当前输出中，这几个数字的含义不同：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>表达什么</th>
+<th>本项目怎样使用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>category_probabilities</code></td>
+<td>各分类选项的概率分布</td>
+<td>查看第一名是否明显胜出</td>
+</tr>
+<tr>
+<td><code>category_confidence</code></td>
+<td>分类分布集中程度的摘要</td>
+<td>低于门槛时人工复核</td>
+</tr>
+<tr>
+<td><code>urgency_score</code></td>
+<td>紧急等级的概率加权位置</td>
+<td>决定优先级</td>
+</tr>
+<tr>
+<td><code>urgency_confidence</code></td>
+<td>紧急等级分布集中程度的摘要</td>
+<td>低于门槛时人工复核</td>
+</tr>
+<tr>
+<td><code>action_requested_probability</code></td>
+<td>“明确要求行动”为真的概率</td>
+<td>高区间视为是，低区间视为否，中间不决定</td>
+</tr>
+</tbody></table></div>
+<p><code>Choice</code> 和 <code>Score</code> 都返回概率分布及由分布计算出的 <code>confidence</code>。分布越集中，置信度通常越高。<code>Noul</code> 不带单独的 <code>confidence</code>，它返回的就是命题为真的概率。</p>
+<p>因此，不能把三者统一写成 <code>if value &gt; 0.7</code>：</p>
+<ul>
+<li><code>urgency_score</code> 的范围是 0～2，不是置信度；</li>
+<li><code>category_confidence</code> 说明选择是否明确，不说明选择了哪个类别；</li>
+<li>Noul 的 <code>0.1</code> 和 <code>0.9</code> 都很明确，只是方向相反，<code>0.5</code> 附近才最不明确。</li>
+</ul>
+<h2 id="wiki-h-1">为不同结果定义不同的“暂不决定”条件</h2>
+<p>课程先采用一组保守的演示边界：</p>
+<pre><code class="hljs language-text">category_confidence &lt; 0.65       → 人工复核
+urgency_confidence &lt; 0.65        → 人工复核
+0.35 &lt; action probability &lt; 0.65 → 人工复核
+category == other                → 人工复核
+</code></pre><p>这些边界不是官方保证，也不应直接复制到生产环境。它们只是清楚展示三类拒绝条件：</p>
+<ol>
+<li>模型在多个类别或等级之间犹豫；</li>
+<li>Noul 的真假方向不够明确；</li>
+<li>现有类别没有覆盖输入，即使模型对 <code>other</code> 很有把握，也应让人看看是否需要新增类别。</li>
+</ol>
+<p>把 <code>other</code> 送人工复核是业务政策，不是模型能力限制。如果你的应用允许“其他”消息直接进入普通收件箱，可以修改这条规则。</p>
+<h2 id="wiki-h-2">风险高低决定自动化边界</h2>
+<p>置信度高不等于动作一定可以自动执行。还要考虑判断错了会发生什么。</p>
+<p>可以用下面的简单分级：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>动作</th>
+<th>出错后是否容易恢复</th>
+<th>建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>排序、加本地标签、生成草稿</td>
+<td>容易</td>
+<td>高置信度时可自动完成</td>
+</tr>
+<tr>
+<td>移动文件、修改日程、对外发送回复</td>
+<td>有一定影响</td>
+<td>至少让用户确认</td>
+</tr>
+<tr>
+<td>付款、删除数据、批准权限</td>
+<td>影响大或难恢复</td>
+<td>不因一次模型判断而自动执行</td>
+</tr>
+</tbody></table></div>
+<p>Decision Inbox 目前只生成本地建议，属于低风险。即便如此，我们仍然增加人工复核队列，为以后接入真正动作保留安全边界。</p>
+<p>要注意，“先确认再执行”和“自动执行”不是一回事。官方 Confidence 文档中的转账示例，即使在高置信度分支也先进入确认再执行。阈值是风险控制的一部分，不是越过确认的通行证；你仍要按自己的动作风险设计权限与确认机制。</p>
+<h2 id="wiki-h-3">替换策略模块</h2>
+<p>用下面的完整内容替换 <code>decision_policy.py</code>。相比上一篇，它增加了 <code>collect_review_reasons()</code>，并把人工复核放在所有自动路由之前。</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">import</span> math
+
+URGENCY_THRESHOLD = <span class="hljs-number">1.5</span>
+
+CATEGORY_CONFIDENCE_MIN = <span class="hljs-number">0.65</span>
+URGENCY_CONFIDENCE_MIN = <span class="hljs-number">0.65</span>
+ACTION_NO_MAX = <span class="hljs-number">0.35</span>
+ACTION_YES_MIN = <span class="hljs-number">0.65</span>
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">collect_review_reasons</span>(<span class="hljs-params">judgment: <span class="hljs-built_in">dict</span></span>) -&gt; <span class="hljs-built_in">list</span>[<span class="hljs-built_in">str</span>]:
+    reasons = []
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-built_in">isinstance</span>(judgment, <span class="hljs-built_in">dict</span>):
+        <span class="hljs-keyword">return</span> [<span class="hljs-string">"invalid_judgment"</span>]
+    <span class="hljs-keyword">if</span> judgment.get(<span class="hljs-string">"category"</span>) <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> {<span class="hljs-string">"billing"</span>, <span class="hljs-string">"technical"</span>, <span class="hljs-string">"scheduling"</span>, <span class="hljs-string">"feedback"</span>, <span class="hljs-string">"other"</span>}:
+        reasons.append(<span class="hljs-string">"invalid_category"</span>)
+    <span class="hljs-keyword">for</span> field, upper <span class="hljs-keyword">in</span> ((<span class="hljs-string">"category_confidence"</span>, <span class="hljs-number">1</span>), (<span class="hljs-string">"urgency_confidence"</span>, <span class="hljs-number">1</span>),
+                         (<span class="hljs-string">"action_requested_probability"</span>, <span class="hljs-number">1</span>), (<span class="hljs-string">"urgency_score"</span>, <span class="hljs-number">2</span>)):
+        value = judgment.get(field)
+        <span class="hljs-keyword">if</span> <span class="hljs-built_in">isinstance</span>(value, <span class="hljs-built_in">bool</span>) <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> <span class="hljs-built_in">isinstance</span>(value, (<span class="hljs-built_in">int</span>, <span class="hljs-built_in">float</span>)) <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> math.isfinite(value) <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> <span class="hljs-number">0</span> &lt;= value &lt;= upper:
+            reasons.append(<span class="hljs-string">"invalid_"</span> + field)
+    <span class="hljs-keyword">if</span> reasons:
+        <span class="hljs-keyword">return</span> reasons
+
+    <span class="hljs-keyword">if</span> judgment[<span class="hljs-string">"category_confidence"</span>] &lt; CATEGORY_CONFIDENCE_MIN:
+        reasons.append(<span class="hljs-string">"low_category_confidence"</span>)
+
+    <span class="hljs-keyword">if</span> judgment[<span class="hljs-string">"urgency_confidence"</span>] &lt; URGENCY_CONFIDENCE_MIN:
+        reasons.append(<span class="hljs-string">"low_urgency_confidence"</span>)
+
+    action_probability = judgment[<span class="hljs-string">"action_requested_probability"</span>]
+    <span class="hljs-keyword">if</span> ACTION_NO_MAX &lt; action_probability &lt; ACTION_YES_MIN:
+        reasons.append(<span class="hljs-string">"ambiguous_action_request"</span>)
+
+    <span class="hljs-keyword">if</span> judgment[<span class="hljs-string">"category"</span>] == <span class="hljs-string">"other"</span>:
+        reasons.append(<span class="hljs-string">"uncovered_category"</span>)
+
+    <span class="hljs-keyword">return</span> reasons
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">build_recommendation</span>(<span class="hljs-params">record: <span class="hljs-built_in">dict</span></span>) -&gt; <span class="hljs-built_in">dict</span>:
+    judgment = record.get(<span class="hljs-string">"judgment"</span>)
+    review_reasons = collect_review_reasons(judgment)
+
+    <span class="hljs-keyword">if</span> review_reasons:
+        <span class="hljs-keyword">return</span> {
+            **record,
+            <span class="hljs-string">"recommendation"</span>: {
+                <span class="hljs-string">"topic"</span>: judgment.get(<span class="hljs-string">"category"</span>, <span class="hljs-string">"unknown"</span>) <span class="hljs-keyword">if</span> <span class="hljs-built_in">isinstance</span>(judgment, <span class="hljs-built_in">dict</span>) <span class="hljs-keyword">else</span> <span class="hljs-string">"unknown"</span>,
+                <span class="hljs-string">"queue"</span>: <span class="hljs-string">"manual_review"</span>,
+                <span class="hljs-string">"priority"</span>: <span class="hljs-string">"needs_review"</span>,
+                <span class="hljs-string">"suggested_action"</span>: <span class="hljs-string">"inspect_before_routing"</span>,
+                <span class="hljs-string">"automation_allowed"</span>: <span class="hljs-literal">False</span>,
+                <span class="hljs-string">"reasons"</span>: review_reasons,
+            },
+        }
+
+    is_urgent = judgment[<span class="hljs-string">"urgency_score"</span>] &gt;= URGENCY_THRESHOLD
+    action_requested = (
+        judgment[<span class="hljs-string">"action_requested_probability"</span>] &gt;= ACTION_YES_MIN
+    )
+
+    <span class="hljs-keyword">if</span> is_urgent <span class="hljs-keyword">and</span> action_requested:
+        queue = <span class="hljs-string">"today"</span>
+        priority = <span class="hljs-string">"high"</span>
+        suggested_action = <span class="hljs-string">"prepare_reply_draft"</span>
+    <span class="hljs-keyword">elif</span> action_requested:
+        queue = <span class="hljs-string">"follow_up"</span>
+        priority = <span class="hljs-string">"normal"</span>
+        suggested_action = <span class="hljs-string">"prepare_reply_draft"</span>
+    <span class="hljs-keyword">else</span>:
+        queue = <span class="hljs-string">"read_only"</span>
+        priority = <span class="hljs-string">"low"</span>
+        suggested_action = <span class="hljs-string">"read_or_archive"</span>
+
+    <span class="hljs-keyword">return</span> {
+        **record,
+        <span class="hljs-string">"recommendation"</span>: {
+            <span class="hljs-string">"topic"</span>: judgment[<span class="hljs-string">"category"</span>],
+            <span class="hljs-string">"queue"</span>: queue,
+            <span class="hljs-string">"priority"</span>: priority,
+            <span class="hljs-string">"suggested_action"</span>: suggested_action,
+            <span class="hljs-string">"automation_allowed"</span>: <span class="hljs-literal">True</span>,
+            <span class="hljs-string">"reasons"</span>: [
+                <span class="hljs-string">f"category=<span class="hljs-subst">{judgment[<span class="hljs-string">'category'</span>]}</span>"</span>,
+                <span class="hljs-string">f"urgency_score=<span class="hljs-subst">{judgment[<span class="hljs-string">'urgency_score'</span>]:<span class="hljs-number">.3</span>f}</span>"</span>,
+                (
+                    <span class="hljs-string">"action_requested_probability="</span>
+                    <span class="hljs-string">f"<span class="hljs-subst">{judgment[<span class="hljs-string">'action_requested_probability'</span>]:<span class="hljs-number">.3</span>f}</span>"</span>
+                ),
+            ],
+        },
+    }
+</code></pre><p>这里有几个值得留意的设计决定。</p>
+<h3 id="wiki-h-4">人工复核优先于业务路由</h3>
+<p>函数先收集 <code>review_reasons</code>。只要有一项成立，就不会继续根据紧急程度和行动请求自动分流。这样可避免出现“已经知道模型不确定，却仍然顺手给出自动建议”的矛盾状态。</p>
+<h3 id="wiki-h-5">Noul 使用两个边界，而不是一个阈值</h3>
+<p>现在的含义是：</p>
+<pre><code class="hljs language-text">0.00～0.35  可以按“没有明确行动请求”处理
+0.35～0.65  暂不决定，送人工复核
+0.65～1.00  可以按“有明确行动请求”处理
+</code></pre><p>代码使用严格不等号，因此恰好等于 <code>0.35</code> 归入“否”，恰好等于 <code>0.65</code> 归入“是”。这只是明确的工程约定，后面会用测试锁定。</p>
+<h3 id="wiki-h-6">automation_allowed 只描述当前低风险步骤</h3>
+<p>这里的 <code>True</code> 表示可以自动完成“本地排序或准备草稿”这类可恢复步骤，不表示可以自动把草稿发出去。字段名如果脱离动作范围就容易被误用，所以真实系统最好同时保存具体允许的动作，例如 <code>allowed_actions: ["add_local_label"]</code>。</p>
+<h2 id="wiki-h-7">让路由脚本认识第四个队列</h2>
+<p>打开 <code>route_inbox.py</code>，找到 <code>queue_order</code> 和 <code>counts</code>，分别替换为：</p>
+<pre><code class="hljs language-python">    queue_order = {
+        <span class="hljs-string">"manual_review"</span>: <span class="hljs-number">0</span>,
+        <span class="hljs-string">"today"</span>: <span class="hljs-number">1</span>,
+        <span class="hljs-string">"follow_up"</span>: <span class="hljs-number">2</span>,
+        <span class="hljs-string">"read_only"</span>: <span class="hljs-number">3</span>,
+    }
+</code></pre><pre><code class="hljs language-python">    counts = {
+        <span class="hljs-string">"manual_review"</span>: <span class="hljs-number">0</span>,
+        <span class="hljs-string">"today"</span>: <span class="hljs-number">0</span>,
+        <span class="hljs-string">"follow_up"</span>: <span class="hljs-number">0</span>,
+        <span class="hljs-string">"read_only"</span>: <span class="hljs-number">0</span>,
+    }
+</code></pre><p>人工复核排在最前面，是为了让人先处理系统无法稳定决定的消息，而不是让它们沉到列表底部。</p>
+<p>同时修改 load_decisions 的逐条检查：只要求每项是 dict，缺少／非法 judgment 交给策略进入 manual_review。排序不能直接读取可能缺失的 urgency_score。在 route_inbox.py 中 import math，并新增：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">urgency_for_sort</span>(<span class="hljs-params">item</span>):
+    judgment = item.get(<span class="hljs-string">"judgment"</span>)
+    value = judgment.get(<span class="hljs-string">"urgency_score"</span>) <span class="hljs-keyword">if</span> <span class="hljs-built_in">isinstance</span>(judgment, <span class="hljs-built_in">dict</span>) <span class="hljs-keyword">else</span> <span class="hljs-literal">None</span>
+    <span class="hljs-keyword">if</span> <span class="hljs-built_in">isinstance</span>(value, <span class="hljs-built_in">bool</span>) <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> <span class="hljs-built_in">isinstance</span>(value, (<span class="hljs-built_in">int</span>, <span class="hljs-built_in">float</span>)) <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> math.isfinite(value):
+        <span class="hljs-keyword">return</span> <span class="hljs-number">0.0</span>
+    <span class="hljs-keyword">return</span> value <span class="hljs-keyword">if</span> <span class="hljs-number">0</span> &lt;= value &lt;= <span class="hljs-number">2</span> <span class="hljs-keyword">else</span> <span class="hljs-number">0.0</span>
+</code></pre><p>把排序键第二项改为 <code>-urgency_for_sort(item)</code>，保留队列优先级为第一项。非法数值不参与自动决策，排序也不能使人工复核流程崩溃。缺失 judgment 的记录仍需保留 id 与原消息；若顶层不是对象，读取阶段直接拒绝整个产物并报告位置。</p>
+<p>修改后先做语法检查：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -m py_compile decision_policy.py route_inbox.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> py_compile decision_policy.py route_inbox.py
+</code></pre><p>命令没有输出，表示两个文件通过了语法检查。</p>
+<h2 id="wiki-h-8">更新测试，覆盖不确定性边界</h2>
+<p>用下面内容替换 <code>test_decision_policy.py</code>：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">import</span> unittest
+
+<span class="hljs-keyword">from</span> decision_policy <span class="hljs-keyword">import</span> build_recommendation
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">make_record</span>(<span class="hljs-params">
+    *,
+    category: <span class="hljs-built_in">str</span> = <span class="hljs-string">"technical"</span>,
+    category_confidence: <span class="hljs-built_in">float</span> = <span class="hljs-number">0.9</span>,
+    urgency: <span class="hljs-built_in">float</span> = <span class="hljs-number">1.0</span>,
+    urgency_confidence: <span class="hljs-built_in">float</span> = <span class="hljs-number">0.9</span>,
+    action_probability: <span class="hljs-built_in">float</span> = <span class="hljs-number">0.9</span>,
+</span>) -&gt; <span class="hljs-built_in">dict</span>:
+    <span class="hljs-keyword">return</span> {
+        <span class="hljs-string">"id"</span>: <span class="hljs-string">"test-message"</span>,
+        <span class="hljs-string">"source"</span>: <span class="hljs-string">"test"</span>,
+        <span class="hljs-string">"text"</span>: <span class="hljs-string">"test content"</span>,
+        <span class="hljs-string">"judgment"</span>: {
+            <span class="hljs-string">"category"</span>: category,
+            <span class="hljs-string">"category_probabilities"</span>: {category: <span class="hljs-number">1.0</span>},
+            <span class="hljs-string">"category_confidence"</span>: category_confidence,
+            <span class="hljs-string">"urgency_score"</span>: urgency,
+            <span class="hljs-string">"urgency_confidence"</span>: urgency_confidence,
+            <span class="hljs-string">"action_requested_probability"</span>: action_probability,
+        },
+    }
+
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">DecisionPolicyTests</span>(unittest.TestCase):
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_clear_urgent_action_goes_to_today</span>(<span class="hljs-params">self</span>) -&gt; <span class="hljs-literal">None</span>:
+        result = build_recommendation(
+            make_record(urgency=<span class="hljs-number">1.8</span>, action_probability=<span class="hljs-number">0.9</span>)
+        )
+        recommendation = result[<span class="hljs-string">"recommendation"</span>]
+        <span class="hljs-variable language_">self</span>.assertEqual(recommendation[<span class="hljs-string">"queue"</span>], <span class="hljs-string">"today"</span>)
+        <span class="hljs-variable language_">self</span>.assertTrue(recommendation[<span class="hljs-string">"automation_allowed"</span>])
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_clear_non_action_goes_to_read_only</span>(<span class="hljs-params">self</span>) -&gt; <span class="hljs-literal">None</span>:
+        result = build_recommendation(
+            make_record(urgency=<span class="hljs-number">1.8</span>, action_probability=<span class="hljs-number">0.2</span>)
+        )
+        <span class="hljs-variable language_">self</span>.assertEqual(result[<span class="hljs-string">"recommendation"</span>][<span class="hljs-string">"queue"</span>], <span class="hljs-string">"read_only"</span>)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_low_category_confidence_requires_review</span>(<span class="hljs-params">self</span>) -&gt; <span class="hljs-literal">None</span>:
+        result = build_recommendation(
+            make_record(category_confidence=<span class="hljs-number">0.4</span>)
+        )
+        recommendation = result[<span class="hljs-string">"recommendation"</span>]
+        <span class="hljs-variable language_">self</span>.assertEqual(recommendation[<span class="hljs-string">"queue"</span>], <span class="hljs-string">"manual_review"</span>)
+        <span class="hljs-variable language_">self</span>.assertIn(<span class="hljs-string">"low_category_confidence"</span>, recommendation[<span class="hljs-string">"reasons"</span>])
+        <span class="hljs-variable language_">self</span>.assertFalse(recommendation[<span class="hljs-string">"automation_allowed"</span>])
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_low_urgency_confidence_requires_review</span>(<span class="hljs-params">self</span>) -&gt; <span class="hljs-literal">None</span>:
+        result = build_recommendation(
+            make_record(urgency_confidence=<span class="hljs-number">0.4</span>)
+        )
+        <span class="hljs-variable language_">self</span>.assertEqual(result[<span class="hljs-string">"recommendation"</span>][<span class="hljs-string">"queue"</span>], <span class="hljs-string">"manual_review"</span>)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_ambiguous_action_requires_review</span>(<span class="hljs-params">self</span>) -&gt; <span class="hljs-literal">None</span>:
+        result = build_recommendation(
+            make_record(action_probability=<span class="hljs-number">0.5</span>)
+        )
+        <span class="hljs-variable language_">self</span>.assertIn(
+            <span class="hljs-string">"ambiguous_action_request"</span>,
+            result[<span class="hljs-string">"recommendation"</span>][<span class="hljs-string">"reasons"</span>],
+        )
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_other_category_requires_review</span>(<span class="hljs-params">self</span>) -&gt; <span class="hljs-literal">None</span>:
+        result = build_recommendation(make_record(category=<span class="hljs-string">"other"</span>))
+        <span class="hljs-variable language_">self</span>.assertIn(
+            <span class="hljs-string">"uncovered_category"</span>,
+            result[<span class="hljs-string">"recommendation"</span>][<span class="hljs-string">"reasons"</span>],
+        )
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_action_boundaries_are_explicit</span>(<span class="hljs-params">self</span>) -&gt; <span class="hljs-literal">None</span>:
+        low = build_recommendation(make_record(action_probability=<span class="hljs-number">0.35</span>))
+        high = build_recommendation(make_record(action_probability=<span class="hljs-number">0.65</span>))
+
+        <span class="hljs-variable language_">self</span>.assertEqual(low[<span class="hljs-string">"recommendation"</span>][<span class="hljs-string">"queue"</span>], <span class="hljs-string">"read_only"</span>)
+        <span class="hljs-variable language_">self</span>.assertEqual(high[<span class="hljs-string">"recommendation"</span>][<span class="hljs-string">"queue"</span>], <span class="hljs-string">"follow_up"</span>)
+
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">"__main__"</span>:
+    unittest.main()
+</code></pre><p>运行：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -m unittest -v test_decision_policy.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> unittest <span class="hljs-literal">-v</span> test_decision_policy.py
+</code></pre><p>预期七个测试全部通过。它们证明四件事：</p>
+<ul>
+<li>明确判断仍然能进入正常队列；</li>
+<li>Choice 和 Score 低置信度会阻断自动路由；</li>
+<li>Noul 中间区间会阻断自动路由；</li>
+<li>两个边界值的归属是明确且可重复的。</li>
+</ul>
+<h2 id="wiki-h-9">重新生成收件箱</h2>
+<p>这一步仍然不需要重新调用 Jev。直接对上一篇的 <code>decisions.json</code> 重新应用策略：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python route_inbox.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe route_inbox.py
+</code></pre><p>如果四条示例中有低置信度或模糊结果，统计里会出现 <code>manual_review</code>。如果没有，也不代表代码失效，只说明这批实际结果没有触发门槛。单元测试已经用可控输入验证过复核路径。</p>
+<p>再运行一个独立检查：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -c <span class="hljs-string">"import json; d=json.load(open('output/routed_inbox.json', encoding='utf-8')); allowed={'manual_review','today','follow_up','read_only'}; assert all(x['recommendation']['queue'] in allowed for x in d); assert all(not x['recommendation']['automation_allowed'] for x in d if x['recommendation']['queue']=='manual_review'); print('review policy verified')"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-c</span> <span class="hljs-string">"import json; d=json.load(open('output/routed_inbox.json', encoding='utf-8')); allowed={'manual_review','today','follow_up','read_only'}; assert all(x['recommendation']['queue'] in allowed for x in d); assert all(not x['recommendation']['automation_allowed'] for x in d if x['recommendation']['queue']=='manual_review'); print('review policy verified')"</span>
+</code></pre><p>看到 <code>review policy verified</code>，说明人工复核队列中的所有记录都明确禁止自动处理。</p>
+<h2 id="wiki-h-10">不要用“调低阈值”消灭人工复核</h2>
+<p>第一次加入复核队列后，很多人会发现需要人工看的条目比预想中多，于是不断降低门槛，直到列表看起来很干净。这相当于为了让仪表盘好看而关闭报警器。</p>
+<p>更合理的处理顺序是：</p>
+<ol>
+<li>查看复核样例，确认问题来自哪里；</li>
+<li>如果输入缺少上下文，补充 <code>state</code>；</li>
+<li>如果类别重叠，重写 Choice 描述；</li>
+<li>如果大量消息落入 <code>other</code>，考虑新增有意义的类别；</li>
+<li>用标注数据比较修改前后的准确率与复核率；</li>
+<li>最后才决定是否调整阈值。</li>
+</ol>
+<p>复核率本身也是系统成本。门槛过严会让自动化失去意义，门槛过松会放大误判。两者之间的取舍必须通过真实数据和错误代价决定，而不是凭几条演示消息拍脑袋。</p>
+<h2 id="wiki-h-11">常见误区</h2>
+<h3 id="wiki-h-12">1. 高置信度就是一定正确</h3>
+<p>不是。置信度用于表达模型对判断的确定程度；校准是在一组预测上衡量概率与实际结果是否匹配，不能保证单次答案。高风险操作仍要确认、权限控制和可恢复设计。</p>
+<h3 id="wiki-h-13">2. 低置信度时再问同一个问题，直到变高</h3>
+<p>重复调用可能得到不同数值，但不能自动补全输入中不存在的信息。应该先检查问题定义、状态信息和类别边界。不要把“多试几次挑一个最自信的”当成可靠策略。</p>
+<h3 id="wiki-h-14">3. 把多个置信度简单平均</h3>
+<p>分类不确定、紧急度明确，与分类明确、紧急度不确定，可能需要完全不同的处理。平均后会掩盖具体风险。当前策略使用“任一关键判断不可靠就复核”，更保守也更容易解释。</p>
+<h3 id="wiki-h-15">4. 记录了 reasons 就等于获得模型解释</h3>
+<p>我们的 <code>reasons</code> 只记录触发了哪些确定性规则。它不是模型的思维过程，也不能证明语义判断正确。不要把程序生成的规则标签包装成“AI 给出的完整理由”。</p>
+<h2 id="wiki-h-16">完成本篇的验收</h2>
+<p>确认你已经做到：</p>
+<ul>
+<li>能区分 Choice/Score 的 <code>confidence</code>、Score 的 <code>score</code> 和 Noul 的概率；</li>
+<li><code>decision_policy.py</code> 为低置信度、Noul 模糊区间和 <code>other</code> 类别提供人工复核路径；</li>
+<li>七个策略测试全部通过，包括两个边界值测试；</li>
+<li><code>manual_review</code> 队列中的记录均为 <code>automation_allowed: false</code>；</li>
+<li>明白阈值应随动作风险变化，而不是所有判断共用一个数；</li>
+<li>项目仍然不执行对外发送、删除、付款等高风险动作。</li>
+</ul>
+<p>现在 Decision Inbox 已经有了完整的判断与拒绝闭环，但演示阈值仍然只是我们的初始假设。下一篇会建立一份小型中文评估集，用可重复的指标回答：分类是否准确、复核率是否可接受，以及调整问题描述后到底有没有变好。</p>
+<h2 id="wiki-h-17">异常输入验收</h2>
+<p>在策略测试中分别把 category_confidence 改为 NaN、True、-0.1、1.1，删除 urgency_score，或者删除整个 judgment，均应进入 manual_review，不能抛出未处理 KeyError 或继续自动路由。Score 的本课量表是 0～2，概率／confidence 是 0～1，不要混用范围。JSON 读取同样拒绝 NaN／Infinity。</p>
+</article>

@@ -1,0 +1,39 @@
+11.1 CLI 2.0 的非交互入口
+traecli exec --sandbox read-only --ask-for-approval never -o review.txt "只读取当前项目，列出测试入口和潜在问题，不修改文件"
+
+
+exec 是非交互入口；-p 选择 profile，不是 print。--json 输出 JSONL 事件流，不能对整份日志直接读 .result；需要最终机器结果时使用 --output-schema 约束，并用 -o 保存最终答复，先检查 CLI 退出码再解析。文档基线和配置见第 9 章。
+
+11.2 测试门禁
+
+先用 python -m unittest discover -s tests -v（自己的项目用 pytest 时才改成 pytest）作为 CI 门禁。AI Review 是补充报告，不用 grep OK 判断，NOT OK 也含 OK。不要为只读审查预授权全部 Bash。
+
+完整调用的超时应由外部 runner 或 subprocess 的总 deadline 控制；单个 Bash 工具超时不等于查询总时限。中断后核对进程树是否已停止，并保留日志。
+
+11.3 Git hook 的跨平台入口
+
+Git 只查找 .githooks/pre-commit，不会自动执行 pre-commit.ps1。POSIX／Git Bash 的入口可写为：
+
+#!/bin/sh
+exec python -m unittest discover -s tests -v
+
+
+Windows 若测试逻辑放在 PowerShell，仍保留无扩展名 pre-commit 启动器：
+
+#!/bin/sh
+exec pwsh -NoProfile -File .githooks/pre-commit.ps1
+
+
+对应 pre-commit.ps1：
+
+python -m unittest discover -s tests -v
+exit $LASTEXITCODE
+
+
+先确认已安装 pwsh，执行 git config core.hooksPath .githooks，Unix 给入口可执行权限。把一项测试临时设为必失败，尝试提交应被拒绝；恢复后才能提交。不要只看配置文件存在。
+
+11.4 报告的使用
+
+固定 schema 可要求 status 仅为 pass/fail、findings 为数组，仍不能用模型 pass 替代程序测试。运行失败、超时、格式错或缺输入均作为未完成。保留原始测试退出码，AI 成功解释失败也不能把 CI 改为成功。
+
+参考：CLI 2.0 参数、Git hooks。

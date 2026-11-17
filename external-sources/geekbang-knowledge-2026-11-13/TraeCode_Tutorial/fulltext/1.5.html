@@ -1,0 +1,121 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">第四章 实战项目启动——搭建「家庭账本」</h2>
+<p>从本章开始，我们用一个贯穿后续所有章节的项目来学习。</p>
+<h3 id="wiki-h-1">4.1 项目背景与需求</h3>
+<p><strong>项目名称</strong>：家庭账本（Family Ledger）</p>
+<p><strong>目标</strong>：一个命令行记账小工具，用 Python 编写，支持：</p>
+<ol>
+<li>记录每一笔收支（金额、分类、备注、日期）</li>
+<li>按分类统计支出占比</li>
+<li>生成月度收支报表</li>
+<li>数据存到本地 SQLite 数据库</li>
+</ol>
+<p><strong>为什么选这个项目？</strong></p>
+<ul>
+<li>贴近生活，做完真能用。</li>
+<li>涵盖文件读写、数据库、数据处理、测试、Git 等核心知识点。</li>
+<li>复杂度适中，能持续加功能，适合逐步学习。</li>
+</ul>
+<h3 id="wiki-h-2">4.2 用 CLI 创建项目骨架</h3>
+<p><strong>第 1 步：创建项目目录并初始化 Git</strong></p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># macOS / Linux / WSL2</span>
+<span class="hljs-built_in">mkdir</span> -p ~/projects/family-ledger &amp;&amp; <span class="hljs-built_in">cd</span> ~/projects/family-ledger
+git init -b main
+
+<span class="hljs-comment"># Windows PowerShell</span>
+New-Item -ItemType Directory -Force -Path projects\family-ledger
+<span class="hljs-built_in">cd</span> projects\family-ledger
+git init -b main
+</code></pre><blockquote>
+<p>Git 在所有操作系统的命令一致。如果你还没装 Git：macOS 装完 Xcode Command Line Tools 就有（<code>xcode-select --install</code>）；Linux 用 <code>sudo apt install -y git</code>；Windows 去 <a href="https://git-scm.com">git-scm.com</a> 下载安装。</p>
+</blockquote>
+<p><strong>第 2 步：启动 CLI，让它帮你设计目录结构</strong></p>
+<pre><code class="hljs language-bash">traecli
+</code></pre><p>在输入框发送：</p>
+<pre><code>我要用 <span class="hljs-title class_">Python</span> 做一个命令行家庭记账工具，叫 family-ledger。
+功能包括：记录收支、按分类统计、月度报表、数据存 <span class="hljs-title class_">SQLite</span>。
+请帮我设计项目目录结构，并说明每个文件/目录的职责。
+</code></pre><p>CLI 会给出一个结构方案，比如：</p>
+<pre><code>family-ledger<span class="hljs-symbol">/</span>
+├── src<span class="hljs-symbol">/</span>
+│   ├── __init__.py
+│   ├── models.py        <span class="hljs-comment"># 数据模型</span>
+│   ├── storage.py       <span class="hljs-comment"># SQLite 存储层</span>
+│   ├── ledger.py        <span class="hljs-comment"># 记账核心逻辑</span>
+│   ├── stats.py         <span class="hljs-comment"># 分类统计</span>
+│   ├── report.py        <span class="hljs-comment"># 月度报表</span>
+│   └── cli_app.py       <span class="hljs-comment"># 命令行入口</span>
+├── tests<span class="hljs-symbol">/</span>               <span class="hljs-comment"># 单元测试</span>
+├── data<span class="hljs-symbol">/</span>                <span class="hljs-comment"># 数据库文件存放</span>
+├── requirements.txt     <span class="hljs-comment"># 依赖</span>
+├── README.md            <span class="hljs-comment"># 项目说明</span>
+└── .gitignore           <span class="hljs-comment"># Git 忽略规则</span>
+</code></pre><h3 id="wiki-h-3">4.3 养成开发规范</h3>
+<p>好习惯从第一天开始。我们先把规范文件建好。</p>
+<p><strong>第 1 步：创建 .gitignore</strong></p>
+<p>让 CLI 帮你生成：</p>
+<pre><code>帮我生成一个适合 <span class="hljs-title class_">Python</span> 项目的 .gitignore，要忽略虚拟环境、__pycache__、<span class="hljs-title class_">SQLite</span> 数据库文件等。
+</code></pre><p>CLI 会创建文件。重点确认这几行在 <code>.gitignore</code> 里（数据文件不入版本库）：</p>
+<pre><code><span class="hljs-title">__pycache__</span>/
+*.pyc
+.venv/
+<span class="hljs-title">venv</span>/
+<span class="hljs-class"><span class="hljs-keyword">data</span>/*.db</span>
+<span class="hljs-class"><span class="hljs-keyword">data</span>/*.sqlite</span>
+</code></pre><p><strong>第 2 步：写 README.md</strong></p>
+<pre><code>帮我写一个 README.<span class="hljs-built_in">md</span>，介绍 family-ledger 是什么、有什么功能、如何安装运行。
+</code></pre><p><strong>第 3 步：约定 commit message 规范</strong></p>
+<p>我们采用 <strong>Conventional Commits</strong>（约定式提交），格式：</p>
+<pre><code><span class="hljs-tag">&lt;<span class="hljs-name">type</span>&gt;</span>: <span class="hljs-tag">&lt;<span class="hljs-name">description</span>&gt;</span>
+</code></pre><p>常见 type：<code>feat</code>（新功能）、<code>fix</code>（修 bug）、<code>docs</code>（文档）、<code>refactor</code>（重构）、<code>test</code>（测试）、<code>chore</code>（杂项）。</p>
+<p>例如：<code>feat: 新增记账录入功能</code>、<code>fix: 修复金额计算精度问题</code>。</p>
+<blockquote>
+<p>你可以让 CLI 帮你记下这个规范——下一章我们会用 AGENTS.md 把它沉淀进项目（见第八章详细讲）。</p>
+</blockquote>
+<h3 id="wiki-h-4">4.4 让 CLI 写第一行代码</h3>
+<p>先把本课 <a href="exercise-assets/ledger-starter/">ledger-starter</a> 的 README、fixture 和 tests 复制到自己的项目；卡住时可对照 <a href="exercise-assets/ledger-reference/">ledger-reference</a>。</p>
+<p><strong>第 1 步：创建 Python 虚拟环境</strong></p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># macOS / Linux / WSL2</span>
+python3 -m venv .venv
+<span class="hljs-built_in">source</span> .venv/bin/activate
+
+<span class="hljs-comment"># Windows PowerShell</span>
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+</code></pre><blockquote>
+<p>如果 PowerShell 提示「无法加载脚本，因为在此系统上禁止运行脚本」，先执行一次：<code>Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned</code>，再重试激活。</p>
+</blockquote>
+<p>激活后，命令行提示符前面会出现 <code>(.venv)</code>，说明你已在虚拟环境中。后续所有 Python / pip 命令都在这个环境里跑。</p>
+<p><strong>第 2 步：让 CLI 实现「记账录入」功能</strong></p>
+<p>在 CLI 里发送：</p>
+<pre><code>帮我实现 src/ledger.py 和 src/storage.py。
+storage.py 用 SQLite 存储，entries 表字段：<span class="hljs-built_in">id</span>、amount_cents（整数分）、<span class="hljs-built_in">type</span>（收入/支出）、category、<span class="hljs-built_in">date</span>、note。输入金额为元，用 Decimal 从字符串换算；不要先用浮点存储再中途迁移。
+ledger.py 实现输入校验和收支规则；补齐 src/cli_app.py，入口 python -m src.cli_app，全局 --data 默认 data/ledger.db，add 接受 --amount、--<span class="hljs-built_in">type</span>、--category、--<span class="hljs-built_in">date</span>、--note，list 列出账目。参考 exercise-assets/ledger-starter 中的固定契约，不随生成结果改接口。
+请给出完整代码。
+</code></pre><p>CLI 会读取（或创建）这两个文件并写入代码。</p>
+<p><strong>第 3 步：人工审查 CLI 生成的代码</strong></p>
+<p>养成习惯：<strong>不要盲目接受 AI 的输出</strong>。CLI 每次修改文件都会显示 diff（改动对比），你要：</p>
+<ol>
+<li>看它改了哪些文件、加了哪些行。</li>
+<li>理解逻辑：表结构对不对？金额用什么类型存？日期格式是否统一？</li>
+<li>发现问题就追问让 CLI 改，比如「金额应该用整数分存储，避免浮点精度问题，请修改」。</li>
+</ol>
+<h3 id="wiki-h-5">4.5 从函数到可操作的入口</h3>
+<p>使用已激活环境中的 python，第一次在全新的 data/ledger.db 运行以下命令；已有个人数据时改用独立实验路径：</p>
+<pre><code class="hljs language-bash">python -m src.cli_app --data data/ledger.db add --amount 8000 --<span class="hljs-built_in">type</span> 收入 --category 工资 --<span class="hljs-built_in">date</span> 2026-09-01
+python -m src.cli_app --data data/ledger.db add --amount 35 --<span class="hljs-built_in">type</span> 支出 --category 餐饮 --<span class="hljs-built_in">date</span> 2026-09-02
+python -m src.cli_app --data data/ledger.db add --amount 12 --<span class="hljs-built_in">type</span> 支出 --category 交通 --<span class="hljs-built_in">date</span> 2026-09-03
+python -m src.cli_app --data data/ledger.db list
+</code></pre><p>预期三条数据，amount_cents 分别为 800000、3500、1200。下一章 summary/report --month 2026-09 的期望收入为 800000 分，支出 4700 分，结余 795300 分；完成该阶段后运行 <code>python -m unittest discover -s tests -v</code>。每章先确认入口存在且前一阶段测试通过，再增加功能。</p>
+<h3 id="wiki-h-6">4.6 第一次提交</h3>
+<p>功能写好、审查通过后，提交第一个 commit。</p>
+<pre><code>帮我把暂存区的文件提交了，提交信息符合 <span class="hljs-title class_">Conventional</span> <span class="hljs-title class_">Commits</span> 规范，描述这次新增了记账存储功能。
+</code></pre><p>CLI 会执行 <code>git add</code> 和 <code>git commit</code>。你也可以手动操作，对比一下 CLI 生成 的 message 和你自己写的：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># 手动方式（所有 OS 通用）</span>
+git add .
+git commit -m <span class="hljs-string">"feat: 新增记账录入与 SQLite 存储功能"</span>
+</code></pre><p>提交后查看历史确认：</p>
+<pre><code class="hljs language-bash">git <span class="hljs-built_in">log</span> --oneline
+</code></pre><p>应该能看到刚才的提交记录。</p>
+<p>到此，「家庭账本」有了骨架和第一个功能。下一章我们继续加功能，在实战中学习代码理解、功能开发和分支管理。</p>
+<hr>
+</article>

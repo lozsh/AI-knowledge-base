@@ -1,0 +1,319 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与练习时间：50～70 分钟<br>本篇目标：为循环加入三道彼此独立的边界——资源预算、能力风险门和人工注意力路由；用三个离线案例验证它会正常收尾、因超预算停止，也会在外部写入发生前请求人工处理。</p>
+</blockquote>
+<p>上一篇解决了“什么时候运行、由谁运行、候选改动放在哪里”。但隔离 worktree 只保护代码工作区，它没有回答三个更现实的问题：</p>
+<ul>
+<li>一个任务最多可以调用几次 Agent、运行多久、消耗多少 Token 或费用？</li>
+<li>Agent 想访问网络、读取凭据或者写入外部系统时，谁有权放行？</li>
+<li>每次成功、重试和暂停都通知人，用户很快就会把通知全部关掉；究竟哪些状态值得立刻打扰？</li>
+</ul>
+<p>这三个问题不能合并成一个“预算”数字。我们会把它们分别实现为：</p>
+<pre><code class="hljs language-text">资源预算：这项任务最多消耗多少计算资源
+风险边界：这项任务最多可以动到哪里
+注意力预算：什么情况值得马上叫人
+</code></pre><p>本篇示例依然完全离线。所谓“通知”只是写入本地 outbox，不会发送邮件或消息；费用只读取 Agent 适配器报告的值，不会调用真实模型，也不会硬编码某家厂商随时可能变化的价格。</p>
+<h2 id="wiki-h-0">从第 7 篇的干净主工作区继续</h2>
+<p>第 7 篇结束后，<code>issue-007</code> 的候选 patch 已保存在：</p>
+<pre><code class="hljs language-text">.loop/candidates/issue-007/candidate.patch
+</code></pre><p>我们没有把它合并进主分支，并且已经移除了临时 worktree。因此主工作区中的标签搜索验收仍然失败，这是预期状态。先检查：</p>
+<pre><code class="hljs language-bash">git status --short
+git worktree list
+</code></pre><p>第一条命令应没有输出；第二条只应列出主工作区。然后从课程根目录复制本篇增量。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R assets/lesson-08-governance/. issue-garden-lab/
+<span class="hljs-built_in">cd</span> issue-garden-lab
+<span class="hljs-built_in">source</span> .venv/bin/activate
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> assets/lesson<span class="hljs-literal">-08-governance</span>/* issue<span class="hljs-literal">-garden-lab</span>
+<span class="hljs-built_in">Set-Location</span> issue<span class="hljs-literal">-garden-lab</span>
+.\.venv\Scripts\Activate.ps1
+</code></pre><p>这次新增的文件不多：</p>
+<pre><code class="hljs language-text">governance.yaml                         三类边界的策略
+issue_garden/governance.py              风险检查、预算账本和通知路由
+tools/governance_demo.py                离线演示入口
+governance_cases/completed.json         正常完成案例
+governance_cases/budget-exhausted.json  超预算案例
+governance_cases/risk-boundary.json     越过权限边界案例
+</code></pre><p>先运行全部 Python 测试：</p>
+<pre><code class="hljs language-bash">python -m unittest discover -s loop_tests -p <span class="hljs-string">"test_*.py"</span> -v
+</code></pre><p>预期二十二项通过。本篇新增四项，分别检查成功任务进入摘要、超预算只生成一条去重通知、风险门先于 Agent 运行，以及缺失费用不能冒充零费用。</p>
+<p>把课程代码提交，避免后面的本地账本混入代码改动：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"feat: add loop governance policies"</span>
+git status --short
+</code></pre><p>最后一条命令应没有输出。<code>.loop/</code> 已被忽略，稍后产生的账本和通知不会进入 Git。</p>
+<h2 id="wiki-h-1">先读懂三类边界</h2>
+<p>打开 <code>governance.yaml</code>。其中的默认策略是：</p>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">budgets:</span>
+  <span class="hljs-attr">max_agent_runs_per_task:</span> <span class="hljs-number">3</span>
+  <span class="hljs-attr">max_wall_seconds_per_task:</span> <span class="hljs-number">1800</span>
+  <span class="hljs-attr">max_reported_input_tokens_per_task:</span> <span class="hljs-number">20000</span>
+  <span class="hljs-attr">max_reported_output_tokens_per_task:</span> <span class="hljs-number">8000</span>
+  <span class="hljs-attr">max_reported_cost_usd_per_task:</span> <span class="hljs-number">1.00</span>
+  <span class="hljs-attr">warning_at_fraction:</span> <span class="hljs-number">0.80</span>
+  <span class="hljs-attr">require_token_visibility:</span> <span class="hljs-literal">false</span>
+  <span class="hljs-attr">require_cost_visibility:</span> <span class="hljs-literal">false</span>
+
+<span class="hljs-attr">risk:</span>
+  <span class="hljs-attr">allowed_unattended_capabilities:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">workspace_read</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">workspace_write</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">local_test</span>
+  <span class="hljs-attr">human_approval_required:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">network_access</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">secret_access</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">external_write</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">destructive_action</span>
+</code></pre><h3 id="wiki-h-2">资源预算不是只有费用</h3>
+<p>本例同时记录五项指标：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>它限制什么</th>
+<th>为什么不能只看费用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agent_runs</code></td>
+<td>Agent 调用次数</td>
+<td>免费或包月调用也可能原地循环</td>
+</tr>
+<tr>
+<td><code>wall_seconds</code></td>
+<td>任务累计墙钟时间</td>
+<td>工具卡住时，Token 可能几乎不增长</td>
+</tr>
+<tr>
+<td><code>input_tokens</code></td>
+<td>适配器报告的输入量</td>
+<td>上下文不断膨胀是常见失控信号</td>
+</tr>
+<tr>
+<td><code>output_tokens</code></td>
+<td>适配器报告的输出量</td>
+<td>防止一次生成无限扩张</td>
+</tr>
+<tr>
+<td><code>estimated_cost_usd</code></td>
+<td>适配器报告的估算费用</td>
+<td>方便在按量计费时设置硬上限</td>
+</tr>
+</tbody></table></div>
+<p>真正接入 Agent 时，最好同时设置两层限制：在单次模型调用处设置最大输出等“单轮上限”，在循环账本中设置整项任务的“累计上限”。后者不能替代前者，因为事后记账只能阻止下一轮，无法收回刚刚已经消耗的资源。</p>
+<p>课程里的金额只是用于测试边界的示例值，不是模型价格建议。不同 Provider、模型、缓存策略和时间点的价格都可能不同。应由 Agent 适配器把实际用量或按当时价格算出的估值写入账本，而不是让 Runner 猜。</p>
+<h3 id="wiki-h-3">风险边界限制的是能力，不是次数</h3>
+<p>本地读写和运行本地测试可以无人值守；网络访问、读取真实凭据、写外部系统和破坏性操作必须先找人。这条规则即使预算还有很多也不会改变：</p>
+<pre><code class="hljs language-text">“还能调用两次 Agent”
+不等于
+“可以替用户发布、删数据或使用生产密钥”
+</code></pre><p>因此风险检查必须发生在 Agent 运行之前。否则系统先做了外部写入，再把任务标成 <code>blocked</code>，控制就已经失效。</p>
+<h3 id="wiki-h-4">注意力预算决定什么时候打扰人</h3>
+<p>文件下半部分定义：</p>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">attention:</span>
+  <span class="hljs-attr">immediate_reasons:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">needs_input</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">permission_boundary</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">budget_exhausted</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">usage_visibility_required</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">unsafe_resume</span>
+  <span class="hljs-attr">digest_decisions:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">completed</span>
+  <span class="hljs-attr">silent_reasons:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">no_task</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">retry</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">planned</span>
+</code></pre><p>对应三条路线：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>路线</th>
+<th>典型状态</th>
+<th>处理方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>立即通知</td>
+<td>缺少输入、权限越界、预算耗尽、必要用量不可见、无法安全恢复</td>
+<td>现在需要人做决定</td>
+</tr>
+<tr>
+<td>汇总通知</td>
+<td>已完成并通过验证</td>
+<td>放入日报或批次摘要</td>
+</tr>
+<tr>
+<td>静默记录</td>
+<td>没有任务、已安排重试、Dry Run</td>
+<td>写日志即可，不打断人</td>
+</tr>
+</tbody></table></div>
+<p>“成功就立刻通知”听起来积极，任务一多却会制造通知疲劳。Loop Engineering 的目标不是让系统显得忙，而是把人的注意力留给确实需要判断的地方。</p>
+<h2 id="wiki-h-5">边界应该在运行前、运行中和运行后各检查一次</h2>
+<p>只在任务结束后读取总费用还不够。一套实际的 Runner 至少有三个检查点：</p>
+<pre><code class="hljs language-text">运行前
+  -&gt; 检查任务请求的能力
+  -&gt; 检查剩余调用次数和剩余时间是否足够开始一轮
+
+单轮运行中
+  -&gt; 由 Agent/Provider 限制单次输出、超时和工具权限
+
+运行后
+  -&gt; 读取适配器报告的真实用量
+  -&gt; 累加到账本
+  -&gt; 决定完成、继续，还是禁止下一轮
+</code></pre><p>本篇的 <code>governance_demo.py</code> 专门演示“运行前风险门”和“运行后累计裁决”。它不是真实 Agent 适配器，所以三个 JSON 案例直接提供一次运行的用量报告。</p>
+<p>还有一个容易忽略的细节：指标缺失不等于零。若某个 CLI Agent 不报告费用，账本会把 <code>estimated_cost_usd</code> 记入 <code>unavailable_metrics</code>，而不是宣称这次调用花费为 0。你可以暂时允许费用不可见，也可以把 <code>require_cost_visibility</code> 改为 <code>true</code>，让不可观测本身成为阻塞原因。</p>
+<h2 id="wiki-h-6">案例一：正常完成只进入摘要</h2>
+<p>查看 <code>governance_cases/completed.json</code>：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"governance-completed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"requested_capabilities"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-string">"workspace_read"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">"workspace_write"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">"local_test"</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"usage"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"agent_runs"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"wall_seconds"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">38</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"input_tokens"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">6200</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"output_tokens"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1300</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"estimated_cost_usd"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"completed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"verified"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>运行：</p>
+<pre><code class="hljs language-bash">python tools/governance_demo.py \
+  --<span class="hljs-keyword">case</span> governance_cases/completed.json
+</code></pre><p>Windows PowerShell 可以写成一行：</p>
+<pre><code class="hljs language-powershell">python tools/governance_demo.py <span class="hljs-literal">--case</span> governance_cases/completed.json
+</code></pre><p>关键输出应为：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"completed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"verified"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"attention_route"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"digest"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"notification"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>这里有两项值得单独核对。第一，完成任务没有写入即时通知 outbox：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">find .loop/notifications/outbox -<span class="hljs-built_in">type</span> f 2&gt;/dev/null
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span> .loop/notifications/outbox <span class="hljs-operator">-File</span> <span class="hljs-literal">-ErrorAction</span> SilentlyContinue
+</code></pre><p>此时应没有输出，目录也可能尚不存在。第二，检查持久账本：</p>
+<pre><code class="hljs language-bash">python -m json.tool .loop/budgets/governance-completed.json
+</code></pre><p>你会看到 <code>agent_runs</code> 为 1、<code>input_tokens</code> 为 6200，同时：</p>
+<pre><code class="hljs language-json"><span class="hljs-attr">"unavailable_metrics"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+  <span class="hljs-string">"estimated_cost_usd"</span>
+<span class="hljs-punctuation">]</span>
+</code></pre><p>账本中的累计金额字段初始值仍是 <code>0.0</code>，但不能据此得出“这次免费”的结论。<code>unavailable_metrics</code> 才是可观测性事实：这次案例没有提供费用。</p>
+<h2 id="wiki-h-7">案例二：超过资源预算，禁止下一轮</h2>
+<p>第二个案例报告了 21500 个输入 Token 和 1.15 美元估算费用，分别超过示例上限 20000 和 1.00：</p>
+<pre><code class="hljs language-bash">python tools/governance_demo.py --<span class="hljs-keyword">case</span> governance_cases/budget-exhausted.json
+</code></pre><p>命令会以退出码 2 结束。这不是程序崩溃，而是 Runner 用非零退出码告诉外层调度器“任务没有完成”。关键输出为：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"stopped"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"budget_exhausted"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"usage"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"exceeded"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+      <span class="hljs-string">"input_tokens"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-string">"estimated_cost_usd"</span>
+    <span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"attention_route"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"immediate"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>如果终端只显示 JSON，不直观展示退出码，可以紧接着查看。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> $?
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$LASTEXITCODE</span>
+</code></pre><p>应为 <code>2</code>。再独立检查账本：</p>
+<pre><code class="hljs language-bash">python -m json.tool .loop/budgets/governance-budget.json
+</code></pre><p><code>ratios.input_tokens</code> 应为 <code>1.075</code>，<code>ratios.estimated_cost_usd</code> 应为 <code>1.15</code>。比率超过 1 表示已越过硬上限；它们不会因为其他指标仍很低而相互抵消。</p>
+<p>这次还应出现一条本地通知。macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">find .loop/notifications/outbox -<span class="hljs-built_in">type</span> f -<span class="hljs-built_in">print</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span> .loop/notifications/outbox <span class="hljs-operator">-File</span>
+</code></pre><p>打开列出的 JSON，内容只有任务 ID、终态、原因和必要的越界字段，没有完整 Prompt、原始日志或凭据。实际接入飞书、Slack 或邮件时，也应让消息通道读取这种最小化 payload，而不是把整个运行现场原样外发。</p>
+<p>测试用例还验证了相同的 <code>task_id + reason</code> 不会重复创建通知，而且已耗尽预算的任务不会再次入账。生产系统仍应为“用量事件”设置唯一 ID：只要任务尚未到达硬上限，同一份报告重复提交就仍可能重复累计。</p>
+<h2 id="wiki-h-8">案例三：权限越界必须先于运行被挡住</h2>
+<p>最后一个案例请求 <code>external_write</code>，代表向代码工作区之外的系统写入：</p>
+<pre><code class="hljs language-bash">python tools/governance_demo.py --<span class="hljs-keyword">case</span> governance_cases/risk-boundary.json
+</code></pre><p>命令同样以退出码 2 结束，但原因不同：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"blocked"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"permission_boundary"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"risk"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"allowed"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"requires_approval"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+      <span class="hljs-string">"external_write"</span>
+    <span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"usage"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"totals"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"agent_runs"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"attention_route"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"immediate"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p><code>agent_runs</code> 仍为 0，是最重要的验证结果：风险门在执行前拦截了任务。因为没有运行，也就不会生成该任务的预算账本：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">test</span> ! -f .loop/budgets/governance-risk.json \
+  &amp;&amp; <span class="hljs-built_in">echo</span> <span class="hljs-string">"blocked before execution"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> .loop/budgets/governance<span class="hljs-literal">-risk</span>.json)) { <span class="hljs-string">"blocked before execution"</span> }
+</code></pre><p>应看到 <code>blocked before execution</code>。outbox 中则多了一条 <code>permission_boundary</code> 通知，告诉人需要审批哪一项能力。</p>
+<p>审批不应该简单地把原任务改成“什么都能做”再自动重放。更稳妥的做法是让人确认目标、目标系统和可接受副作用，然后创建一个带明确授权范围的新任务，或者把外部写入拆成可审阅的人工步骤。旧任务及其拒绝记录应保留，便于审计。</p>
+<h2 id="wiki-h-9">把这三道边界接回真正的循环</h2>
+<p>本篇用独立工具讲清了策略，真正整合到第 7 篇 Dispatcher 时，可以按下面的顺序接入：</p>
+<pre><code class="hljs language-text">Dispatcher 领取任务
+  -&gt; 根据任务声明评估 requested_capabilities
+  -&gt; 风险不允许：blocked + immediate
+  -&gt; 检查账本中的剩余硬预算
+  -&gt; 创建隔离 worktree
+  -&gt; 运行一轮 Agent，并由适配器返回 usage
+  -&gt; 把 usage 作为带唯一 ID 的事件入账
+  -&gt; 执行独立验证
+  -&gt; 完成：digest
+  -&gt; 可重试且仍有预算：silent retry
+  -&gt; 预算耗尽或需要输入：停止并 immediate
+</code></pre><p>有两条顺序不能颠倒：</p>
+<ol>
+<li>先检查能力，再启动 Agent。风险边界不能靠事后报告补救。</li>
+<li>先保存用量，再决定是否重试。否则进程恰好在两者之间中断，恢复后可能忘记已经消耗的预算。</li>
+</ol>
+<p>如果 Agent CLI 不能报告 Token 或费用，先使用可观测的调用次数与墙钟时间做硬限制，并在报告中明确标出未知项。不要通过估算字符数制造虚假的精确费用。等适配器可以稳定返回用量，再根据业务需要打开 <code>require_token_visibility</code> 或 <code>require_cost_visibility</code>。</p>
+<h2 id="wiki-h-10">预算不是越小越安全，也不是越大越好</h2>
+<p>预算频繁耗尽时，先判断任务是否过大，而不是立刻调高上限。一个任务如果需要十几轮才能说清目标，通常意味着它缺少可验证的中间结果，或者应该拆成多个独立任务。</p>
+<p>可以按下面的顺序调整：</p>
+<ol>
+<li>缩小任务范围，让一项任务只产生一个可验证结果。</li>
+<li>减少无关上下文，避免每轮重复加载大量历史。</li>
+<li>让失败签名触发重新规划或升级，避免同一种失败消耗剩余轮次。</li>
+<li>根据真实账本观察正常任务分布，再调整告警线和硬上限。</li>
+</ol>
+<p><code>warning_at_fraction: 0.80</code> 表示到达上限的 80% 时进入警告区，但课程示例不会仅因警告停止。实际系统可以在警告出现后禁止开启一项昂贵的新动作，或者要求 Agent 先提交当前成果和剩余计划。</p>
+<h2 id="wiki-h-11">常见阻塞与处理办法</h2>
+<h3 id="wiki-h-12">1. 费用一直显示为不可用</h3>
+<p>先确认所用 Agent 或 Provider 是否真的返回用量。若不返回，保持 <code>require_cost_visibility: false</code>，同时用调用次数与总时长做硬边界；如果组织规定费用不可见就不得无人值守，则把它改为 <code>true</code>，让任务明确进入阻塞，而不是把未知记成零。</p>
+<h3 id="wiki-h-13">2. 每次循环都收到很多消息</h3>
+<p>检查是否把 <code>retry</code>、<code>planned</code> 或 <code>no_task</code> 放进了立即通知。它们应默认静默，只进入结构化日志。成功任务适合批量摘要；只有需要人作出决定的状态才立即通知。还应在消息出口增加去重键、冷却时间和批次合并。</p>
+<h3 id="wiki-h-14">3. 风险任务明明“很简单”却被拒绝</h3>
+<p>策略按能力和副作用判断，不按操作描述听起来是否简单判断。“把结果顺手发到线上表格”依然是外部写入。若确实需要自动执行，应由人明确授权目标系统、凭据范围、允许动作和有效期，而不是临时放开全部外部能力。</p>
+<h3 id="wiki-h-15">4. 账本恢复后重复累计</h3>
+<p>本地示例只演示累计和通知去重。生产适配器必须为每次用量报告生成稳定事件 ID，并在账本中拒绝重复 ID；写入仍应使用原子替换或事务。否则进程在“已记账、未写 checkpoint”之间中断，恢复后会重复计费。</p>
+<h3 id="wiki-h-16">5. 达到时间预算时进程仍在运行</h3>
+<p>总账本只能阻止下一轮。单轮执行还需要子进程超时、可取消的工具调用和退出后的清理逻辑。强制终止前先保存当前状态；对于外部副作用不明确的任务，恢复时进入 <code>unsafe_resume</code>，不要直接重放。</p>
+<h2 id="wiki-h-17">本篇完成检查</h2>
+<p>完成下面几项，就说明三类边界已经真正生效：</p>
+<ul>
+<li>二十二项 Python 测试通过；</li>
+<li>正常案例返回 <code>completed</code>，进入 <code>digest</code>，没有即时通知；</li>
+<li>正常案例费用为“不可用”，而不是伪装成零费用；</li>
+<li>超预算案例返回 <code>budget_exhausted</code>，账本准确列出两项越界指标；</li>
+<li>风险案例在 <code>agent_runs = 0</code> 时停止，没有先执行再阻塞；</li>
+<li>outbox 只包含需要人处理的预算和权限事件；</li>
+<li>所有实验仍然只写本地 <code>.loop/</code>，没有真实消息、网络请求和外部写入。</li>
+</ul>
+<p>现在，循环已经具备契约、状态、独立验证、失败升级、触发调度、隔离和三类治理边界。下一篇会把这些部件串成一次综合实战，用三个任务分别证明：它能够完成可验证的小缺陷、面对信息不足会求助、遇到越权动作会拒绝，而且每条路径都会明确结束。</p>
+</article>

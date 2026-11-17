@@ -1,0 +1,161 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>装好了，先别急着拿它干正事。</p>
+<p>这一章的目的很朴素：在一个<strong>随便怎么搞都不心疼</strong>的目录里，把它启动起来、跟它说上话、看它干成一件事。走完这一章，你对它的脾气就有手感了。</p>
+<h2 id="wiki-h-0">先弄一个 playground</h2>
+<p>我们需要一块沙地。它等会儿会真的在里面创建文件、跑命令，所以这块地必须是无所谓的——别直接在你的项目根目录或者桌面练手。</p>
+<p><strong>macOS / Linux</strong></p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p ~/playground/cbc-demo &amp;&amp; <span class="hljs-built_in">cd</span> ~/playground/cbc-demo
+git init
+</code></pre><p><strong>Windows PowerShell</strong></p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Path</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\playground\cbc-demo"</span> <span class="hljs-literal">-Force</span>
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\playground\cbc-demo"</span>
+git init
+</code></pre><p><strong>WSL2</strong></p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># 注意：目录要建在 WSL 自己的文件系统里，别放 /mnt/c/</span>
+<span class="hljs-built_in">mkdir</span> -p ~/playground/cbc-demo &amp;&amp; <span class="hljs-built_in">cd</span> ~/playground/cbc-demo
+git init
+</code></pre><p><code>git init</code> 这一步不是走形式。往后每一章我都会强调同一件事：<strong>让它动手之前，先让 Git 能兜底。</strong> 现在这个仓库是空的，但等会儿它建的文件、改的内容，你随时能 <code>git status</code> 看到、随时能回退。这一条习惯，比学会任何一个命令都值钱。</p>
+<p>顺便确认一下 git 认识你是谁（没设过的话提交会失败）：</p>
+<pre><code class="hljs language-bash">git config --global user.name <span class="hljs-string">"你的名字"</span>
+git config --global user.email <span class="hljs-string">"你的邮箱"</span>
+</code></pre><h2 id="wiki-h-1">启动</h2>
+<p>在那个目录里敲：</p>
+<pre><code class="hljs language-bash">codebuddy
+</code></pre><p>（短命令 <code>cbc</code> 一样用。）</p>
+<p>你会进入一个对话界面：底部是一个输入框，上面是它的输出区。第一次进去它可能提示你选登录方式（第 1 章讲过），登录完就能用了。</p>
+<p>界面上会显示当前目录、当前权限模式这类信息。先别管，往下走。</p>
+<h2 id="wiki-h-2">第一件事：建项目记忆</h2>
+<p>进会话之后，<strong>第一个要敲的不是你的需求，是这条命令</strong>：</p>
+<pre><code>/init
+</code></pre><p>它会扫描当前目录，然后生成一个 <code>CODEBUDDY.md</code> 文件。这就是这个项目的<strong>记忆文件</strong>——项目是干什么的、目录怎么组织的、用什么技术栈、有什么规矩，都记在这里。</p>
+<p>以后每次在这个目录启动 CodeBuddy，它都会自动读这个文件。也就是说，你不用每次都重复介绍"这是个 Python 项目、用 pytest 跑测试、提交信息要用英文"。</p>
+<p><strong>为什么这件事要第一个做？</strong></p>
+<p>因为不建记忆的后果，是它会反复扫同一批文件、反复问你同样的问题、反复踩同样的坑。一个项目建一次记忆，后面几十次对话都省事。</p>
+<p>现在目录是空的，它生成的 <code>CODEBUDDY.md</code> 会很简陋。没关系，等会儿目录里有东西了，我们再让它重写一次。</p>
+<p>你可以看一眼它写了什么：</p>
+<p><strong>macOS / Linux / WSL2</strong></p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cat</span> CODEBUDDY.md
+</code></pre><p><strong>Windows PowerShell</strong></p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Content</span> CODEBUDDY.md
+</code></pre><h2 id="wiki-h-3">第一个任务</h2>
+<p>好，跟它说第一句话。复制这段进去：</p>
+<pre><code>帮我写一个 Python 脚本 wordcount.py，读当前目录下任意一个或多个文本文件，
+统计每个词出现的次数，按频次从高到低输出前 20 个，并打印总词数。
+要求：
+<span class="hljs-bullet">1.</span> 用 argparse 做命令行参数，支持传多个文件路径
+<span class="hljs-bullet">2.</span> 忽略大小写，忽略标点符号
+<span class="hljs-bullet">3.</span> 包含 if <span class="hljs-strong">__name__</span> == "<span class="hljs-strong">__main__</span>": 入口
+<span class="hljs-bullet">4.</span> 不要引入第三方依赖，只用标准库
+写完直接运行一次，自己造两个测试用的文本文件验证结果对不对。
+</code></pre><p>说完回车。然后你会看到它开始工作——它会说打算做什么、创建文件、可能问你"是否允许执行 <code>python wordcount.py</code>"。</p>
+<p><strong>注意那个询问。</strong> 这就是 CLI 和聊天框最大的区别：它要真的执行命令，所以默认每条有副作用的命令都会问你一次。你可以选 Yes，也可以选"Yes, and don't ask again for this command"。</p>
+<p>如果你不想一条条确认，可以按 <code>Shift+Tab</code> 切换权限模式（后面细讲）。</p>
+<p>跑完之后，看结果：</p>
+<p><strong>macOS / Linux / WSL2</strong></p>
+<pre><code class="hljs language-bash">git status
+</code></pre><p><strong>Windows PowerShell</strong></p>
+<pre><code class="hljs language-powershell">git status
+</code></pre><p>你会看到它新建了 <code>wordcount.py</code> 和两个测试文本文件。<code>git status</code> 这条命令，往后每次它干完活你都要敲一遍——<strong>看它到底动了哪些文件</strong>，别只听它说"我改好了"。</p>
+<h2 id="wiki-h-4">四个权限模式，你得知道自己在哪个</h2>
+<p>CLI 有四种权限模式，决定了"它能不能不问我直接干"。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>行为</th>
+<th>什么时候用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>default</code></td>
+<td>读文件自动放行，改文件/跑命令要问你</td>
+<td><strong>默认</strong>。陌生项目、第一次操作、心里没底的时候</td>
+</tr>
+<tr>
+<td><code>acceptEdits</code></td>
+<td>改文件不问了，跑命令还是问</td>
+<td>你已经信任它，且改动都在版本控制里</td>
+</tr>
+<tr>
+<td><code>plan</code></td>
+<td>只给方案，一个字都不动</td>
+<td>想先看它打算怎么干，或者涉及危险操作</td>
+</tr>
+<tr>
+<td><code>bypassPermissions</code></td>
+<td>全部放行</td>
+<td>只在容器、CI 这类隔离环境里用。<strong>日常开发慎用</strong></td>
+</tr>
+</tbody></table></div>
+<p>切换方式是按 <code>Shift+Tab</code>（部分 Windows 终端上是 <code>Alt+M</code>），按一次切一个，界面上有提示。</p>
+<p>我的建议：<strong>日常保持 <code>default</code>，涉及重构和删除先切 <code>plan</code>。</strong> 那几次"点一下 Yes"的成本，远低于它一次改错带给你的麻烦。</p>
+<h2 id="wiki-h-5">几个必须记住的键</h2>
+<p>不用背，用两次就熟了：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>键</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Esc</code></td>
+<td>中断它正在做的事。它跑偏了、开始胡说八道了，按这个</td>
+</tr>
+<tr>
+<td><code>Ctrl+C</code></td>
+<td>退出当前任务/退出程序</td>
+</tr>
+<tr>
+<td><code>Ctrl+O</code></td>
+<td>展开看它的思考过程（默认折叠）。想知道它"为什么这么做"时用</td>
+</tr>
+<tr>
+<td><code>Shift+Enter</code></td>
+<td>输入框里换行（直接回车是发送）。写多行提示词必备</td>
+</tr>
+<tr>
+<td><code>↑</code></td>
+<td>调出上一条输入</td>
+</tr>
+<tr>
+<td><code>Tab</code></td>
+<td>输入 <code>@</code> 之后按 Tab 补全文件名</td>
+</tr>
+</tbody></table></div>
+<p><code>Esc</code> 那个键特别值得记住。它开始跑一个莫名其妙的命令时，别等它跑完，直接打断。</p>
+<h2 id="wiki-h-6">结束与恢复</h2>
+<p>一次对话干完一件事，想换话题，敲：</p>
+<pre><code>/clear
+</code></pre><p>它会清空上下文重新开始。这一条比你想象的重要——上下文里堆着上一件事的细节，会污染下一件事的判断。<strong>一件事一个会话，是最省 token 也最不容易出错的做法。</strong></p>
+<p>想找回上一次的会话：</p>
+<pre><code>/resume
+</code></pre><p>会列出最近的会话让你挑。或者启动时指定：</p>
+<pre><code class="hljs language-bash">codebuddy --resume
+</code></pre><h2 id="wiki-h-7">顺手做一次完整闭环</h2>
+<p>趁热打铁，把这套动作做一遍，往后每个案例都这么走：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># 1. 看它改了什么</span>
+git status
+
+<span class="hljs-comment"># 2. 看具体改了哪些行</span>
+git diff
+
+<span class="hljs-comment"># 3. 没问题就提交</span>
+git add -A
+git commit -m <span class="hljs-string">"feat: add wordcount script with argparse and tests"</span>
+</code></pre><p><code>git diff</code> 那一步别省。它的"改好了"和你的"改好了"可能不是一个意思——尤其当它自作主张删了点什么的时候，只有 diff 会告诉你。</p>
+<h2 id="wiki-h-8">本章你多了什么</h2>
+<ul>
+<li>一个 <code>~/playground/cbc-demo</code> 目录，里面有一个能跑的 <code>wordcount.py</code></li>
+<li>一份 <code>CODEBUDDY.md</code> 项目记忆（现在还很简单）</li>
+<li>一条肌肉记忆：<strong>动手前 git 兜底，干完看 status 和 diff</strong></li>
+<li>四个权限模式的概念和 <code>Shift+Tab</code> 切换</li>
+<li><code>Esc</code> 打断、<code>/clear</code> 换话题、<code>/resume</code> 找回</li>
+</ul>
+<h2 id="wiki-h-9">常见坑</h2>
+<p><strong>它一直在问"是否允许"，烦。</strong> 两种解法：一是按 <code>Shift+Tab</code> 切到 <code>acceptEdits</code>；二是针对某条命令选"不再询问"。但涉及 <code>rm</code>、<code>git push</code>、<code>--force</code> 这类，我建议你永远手动确认。</p>
+<p><strong>它改出来的脚本跑不起来。</strong> 把报错整段复制给它，说"这段报错，修一下"。不用自己分析，它会读得比你还仔细。这是 CLI 最省事的地方之一。</p>
+<p><strong>它跑了很久没动静。</strong> 可能是在扫描大量文件或者在等网络。按 <code>Ctrl+O</code> 看它在想什么。真的卡住了就 <code>Esc</code>。</p>
+<p><strong>换了个目录启动，它就不认识项目了。</strong> 记忆文件是按目录走的。换了目录要么重新 <code>/init</code>，要么用 <code>@CODEBUDDY.md</code> 把它引进来（第 3 章讲）。</p>
+<hr>
+<p>下一章讲心法——喂什么样的上下文、三种用法怎么选、会话怎么管。这些内容不刺激，但决定了后面七个案例你做得顺不顺。</p>
+</article>

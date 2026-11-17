@@ -1,0 +1,37 @@
+5.1 准备与基线
+
+把 materials-cbc/02-billkit 复制到新目录 playground/billkit，进入副本。Python 3.10+；创建虚拟环境并激活（Windows 为 .venv\Scripts\Activate.ps1，POSIX 为 source .venv/bin/activate），执行 python -m pip install pytest==8.4.2 pytest-cov。git init -b main，检查忽略规则后提交初始快照。
+
+python -m billkit.cli --input data/usage-2024-03.csv --month 2024-03
+python -m pytest --cov=billkit --cov-report=term-missing
+
+
+第一条应输出 14 张账单。初始目录没有 tests，第二条应提示没有收集到测试，退出码为 5；这是基线，不是测试通过。覆盖率可能没有数据，不伪造一张 0% 报表。
+
+5.2 先确定测试契约
+
+让助手先读取 README 和源码，按价格、折扣、输入校验、账单合计、CLI 排序测试风险。人工核算 basic 的 12000 用量：10000×0.02＋2000×0.015＝230；70000 用量小计 1000。折扣合同是“达到即享”，包括 basic 的 1000／3000 和 pro 的 2000／5000 四个边界。
+
+只添加 tests/test_pricing.py，不修改 billkit/ 实现。
+用 Decimal 字符串构造金额和期望值；分别测阶梯内、跨档、零、负数、未知套餐。
+四个折扣门槛按达到即享断言。运行后区分测试自身错误和实现违反合同。
+实现的边界缺陷保留到第 6 章，不为跑绿改低期望或修产品代码。
+
+
+先运行测试，再 git diff -- billkit，后者应为空。四个门槛应失败；其他规则应通过。需要校对时，参考 materials-cbc/verification/test_pricing.py，不直接拿实现结果当期望。
+
+5.3 检查断言与补齐输入测试
+
+非空、类型断言不能替代金额断言。对照至少一个手算样例。parser.read_usage 遇到坏行抛 ValueError，不是跳过坏行；测试缺列、空客户、非法／负 units。当前输入月份采用 YYYY-MM，不能凭空要求多种日期格式兼容。
+
+给 Invoice.finalize 的税前、6% 税率和两位小数取整补用例。给 processor.process(path, month) 传 tmp_path 下的小 CSV，断言返回账单列表的客户、数量及金额；它没有 run() 或输出文件参数。CLI 测试另用 subprocess 检查退出码和实际文本。
+
+5.4 对比练习放在独立 worktree
+
+先提交本章测试（提交信息写明四个已知边界失败），确认工作区干净，再 git worktree add ../billkit-naive -b experiment/naive HEAD。在该副本试“帮我写测试”，对比它是否漏掉边界。未提交文件不会因切分支消失，因此不要在主目录切来切去模拟隔离。
+
+结束时先检查副本的 git status；需要留存就提交，确认无未保存内容后 git worktree remove ../billkit-naive。不要用强制删除掩盖实验产物。
+
+5.5 本章验收与下一章
+
+统一入口为 python -m pytest -v，跨平台都可用，不要求系统自带 make。需要覆盖率时加 --cov=billkit。保留失败日志和四个边界断言，提交测试，不修实现。第 6 章将在同一 billkit 副本修复这些边界；完成后才能进入第 7 章重构。

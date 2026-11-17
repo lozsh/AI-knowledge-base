@@ -1,0 +1,252 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>上一篇，我们给导出任务搭好了最小 Harness：有输入，有工具，有验证，也有保存下来的状态。但它做完一次就停。如果第一份候选的引用不在原文里，而你希望助手依据错误信息再提交一份，接下来应该怎么办？</p>
+<p>最容易想到的办法是加一句：“没通过就继续，直到通过为止。”这句话漏掉了不少问题：它是在学习反馈，还是重复相同错误？还有多少预算？是否为了通过测试改坏了预期？如果下一步想把资料发布到外部网站，原来的授权是否包含这件事？</p>
+<p><strong>一个有用的执行 Loop，不只是允许继续，还要明确继续的条件和停止的依据。</strong> 本篇会在第13篇 Harness 外面增加一个小循环。每次尝试仍运行真正的导出与验证，但候选由作者预先准备，让你能稳定复现成功、停滞、预算耗尽和权限边界。</p>
+<p>配套：工作区说明 · 完整 ZIP。主练习完全离线，不需要模型账户。它演示循环控制，不是 Kimi 自动修复的实录，也不是模型能力测评。</p>
+<h2 id="wiki-h-0">先分清：你究竟在循环什么</h2>
+<p>Loop 就是循环。在 AI 项目里，这个词至少可能出现在三个不同层次：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>层次</th>
+<th>一次循环做什么</th>
+<th>笔记助手里的例子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>请求重试</td>
+<td>再尝试完成同一个请求</td>
+<td>一次通信暂时失败后，按既定重试策略处理</td>
+</tr>
+<tr>
+<td>应用工具循环</td>
+<td>根据工具结果决定下一次动作</td>
+<td>查笔记，读检索结果，再决定回答或调用另一个工具</td>
+</tr>
+<tr>
+<td>开发迭代</td>
+<td>修改方案或实现，再验证</td>
+<td>Kimi 改搜索逻辑，运行测试，根据失败证据调整</td>
+</tr>
+</tbody></table></div>
+<p>这三者不能只靠同一个“最多三次”含糊带过。开发迭代做了两轮，不代表模型只请求了两次；一轮可能包含多次模型交互和多个工具。底层客户端如果还会重试，实际请求数又可能增加。</p>
+<p>循环也不自动等于 Agent。预先写死的分支和动态由模型选择动作，是不同的控制方式。Anthropic 在工程文章中区分了固定工作流与模型动态决定流程的 Agent，并强调根据环境反馈行动、设置最大迭代次数等停止条件。<a href="https://www.anthropic.com/engineering/building-effective-agents">参考：Building effective agents</a>。</p>
+<p>本篇把“选择下一候选”做成作者脚本，帮助我们专心检查外围规则。在真实 Agent 中，可以由模型提出候选或修改建议，但<strong>工具是否允许执行、预算是否还够、验证是否通过，都不应只凭模型一句自我评价决定</strong>。</p>
+<h2 id="wiki-h-1">这次在原项目上加什么</h2>
+<p>解压后进入 <code>lesson-14</code> 根目录，也就是包含 <code>loop_lab.py</code> 的目录。本篇使用 Python 3.11 或更高版本，仅需标准库和配套文件。</p>
+<pre><code class="hljs language-text">lesson-14/
+├── loop_lab.py            # 新增：决定继续还是停止
+├── verify_loop.py        # 新增：独立核对循环结果
+├── harness.py            # 原单次任务入口
+├── verify_harness.py
+├── export_review.py
+├── verify_export.py
+├── docs/loop/TASK.md      # 新增：本轮范围与预算
+└── project/              # 原笔记助手
+</code></pre><p>原应用38个文件、导出器、验证器及 Harness 保持不变。应用运行时仍使用 DeepSeek；Kimi 仍是开发助手。我们没有给网页加循环按钮，也没有把真实用户数据送进新流程。</p>
+<p>先读当前任务。它对上一轮范围作了一个明确扩展：单次 Harness 遇错仍然停止；外层 Loop 在核对到特定教学失败后，可以在预算内提交另一个固定候选。每次使用新目录，不覆盖上一份证据。</p>
+<p>这很像日常开发：一次测试失败了，这次测试当然结束；开发任务是否继续修改，要由外层流程决定。不能因为“还允许迭代”，就把上一轮的失败记录改成通过。</p>
+<p>先检查基础环境。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 harness.py --check
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> harness.py <span class="hljs-literal">--check</span>
+</code></pre><p>应看到 <code>ready=true</code>、<code>missing=[]</code>、<code>watched_files=14</code>。这是内层 Harness 的检查，只证明其所需文件存在和 Python 版本符合要求。新循环还会把自己的脚本和任务文档纳入上下文指纹，总共记录16个文件；它们都包含在完整配套中。</p>
+<h2 id="wiki-h-2">先跑通一轮“根据反馈改变候选”</h2>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 loop_lab.py --run repair-01 --scenario repair
+python3 verify_loop.py loop-runs/repair-01
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> loop_lab.py <span class="hljs-literal">--run</span> <span class="hljs-built_in">repair-01</span> <span class="hljs-literal">--scenario</span> repair
+py <span class="hljs-literal">-3</span> verify_loop.py loop<span class="hljs-literal">-runs</span>/<span class="hljs-built_in">repair-01</span>
+</code></pre><p>第一条预期输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"needs_review"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"mechanical_pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"attempts"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"actual_api_calls"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">}</span>
+</code></pre><p>第二条预期输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"result"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"needs_review"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"attempts"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">}</span>
+</code></pre><p>打开下面三个目录，你会看到外层与内层记录如何对应：</p>
+<pre><code class="hljs language-text">loop-runs/repair-01/loop.json      # 循环摘要：为什么继续、为什么停止
+runs/repair-01-01/                # 第一次：bad-quote，失败
+runs/repair-01-02/                # 第二次：valid，通过机械检查
+</code></pre><p>第一次候选使用假引用样例。导出器实际执行校验，发现引用不在原文中，返回 <code>ValidationError</code>，并留下具体错误：“第 1 张卡：引文不在对应笔记原文中。”</p>
+<p>外层先调用独立验证，确认这次确实是预期的拒绝，再把错误类型和消息作为反馈交给候选选择函数。<code>repair</code> 情景收到该反馈后，提交事先准备好的 <code>valid</code> 样例。第二次导出和验证通过，整个循环立即停止，保留 <code>needs_review/pending</code>。</p>
+<p><strong>这里没有模型现场写出修正内容。</strong> 两份样例都早已存在；真实执行的是校验、导出、记录及分支判断。因此结果只能证明“这个循环按设定处理了反馈”，不能证明 Kimi 能一次修好某种错误。</p>
+<p>打开 <code>runs/repair-01-02/artifact/review.md</code> 阅读产物，再看 <code>loop.json</code> 中的 <code>attempts</code>：每次应该有候选、子运行路径、状态和必要反馈。只保存 <code>loop.json</code> 不够，摘要所指向的子运行也必须保留。</p>
+<h2 id="wiki-h-3">一次合理的继续，应该经过哪些判断</h2>
+<p>本篇的控制顺序如下：</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-4" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 700.6666870117188px;" viewBox="4 4 700.6666870117188 1174" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-4{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-4 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-4 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-4 .error-icon{fill:#552222;}#wiki-mermaid-4 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-4 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-4 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-4 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-4 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-4 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-4 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-4 .marker{fill:#666;stroke:#666;}#wiki-mermaid-4 .marker.cross{stroke:#666;}#wiki-mermaid-4 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-4 p{margin:0;}#wiki-mermaid-4 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-4 .cluster-label text{fill:#333;}#wiki-mermaid-4 .cluster-label span{color:#333;}#wiki-mermaid-4 .cluster-label span p{background-color:transparent;}#wiki-mermaid-4 .label text,#wiki-mermaid-4 span{fill:#000000;color:#000000;}#wiki-mermaid-4 .node rect,#wiki-mermaid-4 .node circle,#wiki-mermaid-4 .node ellipse,#wiki-mermaid-4 .node polygon,#wiki-mermaid-4 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-4 .rough-node .label text,#wiki-mermaid-4 .node .label text,#wiki-mermaid-4 .image-shape .label,#wiki-mermaid-4 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-4 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-4 .rough-node .label,#wiki-mermaid-4 .node .label,#wiki-mermaid-4 .image-shape .label,#wiki-mermaid-4 .icon-shape .label{text-align:center;}#wiki-mermaid-4 .node.clickable{cursor:pointer;}#wiki-mermaid-4 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-4 .arrowheadPath{fill:#333333;}#wiki-mermaid-4 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-4 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-4 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-4 .edgeLabel p{background-color:white;}#wiki-mermaid-4 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-4 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-4 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-4 .cluster text{fill:#333;}#wiki-mermaid-4 .cluster span{color:#333;}#wiki-mermaid-4 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-4 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-4 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-4 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-4 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-4 .icon-shape,#wiki-mermaid-4 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-4 .icon-shape p,#wiki-mermaid-4 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-4 .icon-shape .label rect,#wiki-mermaid-4 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-4 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-4 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-4 .node .neo-node{stroke:#999;}#wiki-mermaid-4 [data-look="neo"].node rect,#wiki-mermaid-4 [data-look="neo"].cluster rect,#wiki-mermaid-4 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-4-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-4 [data-look="neo"].node path{stroke:url(#wiki-mermaid-4-gradient);stroke-width:1px;}#wiki-mermaid-4 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-4 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-4-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-4 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-4-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-4-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-4_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-4_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-4_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-4_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-4_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-4_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M329.3333333333333,84L329.3333333333333,96.92893218813452Q329.3333333333333,104 322.26226552146784,104L180.07106781186542,104Q172.99999999999994,104 172.99999999999994,111.07106781186548L172.99999999999994,120" id="wiki-mermaid-4-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 183.00503540039062 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MzI5LjMzMzMzMzMzMzMzMzMsInkiOjg0fSx7IngiOjMyOS4zMzMzMzMzMzMzMzMzLCJ5IjoxMDR9LHsieCI6MTcyLjk5OTk5OTk5OTk5OTk0LCJ5IjoxMDR9LHsieCI6MTcyLjk5OTk5OTk5OTk5OTk0LCJ5IjoxMjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M172.99999999999994,196L172.99999999999994,232" id="wiki-mermaid-4-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MTcyLjk5OTk5OTk5OTk5OTk0LCJ5IjoxOTZ9LHsieCI6MTcyLjk5OTk5OTk5OTk5OTk0LCJ5IjoyMzZ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M144.33333333333331,399.3332824707031L144.33333333333331,428L144.33333333333331,440.9289321881345Q144.33333333333331,448 137.26226552146784,448L73.07106781186548,448Q66,448 66,455.0710678118655L66,481L66,682L66,771L66,820" id="wiki-mermaid-4-L_C_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 489.6717529296875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_H_0" data-points="W3sieCI6MTQ0LjMzMzMzMzMzMzMzMzMxLCJ5IjozOTkuMzMzMjgyNDcwNzAzMX0seyJ4IjoxNDQuMzMzMzMzMzMzMzMzMzEsInkiOjQyOH0seyJ4IjoxNDQuMzMzMzMzMzMzMzMzMzEsInkiOjQ0OH0seyJ4Ijo2NiwieSI6NDQ4fSx7IngiOjY2LCJ5Ijo0ODF9LHsieCI6NjYsInkiOjY4Mn0seyJ4Ijo2NiwieSI6NzcxfSx7IngiOjY2LCJ5Ijo4MjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M201.66666666666663,399.3332824707031L201.66666666666663,428L201.66666666666663,440.9289321881345Q201.66666666666663,448 208.7377344785321,448L272.9289321881345,448Q280,448 280,455.0710678118655L280,530" id="wiki-mermaid-4-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 199.6717529296875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6MjAxLjY2NjY2NjY2NjY2NjYzLCJ5IjozOTkuMzMzMjgyNDcwNzAzMX0seyJ4IjoyMDEuNjY2NjY2NjY2NjY2NjMsInkiOjQyOH0seyJ4IjoyMDEuNjY2NjY2NjY2NjY2NjMsInkiOjQ0OH0seyJ4IjoyODAsInkiOjQ0OH0seyJ4IjoyODAsInkiOjUzNH1d" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M280,606L280,642" id="wiki-mermaid-4-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6MjgwLCJ5Ijo2MDZ9LHsieCI6MjgwLCJ5Ijo2NDZ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M247,718L247,730.9289321881345Q247,738 239.92893218813452,738L117.07106781186548,738Q110,738 110,745.0710678118655L110,820" id="wiki-mermaid-4-L_E_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 229.67172241210938 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_H_0" data-points="W3sieCI6MjQ3LCJ5Ijo3MTh9LHsieCI6MjQ3LCJ5Ijo3Mzh9LHsieCI6MTEwLCJ5Ijo3Mzh9LHsieCI6MTEwLCJ5Ijo4MjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M280,718L280,820" id="wiki-mermaid-4-L_E_R_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 98 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_R_0" data-points="W3sieCI6MjgwLCJ5Ijo3MTh9LHsieCI6MjgwLCJ5Ijo4MjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M313,718L313,730.9289321881345Q313,738 320.0710678118655,738L484.9289321881345,738Q492,738 492,745.0710678118655L492,820" id="wiki-mermaid-4-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 271.67169189453125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MzEzLCJ5Ijo3MTh9LHsieCI6MzEzLCJ5Ijo3Mzh9LHsieCI6NDkyLCJ5Ijo3Mzh9LHsieCI6NDkyLCJ5Ijo4MjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M463.33333333333337,987.3332824707031L463.33333333333337,1016L463.33333333333337,1028.9289321881345Q463.33333333333337,1036 456.2622655214679,1036L435.73773447853216,1036Q428.6666666666667,1036 428.6666666666667,1043.0710678118655L428.6666666666667,1118" id="wiki-mermaid-4-L_F_S_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 156.00511169433594 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_S_0" data-points="W3sieCI6NDYzLjMzMzMzMzMzMzMzMzM3LCJ5Ijo5ODcuMzMzMjgyNDcwNzAzMX0seyJ4Ijo0NjMuMzMzMzMzMzMzMzMzMzcsInkiOjEwMTZ9LHsieCI6NDYzLjMzMzMzMzMzMzMzMzM3LCJ5IjoxMDM2fSx7IngiOjQyOC42NjY2NjY2NjY2NjY3LCJ5IjoxMDM2fSx7IngiOjQyOC42NjY2NjY2NjY2NjY3LCJ5IjoxMTIyfV0=" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M520.6666666666667,987.3332824707031L520.6666666666667,1016L520.6666666666667,1028.9289321881345Q520.6666666666667,1036 527.7377344785323,1036L569.9289321881345,1036Q577,1036 577,1043.0710678118655L577,1094.9289321881345Q577,1102 584.0710678118655,1102L591.5955988548012,1102Q598.6666666666667,1102 598.6666666666667,1109.0710678118655L598.6666666666667,1118" id="wiki-mermaid-4-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 194.01010131835938 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6NTIwLjY2NjY2NjY2NjY2NjcsInkiOjk4Ny4zMzMyODI0NzA3MDMxfSx7IngiOjUyMC42NjY2NjY2NjY2NjY3LCJ5IjoxMDE2fSx7IngiOjUyMC42NjY2NjY2NjY2NjY3LCJ5IjoxMDM2fSx7IngiOjU3NywieSI6MTAzNn0seyJ4Ijo1NzcsInkiOjExMDJ9LHsieCI6NTk4LjY2NjY2NjY2NjY2NjcsInkiOjExMDJ9LHsieCI6NTk4LjY2NjY2NjY2NjY2NjcsInkiOjExMjJ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M642.6666666666667,1122L642.6666666666667,1069L642.6666666666667,920L642.6666666666667,771L642.6666666666667,682L642.6666666666667,570L642.6666666666667,481L642.6666666666667,332L642.6666666666667,160L642.6666666666667,111.07106781186548Q642.6666666666667,104 635.5955988548012,104L380.4044011451988,104Q373.3333333333333,104 373.3333333333333,96.92893218813452L373.3333333333333,88" id="wiki-mermaid-4-L_G_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 1294.005126953125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_G_A_0" data-points="W3sieCI6NjQyLjY2NjY2NjY2NjY2NjcsInkiOjExMjJ9LHsieCI6NjQyLjY2NjY2NjY2NjY2NjcsInkiOjEwNjl9LHsieCI6NjQyLjY2NjY2NjY2NjY2NjcsInkiOjkyMH0seyJ4Ijo2NDIuNjY2NjY2NjY2NjY2NywieSI6NzcxfSx7IngiOjY0Mi42NjY2NjY2NjY2NjY3LCJ5Ijo2ODJ9LHsieCI6NjQyLjY2NjY2NjY2NjY2NjcsInkiOjU3MH0seyJ4Ijo2NDIuNjY2NjY2NjY2NjY2NywieSI6NDgxfSx7IngiOjY0Mi42NjY2NjY2NjY2NjY3LCJ5IjozMzJ9LHsieCI6NjQyLjY2NjY2NjY2NjY2NjcsInkiOjE2MH0seyJ4Ijo2NDIuNjY2NjY2NjY2NjY2NywieSI6MTA0fSx7IngiOjM3My4zMzMzMzMzMzMzMzMzLCJ5IjoxMDR9LHsieCI6MzczLjMzMzMzMzMzMzMzMzMsInkiOjg0fV0=" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(66, 570)"><g class="label" data-id="L_C_H_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-10" y="-3" width="20" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">否</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(280, 481)"><g class="label" data-id="L_C_D_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-10" y="-3" width="20" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">是</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(110, 771)"><g class="label" data-id="L_E_H_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-34" y="-3" width="68" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">证据异常</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(280, 771)"><g class="label" data-id="L_E_R_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-34" y="-3" width="68" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">机械通过</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(492, 771)"><g class="label" data-id="L_E_F_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-66" y="-3" width="132" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">已确认的教学失败</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(428.6666666666667, 1069)"><g class="label" data-id="L_F_S_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-10" y="-3" width="20" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">是</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(577, 1069)"><g class="label" data-id="L_F_G_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-10" y="-3" width="20" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">否</tspan></tspan></text></g></g></g></g><g class="nodes"><g class="node default" id="wiki-mermaid-4-flowchart-A-0" data-look="neo" transform="translate(351.3333333333333, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>检查下一轮是否还有预算</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-B-1" data-look="neo" transform="translate(172.99999999999994, 160)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>根据已有反馈提出候选</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-C-3" data-look="neo" transform="translate(172.99999999999994, 332)"><polygon points="96,0 192,-96 96,-192 0,-96" class="label-container" transform="translate(-95.5, 96)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>动作在允许范围内吗</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-H-5" data-look="neo" transform="translate(88, 848)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>交给人判断</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-D-7" data-look="neo" transform="translate(280, 570)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>用新的运行名执行Harness</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-E-9" data-look="neo" transform="translate(280, 682)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>独立核对产物与证据</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-R-13" data-look="neo" transform="translate(280, 860)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>停止并等待内容审核</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-F-15" data-look="neo" transform="translate(492, 920)"><polygon points="96,0 192,-96 96,-192 0,-96" class="label-container" transform="translate(-95.5, 96)"></polygon><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>同候选同错误再次出现吗</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-S-17" data-look="neo" transform="translate(428.6666666666667, 1146)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>停止：没有进展</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-G-19" data-look="neo" transform="translate(620.6666666666667, 1146)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>保存反馈</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-4-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-4-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-4-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>先看预算，再提候选，可以避免额度已经耗尽却还继续策划和执行。先检查动作范围，再运行工具，可以避免“等做完了才判断它不该做”。每次执行后核对真实文件，则避免模型或脚本只凭一句“我完成了”结束任务。</p>
+<p>在loop_lab.py 中，候选不包含任意命令。只有固定动作 <code>export</code> 和三个已知样例可以进入内层 Harness。遇到未知异常、记录不一致或无法核对的状态，会停在 <code>needs_human</code>，不会把所有错误都当作可以继续的普通反馈。</p>
+<p>这是一个刻意狭窄的循环。如果将来接入代码修改，允许改哪些文件、运行哪些测试、哪些失败可以自动处理，需要在任务里重新定义。不能把“本轮可更换固定样例”扩张成“Agent 可自行重写整个项目”。</p>
+<h2 id="wiki-h-4">连续做了两次，不代表取得了进展</h2>
+<p>现在运行一个始终提交同一份坏候选的情景。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 loop_lab.py --run stuck-01 --scenario stuck
+python3 verify_loop.py loop-runs/stuck-01
+</code></pre><p>Windows PowerShell 将上面每行开头的 <code>python3</code> 换成 <code>py -3</code>，其他参数保持相同。后续命令也按这个规则使用。</p>
+<p>Loop 预期输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"stalled"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"repeated_failure"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"attempts"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"actual_api_calls"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">}</span>
+</code></pre><p>默认最多允许三次尝试，但本次只执行两次。第二次又是同一个样例、同一种错误、同一条错误消息，程序判定没有进展，提前停止。</p>
+<p>本课把这三个字段组合成重复标记。因为候选只来自几个固定文件，这个方法足够说明问题。迁移到真实开发时，“同样的错误消息”可能来自不同代码版本；反过来，错误文字不同也可能是同一个根因。可以结合输入版本、代码差异、失败测试和工具参数判断，不能迷信错误文本去重。</p>
+<p>一个有用的开发反馈应该足够具体，例如：“内部空格被删除，S10 的预期是空结果，实际命中 A01。”这会指向可检查的行为。只有“还是不对，再优化一下”，很容易让 Agent 再尝试一次几乎相同的修改。</p>
+<p>也不要把减少失败数当作唯一进展：为了让五项测试变成零失败而删掉两项测试，并不等于修好了程序。验收标准、测试预期和输入版本需要保持可追溯。</p>
+<h2 id="wiki-h-5">预算要在程序里生效，并说清计量单位</h2>
+<p>先把本来需要两次的 <code>repair</code> 情景限制成一次：</p>
+<pre><code class="hljs language-bash">python3 loop_lab.py --run budget-01 --scenario repair --max-attempts 1
+python3 verify_loop.py loop-runs/budget-01
+</code></pre><p>预期是 <code>budget_exhausted</code>，原因为 <code>attempt_budget</code>，<code>attempts=1</code>。只有 <code>runs/budget-01-01</code>，不能出现第二次运行。即使作者知道下一个候选可以通过，也不能因此擅自突破上限。</p>
+<p>这里的“一次”指一次 Harness 尝试，<strong>包含第一次，不是失败后额外重试一次</strong>。一次尝试内部最多有导出和验证两步。如果导出已经失败，验证步骤就不会执行，所以尝试次数也不等于成功工具执行数。</p>
+<p>再把时间预算设为零：</p>
+<pre><code class="hljs language-bash">python3 loop_lab.py --run time-01 --scenario repair --max-seconds 0
+python3 verify_loop.py loop-runs/time-01
+</code></pre><p>预期 <code>budget_exhausted/time_budget</code>、<code>attempts=0</code>，只有循环记录，没有任何子运行。这是为了稳定演示“开始前预算已不足”的边界，不能拿它评价程序速度。</p>
+<p>本篇默认是最多三次尝试、30秒轮次边界预算。时间通过 <code>time.monotonic()</code> 的两次读数差值计算，不依赖可能被校时改变的日历时间。<a href="https://docs.python.org/3.11/library/time.html#time.monotonic">参考：Python 单调时钟</a>。</p>
+<p>不过，它只在下一次尝试开始前检查。如果某个已经开始的工具迟迟不返回，外层无法靠这条检查打断它。即使完成时已超过30秒，这个示例也可能把本次结果保存为待审。因此应叫<strong>轮次边界检查</strong>，不能宣称“整个任务一定在30秒内结束”。要控制真实外部请求，还需要请求超时、执行器的终止机制及终止后的状态核对。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>预算</th>
+<th>应回答的问题</th>
+<th>本篇是否实现</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>尝试次数</td>
+<td>最多允许启动多少次任务尝试</td>
+<td>是，含首次，允许1—5次</td>
+</tr>
+<tr>
+<td>轮次边界时间</td>
+<td>还有没有时间开始下一轮</td>
+<td>是，0—300秒</td>
+</tr>
+<tr>
+<td>单次动作时限</td>
+<td>已启动的请求或命令多久必须结束</td>
+<td>未实现通用强制超时</td>
+</tr>
+<tr>
+<td>Token 与金额</td>
+<td>每次及累计请求最多消耗多少</td>
+<td>未接入真实模型，不假装已有费用封顶</td>
+</tr>
+</tbody></table></div>
+<p>真实调用时，还要考虑底层请求重试、最大输出以及累计消耗；未知 usage 不能当成零费用。Kimi 开发额度和笔记助手的 DeepSeek 额度仍须分开管理。提示词里写“别超过五块钱”，不会自动给调用程序增加硬限制。</p>
+<h2 id="wiki-h-6">有些停止，不需要再努力一次</h2>
+<p>还剩两个很值得运行的情景：</p>
+<pre><code class="hljs language-bash">python3 loop_lab.py --run semantic-01 --scenario semantic
+python3 verify_loop.py loop-runs/semantic-01
+python3 loop_lab.py --run permission-01 --scenario permission
+python3 verify_loop.py loop-runs/permission-01
+</code></pre><p><code>semantic</code> 会在第一次机械通过后停止，状态为 <code>needs_review</code>，而第一张卡片仍把 RAG 的步骤顺序说反了。打开它的 <code>artifact/review.md</code> 对照原文。循环不会为了增加“看起来更聪明”的迭代次数，凭空假定自己有可靠的语义判断；也不会把 <code>pending</code> 改成已通过。</p>
+<p><code>permission</code> 情景则提出一个作者构造的 <code>publish</code> 动作。当前范围只允许本地导出，所以结果应为 <code>needs_human/permission_boundary</code>，尝试次数为零。<code>loop.json</code> 的 <code>blocked_proposal</code> 记录这条提议。程序没有发布器，也没有尝试联系任何网站。</p>
+<p>这两个例子回答了不同问题：前者缺少内容审核结论，后者超出了允许动作。它们都不是“多试几次应该就能解决”的普通错误。</p>
+<p>人工入口也不能只说“请处理”。可以报告：当前停在哪里、已做哪些动作、哪些文件可以核对、需要用户提供什么。比如：“本轮尚未导出就提议发布，超出只允许本地导出的范围；先澄清任务目标，不能直接执行发布。”这让人能够做一个具体决定。</p>
+<h2 id="wiki-h-7">独立验证要核对“没有继续做什么”</h2>
+<p>六种情景的预期可以集中核对：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>情景</th>
+<th>停止状态</th>
+<th align="right">尝试次数</th>
+<th>应重点检查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>repair</code></td>
+<td><code>needs_review</code></td>
+<td align="right">2</td>
+<td>保留第一次失败及第二次产物</td>
+</tr>
+<tr>
+<td><code>stuck</code></td>
+<td><code>stalled</code></td>
+<td align="right">2</td>
+<td>不应有第三次子运行</td>
+</tr>
+<tr>
+<td><code>repair --max-attempts 1</code></td>
+<td><code>budget_exhausted</code></td>
+<td align="right">1</td>
+<td>不能擅自创建第二次</td>
+</tr>
+<tr>
+<td><code>repair --max-seconds 0</code></td>
+<td><code>budget_exhausted</code></td>
+<td align="right">0</td>
+<td>没有子运行</td>
+</tr>
+<tr>
+<td><code>semantic</code></td>
+<td><code>needs_review</code></td>
+<td align="right">1</td>
+<td>错误内容仍须人工审阅</td>
+</tr>
+<tr>
+<td><code>permission</code></td>
+<td><code>needs_human</code></td>
+<td align="right">0</td>
+<td>越权提议被记录，没有执行</td>
+</tr>
+</tbody></table></div>
+<p>Loop 到达待审状态退出0，其他受控停止通常退出1；目录重名退出2，捕获中断退出130。独立验证器确认停止符合教学预期则退出0。因此，<code>stuck</code> 的验证通过，表示循环正确地停止了，不表示资料导出成功。</p>
+<p>verify_loop.py 不导入候选决策函数。它根据固定情景的独立预期，核对次数、顺序、反馈、状态、上下文和真正的子运行，再调用上一篇的验证器检查产物。它还会检查是否有摘要没有记录的同名前缀子运行，防止把多执行的一次从摘要里抹掉。</p>
+<p>作者做了这样的反例检查：删除第二次的真实产物、把状态改为 <code>complete</code>、删除摘要中的尝试、虚报调用次数，以及额外创建第三次运行。这些都被拒绝。没有只用执行脚本自己的“通过”消息证明自己正确。</p>
+<p>这个验证器针对的是表中固定情景。如果非零时间预算在中途真的耗尽，或者发生中断、未知异常，它会要求人工核查，不能直接套用正常次数预期。验证器的能力边界也需要写清楚。</p>
+<h2 id="wiki-h-8">把这套判断带回 Kimi 开发任务</h2>
+<p>完成离线练习后，你可以选择在本篇目录打开 Kimi 讨论方案：</p>
+<pre><code class="hljs language-bash">kimi --plan
+</code></pre><p>2026年10月4日核对了官方命令文档与本机 Kimi Code 2.0.2 的帮助。这里的 <code>--max-attempts</code>、<code>--max-seconds</code> 是<strong>课程脚本参数</strong>，不要把它们传给 <code>kimi</code>，也不要沿用未经核实的旧 CLI 循环参数。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html">参考：Kimi CLI 命令</a>。</p>
+<p>可以给它这样的任务：</p>
+<blockquote>
+<p>读 AGENTS.md、docs/loop/TASK.md、loop_lab.py 和 verify_loop.py。先解释继续与停止条件，给出验证计划。经我确认后，用新名称运行一次 repair 情景，最多两次 Harness 尝试；核对两次子运行与最终产物。不要更改业务代码、样例或验证标准，不调用笔记助手的真实 API，不发布、不连接 MCP。重复失败、预算不足或未知异常就停止，报告证据路径及待处理问题。待审不等于内容正确。</p>
+</blockquote>
+<p>进入执行阶段仍按工具当前界面审核动作。这个提示词明确了任务，但不能硬性限制 Kimi 会话的全部模型请求数；脚本能强制的是其内部的尝试次数。真实 Kimi 交互可能消耗开发额度，作者没有执行这段真实会话。</p>
+<p>以后让 Kimi 修复实际代码，可以保留同样的骨架：每轮先说清依据什么失败证据、准备改什么，改完运行指定检查，保留 diff；连续相同失败则停止，验收通过则交付，不无限“再优化一轮”。至于修改文件如何保存成可接手的检查点，下一篇再展开。</p>
+<h2 id="wiki-h-9">最可能卡住的地方</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>常见原因</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>找不到新脚本</td>
+<td>还在lesson-13或内层project</td>
+<td>进入lesson-14根目录</td>
+</tr>
+<tr>
+<td>重名退出2</td>
+<td>已经执行过相同Loop名</td>
+<td>留下旧记录，使用新名称</td>
+</tr>
+<tr>
+<td><code>needs_human/unexpected_error</code></td>
+<td>子运行重名、文件变化或证据不一致</td>
+<td>看<code>error_type</code>及对应子目录，不自动清空重跑</td>
+</tr>
+<tr>
+<td>子运行存在但摘要为running</td>
+<td>发生中断或保存失败</td>
+<td>核查实际文件，不能认定动作没做</td>
+</tr>
+<tr>
+<td>时间预算没立即打断工具</td>
+<td>当前只是轮次边界检查</td>
+<td>不把它当强制超时器</td>
+</tr>
+<tr>
+<td>验证旧记录提示指纹不同</td>
+<td>当前文件已经变化</td>
+<td>找对应版本，不重写历史指纹</td>
+</tr>
+</tbody></table></div>
+<p>作者在阻断网络的环境中验证了六种情景，以及非法预算、重名保护、中途预算耗尽、注入中断、丢失产物和伪造记录等边界。中途耗时使用可控时钟模拟，中断使用测试注入；没有把它们说成真实服务故障。原应用和 Harness 保持字节不变，没有真实 Kimi / DeepSeek 调用，也没有 Windows 实机或浏览器视觉验证。</p>
+<p>最后留三个自检问题：</p>
+<ol>
+<li>最多三次尝试是否意味着模型最多请求三次？不意味着；必须明确计数层级，本篇根本没有调用模型。</li>
+<li>第二次还是同一输入、同一错误，是否应该用完第三次额度？不必，识别到停滞可以提前停止。</li>
+<li>第一轮已经写了文件，却在更新摘要前中断，能否直接重新执行？不能；要先核对已经发生的动作和实际产物。</li>
+</ol>
+<p>这时你的项目已经能完成有边界的离线循环，并保留每次尝试的证据。下一篇长任务与断点续做，就从最后这个问题继续：会话或程序中断之后，怎样据实判断接下来该做什么。</p>
+</article>

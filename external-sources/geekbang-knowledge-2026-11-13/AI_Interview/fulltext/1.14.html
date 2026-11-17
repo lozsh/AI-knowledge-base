@@ -1,0 +1,122 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>应用岗的价值不只是"会调模型"，更是"判断什么场景值得用 AI、怎么控成本"。这是区别于"只会调 API"的分水岭。</p>
+</blockquote>
+<h3 id="wiki-h-0">141. 怎么估算一个 LLM 应用的成本？</h3>
+<p><strong>直接答案</strong>：成本估算公式：</p>
+<p><strong>成本 = token 数 × 单价</strong>，具体拆解：</p>
+<ol>
+<li><strong>输入 token</strong>：prompt + 上下文（含历史、检索资料）× 输入单价。</li>
+<li><strong>输出 token</strong>：生成内容 × 输出单价（输出通常贵数倍）。</li>
+<li><strong>调用次数</strong>：每次请求的 token × 请求量。</li>
+</ol>
+<p><strong>估算步骤</strong>：</p>
+<ol>
+<li>估算单次调用的平均输入/输出 token。</li>
+<li>乘以预期调用量（日/月）。</li>
+<li>加工具调用、重试、多轮对话的额外 token。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>常见盲区</strong>：<ol>
+<li>忽略输出 token 更贵（输出单价通常是输入的 3~5 倍）。</li>
+<li>忽略多轮对话的重复输入（每轮重发历史，成本 O(n²) 增长）。</li>
+<li>忽略工具调用的多次模型调用（一次回答可能 N+1 次调用）。</li>
+<li>忽略重试和降级带来的额外成本。</li>
+</ol>
+</li>
+<li><strong>估算要算"总成本"</strong>：不只是 API 调用费，还要算缓存、存储、运维、人工审阅成本。</li>
+<li><strong>现场估算能力</strong>：能现场估"某场景月成本"（如"日均 1 万次调用 × 平均 2k token × 单价"），体现成本意识。</li>
+<li>面试加分点：能说出"成本 = 输入 token + 输出 token + 调用次数 + 隐藏开销"的完整拆解。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-1">142. 怎么降低 LLM 应用的成本？有哪些手段？</h3>
+<p><strong>直接答案</strong>：降成本手段从易到难（按投入产出比排序）：</p>
+<ol>
+<li><strong>模型路由</strong>：简单任务用便宜小模型，复杂任务才用大模型。</li>
+<li><strong>Prompt 缓存</strong>：固定前缀缓存，按供应商价格计算缓存命中输入的折扣。</li>
+<li><strong>缩短上下文</strong>：摘要历史、精简检索片段，减少输入 token。</li>
+<li><strong>Batch API</strong>：非实时任务用异步批处理（省约 50%）。</li>
+<li><strong>量化/自部署</strong>：高频调用场景，开源模型私有化长期更省。</li>
+<li><strong>缓存结果</strong>：确定性场景缓存重复结果。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：成本优化是系统工程，不是单点——路由 + 缓存 + 上下文管理组合，单独一项效果有限。</li>
+<li><strong>最大的成本泄漏</strong>：通常是"上下文越滚越大"和"无脑用旗舰模型"——这两项往往占总成本的大头。</li>
+<li><strong>先量化再优化</strong>：先用可观测数据找到成本大头（是输入 token 还是输出？是哪个模型？），再针对性优化。</li>
+<li><strong>优化的代价</strong>：路由有误判成本、量化有质量损失、缓存有失效问题，每个手段都有 trade-off。</li>
+<li>面试加分点：能按"投入产出比"排序降本手段，并知道先找到成本大头再优化。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-2">143. 什么场景"不该用 LLM"？怎么判断？</h3>
+<p><strong>直接答案</strong>：不是所有问题都该上 LLM。判断标准——<strong>"确定性、可解释、便宜"的任务不该用 LLM</strong>：</p>
+<ol>
+<li><strong>规则能解决</strong>：简单分类、关键词匹配、if-else 逻辑。</li>
+<li><strong>精确计算</strong>：算术、统计，用代码。</li>
+<li><strong>精确检索</strong>：知道确切 ID/编号的查找，用数据库。</li>
+<li><strong>高频简单任务</strong>：LLM 成本不划算。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：LLM 擅长"理解、生成、归纳、模糊匹配"，不擅长"精确、确定、便宜"——两者边界清晰。</li>
+<li><strong>LLM 的三大弱点</strong>：幻觉（不精确）、随机性（不确定）、成本高（不便宜）——这三条对应的任务都不该用 LLM。</li>
+<li><strong>判断框架</strong>：问三个问题——"这个问题需要理解/生成能力吗？"、"能接受偶尔出错吗？"、"成本能接受吗？"三者都满足才用 LLM。</li>
+<li><strong>反模式</strong>："手里有锤子，看什么都像钉子"——为了用 AI 而用 AI，是应用岗最该避免的。</li>
+<li>面试加分点：能说出"规则/代码/LLM 的边界"，体现判断力。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-3">144. 模型路由怎样降低成本，如何验证质量没有退化？</h3>
+<p><strong>直接答案</strong>：模型路由能否省钱取决于<strong>流量、模型单价、路由错误和重试成本</strong>，没有通用的"60%"保证。</p>
+<p><strong>做法</strong>：</p>
+<ol>
+<li>先用任务集标出不同模型在质量门槛下能完成的范围。</li>
+<li>再训练或制定路由器（分类器/规则）。</li>
+<li>低置信度任务进入更强模型，失败时在预算内升级。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>验证方法</strong>：对照统一强模型的基线，报告成功率、关键切片、P95 延迟和每个成功任务的总费用。</li>
+<li><strong>总成本要算全</strong>：计算需包括分类器成本、升级成本、重复请求与缓存写入成本。</li>
+<li><strong>"路由后更贵"的可能</strong>：路由后单次更便宜却重试更多，成功任务的平均成本可能反而上升——这是路由最常见的坑。</li>
+<li><strong>质量退化的监控</strong>：简单任务被错误路由到小模型导致质量下降，要分切片监控，而非只看总成功率。</li>
+<li><strong>路由器的选择</strong>：简单规则/关键词路由最便宜；复杂场景用训练的小分类器；再复杂才考虑 LLM 当路由器（但路由器本身也花钱）。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-4">145. 怎么判断一个 AI 功能"值不值得做"？（ROI 与场景判断）</h3>
+<p><strong>直接答案</strong>：判断 AI 功能 ROI，问三个问题：</p>
+<ol>
+<li><strong>有没有真实需求</strong>：用户是不是真的需要，还是技术驱动硬造需求。</li>
+<li><strong>AI 是不是最优解</strong>：相比规则/人工，AI 是否真的更省、更好、更快。</li>
+<li><strong>成本能否覆盖</strong>：token 成本 + 开发维护成本，是否低于带来的价值。</li>
+</ol>
+<p><strong>判断框架</strong>：先小成本验证（原型/规则版），确认 PMF 再投入。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：AI 是手段不是目的，先验证价值再谈技术。</li>
+<li><strong>ROI 的完整计算</strong>：价值 = 节省的人力成本 + 提升的效率 + 新营收；成本 = token + 开发 + 维护 + 人工审阅 + 风险成本。</li>
+<li><strong>常见陷阱</strong>：为炫技上 Agent、多模态、微调，结果成本高、收益低——复杂度要和价值匹配。</li>
+<li><strong>渐进式验证</strong>：先用规则版/人工版验证需求，再用简单 AI 方案验证可行性，最后才考虑复杂架构。</li>
+<li><strong>"负 ROI 的 AI 功能"</strong>：很多 AI 功能的价值低于其维护成本，判断力在于敢于说"这个不值得做"。</li>
+<li>面试加分点：能理性评估"这个场景值不值得上 AI"，而非一味推崇。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-5">146. 一个 AI 应用从想法到上线，你会怎么推进？</h3>
+<p><strong>直接答案</strong>：完整推进路径（体现产品 + 成本意识）：</p>
+<ol>
+<li><strong>需求与场景判断</strong>：确认真实需求、AI 是否最优解、ROI 估算。</li>
+<li><strong>MVP 快速验证</strong>：用最简单的方案（直接调 API + prompt）先跑通核心场景。</li>
+<li><strong>成本评估</strong>：估算 token 成本，确定是否可接受。</li>
+<li><strong>迭代增强</strong>：根据反馈逐步加 RAG、Agent、工具等复杂度。</li>
+<li><strong>生产化</strong>：加护栏、可观测、评估、成本熔断。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>核心</strong>：从简到繁，先用最简单的方案验证价值，再逐步加复杂度。</li>
+<li><strong>反模式</strong>：一上来就上 LangGraph + 多 Agent + 微调，过度设计——复杂度和价值不匹配。</li>
+<li><strong>MVP 的原则</strong>：用"直接调 API + prompt"最快验证核心价值，RAG/Agent/微调都是"验证后按需加"。</li>
+<li><strong>生产化的门槛</strong>：护栏、可观测、评估、成本熔断——这些是"从 Demo 到生产"的必经之路（衔接分类 7、11）。</li>
+<li><strong>每一步都有退出点</strong>：如果某一步验证发现"不值得做"，敢于停下来，而不是惯性推进。</li>
+<li>面试加分点：能说清"先 MVP 验证，再逐步生产化"，并知道复杂度要渐进添加。</li>
+</ul>
+<hr>
+</article>

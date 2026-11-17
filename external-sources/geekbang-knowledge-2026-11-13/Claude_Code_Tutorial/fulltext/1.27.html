@@ -1,0 +1,305 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>核对日期：2026-09-30<br>范围：Claude Code 命令行；不包含其他客户端或 IDE 操作。</p>
+</blockquote>
+<p>本教程同时支持 macOS、Linux、WSL2 和原生 Windows。不要逐字翻译每条命令：先确定自己在哪个 Shell 中，再使用对应列，并以相同环境完成安装、练习和验收。</p>
+<p>安装步骤见第 2 篇，权限和 Sandbox 实操见第 8 篇。本附录只做跨平台查找与排错。</p>
+<h2 id="wiki-h-0">先确认你在哪个环境</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>终端外观或检查</th>
+<th>环境</th>
+<th>本教程使用的命令列</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>提示符常见 <code>$</code> 或 <code>%</code>，<code>uname</code> 可用</td>
+<td>macOS / Linux / WSL2</td>
+<td>Bash/Zsh 列</td>
+</tr>
+<tr>
+<td>提示符以 <code>PS</code> 开头，<code>$PSVersionTable</code> 可用</td>
+<td>Windows PowerShell</td>
+<td>PowerShell 列</td>
+</tr>
+<tr>
+<td>提示符类似 <code>C:\&gt;</code>，PowerShell 变量不可用</td>
+<td>Windows CMD</td>
+<td>建议改用 PowerShell；不要粘贴 Bash 命令</td>
+</tr>
+<tr>
+<td>Windows 中打开的 Linux 发行版，路径类似 <code>/home/name</code></td>
+<td>WSL2</td>
+<td>Bash/Zsh 列</td>
+</tr>
+</tbody></table></div>
+<p>运行一个最小环境指纹。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">printf</span> <span class="hljs-string">'shell=%s\n'</span> <span class="hljs-string">"<span class="hljs-variable">$SHELL</span>"</span>
+<span class="hljs-built_in">uname</span> -a
+<span class="hljs-built_in">command</span> -v claude
+claude --version
+python3 --version
+git --version
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$PSVersionTable</span>.PSVersion
+<span class="hljs-built_in">Get-Command</span> claude
+claude <span class="hljs-literal">--version</span>
+py <span class="hljs-literal">--version</span>
+git <span class="hljs-literal">--version</span>
+</code></pre><p>通过标准：<code>claude --version</code> 输出版本，Python 为 3.11 或更高，Git 可运行。某条命令不存在时，只处理缺失项，不要换一个 Shell 重装整套环境。</p>
+<p>需要读取安装和配置诊断时，在当前环境运行：</p>
+<pre><code class="hljs language-text">claude doctor
+</code></pre><p>它是只读诊断入口。不要把输出中的本机路径、用户名或认证信息未经检查直接发到公开场合。</p>
+<h2 id="wiki-h-1">原生 Windows 还是 WSL2</h2>
+<p>两者都能运行 Claude Code，但必须按项目位置和工具链做选择。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>选择</th>
+<th>适合</th>
+<th>Shell 工具</th>
+<th>命令 Sandbox</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>原生 Windows</td>
+<td>Windows 路径、PowerShell 和 Windows 原生工具链</td>
+<td>未安装 Git for Windows 时使用 PowerShell；安装后可使用 Git Bash 提供的 Bash 工具</td>
+<td>当前不支持</td>
+</tr>
+<tr>
+<td>WSL2</td>
+<td>Linux 工具链、项目本来就在 Linux 环境、需要命令 Sandbox</td>
+<td>WSL 内的 Bash</td>
+<td>支持</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-2">选择原生 Windows</h3>
+<ul>
+<li>在 PowerShell 或 CMD 使用对应的官方安装命令，安装后从同一环境运行 <code>claude</code>；</li>
+<li>Git for Windows 是推荐项，不是启动 Claude Code 的硬性依赖；</li>
+<li>如果 Claude Code 找不到 Git Bash，可在设置中配置 <code>CLAUDE_CODE_GIT_BASH_PATH</code>，不要猜可执行文件位置；</li>
+<li>因为没有同等的命令 Sandbox，要更依赖 Manual/Plan、精确权限规则、练习副本和人工审批；</li>
+<li>不要用 <code>bypassPermissions</code> 弥补命令兼容问题。</li>
+</ul>
+<h3 id="wiki-h-3">选择 WSL2</h3>
+<ul>
+<li>在 WSL 发行版终端内安装并运行 Claude Code，不要从 PowerShell 调用一份 WSL 安装；</li>
+<li>项目优先放在 <code>/home/&lt;你的用户名&gt;/...</code>，减少跨文件系统性能、权限和监听问题；</li>
+<li>Python、Git、Claude Code 和项目依赖都在 WSL 内安装、检查和运行；</li>
+<li>PowerShell 的临时环境变量不会自动变成 WSL 环境变量，反向也一样。</li>
+</ul>
+<h3 id="wiki-h-4">不要混用同一个工作区</h3>
+<p>不要让原生 Windows 会话和 WSL 会话同时修改同一仓库。否则路径、执行权限、文件锁、换行和大小写行为会交织，Git Diff 也更难判断。</p>
+<p>如果必须迁移环境：先停止所有 Claude 会话和开发服务器，提交或备份现状，再在新环境重新运行版本、依赖和完整测试。不要把“能打开文件”当成迁移完成。</p>
+<h2 id="wiki-h-5">Bash/Zsh 与 PowerShell 命令对照</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>macOS / Linux / WSL2</th>
+<th>Windows PowerShell</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>查看当前目录</td>
+<td><code>pwd</code></td>
+<td><code>Get-Location</code></td>
+</tr>
+<tr>
+<td>进入目录</td>
+<td><code>cd "$HOME/claude-code-course"</code></td>
+<td><code>Set-Location "$HOME\claude-code-course"</code></td>
+</tr>
+<tr>
+<td>列出含隐藏项</td>
+<td><code>ls -la</code></td>
+<td><code>Get-ChildItem -Force</code></td>
+</tr>
+<tr>
+<td>创建目录</td>
+<td><code>mkdir -p extensions/mealcraft</code></td>
+<td><code>New-Item -ItemType Directory -Force extensions\mealcraft</code></td>
+</tr>
+<tr>
+<td>复制目录</td>
+<td><code>cp -R source target</code></td>
+<td><code>Copy-Item source target -Recurse</code></td>
+</tr>
+<tr>
+<td>检查文件存在</td>
+<td><code>test -f path/file.py</code></td>
+<td><code>Test-Path path\file.py -PathType Leaf</code></td>
+</tr>
+<tr>
+<td>查找命令</td>
+<td><code>command -v claude</code></td>
+<td><code>Get-Command claude</code></td>
+</tr>
+<tr>
+<td>读取文本</td>
+<td><code>cat path/file.txt</code></td>
+<td><code>Get-Content path\file.txt</code></td>
+</tr>
+<tr>
+<td>设置当前终端环境变量</td>
+<td><code>export NAME="value"</code></td>
+<td><code>$env:NAME = "value"</code></td>
+</tr>
+<tr>
+<td>删除当前终端环境变量</td>
+<td><code>unset NAME</code></td>
+<td><code>Remove-Item Env:NAME</code></td>
+</tr>
+<tr>
+<td>运行 Python</td>
+<td><code>python3 -B script.py</code></td>
+<td><code>py -B script.py</code></td>
+</tr>
+<tr>
+<td>查看上一命令退出码</td>
+<td><code>echo $?</code></td>
+<td><code>$LASTEXITCODE</code></td>
+</tr>
+</tbody></table></div>
+<p>注意：</p>
+<ul>
+<li>表格给的是等价意图，不保证所有外部程序参数都能翻译；先看该程序的 <code>--help</code>；</li>
+<li>Bash 用反斜杠 <code>\</code> 续行，PowerShell 用反引号续行；PowerShell 的反引号后不能有空格；</li>
+<li>初学时，较短命令写成一行通常比续行更可靠；</li>
+<li>PowerShell 的对象管道不同于 Bash 的文本管道，不要把复杂 Bash 管道机械替换成 <code>|</code>；</li>
+<li>课程中的斜杠命令如 <code>/help</code>、<code>/permissions</code> 只在 Claude Code 交互会话内输入，不是在普通 Shell 中执行。</li>
+</ul>
+<h2 id="wiki-h-6">Python 命令与脚本</h2>
+<p>本课程素材只依赖 Python 3.11+ 标准库，不要求为教程安装第三方包。</p>
+<ul>
+<li>macOS、Linux、WSL2 默认写 <code>python3</code>；</li>
+<li>原生 Windows 默认写 <code>py</code>；若机器没有 Python Launcher，再检查 <code>python --version</code>；</li>
+<li>不要把 <code>python3</code> 不存在误判为素材损坏，也不要在 Windows 为了照抄命令另外装一套 WSL Python；</li>
+<li>文章写 <code>python3 -B path/script.py</code> 时，PowerShell 对应 <code>py -B path\script.py</code>；</li>
+<li>退出码 0 只是脚本正常结束；还要核对文中指定的通过数、摘要或生成文件。</li>
+</ul>
+<p>跨平台脚本应使用 Python 的 <code>pathlib</code>、<code>tempfile</code> 和明确 UTF-8 编码，不手工拼接 <code>/</code>、<code>\</code> 或固定 <code>/tmp</code> 路径。</p>
+<h2 id="wiki-h-7">路径、引号和文件名</h2>
+<h3 id="wiki-h-8">1. 路径含空格或中文</h3>
+<p>始终加引号：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>/Documents/Claude Code 课程"</span>
+python3 -B <span class="hljs-string">"scripts/check notes.py"</span>
+</code></pre><pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\Documents\Claude Code 课程"</span>
+py <span class="hljs-literal">-B</span> <span class="hljs-string">"scripts\check notes.py"</span>
+</code></pre><p>如果外部工具仍不兼容，先把<strong>练习副本</strong>放到短、纯英文路径，例如 <code>~/claude-code-course</code> 或 <code>$HOME\claude-code-course</code>；不要移动或改名真实个人项目来绕过问题。</p>
+<h3 id="wiki-h-9">2. 大小写</h3>
+<p>Linux 通常区分 <code>Recipe.json</code> 与 <code>recipe.json</code>；macOS 和 Windows 的常见文件系统默认不区分。为避免只在 Linux 失败：</p>
+<ul>
+<li>import、链接和脚本路径与磁盘文件名逐字符一致；</li>
+<li>不创建只靠大小写区分的两个文件；</li>
+<li>改文件名大小写后检查 <code>git status --short</code> 是否真的记录重命名。</li>
+</ul>
+<h3 id="wiki-h-10">3. 路径分隔符</h3>
+<p>终端命令使用当前 Shell 的习惯写法；程序内部使用路径库。JSON 字符串中的 Windows 反斜杠需要转义，例如：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"path"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"C:\\Program Files\\Git\\bin\\bash.exe"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>不要把 Shell 展示路径直接复制进 JSON 后假定仍有效。</p>
+<h2 id="wiki-h-11">编码与换行</h2>
+<p>课程 Markdown、JSON、Python 和日志统一使用 UTF-8。遇到乱码或整文件 Diff 时，先诊断，不要立即格式化全部文件。</p>
+<pre><code class="hljs language-bash">git diff --<span class="hljs-built_in">stat</span>
+git diff --ignore-space-at-eol
+git config --show-origin --get core.autocrlf
+</code></pre><p>以上 Git 命令在四类环境中相同。判断方法：</p>
+<ul>
+<li>普通 Diff 显示整文件变化、忽略行尾后变化消失，优先检查 CRLF/LF；</li>
+<li>中文只在某个读取命令中乱码，先检查终端与读取工具编码，不要重写源文件；</li>
+<li>Python 读写文本应显式使用 <code>encoding="utf-8"</code>；</li>
+<li>团队或跨设备项目可按项目需要设置 <code>.gitattributes</code>，但不要为修一个功能顺手统一全仓换行。</li>
+</ul>
+<p>Windows PowerShell 5.1 与 PowerShell 7 的默认输出编码不同。创建课程夹具时优先复制提供的文件或使用文章提供的 Python 脚本，不用未经验证的 <code>Out-File</code> 重写源码。</p>
+<h2 id="wiki-h-12">权限与 Sandbox 差异</h2>
+<p>Claude Code 的权限提示和操作系统级 Sandbox 是两层机制。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>环境</th>
+<th>权限规则与模式</th>
+<th>命令 Sandbox</th>
+<th>课程建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>macOS</td>
+<td>支持</td>
+<td>支持</td>
+<td>用第 8 篇固定探针验证读写和网络边界</td>
+</tr>
+<tr>
+<td>Linux</td>
+<td>支持</td>
+<td>支持；依赖内核与环境能力</td>
+<td>若初始化失败，先看 <code>/sandbox</code> 与诊断，不要跳过权限</td>
+</tr>
+<tr>
+<td>WSL2</td>
+<td>支持</td>
+<td>支持</td>
+<td>在 WSL 文件系统中验证，不从 PowerShell 推断</td>
+</tr>
+<tr>
+<td>原生 Windows</td>
+<td>支持</td>
+<td>当前不支持</td>
+<td>使用精确 Deny/Ask、Manual/Plan、练习副本和人工审批</td>
+</tr>
+</tbody></table></div>
+<p>安全结论必须来自实际探针。仅看到“已批准命令”不代表子进程可以越过 Sandbox；仅写入 Deny 规则也不代表所有等价命令形式都被 OS 阻止。</p>
+<p>当前状态用会话内的 <code>/permissions</code> 和 <code>/sandbox</code> 查看。原生 Windows 没有同等 Sandbox 时，不要照抄 macOS/Linux 的越界探针并把不同结果当作故障。</p>
+<h2 id="wiki-h-13">Shell 混用的快速排错</h2>
+<h3 id="wiki-h-14"><code>irm</code>、<code>Get-Command</code> 或 <code>$env:NAME</code> 无法识别</h3>
+<p>你不在 PowerShell。确认提示符，打开 PowerShell，再使用 PowerShell 列；不要把命令改写成看似相近的 Bash 语法后继续安装。</p>
+<h3 id="wiki-h-15"><code>export</code>、<code>which</code> 或 <code>python3</code> 无法识别</h3>
+<p>你可能在 PowerShell/CMD，或对应程序未安装。先运行 <code>Get-Command claude</code>、<code>py --version</code>；若本来选择 WSL2，则进入 WSL 终端再检查。</p>
+<h3 id="wiki-h-16">PowerShell 报 <code>&amp;&amp;</code> 不是有效分隔符</h3>
+<p>旧版 Windows PowerShell 不支持该写法。把命令拆开逐条运行，并在每条后检查 <code>$LASTEXITCODE</code>；不要因为一条失败仍继续后续写入。</p>
+<h3 id="wiki-h-17"><code>claude</code> 在一个终端可用，另一个不可用</h3>
+<p>分别运行 <code>command -v claude</code> 或 <code>Get-Command claude</code>。这通常表示安装位置或 PATH 属于不同环境，而不是需要重复安装。重新打开安装时使用的终端，再运行 <code>claude doctor</code>。</p>
+<h3 id="wiki-h-18">WSL 与 Windows 看到不同文件或环境变量</h3>
+<p>它们是不同运行环境。用 <code>pwd</code> / <code>Get-Location</code> 和 <code>git rev-parse --show-toplevel</code> 核对真实路径；分别设置环境变量，不在两个环境同时编辑。</p>
+<h3 id="wiki-h-19">测试只在另一个系统失败</h3>
+<p>保存操作系统、Shell、Python、Claude Code 版本、完整命令、退出码和最小日志，再检查路径大小写、分隔符、时区、区域、换行与文件锁。不要先增加重试或跳过测试。可参考第 17 篇。</p>
+<h2 id="wiki-h-20">官方学习路线</h2>
+<p>不要从功能清单随机跳读。按当前问题打开最窄的官方页面：</p>
+<h3 id="wiki-h-21">1. 刚开始</h3>
+<ul>
+<li><a href="https://code.claude.com/docs/en/overview">Overview</a>：产品工作方式与入口；</li>
+<li><a href="https://code.claude.com/docs/en/setup">Advanced setup</a>：系统要求、各平台安装、更新和卸载；</li>
+<li><a href="https://code.claude.com/docs/en/troubleshooting">Troubleshooting</a>：安装、登录和常见环境故障。</li>
+</ul>
+<h3 id="wiki-h-22">2. 日常命令行工作</h3>
+<ul>
+<li><a href="https://code.claude.com/docs/en/interactive-mode">Interactive mode</a>：交互命令、快捷键和会话行为；</li>
+<li><a href="https://code.claude.com/docs/en/cli-reference">CLI reference</a>：启动参数和 <code>claude -p</code>；</li>
+<li><a href="https://code.claude.com/docs/en/settings">Settings</a>：设置文件、作用域和优先级。</li>
+</ul>
+<h3 id="wiki-h-23">3. 安全边界</h3>
+<ul>
+<li><a href="https://code.claude.com/docs/en/permissions">Permissions</a>：规则、模式和工作目录；</li>
+<li><a href="https://code.claude.com/docs/en/sandboxing">Sandbox</a>：文件系统、网络和平台限制。</li>
+</ul>
+<h3 id="wiki-h-24">4. 扩展与自动化</h3>
+<ul>
+<li><a href="https://code.claude.com/docs/en/features-overview">扩展能力总览</a>：CLAUDE.md、Skills、Hooks、MCP、Subagents 和插件的选择；</li>
+<li><a href="https://code.claude.com/docs/en/headless">Programmatic usage</a>：非交互调用、结构化输出和自动化。</li>
+</ul>
+<p>课程内查找可从目录进入；高频命令见附录 01，交互命令见附录 02，安全验收见附录 06。</p>
+<h2 id="wiki-h-25">如何处理版本变化</h2>
+<p>Claude Code 更新较快。教程与本机行为不一致时，按以下顺序核对：</p>
+<ol>
+<li><code>claude --version</code>：记录正在运行的版本；</li>
+<li><code>claude --help</code> 或 <code>claude &lt;子命令&gt; --help</code>：确认参数是否存在；</li>
+<li>会话内 <code>/help</code>：确认当前交互入口；</li>
+<li><code>claude doctor</code>：检查安装、更新和配置警告；</li>
+<li>打开与问题直接相关的当前官方页面；</li>
+<li>在练习副本中做最小验证，记录实际结果。</li>
+</ol>
+<p>不要只凭搜索摘要、旧截图或第三方文章覆盖本机证据。若官方文档与本机稳定版本暂时不同，在笔记中同时记录版本、日期、文档行为和实测行为，不要猜哪一个“永远正确”。</p>
+</article>

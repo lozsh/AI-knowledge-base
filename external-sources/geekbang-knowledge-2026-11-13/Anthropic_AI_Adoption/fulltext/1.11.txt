@@ -1,0 +1,40 @@
+原文：《How Anthropic teams use Claude Code》部门版 PDF，共 23 页，本页面对应原文 P19-P20
+版本：PDF 由 Anthropic 于 2025-06-03 生成
+译本：v1.0，2026-11
+时效：内容为 2025 年 6 月版本，功能名与命令以官方文档为准
+版权：原文 © Anthropic。非官方中文译本，仅供学习交流。
+
+RL 工程团队（RL Engineering team）专注于 RL 中的高效采样（sampling），以及跨集群的权重传输（weight transfer）。他们主要用 Claude Code 编写中小型功能、调试和理解复杂代码库，采用一种包含频繁提交检查点（checkpoint）与回滚的迭代方法。
+
+Claude Code 的主要用例
+
+带监督的自主功能开发（Feature development with supervised autonomy） —— 团队让 Claude Code 编写中小型功能的大部分代码，同时加以监督，比如为权重传输组件实现身份验证（authentication）机制。他们以交互方式工作，让 Claude 主导，但在它跑偏时加以引导。
+
+测试生成与代码评审（Test generation and code review） —— 他们自己完成改动后，会让 Claude Code 补充测试或评审（review）他们的代码。这种自动化测试工作流（workflow）在常规但重要的质量保障任务上节省了大量时间。
+
+调试与错误排查（Debugging and error investigation） —— 他们用 Claude Code 调试错误，结果好坏参半——有时它能立即定位问题并补充相关测试，有时却难以理解问题，但总体而言，当它奏效时还是有价值的。
+
+代码库理解与调用栈分析（Codebase comprehension and call stack analysis） —— 在他们工作流中，最大的变化之一是用 Claude Code 快速获取相关组件和调用栈（call stack）的摘要，取代了手动阅读代码或生成大量调试输出。
+
+Kubernetes 运维指导（Kubernetes operations guidance） —— 他们经常向 Claude Code 询问 Kubernetes 运维问题，这些问题原本需要大量 Google 搜索，现在能立即得到配置和部署问题的答案。
+
+开发工作流影响
+
+实验性方法成为可能（Experimental approach enabled） —— 他们现在采用「先试后回滚」的方法，频繁提交检查点，以便测试 Claude 的自主实现尝试，并在需要时回退，从而实现更具实验性的〔?〕。
+
+文档加速（Documentation acceleration） —— Claude Code 会自动添加有用的注释，在文档上节省了大量时间，不过他们也指出，它有时会在奇怪的地方加注释，或采用可疑的代码组织方式。
+
+提速但有限制（Speed-up with limitations） —— 虽然 Claude Code 能用他们「相对较少的时间」实现中小型拉取请求（Pull Request），但他们也承认，它大约只有三分之一的情况能在第一次尝试时成功，需要额外的引导或人工干预。
+
+RL 工程团队的首要建议
+
+为特定模式定制你的 Claude.md 文件（Customize your Claude.md file for specific patterns） —— 往你的 Claude.md 文件里添加说明，防止 Claude 反复犯工具调用错误，比如告诉它「run pytest not run and don't cd unnecessarily - just use the right path.」〔?〕这显著提升了一致性。
+
+采用重检查点的工作流（Use a checkpoint-heavy workflow） —— 随着 Claude 做出改动，定期提交你的工作，这样当实验不成功时就能轻松回滚。这让你能以更具实验性的方式开发，且不承担风险。
+
+先试一次性完成，再协作（Try one-shot first, then collaborate） —— 给 Claude 一个简短的提示词（prompt），让它先尝试完整实现。如果成功（大约三分之一的情况），你就省下了大量时间。如果不成功，再切换到更具协作性、更有引导的方式。
+
+原文备注：
+
+P20「enabling more experimental.」为截断句，缺中心词，译文以〔?〕标出，未补全。
+P20 提示词在 run 之后缺了不该运行的那条命令，疑似漏词；按原文保留并标〔?〕。

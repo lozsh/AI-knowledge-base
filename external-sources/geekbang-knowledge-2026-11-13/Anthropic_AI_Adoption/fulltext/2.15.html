@@ -1,0 +1,177 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P35-P39<br><strong>版本</strong>：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 8 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<h2 id="wiki-h-0">综合 Claude Code 提示词：构建用户管理 REST API</h2>
+<p><em>Bash</em></p>
+<pre><code>claude-<span class="hljs-selector-tag">code</span> <span class="hljs-attr">--task</span> "Build <span class="hljs-selector-tag">a</span> complete <span class="hljs-attribute">REST</span> API for user management with authentication, validation, and comprehensive testing"
+</code></pre><p><strong>Project requirements</strong></p>
+<p><strong>Tech stack</strong></p>
+<ul>
+<li><strong>Runtime:</strong> Node.js v18+ with Express.js framework</li>
+<li><strong>Database:</strong> PostgreSQL with raw SQL queries (no ORM)</li>
+<li><strong>Authentication:</strong> JWT tokens with refresh token support</li>
+<li><strong>Validation:</strong> Input validation and sanitization</li>
+<li><strong>Testing:</strong> Jest with supertest for API testing</li>
+<li><strong>Security:</strong> Rate limiting, password hashing (bcrypt), CORS</li>
+<li><strong>Documentation:</strong> OpenAPI/Swagger specification</li>
+</ul>
+<p><strong>Functional requirements</strong></p>
+<p><strong>Core user operations</strong></p>
+<ul>
+<li><strong>Runtime:</strong> Node.js v18+ with Express.js framework</li>
+<li><strong>Database:</strong> PostgreSQL with raw SQL queries (no ORM)</li>
+<li><strong>Authentication:</strong> JWT tokens with refresh token support</li>
+<li><strong>Validation:</strong> Input validation and sanitization</li>
+<li><strong>Testing:</strong> Jest with supertest for API testing</li>
+<li><strong>Security:</strong> Rate limiting, password hashing (bcrypt), CORS</li>
+<li><strong>Documentation:</strong> OpenAPI/Swagger specification</li>
+</ul>
+<p><strong>Expected API endpoints</strong></p>
+<pre><code>POST /api/auth/register       - Register <span class="hljs-built_in">new</span> <span class="hljs-keyword">user</span>
+POST /api/auth/<span class="hljs-keyword">login</span>          - <span class="hljs-keyword">User</span> <span class="hljs-keyword">login</span>
+POST /api/auth/logout         - <span class="hljs-keyword">User</span> logout
+POST /api/auth/<span class="hljs-keyword">refresh</span>        - <span class="hljs-keyword">Refresh</span> JWT token
+POST /api/auth/forgot-<span class="hljs-keyword">password</span> - Request <span class="hljs-keyword">password</span> <span class="hljs-keyword">reset</span>
+POST /api/auth/<span class="hljs-keyword">reset</span>-<span class="hljs-keyword">password</span> - <span class="hljs-keyword">Reset</span> <span class="hljs-keyword">password</span> <span class="hljs-keyword">with</span> token
+
+<span class="hljs-keyword">GET</span>    /api/users/profile        - <span class="hljs-keyword">Get</span> <span class="hljs-keyword">current</span> <span class="hljs-keyword">user</span> profile
+PUT    /api/users/profile        - <span class="hljs-keyword">Update</span> <span class="hljs-keyword">current</span> <span class="hljs-keyword">user</span> profile
+<span class="hljs-keyword">DELETE</span> /api/users/profile        - <span class="hljs-keyword">Delete</span> <span class="hljs-keyword">current</span> <span class="hljs-keyword">user</span> account
+PUT    /api/users/change-<span class="hljs-keyword">password</span> - Change <span class="hljs-keyword">user</span> <span class="hljs-keyword">password</span>
+
+<span class="hljs-keyword">GET</span>    /api/<span class="hljs-keyword">admin</span>/users          - List <span class="hljs-keyword">all</span> users (<span class="hljs-keyword">admin</span> <span class="hljs-keyword">only</span>)
+<span class="hljs-keyword">GET</span>    /api/<span class="hljs-keyword">admin</span>/users/:id      - <span class="hljs-keyword">Get</span> specific <span class="hljs-keyword">user</span> (<span class="hljs-keyword">admin</span> <span class="hljs-keyword">only</span>)
+PUT    /api/<span class="hljs-keyword">admin</span>/users/:id/status - <span class="hljs-keyword">Update</span> <span class="hljs-keyword">user</span> status (<span class="hljs-keyword">admin</span> <span class="hljs-keyword">only</span>)
+<span class="hljs-keyword">DELETE</span> /api/<span class="hljs-keyword">admin</span>/users/:id      - <span class="hljs-keyword">Delete</span> <span class="hljs-keyword">user</span> (<span class="hljs-keyword">admin</span> <span class="hljs-keyword">only</span>)
+</code></pre><p><strong>Data model requirements</strong></p>
+<p><em>Javascript</em></p>
+<pre><code><span class="hljs-comment">// User entity should include:</span>
+<span class="hljs-punctuation">{</span>
+<span class="hljs-symbol">  id:</span> <span class="hljs-string">"UUID primary key"</span>,
+<span class="hljs-symbol">  email:</span> <span class="hljs-string">"unique, validated email address"</span>,
+<span class="hljs-symbol">  password_hash:</span> <span class="hljs-string">"bcrypt hashed password"</span>,
+<span class="hljs-symbol">  first_name:</span> <span class="hljs-string">"required string, 2-50 characters"</span>,
+<span class="hljs-symbol">  last_name:</span> <span class="hljs-string">"required string, 2-50 characters"</span>,
+<span class="hljs-symbol">  role:</span> <span class="hljs-string">"enum: 'user' | 'admin', default 'user'"</span>,
+<span class="hljs-symbol">  status:</span> <span class="hljs-string">"enum: 'active' | 'inactive' | 'suspended', default 'active'"</span>,
+<span class="hljs-symbol">  email_verified:</span> <span class="hljs-string">"boolean, default false"</span>,
+<span class="hljs-symbol">  last_login:</span> <span class="hljs-string">"timestamp, nullable"</span>,
+<span class="hljs-symbol">  created_at:</span> <span class="hljs-string">"timestamp, auto-generated"</span>,
+<span class="hljs-symbol">  updated_at:</span> <span class="hljs-string">"timestamp, auto-updated"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p><strong>Security requirements</strong></p>
+<ul>
+<li>Password strength validation (min 8 chars, uppercase, lowercase, number, special char)</li>
+<li>Rate limiting: 5 login attempts per 15 minutes per IP</li>
+<li>JWT tokens expire after 1 hour, refresh tokens after 7 days</li>
+<li>Input sanitization against XSS and SQL injection</li>
+<li>CORS configuration for frontend integration</li>
+<li>Request logging for security auditing</li>
+</ul>
+<p><strong>Validation requirements</strong></p>
+<ul>
+<li>Email format validation with proper regex</li>
+<li>Required field validation for all inputs</li>
+<li>Data type validation and length constraints</li>
+<li>Duplicate email prevention</li>
+<li>Password confirmation matching during registration</li>
+</ul>
+<p><strong>Error handling</strong></p>
+<ul>
+<li>Consistent error response format across all endpoints</li>
+<li>Appropriate HTTP status codes (200, 201, 400, 401, 403, 404, 409, 500)</li>
+<li>Detailed error messages for development, generic for production</li>
+<li>Request validation errors with field-specific messages</li>
+</ul>
+<p><strong>Expected response formats</strong></p>
+<p><em>Javascript</em></p>
+<pre><code>// <span class="hljs-type">Success</span> response format:
+{
+  <span class="hljs-string">"success"</span>: <span class="hljs-literal">true</span>,
+  <span class="hljs-string">"data"</span>: <span class="hljs-meta">{...}</span>,
+  <span class="hljs-string">"message"</span>: <span class="hljs-string">"Operation completed successfully"</span>
+}
+
+// <span class="hljs-type">Error</span> response format:
+{
+  <span class="hljs-string">"success"</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">"error"</span>: {
+    <span class="hljs-string">"code"</span>: <span class="hljs-string">"VALIDATION_ERROR"</span>,
+    <span class="hljs-string">"message"</span>: <span class="hljs-string">"Invalid input provided"</span>,
+    <span class="hljs-string">"details"</span>: [
+      {
+        <span class="hljs-string">"field"</span>: <span class="hljs-string">"email"</span>,
+        <span class="hljs-string">"message"</span>: <span class="hljs-string">"Email format is invalid"</span>
+      }
+    ]
+  }
+}
+</code></pre><p><strong>Database schema:</strong> Create PostgreSQL tables with proper indexing, constraints, and relationships. Include migration scripts for easy setup.</p>
+<p><strong>Testing requirements:</strong></p>
+<ul>
+<li>Unit tests for all service functions</li>
+<li>Integration tests for all API endpoints</li>
+<li>Test data factories for consistent test setup</li>
+<li>Positive and negative test cases</li>
+<li>Authentication and authorization test scenarios</li>
+<li>Minimum 90% code coverage</li>
+</ul>
+<p><strong>Additional features</strong></p>
+<ul>
+<li>Environment-based configuration (development, staging, production)</li>
+<li>Request/response logging middleware</li>
+<li>Health check endpoint (GET /api/health)</li>
+<li>API versioning support (/api/v1/..)</li>
+<li>Pagination for user listing endpoints</li>
+<li>Basic search functionality for admin user management</li>
+</ul>
+<p><strong>Project structure</strong></p>
+<p>Organize code with clean architecture:</p>
+<pre><code>/src
+  /controllers - Request handling logic
+  /services    - Business logic layer
+  /models      - Data access layer
+  /middleware  - Custom middleware (auth, validation, etc.)
+  /routes      - API route definitions
+  /utils       - Helper <span class="hljs-built_in">functions</span>
+  /config      - Configuration files
+  /validators  - Input validation schemas
+  /tests       - Test files mirroring src structure
+  /docs        - API documentation
+  /migrations  - Database schema migrations
+</code></pre><p><strong>Deliverables Expected</strong></p>
+<ol>
+<li>Complete Express.js application with all endpoints implemented</li>
+<li>PostgreSQL database schema with setup scripts</li>
+<li>Comprehensive test suite with high coverage</li>
+<li>API documentation (Swagger/OpenAPI spec)</li>
+<li>README with setup instructions and API usage examples</li>
+<li>Docker configuration for easy deployment</li>
+<li>Example environment configuration files</li>
+<li>Postman collection for API testing</li>
+</ol>
+<p><strong>Performance Considerations</strong></p>
+<ul>
+<li>Database connection pooling</li>
+<li>Efficient query patterns with proper indexing</li>
+<li>Response caching where appropriate</li>
+<li>Request timeout handling</li>
+<li>Memory usage optimization</li>
+</ul>
+<p><strong>Development Standards</strong></p>
+<ul>
+<li>ESLint configuration with consistent code style</li>
+<li>Proper error handling throughout the application</li>
+<li>Comprehensive logging for debugging</li>
+<li>Clear code comments and documentation</li>
+<li>Git-ready project with proper .gitignore</li>
+</ul>
+<p>Please implement this as a production-ready API that follows Node.js and REST API best practices, with emphasis on security, maintainability, and comprehensive testing.</p>
+<p><a href="https://www.anthropic.com/solutions/coding">https://www.anthropic.com/solutions/coding</a></p>
+<hr>
+<p><strong>原文备注</strong>：</p>
+<ol>
+<li>原文如此，疑似重复：「Functional requirements / Core user operations」下的条目与上面的「Tech stack」完全相同；照录，未删改。</li>
+<li>本页除标题外为示例提示词原文，按原样保留英文，不附中文对照。</li>
+</ol>
+</article>

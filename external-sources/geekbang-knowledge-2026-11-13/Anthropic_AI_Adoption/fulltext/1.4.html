@@ -1,0 +1,20 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《How Anthropic teams use Claude Code》部门版 PDF，共 23 页，本页面对应原文 P5-P6<br><strong>版本</strong>：PDF 由 Anthropic 于 2025-06-03 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 6 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<p>Claude Code 团队用自己的产品来构建 Claude Code 的更新，扩展产品的企业级能力和智能体循环（agentic loop）功能。</p>
+<h2 id="wiki-h-0">Claude Code 的主要用例</h2>
+<p><strong>用自动接受模式快速构建原型（Fast prototyping with auto-accept mode）</strong> —— 工程师通过启用「自动接受模式（auto-accept mode）」（shift+tab）并设置自主循环（autonomous loop），让 Claude 写代码、运行测试、持续迭代，从而用 Claude Code 快速构建原型。他们把工程师自己不熟悉的抽象问题交给 Claude，让它自主工作，然后评审（review）完成度 80% 的解决方案，再接手做最终打磨。团队强调要从干净的 git 状态开始，并定期提交检查点（checkpoint），这样万一 Claude 跑偏，也能轻松回退任何错误改动。</p>
+<p><strong>为核心功能同步编码（Synchronous coding for core features）</strong> —— 对于触及应用业务逻辑的更关键功能，团队会与 Claude Code 同步协作，给出带有具体实现指令的详细提示词（prompt）。他们实时监控过程，以确保代码质量、符合风格指南、架构得当，同时让 Claude 处理重复性的编码工作。</p>
+<p><strong>构建 Vim 模式（Building Vim mode）</strong> —— 他们最成功的异步项目之一，是为 Claude Code 实现 Vim 键位绑定。他们让 Claude 构建整个功能（尽管这并非优先事项），最终实现约有 70% 来自 Claude 的自主工作，只需几次迭代就完成了。</p>
+<p><strong>生成测试与修复缺陷（Test generation and bug fixes）</strong> —— 他们在实现功能后，用 Claude Code 编写全面的测试，并修复拉取请求（Pull Request）评审中发现的简单缺陷。他们还利用 GitHub Actions 集成，让 Claude 自动处理诸如格式问题或函数重命名之类的拉取请求评论。</p>
+<p><strong>探索代码库（Codebase exploration）</strong> —— 在处理陌生代码库时，比如单一仓库（monorepo）或 API 侧，团队用 Claude Code 快速了解系统如何运作。与其等待 Slack 回复，他们直接向 Claude 询问解释和代码引用，从而在上下文（context）切换上省下大量时间。</p>
+<h2 id="wiki-h-1">团队影响</h2>
+<p><strong>功能实现更快（Faster feature implementation）</strong> —— 成功实现了 Vim 模式等复杂功能，其中 70% 的代码由 Claude 自主编写。</p>
+<p><strong>开发速度提升（Improved development velocity）</strong> —— 能够快速构建功能原型、迭代想法，而不被实现细节拖住。</p>
+<p><strong>通过自动化测试提升代码质量（Enhanced code quality through automated testing）</strong> —— Claude 生成全面的测试并处理日常缺陷修复，在减少人工投入的同时保持高标准。</p>
+<p><strong>更好的代码库探索（Better codebase exploration）</strong> —— 团队成员无需等待同事回复，就能快速理解单一仓库中陌生的部分。</p>
+<h2 id="wiki-h-2">Claude Code 团队的首要建议</h2>
+<p><strong>创建自校验闭环（Create self-sufficient loops）</strong> —— 设置 Claude 自动运行构建、测试和 lint，以核验自己的工作。这让 Claude 能更长时间自主工作，并发现自己的错误；当你让 Claude 先生成测试、再写代码时，效果尤其好。</p>
+<p><strong>培养任务分类的直觉（Develop task classification intuition）</strong> —— 学会区分哪些任务适合异步进行（外围功能、原型构建），哪些需要同步监督（核心业务逻辑、关键修复）。产品边缘的抽象任务可以用「自动接受模式」处理，而核心功能需要更密切的监督。</p>
+<p><strong>形成清晰、详细的提示词（Form clear, detailed prompts）</strong> —— 当组件名称或功能相近时，你的要求要格外具体。提示词越好、越详细，你就越能放心让 Claude 独立工作，而不会对代码库中错误的部分做出意外改动。</p>
+</article>

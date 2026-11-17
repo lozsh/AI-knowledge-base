@@ -1,0 +1,138 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>这一章不写一行命令，只回答一个问题：MiniMax Code 是什么、能做什么、你应该选哪种形态。<br>学完这一章，你会知道接下来的章节为什么以 CLI 为主、桌面端为什么放在最后一章。</p>
+</blockquote>
+<h2 id="wiki-h-0">1.1 一句话定位</h2>
+<p><strong>MiniMax Code 是 MiniMax 出品的 AI 编程 Agent</strong>，由 Mavis 这个核心 Agent 驱动，可以直接读你的代码、改文件、跑命令、跑测试、提交改动 —— 不是陪你聊天的机器人，而是能动手干活的同事。</p>
+<p>它的关键能力是把"自然语言描述"变成"在仓库里实际发生的变化"。你可以告诉它"重构这个模块，并保证现有测试通过"，它会自己去读代码、看测试、动手改、改完跑一遍验证。</p>
+<h2 id="wiki-h-1">1.2 它能做什么</h2>
+<p>按用途分，MiniMax Code 主要能干这六类事：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>能力</th>
+<th>你可以做什么</th>
+<th>本教程对应章节</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>仓库协作</td>
+<td>读懂项目结构、搜索/修改文件、跑命令、看 diff、执行测试</td>
+<td>第 4–7 章</td>
+</tr>
+<tr>
+<td>多轮任务与 Session</td>
+<td>创建、暂停、恢复、分叉、回退、压缩、导出会话</td>
+<td>第 10 章</td>
+</tr>
+<tr>
+<td>计划与权限</td>
+<td>先讲方案再动手；逐项确认或全权委托</td>
+<td>第 5、6 章</td>
+</tr>
+<tr>
+<td>模型与 Provider</td>
+<td>用官方 Token Plan、自带 API Key（BYOK）或自建 Provider</td>
+<td>第 13 章</td>
+</tr>
+<tr>
+<td>扩展能力</td>
+<td>用 Skills 让 Agent 学工作流、用 MCP 连外部数据、用 Plugin 打包</td>
+<td>第 8 章</td>
+</tr>
+<tr>
+<td>自动化与集成</td>
+<td>用 Headless 模式接 CI、用 ACP 协议接入编辑器</td>
+<td>第 11、12 章</td>
+</tr>
+</tbody></table></div>
+<p>不在 MiniMax Code 能力范围内的事：</p>
+<ul>
+<li>不能直接连到你公司的 VPN、内网服务才执行代码</li>
+<li>不是 IDE（集成开发环境）；不会取代 VS Code / JetBrains 写代码本身</li>
+<li>不是云端运行环境；本教程所有项目都跑在你本地</li>
+</ul>
+<h2 id="wiki-h-2">1.3 产品形态与适用场景</h2>
+<p>MiniMax Code 有五种使用入口，按使用强度从低到高大致排一下：</p>
+<h3 id="wiki-h-3">1. CLI（终端命令 <code>mcode</code>）</h3>
+<ul>
+<li><strong>入口</strong>：在终端里跑 <code>mcode</code> 进入交互式 TUI（Text-based User Interface，文本用户界面），或 <code>mcode exec</code> 进入 Headless 模式（无交互、纯输出结果）</li>
+<li><strong>适合</strong>：写代码、改脚本、跑命令、接 CI（持续集成）、做自动化</li>
+<li><strong>不擅长</strong>：看 HTML 渲染、做视频/图片预览</li>
+</ul>
+<h3 id="wiki-h-4">2. Desktop（Electron 桌面客户端）</h3>
+<ul>
+<li><strong>入口</strong>：从官方下载安装的图形应用，左侧对话，右侧内置浏览器/文件/画布面板</li>
+<li><strong>适合</strong>：不习惯终端的人、需要看渲染、做多媒体生成、远程控制（手机扫码接管）</li>
+<li><strong>不擅长</strong>：写 CI 脚本、批处理</li>
+</ul>
+<h3 id="wiki-h-5">3. Web / H5（在线版）</h3>
+<ul>
+<li><strong>入口</strong>：浏览器即开即用</li>
+<li><strong>适合</strong>：临时用一下、不想装客户端</li>
+<li><strong>不擅长</strong>：连本地仓库（除非配工作区）</li>
+</ul>
+<h3 id="wiki-h-6">4. ACP 编辑器接入（通过 <code>mcode acp</code>）</h3>
+<ul>
+<li><strong>入口</strong>：在 VS Code / JetBrains / Zed 等支持 ACP（Agent Client Protocol，Agent 客户端协议）的编辑器里调起 Agent</li>
+<li><strong>适合</strong>：不想离开编辑器的人</li>
+<li><strong>不擅长</strong>：编辑器不支持 ACP 协议时</li>
+</ul>
+<h3 id="wiki-h-7">5. IM 接入（微信 / 飞书 / Telegram）</h3>
+<ul>
+<li><strong>入口</strong>：在聊天软件里发指令，让远端的桌面端 Agent 干活</li>
+<li><strong>适合</strong>：移动端、远程控制</li>
+<li><strong>不擅长</strong>：需要本地文件系统的精细操作</li>
+</ul>
+<h2 id="wiki-h-8">1.4 你应该选哪种形态</h2>
+<p>本教程的设计选择是：<strong>前 13 章以 CLI 为主线</strong>，最后一章（第 14 章）单独讲桌面端概览。理由是：</p>
+<ul>
+<li>CLI 是最完整的形态，所有能力都通过它暴露</li>
+<li>CLI 强迫你养成清晰的输入/输出习惯，便于调试、自动化、复用</li>
+<li>CLI 的每一步操作都能写在文档里重现，桌面端图形界面则难以脱离截图讲清楚</li>
+</ul>
+<p>如果你的使用场景不重合，可以这样调整阅读路径：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>你的身份</th>
+<th>推荐阅读路径</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>程序员 / DevOps（运维工程师）/ SRE（站点可靠性工程师）</td>
+<td>全部 14 章，第 11、12 章重点看</td>
+</tr>
+<tr>
+<td>后端 / 数据 / 算法工程师</td>
+<td>全部 14 章，第 8、13 章重点看</td>
+</tr>
+<tr>
+<td>不太碰终端的产品 / 设计</td>
+<td>先看第 1 章、第 14 章，CLI 部分按需挑选章节</td>
+</tr>
+<tr>
+<td>完全不会写代码</td>
+<td>从第 14 章桌面端入手，再决定要不要补 CLI</td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-9">1.5 中国区 vs Global 区</h2>
+<p>MiniMax Code 在不同地区有不同的账号体系和文档入口。本教程以**中国大陆账号（<code>region: cn</code>）**为默认：</p>
+<ul>
+<li>登录命令：<code>mcode login</code></li>
+<li>文档入口：<code>https://agent.minimaxi.com/docs/</code></li>
+</ul>
+<p>如果你使用 Global 账号：</p>
+<ul>
+<li>登录命令：<code>mcode login --region global</code></li>
+<li>文档入口：<code>https://agent.minimax.io/docs/</code></li>
+</ul>
+<p>本教程后续所有命令、配置示例都基于中国区。Global 账号的差异会在必要时单独标注。</p>
+<h2 id="wiki-h-10">1.6 本章小结</h2>
+<ul>
+<li>MiniMax Code 是一个能读代码、改文件、跑测试、提交改动的 AI 编程 Agent</li>
+<li>它有 CLI、Desktop、Web、ACP、IM 五种形态，覆盖不同使用强度</li>
+<li>本教程以前 13 章讲 CLI、最后 1 章讲桌面端</li>
+<li>默认针对中国大陆账号，Global 账号用法略有差异</li>
+</ul>
+<p>下一章我们会给整套教程选一个贯穿项目：习惯打卡 CLI <code>habitlog</code>，并解释为什么选它、它能学到什么。</p>
+</article>

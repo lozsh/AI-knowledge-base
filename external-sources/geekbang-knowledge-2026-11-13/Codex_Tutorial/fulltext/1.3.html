@@ -1,0 +1,226 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：25 分钟<br>本篇目标：在 Windows、macOS 或 Linux 上安装 Codex CLI，完成登录，并在一个安全的练习目录中成功启动。</p>
+</blockquote>
+<p>这一篇会涉及不少终端命令，但不要求你有丰富的命令行经验。每一步都会告诉你在哪里操作、输入什么，以及成功后应该看到什么。</p>
+<p>如果你的电脑由公司统一管理，安装软件、执行脚本或浏览器登录可能受到限制。遇到权限或网络策略提示时，不要反复绕过限制，先确认公司的使用规则。</p>
+<h2 id="wiki-h-0">安装之前准备什么</h2>
+<p>开始前，请确认你具备下面几个条件：</p>
+<ul>
+<li>一台运行 Windows、macOS 或 Linux 的电脑；</li>
+<li>可以打开终端或 PowerShell；</li>
+<li>可以访问 ChatGPT 登录页面；</li>
+<li>一个可以使用 Codex 的 ChatGPT 账号，或者一个 OpenAI API Key；</li>
+<li>一个专门用于练习的空目录。</li>
+</ul>
+<p>Codex CLI 的官方独立安装脚本会安装可直接运行的 <code>codex</code> 命令，不要求你为了安装 CLI 而单独准备 Node.js。</p>
+<h2 id="wiki-h-1">在 macOS 上安装</h2>
+<h3 id="wiki-h-2">第 1 步：打开终端</h3>
+<p>按下 <code>Command + 空格</code>，输入“终端”或“Terminal”，按回车打开。</p>
+<p>你会看到一行等待输入的提示符，末尾通常是 <code>%</code> 或 <code>$</code>。</p>
+<h3 id="wiki-h-3">第 2 步：运行安装命令</h3>
+<p>复制下面这条命令，粘贴到终端，然后按回车：</p>
+<pre><code class="hljs language-bash">curl -fsSL https://chatgpt.com/codex/install.sh | sh
+</code></pre><p>安装脚本会下载 Codex，并把可执行命令放到用户级安装目录。按照终端里的提示完成安装。</p>
+<h3 id="wiki-h-4">第 3 步：检查安装结果</h3>
+<p>输入：</p>
+<pre><code class="hljs language-bash">codex --version
+</code></pre><p>如果安装成功，终端会输出 Codex CLI 的版本号。</p>
+<p>如果出现 <code>command not found: codex</code>，先完全关闭终端，再重新打开一个终端窗口，然后再次运行 <code>codex --version</code>。安装程序可能刚刚更新了 PATH，而旧终端还没有重新加载。</p>
+<p>仍然找不到命令时，可以运行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">command</span> -v codex
+</code></pre><p>正常情况下，它会输出 <code>codex</code> 所在的完整路径，你可以复制这条完整路径到命令行，然后再按回车。</p>
+<h2 id="wiki-h-5">在 Linux 上安装</h2>
+<p>Codex 在 Linux 上使用 Bubblewrap 和 Seccomp 提供本地沙箱能力。不同发行版的安装命令略有差异。</p>
+<h3 id="wiki-h-6">第 1 步：安装 Bubblewrap</h3>
+<p>Ubuntu 或 Debian 用户可以运行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update
+<span class="hljs-built_in">sudo</span> apt install -y bubblewrap
+</code></pre><p>Fedora 用户可以运行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> dnf install bubblewrap
+</code></pre><p>Arch Linux 用户可以运行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> pacman -S bubblewrap
+</code></pre><p>如果系统提示找不到软件包，请查询当前发行版的软件仓库，确认对应包名。容器或裁剪过的 Linux 环境还可能缺少 Codex 沙箱所需的命名空间或 Seccomp 能力。</p>
+<h3 id="wiki-h-7">第 2 步：安装 Codex CLI</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash">curl -fsSL https://chatgpt.com/codex/install.sh | sh
+</code></pre><p>按照安装脚本的提示完成安装。</p>
+<h3 id="wiki-h-8">第 3 步：验证版本</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash">codex --version
+</code></pre><p>看到版本号就说明安装成功。</p>
+<p>如果提示找不到命令，关闭当前终端并重新打开。仍然无效时，运行 <code>command -v codex</code> 检查完整路径。</p>
+<h2 id="wiki-h-9">在 Windows 上安装</h2>
+<p>Windows 用户可以选择原生安装，也可以在 WSL2 中安装。</p>
+<p>如果你的项目和开发工具都在 Windows 中，先使用原生安装。如果你平时已经把代码、Git 和开发环境放在 WSL2 中，就在 WSL2 内安装 Codex。</p>
+<p>不要在两个环境中来回混用同一个项目路径。例如，你在 WSL2 中使用 Codex 时，项目最好放在 Linux 主目录下，而不是长期放在 <code>/mnt/c</code> 中。</p>
+<h3 id="wiki-h-10">方式一：在 Windows 原生环境中安装</h3>
+<h4>第 1 步：打开 PowerShell</h4>
+<p>点击开始菜单，搜索“PowerShell”，打开 Windows PowerShell 或 PowerShell 7。</p>
+<p>普通用户权限通常足以完成用户级安装；除非安装程序明确要求，否则不必以管理员身份运行。</p>
+<h4>第 2 步：运行安装命令</h4>
+<p>在 PowerShell 中输入：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">irm</span> https://chatgpt.com/codex/install.ps1 | <span class="hljs-built_in">iex</span>
+</code></pre><p>按照窗口中的提示完成安装。</p>
+<h4>第 3 步：检查版本</h4>
+<p>关闭当前 PowerShell 窗口，重新打开一个 PowerShell，然后运行：</p>
+<pre><code class="hljs language-powershell">codex <span class="hljs-literal">--version</span>
+</code></pre><p>如果成功，屏幕会显示 Codex CLI 的版本号。</p>
+<p>如果出现“无法将 codex 识别为 cmdlet、函数、脚本文件或可运行程序”，运行：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Command</span> codex
+</code></pre><p>如果依然找不到，重新运行安装脚本，并注意它是否提示你重新打开终端或添加 PATH。</p>
+<h3 id="wiki-h-11">方式二：在 WSL2 中安装</h3>
+<p>适合下面这些情况：</p>
+<ul>
+<li>你的代码本来就放在 WSL2 中；</li>
+<li>你依赖 Linux 工具链；</li>
+<li>团队开发环境以 Linux 为主。</li>
+</ul>
+<p>先用管理员身份打开 PowerShell，运行：</p>
+<pre><code class="hljs language-powershell">wsl <span class="hljs-literal">--install</span>
+</code></pre><p>按照系统提示完成安装并重启电脑。重启后打开 WSL 终端，先确认当前确实处于 WSL：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-variable">$WSL_DISTRO_NAME</span>
+</code></pre><p>如果输出类似 <code>Ubuntu</code> 的发行版名称，说明你已经进入 WSL。</p>
+<p>接着安装 Bubblewrap 和 Codex：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update
+<span class="hljs-built_in">sudo</span> apt install -y bubblewrap
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+</code></pre><p>最后运行：</p>
+<pre><code class="hljs language-bash">codex --version
+</code></pre><p>从 Codex 0.115 开始，Linux 沙箱依赖 Bubblewrap，WSL1 不再受支持。Windows 用户应使用 WSL2。</p>
+<h2 id="wiki-h-12">使用 ChatGPT 账号登录</h2>
+<p>对于个人学习和日常交互使用，如果你的 ChatGPT 订阅包含 Codex，优先使用 ChatGPT 账号登录。</p>
+<p>在终端或 PowerShell 中运行：</p>
+<pre><code class="hljs language-bash">codex login
+</code></pre><p>接下来通常会发生这些事情：</p>
+<ol>
+<li>Codex 在浏览器中打开登录页面。</li>
+<li>你登录自己的 ChatGPT 账号。</li>
+<li>如果账号属于多个工作空间，选择要使用的工作空间。</li>
+<li>浏览器显示登录完成。</li>
+<li>回到终端，Codex 显示登录成功。</li>
+</ol>
+<p>登录后运行：</p>
+<pre><code class="hljs language-bash">codex login status
+</code></pre><p>这条命令会显示当前是否已经登录，以及正在使用的身份验证方式。</p>
+<h3 id="wiki-h-13">浏览器没有自动打开怎么办</h3>
+<p>查看终端是否打印了一个登录地址。复制该地址，在浏览器中手动打开。</p>
+<p>如果你在服务器、SSH 或没有图形界面的环境中使用 Codex，可以尝试设备代码登录：</p>
+<pre><code class="hljs language-bash">codex login --device-auth
+</code></pre><p>终端会显示一个网址和一次性代码。在另一台能够打开浏览器的设备上访问该网址，登录后输入代码。</p>
+<p>设备代码登录是否可用，还取决于个人账号设置或工作空间管理员的配置。</p>
+<h2 id="wiki-h-14">使用 OpenAI API Key 登录</h2>
+<p>API Key 登录与 ChatGPT 订阅登录使用不同的计费方式。使用 API Key 时，费用计入 OpenAI Platform 账户，并按 API 实际用量结算。</p>
+<p>先从 OpenAI Platform 创建 API Key。不要把密钥直接写进教程文件、代码仓库或聊天记录。</p>
+<h3 id="wiki-h-15">macOS 和 Linux</h3>
+<p>在当前终端会话中设置环境变量：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> OPENAI_API_KEY=<span class="hljs-string">"请替换为你的API-Key"</span>
+</code></pre><p>然后通过标准输入完成登录：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">printenv</span> OPENAI_API_KEY | codex login --with-api-key
+</code></pre><h3 id="wiki-h-16">Windows PowerShell</h3>
+<p>在当前 PowerShell 会话中设置环境变量：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$env:OPENAI_API_KEY</span> = <span class="hljs-string">"请替换为你的API-Key"</span>
+</code></pre><p>然后运行：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$env:OPENAI_API_KEY</span> | codex login <span class="hljs-literal">--with-api-key</span>
+</code></pre><p>完成后运行：</p>
+<pre><code class="hljs language-bash">codex login status
+</code></pre><p>确认 Codex 正在使用 API Key 身份验证。</p>
+<p>上面的环境变量只对当前终端窗口有效，关闭窗口后就会消失。长期保存密钥时，优先使用操作系统的凭据管理工具或团队规定的密钥管理方案。</p>
+<h2 id="wiki-h-17">ChatGPT 登录和 API Key 登录怎么选</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>情况</th>
+<th>更合适的方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>已有包含 Codex 的 ChatGPT 订阅，主要进行人工交互</td>
+<td>ChatGPT 登录</td>
+</tr>
+<tr>
+<td>需要把 Codex 放进脚本或 CI</td>
+<td>API Key</td>
+</tr>
+<tr>
+<td>需要使用 ChatGPT 工作空间权限和相关服务</td>
+<td>ChatGPT 登录</td>
+</tr>
+<tr>
+<td>希望用 API 账户单独统计和控制费用</td>
+<td>API Key</td>
+</tr>
+</tbody></table></div>
+<p>API Key 登录时，部分依赖 ChatGPT 工作空间或云服务的功能可能受到限制。教程主线默认使用 ChatGPT 登录；第三篇会讲怎样配置其他 Provider，以及如何切换回来。</p>
+<h2 id="wiki-h-18">创建专门的练习目录</h2>
+<p>不要一开始就在桌面、下载目录或存放重要项目的目录中练习。</p>
+<h3 id="wiki-h-19">macOS、Linux 或 WSL2</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p ~/codex-course/taskflow
+<span class="hljs-built_in">cd</span> ~/codex-course/taskflow
+</code></pre><p>然后检查当前位置：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">pwd</span>
+</code></pre><p>输出路径的末尾应该是 <code>codex-course/taskflow</code>。</p>
+<h3 id="wiki-h-20">Windows PowerShell</h3>
+<p>运行：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\codex-course\taskflow"</span>
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\codex-course\taskflow"</span>
+</code></pre><p>然后检查当前位置：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Location</span>
+</code></pre><p>输出路径的末尾应该是 <code>codex-course\taskflow</code>。</p>
+<h2 id="wiki-h-21">第一次启动 Codex</h2>
+<p>确保终端当前位于刚才创建的 <code>taskflow</code> 目录，然后运行：</p>
+<pre><code class="hljs language-bash">codex
+</code></pre><p>第一次进入某个目录时，Codex 可能会询问你是否信任这个工作目录。此处是我们刚创建的空目录，可以按界面提示信任它。</p>
+<p>进入交互界面后，先输入：</p>
+<pre><code class="hljs language-text">请告诉我当前工作目录中有哪些文件。不要创建或修改任何文件。
+</code></pre><p>因为目录还是空的，Codex 应该告诉你没有可处理的项目文件，或者只列出系统自动生成的隐藏内容。它不应该创建新文件。</p>
+<p>接着输入：</p>
+<pre><code class="hljs language-text">/status
+</code></pre><p>检查当前模型、工作目录、权限策略和上下文状态。不同版本的排版可能不同，但你应该能够找到这些核心信息。</p>
+<h2 id="wiki-h-22">更新 Codex CLI</h2>
+<p>先查看当前版本：</p>
+<pre><code class="hljs language-bash">codex --version
+</code></pre><p>支持自更新的正式版本可以运行：</p>
+<pre><code class="hljs language-bash">codex update
+</code></pre><p>更新完成后再次运行 <code>codex --version</code>，确认版本发生变化。</p>
+<p>如果当前安装方式不支持自更新，命令会提示你重新运行安装程序。此时使用本篇对应操作系统的官方安装命令即可。</p>
+<h2 id="wiki-h-23">常见问题</h2>
+<h3 id="wiki-h-24">1. 安装后提示找不到 <code>codex</code></h3>
+<p>先关闭终端并重新打开，再运行 <code>codex --version</code>。如果仍然失败：</p>
+<ul>
+<li>macOS、Linux、WSL2：运行 <code>command -v codex</code>；</li>
+<li>Windows PowerShell：运行 <code>Get-Command codex</code>。</li>
+</ul>
+<p>没有输出通常说明安装没有完成，或者安装目录没有加入 PATH。</p>
+<h3 id="wiki-h-25">2. 登录后终端一直没有反应</h3>
+<p>先确认浏览器是否显示登录成功，再回到启动登录的那个终端窗口。如果网络阻止本地回调，可以改用：</p>
+<pre><code class="hljs language-bash">codex login --device-auth
+</code></pre><h3 id="wiki-h-26">3. 登录了错误的账号</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">logout</span>
+codex login
+</code></pre><p>第二次登录时，确认浏览器中选择了正确的账号和工作空间。</p>
+<h3 id="wiki-h-27">4. WSL 中运行很慢</h3>
+<p>检查项目是否放在 <code>/mnt/c</code> 等 Windows 挂载目录中。长期开发项目建议放在 WSL 的 Linux 主目录，例如 <code>~/code</code> 或本教程的 <code>~/codex-course</code>。</p>
+<h3 id="wiki-h-28">5. 公司电脑无法执行安装脚本</h3>
+<p>这通常是终端执行策略、软件安装策略、网络代理或证书配置造成的。记录终端中的完整错误信息，联系管理员确认允许的安装方式。不要为了安装 Codex 长期关闭系统安全策略。</p>
+<h2 id="wiki-h-29">本篇完成检查</h2>
+<p>继续下一篇之前，请确认下面几项都已经完成：</p>
+<ul>
+<li><code>codex --version</code> 能显示版本号；</li>
+<li><code>codex login status</code> 能显示有效登录状态；</li>
+<li>已经创建独立的 <code>taskflow</code> 练习目录；</li>
+<li>能够从该目录启动 <code>codex</code>；</li>
+<li><code>/status</code> 中显示的工作目录正确；</li>
+<li>Codex 能读取目录，但没有在未授权的情况下创建文件。</li>
+</ul>
+<p>下一篇，我们会配置第三方模型 API 和中转平台，并建立几套可以随时切换的 Provider 配置。</p>
+<h2 id="wiki-h-30">参考资料</h2>
+<ul>
+<li><a href="https://learn.chatgpt.com/docs/auth">Codex 身份验证</a></li>
+<li><a href="https://learn.chatgpt.com/docs/config-file/environment-variables">Codex 环境变量</a></li>
+<li><a href="https://learn.chatgpt.com/docs/developer-commands?surface=cli">Codex CLI 命令参考</a></li>
+<li><a href="https://learn.chatgpt.com/docs/windows/wsl">在 WSL2 中使用 Codex</a></li>
+<li><a href="https://learn.chatgpt.com/docs/sandboxing">Codex 沙箱</a></li>
+</ul>
+</article>

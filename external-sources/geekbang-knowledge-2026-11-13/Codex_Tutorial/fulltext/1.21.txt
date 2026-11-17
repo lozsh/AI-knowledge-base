@@ -1,0 +1,61 @@
+具体参数以当前版本的 codex --help 和子命令帮助为准。
+
+安装与版本
+目的	命令
+查看版本	codex --version
+查看帮助	codex --help
+升级 npm 安装版本	npm install -g @openai/codex@latest
+启动交互式 CLI	codex
+带初始任务启动	codex "解释这个项目并告诉我如何运行测试"
+目录、沙箱与审批
+目的	命令
+工作区可写	codex --sandbox workspace-write
+按需审批	codex --ask-for-approval on-request
+增加一个额外目录	codex --add-dir /specific/path
+指定工作目录	codex -C /path/to/project
+
+日常开发常用组合：
+
+codex --sandbox workspace-write --ask-for-approval on-request
+
+
+不要把 Full Access 设成习惯性默认值。
+
+恢复会话
+目的	命令
+选择并恢复历史会话	codex resume
+恢复最近会话	codex resume --last
+从历史会话分支	codex fork
+非交互模式
+目的	命令
+一次性执行	codex exec "<任务>"
+临时会话	codex exec --ephemeral "<任务>"
+允许写工作区	codex exec --sandbox workspace-write "<任务>"
+JSONL 事件	codex exec --json "<任务>"
+最终消息写入文件	codex exec -o result.md "<任务>"
+用 Schema 约束结果	codex exec --output-schema schema.json -o result.json "<任务>"
+继续最近一次执行	codex exec resume --last "<后续任务>"
+非 Git 临时目录	codex exec --skip-git-repo-check "<任务>"
+交互快捷操作
+操作	作用
+输入 @	搜索并引用工作区文件
+输入 !命令	在权限范围内运行本地 shell 命令
+Enter	在运行过程中补充或转向当前任务
+Tab	把消息排到当前工作之后
+Ctrl+C	中止当前运行或退出，视当前状态而定
+常见组合
+
+只读理解陌生项目：
+
+codex exec "只读分析项目入口、测试命令和主要风险，不修改文件。"
+
+
+允许在仓库内完成一个修复：
+
+codex --sandbox workspace-write --ask-for-approval on-request
+
+
+输出结构化健康报告：
+
+codex exec --output-schema schema.json -o health.json "检查项目健康状态，不修改文件。"
+

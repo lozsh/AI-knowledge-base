@@ -1,0 +1,156 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：25～35 分钟<br>本篇目标：选择适合自己的运行环境，安装 Claude Code，并用版本、健康检查和命令路径证明安装可用。</p>
+</blockquote>
+<p>Claude Code 官方推荐原生安装。原生版本不要求先安装 Node.js，并且可以自行在后台更新。Homebrew、WinGet、Linux 软件源和 npm 仍然可用，但更新方式不同。</p>
+<p>本篇只安装命令行版本。不要同时用两三种方式安装同一个 <code>claude</code> 命令，否则以后很难判断实际运行的是哪一份。</p>
+<h2 id="wiki-h-0">先确认系统是否支持</h2>
+<p>截至 2026-09-29，官方列出的最低环境包括：</p>
+<ul>
+<li>macOS 13.0+；</li>
+<li>Windows 10 1809+ 或 Windows Server 2019+；</li>
+<li>Ubuntu 20.04+、Debian 10+、Alpine Linux 3.19+；</li>
+<li>x64 或 ARM64 处理器；</li>
+<li>至少 4 GB 内存；</li>
+<li>可以访问 Claude Code 所需服务的网络连接。</li>
+</ul>
+<p>如果电脑受公司策略管理，不要绕过软件安装限制。先确认是否允许运行官方安装脚本或使用系统包管理器。</p>
+<h3 id="wiki-h-1">Windows 先选原生还是 WSL2</h3>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>选择</th>
+<th>更适合</th>
+<th>命令 Sandbox</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>原生 Windows</td>
+<td>PowerShell、Windows 路径和 Windows 工具链</td>
+<td>当前不支持</td>
+</tr>
+<tr>
+<td>WSL2</td>
+<td>Linux 工具链、项目本来就在 WSL 中</td>
+<td>支持</td>
+</tr>
+</tbody></table></div>
+<p>不要让原生 Windows 中的 Claude Code 和 WSL 中的 Claude Code 同时修改同一个仓库。本教程两条路径都支持；选定后，后续项目尽量一直留在同一个环境中。</p>
+<h2 id="wiki-h-2">macOS：使用原生安装</h2>
+<p>打开“终端”，确认命令来自官方域名后执行：</p>
+<pre><code class="hljs language-bash">curl -fsSL https://claude.ai/install.sh | bash
+</code></pre><p>安装结束后关闭并重新打开终端，让 Shell 重新读取 <code>PATH</code>。然后运行：</p>
+<pre><code class="hljs language-bash">claude --version
+</code></pre><p>可用安装会输出版本号。下面只是格式示例，实际数字可能不同：</p>
+<pre><code class="hljs language-text">2.1.x (Claude Code)
+</code></pre><p>如果你已经使用 Homebrew 管理软件，也可以改用：</p>
+<pre><code class="hljs language-bash">brew install --cask claude-code
+</code></pre><p><code>claude-code</code> cask 跟随 stable 通道；希望立即获得最新版本时才使用 <code>claude-code@latest</code>。Homebrew 安装不会由 Claude Code 自己更新，stable cask 之后运行：</p>
+<pre><code class="hljs language-bash">brew upgrade claude-code
+</code></pre><p>原生安装和 Homebrew 二选一即可。</p>
+<h2 id="wiki-h-3">Linux：使用原生安装</h2>
+<p>在 Bash 或 Zsh 中执行：</p>
+<pre><code class="hljs language-bash">curl -fsSL https://claude.ai/install.sh | bash
+</code></pre><p>重新打开终端后验证：</p>
+<pre><code class="hljs language-bash">claude --version
+</code></pre><p>官方还提供签名的 apt、dnf 和 apk 软件源。个人练习使用原生安装最直接；如果你的系统要求所有软件都由包管理器维护，再按照官方安装页配置相应软件源，不要使用来历不明的镜像命令。</p>
+<p>Alpine 和其他 musl 系统还需要 Bash、curl、libgcc、libstdc++ 和 ripgrep，并要按官方说明设置 <code>USE_BUILTIN_RIPGREP=0</code>。这不是 Ubuntu/Debian 用户的通用步骤。</p>
+<h2 id="wiki-h-4">Windows 原生：使用 PowerShell</h2>
+<p>打开 PowerShell。提示符通常以 <code>PS C:\</code> 开头。执行：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">irm</span> https://claude.ai/install.ps1 | <span class="hljs-built_in">iex</span>
+</code></pre><p>关闭并重新打开 PowerShell，再运行：</p>
+<pre><code class="hljs language-powershell">claude <span class="hljs-literal">--version</span>
+</code></pre><p>也可以使用 WinGet：</p>
+<pre><code class="hljs language-powershell">winget install Anthropic.ClaudeCode
+</code></pre><p>WinGet 不由 Claude Code 自动更新，以后运行：</p>
+<pre><code class="hljs language-powershell">winget upgrade Anthropic.ClaudeCode
+</code></pre><p>Git for Windows 不是启动 Claude Code 的硬性依赖，但本教程需要 Git，而且安装后 Claude Code 可以使用 Git Bash 工具。没有 Git for Windows 时，Claude Code 会使用 PowerShell 工具执行 Shell 命令。</p>
+<p>原生 Windows 当前没有与 macOS、Linux、WSL2 同等的命令 Sandbox。第 8 篇会专门处理这项差异；在此之前，不要用跳过权限的参数启动。</p>
+<h2 id="wiki-h-5">WSL2：在 WSL 内安装</h2>
+<p>打开 WSL 发行版自己的终端，在里面执行 Linux 安装命令：</p>
+<pre><code class="hljs language-bash">curl -fsSL https://claude.ai/install.sh | bash
+claude --version
+</code></pre><p>Claude Code 应安装和运行在 WSL 内，不是从 PowerShell 调用一份 WSL 安装。教程项目建议放在 WSL 文件系统中，例如：</p>
+<pre><code class="hljs language-text">/home/你的用户名/claude-code-course
+</code></pre><p>把包含大量小文件的项目放在 <code>/mnt/c/...</code> 下，通常会带来额外的性能和权限差异。</p>
+<h2 id="wiki-h-6">npm 只作为备选</h2>
+<p>如果你的环境已经由 npm 管理全局 CLI，也可以安装：</p>
+<pre><code class="hljs language-bash">npm install -g @anthropic-ai/claude-code
+</code></pre><p>当前 npm 包要求 Node.js 22+。安装得到的仍是平台对应的原生二进制；运行 <code>claude</code> 时不会依赖 Node.js 解释执行。不要使用：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> npm install -g @anthropic-ai/claude-code
+</code></pre><p><code>sudo</code> 容易造成全局目录权限和安全问题。更新 npm 安装版时使用：</p>
+<pre><code class="hljs language-bash">npm install -g @anthropic-ai/claude-code@latest
+</code></pre><p>如果你并没有现成的 Node/npm 管理需求，回到前面的原生安装即可，不必为 Claude Code 单独安装 Node.js。</p>
+<h2 id="wiki-h-7">用两层检查证明安装成功</h2>
+<p>第一层确认命令可以执行：</p>
+<pre><code class="hljs language-bash">claude --version
+</code></pre><p>第二层运行只读健康检查：</p>
+<pre><code class="hljs language-bash">claude doctor
+</code></pre><p><code>claude doctor</code> 不启动对话，主要报告安装来源、命令路径、更新状态和设置文件错误。通过标准是：</p>
+<ul>
+<li><code>claude --version</code> 返回版本号，而不是 command not found；</li>
+<li><code>claude doctor</code> 能完成检查；</li>
+<li>没有未处理的重复安装、损坏设置或 PATH 错误。</li>
+</ul>
+<p>警告不一定都会阻塞使用。先读清它指出的安装来源和修复建议，不要直接删除不认识的系统目录。</p>
+<h2 id="wiki-h-8">命令找不到时按顺序排查</h2>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">command</span> -v claude
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Command</span> claude <span class="hljs-literal">-ErrorAction</span> SilentlyContinue
+</code></pre><p>如果没有返回路径：</p>
+<ol>
+<li>关闭并重新打开终端；</li>
+<li>回看安装器末尾是否给出 PATH 修复提示；</li>
+<li>确认安装命令是在当前环境执行的，而不是把 PowerShell、CMD 和 WSL 混用；</li>
+<li>重新运行与你选择的安装方式相同的官方安装命令；</li>
+<li>命令恢复后再运行 <code>claude doctor</code>。</li>
+</ol>
+<p>如果返回多个可能路径，先不要继续安装。检查自己是否同时保留了原生、Homebrew、WinGet 或 npm 版本，并按对应安装方式卸载不用的那一份。第 18 篇提供更完整的症状排查。</p>
+<h2 id="wiki-h-9">理解更新通道</h2>
+<p>原生安装默认跟随 <code>latest</code>，后台下载更新，并在下次启动时生效。你可以在交互会话的 <code>/config</code> 中把 Auto-update channel 改为 <code>stable</code>：</p>
+<ul>
+<li><code>latest</code>：发布后尽快收到新版本；</li>
+<li><code>stable</code>：通常落后一周左右，并跳过有重大回归的版本。</li>
+</ul>
+<p>需要立即检查原生安装更新时运行：</p>
+<pre><code class="hljs language-bash">claude update
+</code></pre><p>Homebrew、WinGet、apt、dnf 和 apk 默认通过各自包管理器更新；<code>/config</code> 不会把这些安装切换成另一套包或 cask。第一次学习更重视稳定性时，可以选择 stable，但不必为了本教程频繁切换通道。</p>
+<h2 id="wiki-h-10">准备课程目录和额外工具</h2>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p ~/claude-code-course
+<span class="hljs-built_in">cd</span> ~/claude-code-course
+<span class="hljs-built_in">pwd</span>
+</code></pre><p>最后一行应该以 <code>/claude-code-course</code> 结尾。</p>
+<p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course"</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course"</span>
+<span class="hljs-built_in">Get-Location</span>
+</code></pre><p>输出路径应该以 <code>claude-code-course</code> 结尾。不要把教程目录直接建在主目录根部后让 Claude 扫描整个主目录。</p>
+<p>Claude Code 本身不要求 Git 或 Python 才能启动，但后续练习需要它们。现在检查：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">git --version
+python3 --version
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">git <span class="hljs-literal">--version</span>
+py <span class="hljs-literal">--version</span>
+</code></pre><p>Git 需要可用；MealCraft 从第 5 篇开始要求 Python 3.11+。如果 Python 暂时缺失，可先阅读第 3 篇；进入第 4 篇之前必须安装并确认 Python 命令可用。第 4 篇的独立断言和 HTTP 预览均依赖 Python。完成检查后再继续，但要在进入 MealCraft 前安装。不要因为版本检查失败就让 Claude 下载未经确认的安装程序。</p>
+<p>如果 <code>git --version</code> 提示命令不存在，以下操作会安装软件，并可能要求管理员确认：</p>
+<ul>
+<li>macOS：运行 <code>xcode-select --install</code>，在系统对话框中安装 Command Line Tools；</li>
+<li>Windows PowerShell：运行 <code>winget install --id Git.Git -e</code>，完成后重新打开 PowerShell；</li>
+<li>Ubuntu、Debian 或 WSL：运行 <code>sudo apt update</code>，再运行 <code>sudo apt install git</code>；</li>
+<li>Fedora：运行 <code>sudo dnf install git</code>；</li>
+<li>Alpine：运行 <code>sudo apk add git</code>。</li>
+</ul>
+<p>安装后重新执行 <code>git --version</code>。Python 缺失或低于 3.11 时，使用 <a href="https://www.python.org/downloads/">Python 官方下载页</a> 或系统受信任的软件源安装；第 5 篇会再次检查，当前不用创建虚拟环境。</p>
+<h2 id="wiki-h-11">本篇验收</h2>
+<p>离开本篇前，确认四件事：</p>
+<ol>
+<li>你知道自己使用 macOS/Linux、原生 Windows 还是 WSL2；</li>
+<li><code>claude --version</code> 返回明确版本；</li>
+<li><code>claude doctor</code> 完成且没有未处理的阻塞错误；</li>
+<li>当前课程目录确实是 <code>claude-code-course</code>，而不是主目录或重要项目。</li>
+</ol>
+<p>下一篇会完成认证并核对当前身份、计费方式和模型连接。在那之前，不需要把任何 API Key 写进文件。</p>
+<p>官方参考：<a href="https://code.claude.com/docs/en/setup">Advanced setup</a>、<a href="https://code.claude.com/docs/en/troubleshooting">Troubleshooting</a></p>
+</article>

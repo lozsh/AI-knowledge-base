@@ -1,0 +1,383 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P24-P30<br><strong>版本</strong>：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 8 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<h2 id="wiki-h-0">第 1 步：用 Claude Code 定义需求</h2>
+<pre><code class="hljs language-Bash"><span class="hljs-comment"># Terminal command to Claude Code</span>
+
+claude-code --task <span class="hljs-string">"Create comprehensive tests for a user authentication system with registration, login, password reset, and JWT token management"</span>
+</code></pre><p><strong>Claude Code 的回复</strong></p>
+<pre><code class="hljs language-Python"><span class="hljs-comment"># tests/test_auth_system.py</span>
+<span class="hljs-keyword">import</span> pytest
+<span class="hljs-keyword">import</span> jwt
+<span class="hljs-keyword">from</span> datetime <span class="hljs-keyword">import</span> datetime, timedelta
+<span class="hljs-keyword">from</span> unittest.mock <span class="hljs-keyword">import</span> Mock, patch
+<span class="hljs-keyword">from</span> auth_system <span class="hljs-keyword">import</span> AuthSystem, User, AuthenticationError, ValidationError
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">TestUserAuthentication</span>:
+<span class="hljs-meta">    @pytest.fixture</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">auth_system</span>(<span class="hljs-params">self</span>):
+        <span class="hljs-keyword">return</span> AuthSystem(secret_key=<span class="hljs-string">"test_secret"</span>, db_connection=Mock())
+
+<span class="hljs-meta">    @pytest.fixture</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">valid_user_data</span>(<span class="hljs-params">self</span>):
+        <span class="hljs-keyword">return</span> {
+            <span class="hljs-string">"email"</span>: <span class="hljs-string">"user@example.com"</span>,
+            <span class="hljs-string">"password"</span>: <span class="hljs-string">"SecurePass123!"</span>,
+            <span class="hljs-string">"confirm_password"</span>: <span class="hljs-string">"SecurePass123!"</span>
+        }
+
+    <span class="hljs-comment"># Registration Tests</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_register_user_success</span>(<span class="hljs-params">self, auth_system, valid_user_data</span>):
+        <span class="hljs-string">"""Test successful user registration"""</span>
+        <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system.db, <span class="hljs-string">'user_exists'</span>, return_value=<span class="hljs-literal">False</span>):
+            <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system.db, <span class="hljs-string">'create_user'</span>, return_value=<span class="hljs-literal">True</span>):
+                result = auth_system.register(**valid_user_data)
+                <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'success'</span>] == <span class="hljs-literal">True</span>
+                <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'user_id'</span>] <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>
+                <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'message'</span>] == <span class="hljs-string">"User registered successfully"</span>
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_register_user_duplicate_email</span>(<span class="hljs-params">self, auth_system, valid_user_data</span>):
+        <span class="hljs-string">"""Test registration with existing email"""</span>
+        <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system.db, <span class="hljs-string">'user_exists'</span>, return_value=<span class="hljs-literal">True</span>):
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_register_invalid_email_format</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test registration with invalid email format"""</span>
+        invalid_data = {
+            <span class="hljs-string">"email"</span>: <span class="hljs-string">"invalid-email"</span>,
+            <span class="hljs-string">"password"</span>: <span class="hljs-string">"SecurePass123!"</span>,
+            <span class="hljs-string">"confirm_password"</span>: <span class="hljs-string">"SecurePass123!"</span>
+        }
+        <span class="hljs-keyword">with</span> pytest.raises(ValidationError) <span class="hljs-keyword">as</span> exc_info:
+            auth_system.register(**invalid_data)
+        <span class="hljs-keyword">assert</span> <span class="hljs-string">"Invalid email format"</span> <span class="hljs-keyword">in</span> <span class="hljs-built_in">str</span>(exc_info.value)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_register_weak_password</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test registration with weak password"""</span>
+        weak_password_data = {
+            <span class="hljs-string">"email"</span>: <span class="hljs-string">"user@example.com"</span>,
+            <span class="hljs-string">"password"</span>: <span class="hljs-string">"123"</span>,
+            <span class="hljs-string">"confirm_password"</span>: <span class="hljs-string">"123"</span>
+        }
+        <span class="hljs-keyword">with</span> pytest.raises(ValidationError) <span class="hljs-keyword">as</span> exc_info:
+            auth_system.register(**weak_password_data)
+        <span class="hljs-keyword">assert</span> <span class="hljs-string">"Password must be at least 8 characters"</span> <span class="hljs-keyword">in</span> <span class="hljs-built_in">str</span>(exc_info.value)
+
+    <span class="hljs-comment"># Login Tests</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_login_success</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test successful login with valid credentials"""</span>
+        mock_user = Mock()
+        mock_user.<span class="hljs-built_in">id</span> = <span class="hljs-number">1</span>
+        mock_user.email = <span class="hljs-string">"user@example.com"</span>
+        mock_user.password_hash = <span class="hljs-string">"$2b$12$hashed_password"</span>
+
+        <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system.db, <span class="hljs-string">'get_user_by_email'</span>, return_value=mock_user):
+            <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system, <span class="hljs-string">'_verify_password'</span>, return_value=<span class="hljs-literal">True</span>):
+                result = auth_system.login(<span class="hljs-string">"user@example.com"</span>, <span class="hljs-string">"correct_password"</span>)
+                <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'success'</span>] == <span class="hljs-literal">True</span>
+                <span class="hljs-keyword">assert</span> <span class="hljs-string">'access_token'</span> <span class="hljs-keyword">in</span> result
+                <span class="hljs-keyword">assert</span> <span class="hljs-string">'refresh_token'</span> <span class="hljs-keyword">in</span> result
+                <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'user'</span>][<span class="hljs-string">'email'</span>] == <span class="hljs-string">"user@example.com"</span>
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_login_invalid_credentials</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test login with invalid credentials"""</span>
+        <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system.db, <span class="hljs-string">'get_user_by_email'</span>, return_value=<span class="hljs-literal">None</span>):
+            <span class="hljs-keyword">with</span> pytest.raises(AuthenticationError) <span class="hljs-keyword">as</span> exc_info:
+                auth_system.login(<span class="hljs-string">"nonexistent@example.com"</span>, <span class="hljs-string">"any_password"</span>)
+            <span class="hljs-keyword">assert</span> <span class="hljs-string">"Invalid credentials"</span> <span class="hljs-keyword">in</span> <span class="hljs-built_in">str</span>(exc_info.value)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_login_wrong_password</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test login with correct email but wrong password"""</span>
+        mock_user = Mock()
+        mock_user.email = <span class="hljs-string">"user@example.com"</span>
+
+        <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system.db, <span class="hljs-string">'get_user_by_email'</span>, return_value=mock_user):
+            <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system, <span class="hljs-string">'_verify_password'</span>, return_value=<span class="hljs-literal">False</span>):
+                <span class="hljs-keyword">with</span> pytest.raises(AuthenticationError) <span class="hljs-keyword">as</span> exc_info:
+                    auth_system.login(<span class="hljs-string">"user@example.com"</span>, <span class="hljs-string">"wrong_password"</span>)
+                <span class="hljs-keyword">assert</span> <span class="hljs-string">"Invalid credentials"</span> <span class="hljs-keyword">in</span> <span class="hljs-built_in">str</span>(exc_info.value)
+
+    <span class="hljs-comment"># JWT Token Tests</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_generate_access_token</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test JWT access token generation"""</span>
+        user_id = <span class="hljs-number">1</span>
+        token = auth_system.generate_access_token(user_id)
+
+        decoded = jwt.decode(token, <span class="hljs-string">"test_secret"</span>, algorithms=[<span class="hljs-string">"HS256"</span>])
+        <span class="hljs-keyword">assert</span> decoded[<span class="hljs-string">'user_id'</span>] == user_id
+        <span class="hljs-keyword">assert</span> decoded[<span class="hljs-string">'type'</span>] == <span class="hljs-string">'access'</span>
+        <span class="hljs-keyword">assert</span> <span class="hljs-string">'exp'</span> <span class="hljs-keyword">in</span> decoded
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_verify_valid_token</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test verification of valid JWT token"""</span>
+        user_id = <span class="hljs-number">1</span>
+        token = auth_system.generate_access_token(user_id)
+
+        result = auth_system.verify_token(token)
+        <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'valid'</span>] == <span class="hljs-literal">True</span>
+        <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'user_id'</span>] == user_id
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_verify_expired_token</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test verification of expired JWT token"""</span>
+        <span class="hljs-comment"># Create token that expires in -1 hour</span>
+        payload = {
+            <span class="hljs-string">'user_id'</span>: <span class="hljs-number">1</span>,
+            <span class="hljs-string">'type'</span>: <span class="hljs-string">'access'</span>,
+            <span class="hljs-string">'exp'</span>: datetime.utcnow() - timedelta(hours=<span class="hljs-number">1</span>)
+        }
+        expired_token = jwt.encode(payload, <span class="hljs-string">"test_secret"</span>, algorithm=<span class="hljs-string">"HS256"</span>)
+
+        result = auth_system.verify_token(expired_token)
+        <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'valid'</span>] == <span class="hljs-literal">False</span>
+        <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'error'</span>] == <span class="hljs-string">'Token expired'</span>
+
+    <span class="hljs-comment"># Password Reset Tests</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_request_password_reset</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test password reset request"""</span>
+        mock_user = Mock()
+        mock_user.<span class="hljs-built_in">id</span> = <span class="hljs-number">1</span>
+        mock_user.email = <span class="hljs-string">"user@example.com"</span>
+
+        <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system.db, <span class="hljs-string">'get_user_by_email'</span>, return_value=mock_user):
+            <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system, <span class="hljs-string">'_send_reset_email'</span>) <span class="hljs-keyword">as</span> mock_send:
+                result = auth_system.request_password_reset(<span class="hljs-string">"user@example.com"</span>)
+
+        <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'success'</span>] == <span class="hljs-literal">True</span>
+        mock_send.assert_called_once()
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">test_reset_password_success</span>(<span class="hljs-params">self, auth_system</span>):
+        <span class="hljs-string">"""Test successful password reset with valid token"""</span>
+        reset_token = <span class="hljs-string">"valid_reset_token"</span>
+        new_password = <span class="hljs-string">"NewSecurePass123!"</span>
+
+        <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system, <span class="hljs-string">'_verify_reset_token'</span>, return_value={<span class="hljs-string">'valid'</span>: <span class="hljs-literal">True</span>, <span class="hljs-string">'user_id'</span>: <span class="hljs-number">1</span>}):
+            <span class="hljs-keyword">with</span> patch.<span class="hljs-built_in">object</span>(auth_system.db, <span class="hljs-string">'update_password'</span>, return_value=<span class="hljs-literal">True</span>):
+                result = auth_system.reset_password(reset_token, new_password)
+                <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'success'</span>] == <span class="hljs-literal">True</span>
+                <span class="hljs-keyword">assert</span> result[<span class="hljs-string">'message'</span>] == <span class="hljs-string">"Password reset successfully"</span>
+</code></pre><h2 id="wiki-h-1">第 2 步：运行测试（它们应当失败）</h2>
+<pre><code class="hljs language-Bash"><span class="hljs-comment"># Run the tests - they will fail because implementation doesn't exist yet</span>
+
+pytest tests/test_auth_system.py -v
+
+<span class="hljs-comment"># Expected output: All tests fail with ImportError or similar</span>
+</code></pre><h2 id="wiki-h-2">第 3 步：用 Claude 生成实现</h2>
+<pre><code class="hljs language-Bash">claude-code --task <span class="hljs-string">"Implement the AuthSystem class to pass all the existing tests. Focus on security best practices for password hashing and JWT token management."</span>
+</code></pre><p><strong>Claude Code 的回复</strong></p>
+<pre><code class="hljs language-Python"><span class="hljs-comment"># auth_system.py</span>
+<span class="hljs-keyword">import</span> bcrypt
+<span class="hljs-keyword">import</span> jwt
+<span class="hljs-keyword">import</span> re
+<span class="hljs-keyword">from</span> datetime <span class="hljs-keyword">import</span> datetime, timedelta
+<span class="hljs-keyword">from</span> typing <span class="hljs-keyword">import</span> <span class="hljs-type">Dict</span>, <span class="hljs-type">Optional</span>, <span class="hljs-type">Any</span>
+<span class="hljs-keyword">import</span> secrets
+<span class="hljs-keyword">import</span> smtplib
+<span class="hljs-keyword">from</span> email.mime.text <span class="hljs-keyword">import</span> MIMEText
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">AuthenticationError</span>(<span class="hljs-title class_ inherited__">Exception</span>):
+    <span class="hljs-string">"""Raised when authentication fails"""</span>
+    <span class="hljs-keyword">pass</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">ValidationError</span>(<span class="hljs-title class_ inherited__">Exception</span>):
+    <span class="hljs-string">"""Raised when input validation fails"""</span>
+    <span class="hljs-keyword">pass</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">User</span>:
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, <span class="hljs-built_in">id</span>: <span class="hljs-built_in">int</span>, email: <span class="hljs-built_in">str</span>, password_hash: <span class="hljs-built_in">str</span></span>):
+        <span class="hljs-variable language_">self</span>.<span class="hljs-built_in">id</span> = <span class="hljs-built_in">id</span>
+        <span class="hljs-variable language_">self</span>.email = email
+        <span class="hljs-variable language_">self</span>.password_hash = password_hash
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">AuthSystem</span>:
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, secret_key: <span class="hljs-built_in">str</span>, db_connection, access_token_expire_hours: <span class="hljs-built_in">int</span> = <span class="hljs-number">1</span>, refresh_token_expire_days: <span class="hljs-built_in">int</span> = <span class="hljs-number">30</span></span>):
+        <span class="hljs-variable language_">self</span>.secret_key = secret_key
+        <span class="hljs-variable language_">self</span>.db = db_connection
+        <span class="hljs-variable language_">self</span>.access_token_expire_hours = access_token_expire_hours
+        <span class="hljs-variable language_">self</span>.refresh_token_expire_days = refresh_token_expire_days
+
+        <span class="hljs-comment"># Password requirements</span>
+        <span class="hljs-variable language_">self</span>.min_password_length = <span class="hljs-number">8</span>
+        <span class="hljs-variable language_">self</span>.password_pattern = <span class="hljs-string">r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&amp;])[A-Za-z\d@$!%*?&amp;]'</span>
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">register</span>(<span class="hljs-params">self, email: <span class="hljs-built_in">str</span>, password: <span class="hljs-built_in">str</span>, confirm_password: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-type">Dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-type">Any</span>]:
+        <span class="hljs-string">"""Register a new user"""</span>
+        <span class="hljs-comment"># Validate input</span>
+        <span class="hljs-variable language_">self</span>._validate_registration_input(email, password, confirm_password)
+
+        <span class="hljs-comment"># Check if user already exists</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-variable language_">self</span>.db.user_exists(email):
+            <span class="hljs-keyword">raise</span> ValidationError(<span class="hljs-string">"Email already registered"</span>)
+
+        <span class="hljs-comment"># Hash password</span>
+        password_hash = bcrypt.hashpw(password.encode(<span class="hljs-string">'utf-8'</span>), bcrypt.gensalt()).decode(<span class="hljs-string">'utf-8'</span>)
+
+        <span class="hljs-comment"># Create user in database</span>
+        user_id = <span class="hljs-variable language_">self</span>.db.create_user(email, password_hash)
+
+        <span class="hljs-keyword">return</span> {
+            <span class="hljs-string">'success'</span>: <span class="hljs-literal">True</span>,
+            <span class="hljs-string">'user_id'</span>: user_id,
+            <span class="hljs-string">'message'</span>: <span class="hljs-string">'User registered successfully'</span>
+        }
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">login</span>(<span class="hljs-params">self, email: <span class="hljs-built_in">str</span>, password: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-type">Dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-type">Any</span>]:
+        <span class="hljs-string">"""Authenticate user and return tokens"""</span>
+        <span class="hljs-comment"># Get user from database</span>
+        user = <span class="hljs-variable language_">self</span>.db.get_user_by_email(email)
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> user:
+            <span class="hljs-keyword">raise</span> AuthenticationError(<span class="hljs-string">"Invalid credentials"</span>)
+
+        <span class="hljs-comment"># Verify password</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-variable language_">self</span>._verify_password(password, user.password_hash):
+            <span class="hljs-keyword">raise</span> AuthenticationError(<span class="hljs-string">"Invalid credentials"</span>)
+
+        <span class="hljs-comment"># Generate tokens</span>
+        access_token = <span class="hljs-variable language_">self</span>.generate_access_token(user.<span class="hljs-built_in">id</span>)
+        refresh_token = <span class="hljs-variable language_">self</span>.generate_refresh_token(user.<span class="hljs-built_in">id</span>)
+
+        <span class="hljs-keyword">return</span> {
+            <span class="hljs-string">'success'</span>: <span class="hljs-literal">True</span>,
+            <span class="hljs-string">'access_token'</span>: access_token,
+            <span class="hljs-string">'refresh_token'</span>: refresh_token,
+            <span class="hljs-string">'user'</span>: {
+                <span class="hljs-string">'id'</span>: user.<span class="hljs-built_in">id</span>,
+                <span class="hljs-string">'email'</span>: user.email
+            }
+        }
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">generate_access_token</span>(<span class="hljs-params">self, user_id: <span class="hljs-built_in">int</span></span>) -&gt; <span class="hljs-built_in">str</span>:
+        <span class="hljs-string">"""Generate JWT access token"""</span>
+        payload = {
+            <span class="hljs-string">'user_id'</span>: user_id,
+            <span class="hljs-string">'type'</span>: <span class="hljs-string">'access'</span>,
+            <span class="hljs-string">'exp'</span>: datetime.utcnow() + timedelta(hours=<span class="hljs-variable language_">self</span>.access_token_expire_hours),
+            <span class="hljs-string">'iat'</span>: datetime.utcnow()
+        }
+        <span class="hljs-keyword">return</span> jwt.encode(payload, <span class="hljs-variable language_">self</span>.secret_key, algorithm=<span class="hljs-string">'HS256'</span>)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">generate_refresh_token</span>(<span class="hljs-params">self, user_id: <span class="hljs-built_in">int</span></span>) -&gt; <span class="hljs-built_in">str</span>:
+        <span class="hljs-string">"""Generate JWT refresh token"""</span>
+        payload = {
+            <span class="hljs-string">'user_id'</span>: user_id,
+            <span class="hljs-string">'type'</span>: <span class="hljs-string">'refresh'</span>,
+            <span class="hljs-string">'exp'</span>: datetime.utcnow() + timedelta(days=<span class="hljs-variable language_">self</span>.refresh_token_expire_days),
+            <span class="hljs-string">'iat'</span>: datetime.utcnow()
+        }
+        <span class="hljs-keyword">return</span> jwt.encode(payload, <span class="hljs-variable language_">self</span>.secret_key, algorithm=<span class="hljs-string">'HS256'</span>)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">verify_token</span>(<span class="hljs-params">self, token: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-type">Dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-type">Any</span>]:
+        <span class="hljs-string">"""Verify JWT token"""</span>
+        <span class="hljs-keyword">try</span>:
+            payload = jwt.decode(token, <span class="hljs-variable language_">self</span>.secret_key, algorithms=[<span class="hljs-string">'HS256'</span>])
+            <span class="hljs-keyword">return</span> {
+                <span class="hljs-string">'valid'</span>: <span class="hljs-literal">True</span>,
+                <span class="hljs-string">'user_id'</span>: payload[<span class="hljs-string">'user_id'</span>],
+                <span class="hljs-string">'type'</span>: payload[<span class="hljs-string">'type'</span>]
+            }
+        <span class="hljs-keyword">except</span> jwt.ExpiredSignatureError:
+            <span class="hljs-keyword">return</span> {<span class="hljs-string">'valid'</span>: <span class="hljs-literal">False</span>, <span class="hljs-string">'error'</span>: <span class="hljs-string">'Token expired'</span>}
+        <span class="hljs-keyword">except</span> jwt.InvalidTokenError:
+            <span class="hljs-keyword">return</span> {<span class="hljs-string">'valid'</span>: <span class="hljs-literal">False</span>, <span class="hljs-string">'error'</span>: <span class="hljs-string">'Invalid token'</span>}
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">request_password_reset</span>(<span class="hljs-params">self, email: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-type">Dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-type">Any</span>]:
+        <span class="hljs-string">"""Request password reset"""</span>
+        user = <span class="hljs-variable language_">self</span>.db.get_user_by_email(email)
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> user:
+            <span class="hljs-comment"># Don't reveal if email exists or not</span>
+            <span class="hljs-keyword">return</span> {<span class="hljs-string">'success'</span>: <span class="hljs-literal">True</span>, <span class="hljs-string">'message'</span>: <span class="hljs-string">'Reset instructions sent if email exists'</span>}
+
+        <span class="hljs-comment"># Generate reset token</span>
+        reset_token = <span class="hljs-variable language_">self</span>._generate_reset_token(user.<span class="hljs-built_in">id</span>)
+
+        <span class="hljs-comment"># Send reset email</span>
+        <span class="hljs-variable language_">self</span>._send_reset_email(user.email, reset_token)
+
+        <span class="hljs-keyword">return</span> {<span class="hljs-string">'success'</span>: <span class="hljs-literal">True</span>, <span class="hljs-string">'message'</span>: <span class="hljs-string">'Reset instructions sent'</span>}
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">reset_password</span>(<span class="hljs-params">self, reset_token: <span class="hljs-built_in">str</span>, new_password: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-type">Dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-type">Any</span>]:
+        <span class="hljs-string">"""Reset user password with token"""</span>
+        <span class="hljs-comment"># Verify reset token</span>
+        token_data = <span class="hljs-variable language_">self</span>._verify_reset_token(reset_token)
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> token_data[<span class="hljs-string">'valid'</span>]:
+            <span class="hljs-keyword">raise</span> AuthenticationError(<span class="hljs-string">"Invalid or expired reset token"</span>)
+
+        <span class="hljs-comment"># Validate new password</span>
+        <span class="hljs-variable language_">self</span>._validate_password(new_password)
+
+        <span class="hljs-comment"># Hash new password</span>
+        password_hash = bcrypt.hashpw(new_password.encode(<span class="hljs-string">'utf-8'</span>), bcrypt.gensalt()).decode(<span class="hljs-string">'utf-8'</span>)
+
+        <span class="hljs-comment"># Update password in database</span>
+        <span class="hljs-variable language_">self</span>.db.update_password(token_data[<span class="hljs-string">'user_id'</span>], password_hash)
+
+        <span class="hljs-keyword">return</span> {<span class="hljs-string">'success'</span>: <span class="hljs-literal">True</span>, <span class="hljs-string">'message'</span>: <span class="hljs-string">'Password reset successfully'</span>}
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">_validate_registration_input</span>(<span class="hljs-params">self, email: <span class="hljs-built_in">str</span>, password: <span class="hljs-built_in">str</span>, confirm_password: <span class="hljs-built_in">str</span></span>):
+        <span class="hljs-string">"""Validate registration input"""</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-variable language_">self</span>._is_valid_email(email):
+            <span class="hljs-keyword">raise</span> ValidationError(<span class="hljs-string">"Invalid email format"</span>)
+
+        <span class="hljs-keyword">if</span> password != confirm_password:
+            <span class="hljs-keyword">raise</span> ValidationError(<span class="hljs-string">"Passwords do not match"</span>)
+
+        <span class="hljs-variable language_">self</span>._validate_password(password)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">_validate_password</span>(<span class="hljs-params">self, password: <span class="hljs-built_in">str</span></span>):
+        <span class="hljs-string">"""Validate password strength"""</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(password) &lt; <span class="hljs-variable language_">self</span>.min_password_length:
+            <span class="hljs-keyword">raise</span> ValidationError(<span class="hljs-string">f"Password must be at least <span class="hljs-subst">{self.min_password_length}</span> characters"</span>)
+
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> re.<span class="hljs-keyword">match</span>(<span class="hljs-variable language_">self</span>.password_pattern, password):
+            <span class="hljs-keyword">raise</span> ValidationError(<span class="hljs-string">"Password must contain uppercase, lowercase, digit, and special character"</span>)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">_is_valid_email</span>(<span class="hljs-params">self, email: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-built_in">bool</span>:
+        <span class="hljs-string">"""Validate email format"""</span>
+        pattern = <span class="hljs-string">r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">bool</span>(re.<span class="hljs-keyword">match</span>(pattern, email))
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">_verify_password</span>(<span class="hljs-params">self, password: <span class="hljs-built_in">str</span>, password_hash: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-built_in">bool</span>:
+        <span class="hljs-string">"""Verify password against hash"""</span>
+        <span class="hljs-keyword">return</span> bcrypt.checkpw(password.encode(<span class="hljs-string">'utf-8'</span>), password_hash.encode(<span class="hljs-string">'utf-8'</span>))
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">_generate_reset_token</span>(<span class="hljs-params">self, user_id: <span class="hljs-built_in">int</span></span>) -&gt; <span class="hljs-built_in">str</span>:
+        <span class="hljs-string">"""Generate password reset token"""</span>
+        payload = {
+            <span class="hljs-string">'user_id'</span>: user_id,
+            <span class="hljs-string">'type'</span>: <span class="hljs-string">'reset'</span>,
+            <span class="hljs-string">'exp'</span>: datetime.utcnow() + timedelta(hours=<span class="hljs-number">1</span>),  <span class="hljs-comment"># 1 hour expiry</span>
+            <span class="hljs-string">'iat'</span>: datetime.utcnow()
+        }
+        <span class="hljs-keyword">return</span> jwt.encode(payload, <span class="hljs-variable language_">self</span>.secret_key, algorithm=<span class="hljs-string">'HS256'</span>)
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">_verify_reset_token</span>(<span class="hljs-params">self, token: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-type">Dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-type">Any</span>]:
+        <span class="hljs-string">"""Verify password reset token"""</span>
+        <span class="hljs-keyword">try</span>:
+            payload = jwt.decode(token, <span class="hljs-variable language_">self</span>.secret_key, algorithms=[<span class="hljs-string">'HS256'</span>])
+
+            <span class="hljs-keyword">if</span> payload[<span class="hljs-string">'type'</span>] != <span class="hljs-string">'reset'</span>:
+                <span class="hljs-keyword">return</span> {<span class="hljs-string">'valid'</span>: <span class="hljs-literal">False</span>, <span class="hljs-string">'error'</span>: <span class="hljs-string">'Invalid token type'</span>}
+
+            <span class="hljs-keyword">return</span> {<span class="hljs-string">'valid'</span>: <span class="hljs-literal">True</span>, <span class="hljs-string">'user_id'</span>: payload[<span class="hljs-string">'user_id'</span>]}
+
+        <span class="hljs-keyword">except</span> jwt.ExpiredSignatureError:
+            <span class="hljs-keyword">return</span> {<span class="hljs-string">'valid'</span>: <span class="hljs-literal">False</span>, <span class="hljs-string">'error'</span>: <span class="hljs-string">'Token expired'</span>}
+        <span class="hljs-keyword">except</span> jwt.InvalidTokenError:
+            <span class="hljs-keyword">return</span> {<span class="hljs-string">'valid'</span>: <span class="hljs-literal">False</span>, <span class="hljs-string">'error'</span>: <span class="hljs-string">'Invalid token'</span>}
+
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">_send_reset_email</span>(<span class="hljs-params">self, email: <span class="hljs-built_in">str</span>, reset_token:<span class="hljs-built_in">str</span></span>):
+        <span class="hljs-string">"""Send password reset email"""</span>
+        <span class="hljs-comment"># In production, implement actual email sending</span>
+        <span class="hljs-comment"># For now, this is a placeholder</span>
+        <span class="hljs-keyword">pass</span>
+</code></pre><h2 id="wiki-h-3">第 4 步：再次运行测试（绿灯阶段）</h2>
+<pre><code class="hljs language-Bash">pytest tests/test_auth_system.py -v
+
+<span class="hljs-comment"># Expected output: All tests pass!</span>
+</code></pre><h2 id="wiki-h-4">第 5 步：用 Claude Code 重构并增强</h2>
+<pre><code class="hljs language-Bash">claude-code --task <span class="hljs-string">"Review the authentication system for security improvements, add rate limiting for login attempts, and enhance error handling. Maintain all existing test compatibility"</span>
+</code></pre><hr>
+<p><strong>原文备注</strong>：</p>
+<ol>
+<li>P24 的 <code>test_register_user_duplicate_email</code> 在原件即只有 docstring 与一行 patch 语句就接下一条，原文如此，照录。</li>
+<li>P27 的 <code>password_pattern</code> 正则原文止于 <code>[A-Za-z0-9@$!%*?&amp;]</code>，疑似缺少 <code>{8,}</code> 与结尾锚点；原文如此，未补。</li>
+</ol>
+</article>

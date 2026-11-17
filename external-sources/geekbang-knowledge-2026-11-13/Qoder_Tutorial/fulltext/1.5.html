@@ -1,0 +1,24 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">4.1 准备起点</h2>
+<p>把 <a href="exercise-assets/ledger-starter/">ledger-starter</a> 复制到自己的 ledger 目录，使用 Python 3.10+。macOS/Linux 运行 <code>python3 -m venv .venv</code> 并 <code>source .venv/bin/activate</code>；Windows 用 <code>py -m venv .venv</code> 后激活，或直接使用 <code>.venv\Scripts\python.exe</code>。确认 <code>python --version</code> 和 <code>git --version</code>；本课参考验收使用 unittest，无需装 pytest。</p>
+<p>初始化 <code>git init -b main</code>，先看 .gitignore 排除了 data 和 reports，再提交起点。</p>
+<h2 id="wiki-h-1">4.2 交给 Qoder 的接口契约</h2>
+<pre><code class="hljs language-text">先阅读 README、fixtures/september.json 和 tests/test_contract.py，只出计划。
+实现根目录 ledger.py，Python 标准库，入口 python ledger.py。
+全局 --data 指定 JSON 路径，默认 data/records.json。
+add 必须接受 --amount（元、正数、最多两位小数）、--type（收入/支出）、--category、--date（YYYY-MM-DD）、--note。
+存储数组，每条字段 id、amount_cents（整数分）、type、category、date、note；ID 递增。
+数据不存在按空数组；坏 JSON 或非法字段给出明确错误并非零退出，不覆盖原文件。
+本章先实现 add、list；summary/report 在后续阶段完成。
+测试使用临时目录，不能读取个人账目。退出计划状态并确认权限后才修改实现。
+</code></pre><p>需求不再随生成结果改变。查看计划后先实现 add/list，再核对实际 diff。卡住时可看 <a href="exercise-assets/ledger-reference/">参考实现</a>，但先解释差异，不能跳过验收。</p>
+<h2 id="wiki-h-2">4.3 固定日期，得到可手算的数据</h2>
+<p>下面在新的 <code>data/course-september.json</code> 中运行一次，重复运行会重复追加，已有数据时先换一个新的实验文件名：</p>
+<pre><code class="hljs language-bash">python ledger.py --data data/course-september.json add --amount 8000 --<span class="hljs-built_in">type</span> 收入 --category 工资 --<span class="hljs-built_in">date</span> 2026-09-01
+python ledger.py --data data/course-september.json add --amount 35 --<span class="hljs-built_in">type</span> 支出 --category 餐饮 --<span class="hljs-built_in">date</span> 2026-09-02
+python ledger.py --data data/course-september.json add --amount 12 --<span class="hljs-built_in">type</span> 支出 --category 交通 --<span class="hljs-built_in">date</span> 2026-09-03
+python ledger.py --data data/course-september.json list
+</code></pre><p>预期恰好三条，整数分分别为 800000、3500、1200，月份均为 2026-09。使用固定日期使任何月份跟学都得到同一结果。非法金额 0.001 应报错且文件不变。</p>
+<h2 id="wiki-h-3">4.4 接到下一章</h2>
+<p>下一章先补 summary --month YYYY-MM，再用 starter 的 contract test 验证收入 800000、支出 4700、结余 795300。第 7 章 report 使用相同数据与口径，加 --export 写 CSV。data 文件不会进入 Git，Git 提交不能恢复被忽略的个人账目。</p>
+<p>提交前看 git status、git diff 与 git diff --cached，只暂存 ledger.py、tests、fixture、README、.gitignore。后续通用闭环沿用这一节，不重复启动和提交的全部步骤。</p>
+</article>

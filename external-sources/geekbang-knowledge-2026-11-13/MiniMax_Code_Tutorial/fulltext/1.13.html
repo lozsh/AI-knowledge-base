@@ -1,0 +1,9 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">12.1 先确认两端</h2>
+<p>先在普通终端验证 <code>mcode --version</code> 与登录／Provider；再在目标编辑器确认其版本支持 ACP。ACP 的 stdio 模式由编辑器启动子进程，并接管 stdin/stdout。</p>
+<h2 id="wiki-h-1">12.2 配置启动器</h2>
+<p>在编辑器的自定义 Agent 配置入口设置 command 为 mcode 的绝对路径，args 为 <code>["acp"]</code>，工作目录为当前项目。具体 JSON 外壳以该编辑器版本的 ACP 配置说明为准，不把 Zed 的配置复制到其他产品。</p>
+<p>不需要先执行 <code>mcode acp &amp;</code>。那会启动一份没有编辑器接管输入输出的进程；随后编辑器可能再启动第二份。手工 <code>mcode acp</code> 只用于查看启动错误，正常等待输入并不代表已与编辑器连接。</p>
+<h2 id="wiki-h-2">12.3 验收</h2>
+<p>在编辑器选择该 Agent，提交“只读取 README 并说明测试入口”。检查实际工具返回、项目目录和模型；再做一项可回滚的小修改并查看 diff。找不到程序时核对绝对路径及编辑器继承的环境；有进程不等于 ACP 握手成功。</p>
+<p>参考：<a href="https://agent.minimaxi.com/docs/cli/acp">MiniMax ACP 文档</a>。</p>
+</article>

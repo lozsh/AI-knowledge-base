@@ -1,0 +1,124 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>这一课把 ZCode 安装好，连接一个可用模型，再让 Agent 读取一个空工作区。结束时，<code>focus-board</code> 文件夹仍然应该是空的；我们只验证连接和工作区是否正确，不提前生成项目。</p>
+<h2 id="wiki-h-0">开始前准备</h2>
+<p>你需要：</p>
+<ul>
+<li>一台 macOS、Windows 或 Linux 电脑；</li>
+<li>能下载 ZCode 安装包的网络；</li>
+<li>一个 BigModel 账号，或你已经拥有的其他受支持模型凭据；</li>
+<li>在容易找到的位置新建一个空文件夹，名称为 <code>focus-board</code>。</li>
+</ul>
+<p>中国大陆个人用户建议走本课的 BigModel 账号登录主路径。它不要求你手动填写接口地址，也能避免把 Coding Plan 端点和通用 API 端点混在一起。是否需要付费、当前可用模型和额度，以登录后页面的实时显示为准，本教程不固定这些易变化的信息。</p>
+<h2 id="wiki-h-1">从官方页面下载安装</h2>
+<p>打开 <a href="https://zcode.z.ai/cn/docs/install">ZCode 官方安装页</a>，确认地址栏域名是 <code>zcode.z.ai</code>，再选择自己的系统和处理器架构。官方当前支持 macOS 的 Apple Silicon / Intel、Windows 的 x64 / ARM64，以及 Linux 的多种安装格式。</p>
+<h3 id="wiki-h-2">macOS</h3>
+<ol>
+<li>下载与你芯片对应的 <code>.dmg</code>。</li>
+<li>打开安装镜像，把 <code>ZCode.app</code> 拖入“应用程序”。</li>
+<li>从启动台或“应用程序”目录启动 ZCode。</li>
+</ol>
+<p>如果不知道 Mac 使用哪种芯片，打开左上角苹果菜单，选择“关于本机”。看到 Apple M 系列就选 Apple Silicon；看到 Intel 就选 Intel。</p>
+<h3 id="wiki-h-3">Windows</h3>
+<ol>
+<li>下载与设备架构匹配的安装程序；多数普通电脑使用 x64。</li>
+<li>双击运行并完成安装向导。</li>
+<li>从开始菜单或桌面快捷方式启动 ZCode。</li>
+</ol>
+<p>Windows 可能弹出防火墙或安全软件提示。先确认安装包来自官方域名，再决定是否放行；不要为了省事永久关闭安全防护。</p>
+<h3 id="wiki-h-4">Linux</h3>
+<p>根据发行版选择 AppImage、DEB 或 RPM。AppImage 第一次运行前需要可执行权限。先在终端进入安装文件所在目录，再执行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">chmod</span> +x ZCode-*.AppImage
+</code></pre><p>这里的 <code>*</code> 代表文件名中的版本和架构部分。如果目录里有多个 ZCode AppImage，最好改用完整文件名，避免同时修改无关文件。DEB 和 RPM 则使用发行版原有的软件包管理方式安装。</p>
+<h3 id="wiki-h-5">第一次启动是否成功</h3>
+<p>成功启动后应该看到首次启动设置或 ZCode 工作台，而不是系统安装器。如果应用立即退出或操作系统阻止启动，先回到官方安装页的“故障排查”部分，不要从非官方站点重新下载安装包。</p>
+<h2 id="wiki-h-6">进入工作台并打开空文件夹</h2>
+<p>首次启动时：</p>
+<ol>
+<li>选择“开始使用 ZCode”。</li>
+<li>如果出现数据迁移选项，本课程选择跳过。我们不需要导入其他工具的历史对话。</li>
+<li>在工作区选择页面打开刚才创建的 <code>focus-board</code> 文件夹。</li>
+</ol>
+<p>进入后，看左侧工作区或文件树中的名称。它应该是 <code>focus-board</code>，里面没有 <code>index.html</code>、<code>package.json</code> 或其他项目文件。如果看到个人文档或另一个项目，先关闭当前工作区，再重新打开正确文件夹。</p>
+<h2 id="wiki-h-7">连接 BigModel 账号</h2>
+<p>如果欢迎页直接显示连接选项：</p>
+<ol>
+<li>选择“连接 BigModel 继续使用”。</li>
+<li>在弹出的授权窗口登录 BigModel。</li>
+<li>完成授权并返回 ZCode。</li>
+</ol>
+<p>如果已经进入工作台：</p>
+<ol>
+<li>点击聊天输入框内显示的模型名称。</li>
+<li>在模型列表底部选择“管理模型”。</li>
+<li>进入“设置 → 模型设置”，在左侧选择 BigModel。</li>
+<li>完成账号连接，并确认供应商处于启用状态。</li>
+<li>回到聊天输入框，选择一个当前账号实际可用的 GLM 模型。</li>
+</ol>
+<p>官方连接文档把 BigModel 账号连接列为国内用户的推荐路径；可用模型由账号权限和供应商返回结果决定。<a href="https://zcode.z.ai/cn/docs/configuration">连接模型与套餐</a></p>
+<h3 id="wiki-h-8">如果你只能使用 API Key</h3>
+<p>API Key 不要粘贴到聊天输入框，也不要写进课程项目文件。只在“设置 → 模型设置”的供应商配置界面填写。</p>
+<p>BigModel 有两个容易混淆的 OpenAI 兼容地址：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>凭据用途</th>
+<th>当前官方地址</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GLM Coding Plan 编程套餐</td>
+<td><code>https://open.bigmodel.cn/api/coding/paas/v4</code></td>
+</tr>
+<tr>
+<td>开放平台资源包或充值余额</td>
+<td><code>https://open.bigmodel.cn/api/paas/v4</code></td>
+</tr>
+</tbody></table></div>
+<p>二者不是可以随意替换的镜像地址。使用哪个取决于你的账号产品。若不确定，优先返回账号授权登录，或根据官方连接文档核对凭据来源。</p>
+<h2 id="wiki-h-9">选择保守的执行方式</h2>
+<p>找到聊天输入框附近的执行模式选择器，确认当前为“变更前确认”。这是默认档位：Agent 准备修改文件或执行命令时，会先显示请求。</p>
+<p>本课只做只读验证。即便如此，保留这个模式仍有价值：如果 Agent 意外提出创建文件或安装工具，你会在操作发生前看到。</p>
+<h2 id="wiki-h-10">进行第一次只读验证</h2>
+<p>新建一个任务，把下面的内容完整发给 Agent：</p>
+<pre><code class="hljs language-text">请检查当前工作区，只进行只读操作，不要创建、修改、移动或删除任何文件，也不要安装软件。
+
+请告诉我：
+1. 当前工作区根目录的名称；
+2. 根目录中有哪些文件和子目录；
+3. 如果目录为空，请明确写“目录为空”；
+4. 你为了得到这些信息实际使用了哪些只读操作。
+</code></pre><p>Agent 可能直接使用工作区信息，也可能申请执行一个列目录的命令。若出现确认请求，先看命令是否只是读取当前 <code>focus-board</code>，路径是否正确。确认是只读操作后，可以仅允许这一次。</p>
+<h3 id="wiki-h-11">预期结果</h3>
+<p>回复的具体措辞会随模型变化，但应该明确包含：</p>
+<pre><code class="hljs language-text">工作区：focus-board
+目录为空
+</code></pre><p>它不应该声称创建了文件，也不应该把其他目录中的内容当作当前项目。</p>
+<h2 id="wiki-h-12">不依赖 Agent 的独立检查</h2>
+<p>回到左侧文件树，或者在系统的 Finder / 文件资源管理器中重新打开 <code>focus-board</code>：</p>
+<ul>
+<li>文件夹仍然为空；</li>
+<li>没有刚生成的 Markdown、配置或代码文件；</li>
+<li>ZCode 当前工作区名称仍是 <code>focus-board</code>。</li>
+</ul>
+<p>这一步证明两件事：模型连接可用，Agent 看到的工作区与你检查的是同一个目录。</p>
+<h2 id="wiki-h-13">两个最常见的阻塞</h2>
+<h3 id="wiki-h-14">授权完成后仍然没有可用模型</h3>
+<p>回到“设置 → 模型设置 → BigModel”，依次检查：</p>
+<ol>
+<li>账号连接状态是否成功；</li>
+<li>BigModel 供应商是否启用；</li>
+<li>模型选择器中是否出现账号实际有权使用的模型。</li>
+</ol>
+<p>不要凭记忆手输一个模型名。可用列表应以供应商返回结果为准。</p>
+<h3 id="wiki-h-15">浏览器能上网，ZCode 却无法连接</h3>
+<p>如果你的网络必须使用代理，打开“设置 → 常规”，填写 HTTP 代理并保存，然后重启 ZCode。官方说明中特别提醒：代理字段留空表示 ZCode 直连，不会自动读取 <code>HTTP_PROXY</code> 等系统环境变量。因此“终端可以联网”不能证明 ZCode 已经使用同一代理。<a href="https://zcode.z.ai/cn/docs/install#%E7%BD%91%E7%BB%9C%E4%BB%A3%E7%90%86">安装页的网络代理说明</a></p>
+<p>如果你的网络不需要代理，不要照抄别人的本地代理地址；错误的地址反而会让连接失败。</p>
+<h2 id="wiki-h-16">本课结束状态</h2>
+<p>现在你应该拥有：</p>
+<ul>
+<li>已安装并能启动的 ZCode；</li>
+<li>一个已连接、可回复的模型；</li>
+<li>以“变更前确认”运行的任务；</li>
+<li>一个仍然为空的 <code>focus-board</code> 工作区。</li>
+</ul>
+<p>下一课会第一次授权 Agent 写入文件。我们将只创建三个静态网页文件，并用浏览器亲自检查它们。</p>
+</article>

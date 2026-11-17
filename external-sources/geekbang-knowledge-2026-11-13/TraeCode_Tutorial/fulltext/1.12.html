@@ -1,0 +1,21 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">11.1 CLI 2.0 的非交互入口</h2>
+<pre><code class="hljs language-bash">traecli <span class="hljs-built_in">exec</span> --sandbox read-only --ask-for-approval never -o review.txt <span class="hljs-string">"只读取当前项目，列出测试入口和潜在问题，不修改文件"</span>
+</code></pre><p><code>exec</code> 是非交互入口；<code>-p</code> 选择 profile，不是 print。<code>--json</code> 输出 JSONL 事件流，不能对整份日志直接读 <code>.result</code>；需要最终机器结果时使用 --output-schema 约束，并用 -o 保存最终答复，先检查 CLI 退出码再解析。文档基线和配置见第 9 章。</p>
+<h2 id="wiki-h-1">11.2 测试门禁</h2>
+<p>先用 <code>python -m unittest discover -s tests -v</code>（自己的项目用 pytest 时才改成 pytest）作为 CI 门禁。AI Review 是补充报告，不用 grep OK 判断，NOT OK 也含 OK。不要为只读审查预授权全部 Bash。</p>
+<p>完整调用的超时应由外部 runner 或 subprocess 的总 deadline 控制；单个 Bash 工具超时不等于查询总时限。中断后核对进程树是否已停止，并保留日志。</p>
+<h2 id="wiki-h-2">11.3 Git hook 的跨平台入口</h2>
+<p>Git 只查找 <code>.githooks/pre-commit</code>，不会自动执行 pre-commit.ps1。POSIX／Git Bash 的入口可写为：</p>
+<pre><code class="hljs language-sh"><span class="hljs-meta">#!/bin/sh</span>
+<span class="hljs-built_in">exec</span> python -m unittest discover -s tests -v
+</code></pre><p>Windows 若测试逻辑放在 PowerShell，仍保留无扩展名 pre-commit 启动器：</p>
+<pre><code class="hljs language-sh"><span class="hljs-meta">#!/bin/sh</span>
+<span class="hljs-built_in">exec</span> pwsh -NoProfile -File .githooks/pre-commit.ps1
+</code></pre><p>对应 pre-commit.ps1：</p>
+<pre><code class="hljs language-powershell">python <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+<span class="hljs-keyword">exit</span> <span class="hljs-variable">$LASTEXITCODE</span>
+</code></pre><p>先确认已安装 pwsh，执行 <code>git config core.hooksPath .githooks</code>，Unix 给入口可执行权限。把一项测试临时设为必失败，尝试提交应被拒绝；恢复后才能提交。不要只看配置文件存在。</p>
+<h2 id="wiki-h-3">11.4 报告的使用</h2>
+<p>固定 schema 可要求 status 仅为 pass/fail、findings 为数组，仍不能用模型 pass 替代程序测试。运行失败、超时、格式错或缺输入均作为未完成。保留原始测试退出码，AI 成功解释失败也不能把 CI 改为成功。</p>
+<p>参考：<a href="https://docs.trae.cn/cli_command-line-parameters">CLI 2.0 参数</a>、<a href="https://git-scm.com/docs/githooks">Git hooks</a>。</p>
+</article>

@@ -1,0 +1,185 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>上一课的笔记助手已经能选资料、检索片段、生成复习卡，并保留引用来源。但使用它还需要在终端写文件路径、问题和关键词。你想把它变成每天顺手打开的小工具：勾选笔记，输入问题，先看看证据，再决定是否生成。</p>
+<p>本篇会给现有流程加一个本地网页。完成后，你能在浏览器里操作助手，同时知道页面背后到底运行了什么：文件由谁读取，密钥放在哪里，点击一次按钮会不会发出两次请求，以及关闭页面之后程序是否还在运行。</p>
+<p>完整代码下载 · 代码说明 · 上一篇：最小 RAG</p>
+<blockquote>
+<p>核实日期：2026年10月4日。示例使用 Python 3.11+、openai 3.24.0，新增 Flask 3.1.3。作者完成离线测试及本地浏览器验证，未输入真实 API 密钥，未发起付费请求。默认页面使用作者编写的固定答案演示。</p>
+</blockquote>
+<h2 id="wiki-h-0">浏览器和 Python 各负责什么</h2>
+<p>先把新入口与旧项目连起来：</p>
+<pre><code class="hljs language-text">浏览器：选择笔记、输入问题与关键词
+    ↓ 向本机 Python 提交表单
+后端：检查文件白名单 → 读取 → 检索 → 暂存本次预览
+    ↓ 返回带证据的 HTML 页面
+浏览器：核对已选片段，点击生成
+    ↓ 只提交本次预览编号
+后端：使用已暂存的资料 → 模型调用或离线演示 → 校验与保存
+    ↓ 返回结果页面地址
+浏览器：显示卡片、引用和记录文件名
+</code></pre><p>“前端”在这里就是浏览器显示的页面；“后端”是在你电脑上运行的 Python 程序。两者可以在同一台电脑上，通过 HTTP 通信。以后把服务部署到其他机器，职责仍然类似，但访问控制和运行环境会变化。</p>
+<p>我们使用 Flask 接收请求、调用 Python 函数和返回 HTML，使用它配套的 Jinja 模板显示表单与卡片。本篇采用服务器生成页面的方式，没有额外 JavaScript 框架，也不要求你先搭建前端构建工具。<a href="https://flask.palletsprojects.com/en/stable/quickstart/">Flask 入门文档</a></p>
+<p>检索、JSON 输出和引用校验继续复用前几篇。新增 <code>web_app.py</code> 负责网页入口，<code>templates/web.html</code> 负责页面布局。<code>card_pipeline.py</code> 只增加了两个可选能力：指定记录目录，以及把校验结果和文件名交回网页。原命令行入口仍保持原来的返回方式。</p>
+<p>本页生成一张卡时仍使用非流式请求。第04篇的流式聊天代码没有删除，但本次要先收到完整 JSON 并检查通过，才展示卡片。等待时浏览器会加载，后端还在工作；不能据此认定“卡住了，需要再点一次”。</p>
+<h2 id="wiki-h-1">启动本机网页，先认清运行模式</h2>
+<p>解压代码包，进入 <code>lesson-13</code> 文件夹。即使已有上篇环境，也要安装本篇依赖，因为新增了 Flask。这里固定使用已经核实的 <a href="https://pypi.org/project/Flask/3.1.3/">Flask 3.1.3</a>，不要求使用系统里可能已有的其他版本。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+<span class="hljs-built_in">cp</span> config.example.json config.json
+.venv/bin/python web_app.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements.txt
+<span class="hljs-built_in">Copy-Item</span> config.example.json config.json
+.\.venv\Scripts\python.exe web_app.py
+</code></pre><p>已有 <code>config.json</code> 就跳过复制。安装依赖需要联网，但启动默认网页和演示生成都不会请求 DeepSeek。</p>
+<p>终端应提示打开 <code>http://127.0.0.1:8765</code>，并显示调试模式关闭。保持这个终端窗口运行，在浏览器地址栏输入该地址。不要双击 <code>templates/web.html</code>：那只是模板，需要 Python 填入数据和处理表单，不能脱离后端独立运行。</p>
+<p>页面顶部应显示“离线演示 · 不请求模型”，下面是两份已勾选的笔记、问题输入框、关键词输入框和“最多片段”选项。页面没有 API Key 输入框，这是有意设计的。</p>
+<p><code>127.0.0.1</code> 指向当前电脑，<code>8765</code> 是本例监听的端口。请用完整地址中的 <code>127.0.0.1</code>，本课限制了允许的主机名，改成 <code>localhost</code> 可能收到400错误。若端口被其他程序占用，可以换一个：</p>
+<pre><code class="hljs language-bash">.venv/bin/python web_app.py --port 8766
+</code></pre><p>Windows 把 Python 路径替换为 <code>.\.venv\Scripts\python.exe</code>；浏览器地址也要改成8766。不要为了消除端口冲突而关闭不认识的进程。</p>
+<p>Flask 可能在终端提示这是开发服务器。这是预期提醒：它适合本地学习，不是直接公开给其他人访问的部署方案。<a href="https://flask.palletsprojects.com/en/stable/server/">Flask 开发服务器说明</a></p>
+<h2 id="wiki-h-2">点两次不同的按钮，完成一次离线生成</h2>
+<p>先不改默认值。确认选中了 <code>rag.md</code> 和 <code>review.txt</code>，问题是“笔记中的RAG流程是什么？”，关键词为“检索 片段”，最多片段为2。</p>
+<p>点击“预览检索证据”。此时只会读取本地文件、运行第12篇的检索器，不调用模型，也不保存新的磁盘记录。</p>
+<p>第二个页面列出所有候选片段，并明确标记“已选中”或“未选中”。应看到 F1-C2 得2分、F1-C3 得1分，两者被选中；另外两段没有被选入请求。展开“查看文件与版本对应”，确认 F1 对应 <code>rag.md</code>，并能看到规范化文本的哈希。</p>
+<p>这里展示未选片段，是为了让你判断检索有没有遗漏。<strong>页面显示的所有文字不等于都会发送到模型；只有标记为已选中的片段参与生成。</strong> 找到流程说明，核对它确实是 <code>rag.md</code> 第3行，再继续。</p>
+<p>点击“生成演示卡片（离线）”。页面将显示：</p>
+<ul>
+<li>状态 <code>validated_needs_review</code>，表示规则检查通过、语义仍待人工核对。</li>
+<li>问题及固定演示答案：先检索相关片段，再把问题和片段交给模型生成回答。</li>
+<li>引用 F1-C2、原文片段及来源行范围。</li>
+<li>一个以 <code>records/web-demo-</code> 开头、以 <code>-result.json</code> 结尾的本地文件名。</li>
+</ul>
+<p>演示是真的跑了“读取、检索、保存、校验”这些步骤，模型响应则由作者预先写好。不能因为网页能显示答案，就把它当作真实 API 已连接或模型质量已通过测试。</p>
+<p>现在做一次独立检查：回到项目目录，按页面给出的文件名打开结果记录。再找到同编号的 <code>-sources.json</code>、<code>-request.json</code>、<code>-attempt-01.json</code> 和 <code>-response.json</code>。正常演示一共新增五份文件。</p>
+<p>结果中的引用应能回到来源快照里的 F1-C2；请求中的 <code>notes</code> 应只有选中片段；<code>experiment.simulated</code> 应为 <code>true</code>，<code>usage</code> 应为 <code>null</code>。页面展示不是唯一证据，磁盘记录应与它一致。</p>
+<h2 id="wiki-h-3">为什么要先预览，再生成</h2>
+<p>一个看似自然的写法是：预览时读一遍文件，点击生成时再读一遍。问题在于两次读取之间你可能修改了笔记。页面批准的是旧证据，真正发送的却是新内容。</p>
+<p>本例会把预览结果暂存在后端内存里，并给它一个随机编号。它同时保存来源快照、问题、消息和可否生成的状态。生成按钮只提交这个编号，后端取回当时那一份资料，不接受浏览器另外塞来的“证据正文”。</p>
+<p>因此，预览之后修改磁盘文件不会影响这一次生成。若想使用新文件内容，回到首页重新预览。编号不是一个永久文档身份，只是本次进程中的一次工作记录。</p>
+<p>另外，同一个编号只能用于生成一次。关键逻辑在 <code>web_app.py</code> 中：</p>
+<pre><code class="hljs language-python">        ticket = request.form.get(<span class="hljs-string">"ticket"</span>, <span class="hljs-string">""</span>)
+        item = pending.pop(ticket, <span class="hljs-literal">None</span>)  <span class="hljs-comment"># Consume before any model call; not durable idempotency.</span>
+        <span class="hljs-keyword">if</span> item <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span>:
+            abort(<span class="hljs-number">409</span>)
+</code></pre><p><code>pop</code> 的意思是“取出并从待处理列表移除”。先移除，再进入模型请求，即使双击或旧表单被再次提交，也不会用同一个编号自动再发一遍。第二次会收到409，表示这份待处理预览已不存在。</p>
+<p>生成结束后，后端让浏览器跳转到结果页。结果页只是读取内存中的已完成结果，所以按浏览器刷新不会重新提交生成操作。你可以现在刷新一次，再检查 <code>records</code> 中有没有新增同编号以外的记录；正常不会新增。</p>
+<p>这仍不是完整的重复操作解决方案：回到首页重新预览，再生成，会得到新的编号，也可能产生新费用。程序崩溃后也没有持久化待处理编号，更没有跨设备重复请求识别。第14篇再处理持久化和更明确的操作身份。</p>
+<p>当前服务器按单线程处理请求，一次生成期间其他页面请求可能需要等待。这让入门流程更容易理解，但不是多用户并发方案。本课也没有做浏览器关闭时自动取消上游请求：生成开始后关掉标签页，后端仍可能继续并保存结果，先检查记录，不要立刻重做。</p>
+<h2 id="wiki-h-4">自己的文件怎样进入页面</h2>
+<p>命令行可以让本人明确指定任何文件路径。网页不应该照搬这个能力，提供一个能填写任意磁盘路径的输入框。</p>
+<p>本例只列出项目 <code>sample-notes</code> 目录中的普通 <code>.txt</code> 和 <code>.md</code> 文件，列表在启动时建立。它不递归扫描子目录，不接受符号链接文件，目录本身也不能是符号链接。提交时还会重新检查文件名是否在启动列表中、解析后的路径是否仍对应原文件。</p>
+<p>要加入一份资料：</p>
+<ol>
+<li>回到运行服务器的终端，按 <code>Ctrl+C</code> 停止程序。</li>
+<li>用编辑器把一份 UTF-8 小笔记保存到 <code>sample-notes/my-note.md</code>。沿用上篇的文件大小、总字数和分块边界。</li>
+<li>再次启动 <code>web_app.py</code>，重新打开首页，勾选新笔记，最多选择3份。</li>
+<li>填一个有原文依据的问题，并用空格分开关键词，然后预览。</li>
+</ol>
+<p>先确认检索结果，而不是直接追求生成。当前处于离线模式时，自定义资料、问题或关键词可以预览，但不会出现可用的固定答案生成按钮。原因是预置答案只对应默认样例；程序不能把同一张答案卡拿来冒充你新资料的结果。</p>
+<p>你还可以在首页把关键词改成“查找”，保持默认笔记再预览。页面应提示没有命中，不显示生成按钮，也不新增模型调用。这是正常的检索结果，不能推出整份笔记没有答案。</p>
+<p>本课网页没有文件上传、账号或多用户权限。这里只限制本人本地工具的输入范围，不宣称已经抵御其他本地程序恶意并发修改文件。后续如果面向不同用户，就不能把同一个资料目录和结果集合直接共享给所有人。</p>
+<h2 id="wiki-h-5">需要真实生成时，密钥从终端进入后端</h2>
+<p>默认演示足以完成本课。若你自行决定用自己的 DeepSeek API 账户进行可能计费的验证，先停止默认服务，再运行：</p>
+<pre><code class="hljs language-bash">.venv/bin/python web_app.py --live
+</code></pre><p>Windows 使用 <code>.\.venv\Scripts\python.exe web_app.py --live</code>。终端会隐藏读取密钥，然后启动网页。重新打开首页，顶部应变为“真实 API 模式 · 生成可能计费”。旧页面的校验标记和预览编号已经失效，应从新首页开始。</p>
+<p>密钥只由这个 Python 进程持有，用于创建后端 SDK 客户端，不放在 URL、HTML、浏览器输入框或运行记录中。浏览器向本机提交问题和选择，后端再与官方 API 通信；本篇没有浏览器直接调用 DeepSeek 的代码。</p>
+<p>点击预览仍不发起模型调用。核对已选片段后，才点击“发送选中证据并生成（可能计费）”。本次使用 <code>deepseek-flash</code>、关闭思考、非流式 JSON，输出预算默认1024，SDK 自动重试为0，应用层也只尝试一次。<a href="https://api-docs.deepseek.com/api/create-chat-completion/">DeepSeek 接口文档</a></p>
+<p>密钥留后端不意味着资料没有离开电脑：已选中的片段和问题会发送给 DeepSeek。完整文件来源快照、绝对路径和哈希留在本地记录中；如果笔记原文本身含敏感内容，被选中时仍会发送。</p>
+<p>真实模型不一定返回和演示一样的句子。它可能报告资料不足，也可能因为引用错误或输出截断未通过校验。页面只有在校验通过时才展示卡片；失败会显示状态，要求检查本地记录，不把原始 SDK 异常全文展示给浏览器，也不自动重发。</p>
+<h2 id="wiki-h-6">本地网页也需要明确的边界</h2>
+<p>网页比命令行多了一层浏览器输入。Flask 的 HTML 模板默认会对变量进行转义，但这并不自动解决所有网页安全问题，例如表单请求校验仍需要应用处理。<a href="https://flask.palletsprojects.com/en/stable/web-security/">Flask 安全说明</a></p>
+<p>本例做了几件与当前功能直接相关的事：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>边界</th>
+<th>本课实现</th>
+<th>解决的具体问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>访问地址</td>
+<td>只监听127.0.0.1，限制Host，关闭调试与重载</td>
+<td>避免按局域网共享服务的方式启动</td>
+</tr>
+<tr>
+<td>表单提交</td>
+<td>后端生成随机校验标记，每次POST检查</td>
+<td>不接受其他页面随意构造的无标记提交</td>
+</tr>
+<tr>
+<td>文件选择</td>
+<td>后端白名单与路径复查</td>
+<td>不靠网页复选框本身充当权限检查</td>
+</tr>
+<tr>
+<td>页面文字</td>
+<td>模板自动转义，不把模型输出当HTML渲染</td>
+<td>笔记里的HTML标签按文字显示</td>
+</tr>
+<tr>
+<td>临时状态</td>
+<td>最多20份待处理预览和20份结果</td>
+<td>避免不断点击时无限保留内存对象</td>
+</tr>
+</tbody></table></div>
+<p>启动处的代码明确给出了范围：</p>
+<pre><code class="hljs language-python">    app.run(host=<span class="hljs-string">"127.0.0.1"</span>, port=args.port, debug=<span class="hljs-literal">False</span>, use_reloader=<span class="hljs-literal">False</span>, threaded=<span class="hljs-literal">False</span>)
+</code></pre><p>表单里的随机校验标记不是 API Key，也不是用户登录身份。本例没有账号，使用同一个进程的本机使用者共用这些临时状态；它不隔离多个用户。服务也不会把 <code>records</code>、<code>config.json</code> 或整个项目目录作为可下载的静态文件目录开放。</p>
+<p>不要为了让手机访问而随手把监听地址改成 <code>0.0.0.0</code>。那会改变访问范围，随之需要重新考虑身份、配额、密钥、资料隔离与部署方式，第15篇会专门讨论。本课先把单人本机运行解释清楚。</p>
+<h2 id="wiki-h-7">停止、重启与常见问题</h2>
+<p>完成练习，回到启动服务器的终端按 <code>Ctrl+C</code>。浏览器再刷新，应无法连接；关闭浏览器标签页本身不会停止 Python 服务。</p>
+<p>再次启动后，首页可用，但之前的预览和结果地址通常会404，因为它们只保存在上一次进程的内存里。磁盘中的五份 JSON 不会因此消失，当前网页尚未实现从它们恢复历史。下一篇要解决的正是“记录已经写了，应用再次打开怎样继续用”。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>检查与处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>No module named flask</code></td>
+<td>用同一个虚拟环境安装本篇requirements，再用该环境启动</td>
+</tr>
+<tr>
+<td>网页无法连接</td>
+<td>查看终端是否还在运行、地址和端口是否一致</td>
+</tr>
+<tr>
+<td>地址占用</td>
+<td>使用 <code>--port 8766</code> 等空闲端口，并同步修改浏览器地址</td>
+</tr>
+<tr>
+<td>400或403</td>
+<td>使用127.0.0.1；重启后从新首页开始，不复用旧表单；检查选择与输入限制</td>
+</tr>
+<tr>
+<td>409</td>
+<td>同一预览已经被使用，不会再次调用；先检查结果与records</td>
+</tr>
+<tr>
+<td>旧预览404</td>
+<td>服务重启，或超过20份暂存后旧记录被淘汰；重新预览</td>
+</tr>
+<tr>
+<td>新文件没出现在列表</td>
+<td>确认位置、格式和非符号链接，重启后刷新首页</td>
+</tr>
+<tr>
+<td>自定义预览没有生成按钮</td>
+<td>离线模式的固定答案只适用默认样例；真实模式由终端显式开启</td>
+</tr>
+<tr>
+<td>点击后等待较久</td>
+<td>查看终端及结果，不连续重试；本页没有流式显示</td>
+</tr>
+<tr>
+<td>保存或请求失败</td>
+<td>保留已有记录，判断请求是否已经发送；页面不会替你重复操作</td>
+</tr>
+</tbody></table></div>
+<p>本篇通过90项离线测试，覆盖之前74项回归与16项网页边界，并实际在浏览器验证了预览、演示生成和刷新。你可以用三条标准验收：页面显示的证据能追到文件；生成结果能与磁盘记录对应；刷新结果不会再次生成。</p>
+<p>再想两个问题：重启后旧页面打不开，是否说明卡片文件被删了？不是，内存状态与磁盘文件是两回事。密钥没出现在网页里，是否说明这就是一个能公开上线的产品？也不是，本课仍是没有账号和多用户隔离的本机工具。</p>
+<p>下一篇会引入 SQLite，让会话与计划有可恢复的身份，并把重复操作处理从这一次进程扩展到持久化数据。</p>
+</article>

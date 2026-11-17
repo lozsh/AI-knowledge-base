@@ -1,0 +1,285 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>这一章做一件事：让 Agent 帮我们写出 <code>habitlog add</code> 子命令，并把"Plan Mode、权限模式、TUI 操作、pytest"四个核心东西用一遍。<br>学完这一章，你会掌握 TUI 里最常用的一组操作，并第一次真正感受到"它真的在改我的项目"。</p>
+</blockquote>
+<h2 id="wiki-h-0">5.1 这一章要达成什么</h2>
+<ul>
+<li>在项目里建好 <code>habitlog/cli.py</code>，实现 <code>add</code> 子命令</li>
+<li>把数据存到 <code>~/.habitlog/data.json</code></li>
+<li>用 pytest 写一个最小的测试并跑通</li>
+<li>走完整流程：Plan → 实现 → 测试 → 自审 → commit</li>
+</ul>
+<p>完成后你可以从命令行执行：</p>
+<pre><code class="hljs language-bash">python -m habitlog add 读书 <span class="hljs-string">"读了 50 页"</span>
+</code></pre><p>并看到一条打卡记录被写进 JSON 文件。</p>
+<h2 id="wiki-h-1">5.2 前置：解释器与开发依赖</h2>
+<p>确认 Python 3.10+，macOS/Linux 用 <code>python3 -m venv .venv</code> 后 <code>source .venv/bin/activate</code>；Windows 用 <code>py -m venv .venv</code> 后 <code>.\.venv\Scripts\Activate.ps1</code>。不能激活时直接使用该环境的 python.exe。以下 <code>python</code> 均指这个环境。</p>
+<pre><code class="hljs language-bash">python -m pip install pytest==8.4.2
+python -m pytest --version
+</code></pre><p><code>habitlog/__main__.py</code> 内容：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">from</span> .cli <span class="hljs-keyword">import</span> main
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">"__main__"</span>:
+    <span class="hljs-keyword">raise</span> SystemExit(main())
+</code></pre><p>验收 <code>python -m habitlog --help</code> 成功后再继续；没有入口时不能用 cli.py 文件存在代替此项验收。</p>
+<h3 id="wiki-h-2">启动 进入 TUI</h3>
+<p>确保在项目目录里：</p>
+<p>macOS / Linux / WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/projects/habitlog
+mcode
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$env:USERPROFILE</span>\projects\habitlog"</span>
+mcode
+</code></pre><p>TUI 启动后你应该看到：</p>
+<ul>
+<li>顶部是欢迎语 / 当前状态</li>
+<li>中间是输入框，光标在闪</li>
+<li>底部有快捷键提示</li>
+</ul>
+<p>如果还没登录，先 <code>mcode login</code>。</p>
+<h2 id="wiki-h-3">5.3 先进入 Plan Mode</h2>
+<p>TUI 里输入：</p>
+<pre><code>/plan <span class="hljs-keyword">on</span>
+</code></pre><p>回车。看到状态栏里出现 <code>Plan Mode: on</code> 之类的标识，说明进入了计划模式。</p>
+<p>Plan Mode（计划模式）的特点：</p>
+<ul>
+<li>Agent 不会直接动手改文件</li>
+<li>它会先给你讲"打算怎么改、改哪些文件、怎么验证"</li>
+<li>你确认后它才开始动手</li>
+</ul>
+<p>适合用在"目标稍微模糊、改动范围不确定、想先看方案"的场景。</p>
+<h2 id="wiki-h-4">5.4 描述第一个功能</h2>
+<p>输入框里写：</p>
+<pre><code>请用 Python 实现 habitlog 的 add 子命令：
+
+- 命令格式：habitlog add &lt;habit&gt; <span class="hljs-selector-attr">[note]</span>
+- 参数：
+  - habit: 必填，习惯名（字符串）
+  - note: 可选，本次打卡的备注
+- 行为：
+  - 把这次打卡追加到 ~/.habitlog/data<span class="hljs-selector-class">.json</span>
+  - data<span class="hljs-selector-class">.json</span> 的结构是 {<span class="hljs-string">"entries"</span>: <span class="hljs-selector-attr">[{<span class="hljs-string">"date"</span>: <span class="hljs-string">"YYYY-MM-DD"</span>, <span class="hljs-string">"habit"</span>: <span class="hljs-string">"..."</span>, <span class="hljs-string">"note"</span>: <span class="hljs-string">"..."</span>}]</span>}
+  - 如果 ~/<span class="hljs-selector-class">.habitlog</span> 目录不存在则创建
+  - 打印带日期，格式是当前本地时间 YYYY-MM-DD
+- 测试：
+  - 用 pytest 写测试，覆盖正常添加、缺 habit 参数报错两种情况
+- 约束：
+  - 运行时代码只用 Python 标准库；pytest 是开发依赖
+  - 入口在 habitlog/cli.py，提供 <span class="hljs-selector-tag">main</span>()；必须创建 habitlog/__main__.py，从 <span class="hljs-selector-class">.cli</span> 导入 <span class="hljs-selector-tag">main</span> 后以 <span class="hljs-built_in">SystemExit</span>(<span class="hljs-selector-tag">main</span>()) 调用，保证 python -m habitlog 可用。全局 <span class="hljs-attr">--data</span> 指定数据文件，add 支持 <span class="hljs-attr">--date</span> YYYY-MM-DD；测试只用临时目录，不能触碰真实 ~/.habitlog/data.json
+</code></pre><p>按回车提交。Agent 收到任务后会做几件事：</p>
+<ol>
+<li>阅读 <code>AGENTS.md</code> 了解项目约定</li>
+<li>列出它打算创建 / 修改的文件</li>
+<li>给出实现思路（数据怎么存、参数怎么解析、测试怎么写）</li>
+<li>等你确认</li>
+</ol>
+<p>如果 Agent 给了方案但还想让它细化，问一句：</p>
+<pre><code>请补充：异常路径怎么处理？<span class="hljs-built_in">JSON</span> 文件损坏怎么办？
+</code></pre><h2 id="wiki-h-5">5.5 切到 Auto 权限，放手让 Agent 干活</h2>
+<p>确认方案没问题，按 <code>Alt+M</code> 切权限到 <code>Auto</code>（你也会在状态栏看到 <code>Permission: Auto</code>）。</p>
+<p>四档权限回顾：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>适合场景</th>
+<th>注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ask</td>
+<td>日常开发、希望逐项确认</td>
+<td>每个写文件 / 跑命令都要点确认</td>
+</tr>
+<tr>
+<td>Auto</td>
+<td>常规任务、较顺畅的仓库协作</td>
+<td>高风险操作仍可能询问</td>
+</tr>
+<tr>
+<td>Full access</td>
+<td>已隔离、明确理解风险的工作区</td>
+<td>跳过常规确认，谨慎使用</td>
+</tr>
+<tr>
+<td>Off</td>
+<td>受控自动化环境</td>
+<td>关闭权限模式前先确认运行边界</td>
+</tr>
+</tbody></table></div>
+<p>教程默认日常开发用 <code>Auto</code>。如果你的环境里 Agent 一直在问要不要建文件，可以短暂切到 <code>Auto</code> 提高效率。</p>
+<h2 id="wiki-h-6">5.6 让 Agent 开始实现</h2>
+<p>TUI 里输入：</p>
+<pre><code>确认方案，开始实现
+</code></pre><p>按回车。</p>
+<p>Agent 会按计划：</p>
+<ol>
+<li>创建 <code>habitlog/__init__.py</code>（让目录变成 Python 包）</li>
+<li>创建 <code>habitlog/cli.py</code>（主程序）</li>
+<li>创建 <code>habitlog/__main__.py</code>（模块执行入口）</li>
+<li>创建 <code>tests/test_init.py</code> 或类似测试文件</li>
+</ol>
+<p>过程中你会在 TUI 看到工具调用日志。如果它问了权限（比如默认开关 "写文件"），按提示确认即可。</p>
+<h2 id="wiki-h-7">5.7 在 Agent 干活时插话：<code>/steer</code> 和 <code>/queue</code></h2>
+<p>Agent 跑起来后，<strong>有两种方式插话</strong>：</p>
+<h3 id="wiki-h-8">steer 当前响应</h3>
+<p>按 <code>Enter</code>（输入框为空时也按 <code>Enter</code>）→ 输入框获得焦点 → 写补充指令 → 回车。Agent 在当前轮里会参考你的补充。</p>
+<p>例：</p>
+<pre><code>/steer 测试文件请用 tests/test_add.py 命名
+</code></pre><h3 id="wiki-h-9">把后续指令排队</h3>
+<p>按 <code>Alt+Enter</code> 把后续指令加入队列。当前轮跑完后，Agent 自动处理队列里的下一条。</p>
+<p>例（任务进行中按 <code>Alt+Enter</code>，然后输入）：</p>
+<pre><code>实现完成后请跑 pytest 并贴出结果
+</code></pre><p>你可以用 <code>/queue</code> 查看队列里有哪些消息。</p>
+<blockquote>
+<p>习惯用法：<strong>"现在最关心的"用 steer（让当前轮立刻考虑），"接下来要做的"用 queue（按顺序处理）</strong>。</p>
+</blockquote>
+<h2 id="wiki-h-10">5.8 Agent 完成后：跑一次试试</h2>
+<p>Agent 写完代码，会在 TUI 里汇报实现摘要。这时退出 TUI（<code>/exit</code> 或 <code>Esc</code>），回到普通终端。</p>
+<h3 id="wiki-h-11">检查生成的文件</h3>
+<p>macOS / Linux / WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">ls</span> -la
+<span class="hljs-built_in">ls</span> habitlog src tests 2&gt;/dev/null
+<span class="hljs-built_in">cat</span> habitlog/cli.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> habitlog) { <span class="hljs-built_in">Get-ChildItem</span> habitlog }
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> tests) { <span class="hljs-built_in">Get-ChildItem</span> tests }
+<span class="hljs-built_in">Get-Content</span> habitlog\cli.py
+</code></pre><p>预期看到 <code>habitlog/__init__.py</code>、<code>habitlog/cli.py</code>、<code>tests/test_add.py</code> 这几个文件。</p>
+<h3 id="wiki-h-12">跑测试</h3>
+<pre><code class="hljs language-bash">python -m pytest -v
+</code></pre><p>预期看到测试通过。<code>--  -v</code>（verbose）让 pytest 列出每个测试用例的通过情况。</p>
+<h3 id="wiki-h-13">真的用一次</h3>
+<pre><code class="hljs language-bash">python -m habitlog add 读书 <span class="hljs-string">"读了 50 页"</span>
+</code></pre><p>预期看到类似 "Added check-in for '读书'" 的输出。</p>
+<h3 id="wiki-h-14">看一眼数据</h3>
+<p>macOS / Linux / WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cat</span> ~/.habitlog/data.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Content</span> <span class="hljs-variable">$env:USERPROFILE</span>\.habitlog\data.json
+</code></pre><p>预期看到一条记录：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"date"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-28"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"habit"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"读书"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"note"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"读了 50 页"</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><h2 id="wiki-h-15">5.9 让 Agent 自审</h2>
+<p>回到 TUI：</p>
+<pre><code class="hljs language-bash">mcode
+</code></pre><p>输入：</p>
+<pre><code>/<span class="hljs-meta">code</span>-review
+</code></pre><p><code>/code-review</code> 是 CLI 内置的代码审查指令。Agent 会读最近一次改动（也就是 <code>add</code> 子命令的实现），按几个常见维度自审：</p>
+<ul>
+<li>错误处理是否完备</li>
+<li>边界条件是否覆盖</li>
+<li>命名 / 可读性</li>
+<li>是否与 <code>AGENTS.md</code> 约定一致</li>
+</ul>
+<p>Agent 给出评审意见后，可能会有建议。常见的几种处理：</p>
+<ul>
+<li>同意 → <code>请按你的建议修改</code></li>
+<li>部分同意 → <code>请采纳第 1、3 条；第 2 条不改，原因：xxx</code></li>
+<li>不同意 → 解释你的判断，让它知道</li>
+</ul>
+<p>无论哪种，处理完再跑一次 pytest 确认还能过：</p>
+<pre><code class="hljs language-bash">python -m pytest -v
+</code></pre><h2 id="wiki-h-16">5.10 第一次"按规范"提交</h2>
+<p>按 4.5 节的四步走：</p>
+<p>macOS / Linux / WSL2：</p>
+<pre><code class="hljs language-bash">git status
+git diff
+git add habitlog/ tests/
+git commit -m <span class="hljs-string">"feat: implement add subcommand for habit tracking"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">git status
+git <span class="hljs-built_in">diff</span>
+git add habitlog/
+git add tests/
+git commit <span class="hljs-literal">-m</span> <span class="hljs-string">"feat: implement add subcommand for habit tracking"</span>
+</code></pre><p><code>feat:</code> 是 conventional commit 前缀，表示"新增功能"。其他常见前缀：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>前缀</th>
+<th>含义</th>
+<th>例子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>feat:</code></td>
+<td>新功能</td>
+<td><code>feat: add habit list command</code></td>
+</tr>
+<tr>
+<td><code>fix:</code></td>
+<td>修 bug</td>
+<td><code>fix: handle malformed entry</code></td>
+</tr>
+<tr>
+<td><code>docs:</code></td>
+<td>文档</td>
+<td><code>docs: update AGENTS.md</code></td>
+</tr>
+<tr>
+<td><code>test:</code></td>
+<td>测试</td>
+<td><code>test: cover streak edge case</code></td>
+</tr>
+<tr>
+<td><code>refactor:</code></td>
+<td>重构</td>
+<td><code>refactor: split storage layer</code></td>
+</tr>
+<tr>
+<td><code>chore:</code></td>
+<td>杂项维护</td>
+<td><code>chore: bump dependencies</code></td>
+</tr>
+</tbody></table></div>
+<p>预期看到 commit 成功，<code>git log</code> 能看到这次提交。</p>
+<h2 id="wiki-h-17">5.11 这一章做了什么、留下了什么</h2>
+<ul>
+<li><code>habitlog</code> 包结构建好（<code>habitlog/cli.py</code>、<code>habitlog/__init__.py</code>）</li>
+<li>第一个子命令 <code>add</code> 跑通，pytest 通过</li>
+<li>第一次 <code>/code-review</code> 自审完成</li>
+<li>第一次规范 commit 提交</li>
+</ul>
+<p>当前仓库状态：</p>
+<pre><code>habitlog<span class="hljs-symbol">/</span>
+├── .git<span class="hljs-symbol">/</span>
+├── .gitignore
+├── AGENTS.md
+├── habitlog<span class="hljs-symbol">/</span>
+│   ├── __init__.py
+│   └── cli.py
+└── tests<span class="hljs-symbol">/</span>
+    └── test_add.py
+</code></pre><p>数据保存在 ~/.habitlog/data.json，不在这个仓库里。</p>
+<h2 id="wiki-h-18">5.12 这一章的常见问题</h2>
+<h3 id="wiki-h-19">Agent 没读 <code>AGENTS.md</code></h3>
+<ul>
+<li><code>/status</code> 看 "指令文件来源" 字段，应该有 <code>AGENTS.md</code></li>
+<li>如果显示 "no instruction file"，确认 <code>AGENTS.md</code> 在仓库根目录而不是子目录</li>
+<li>重新跑 <code>mcode init .</code> 让 Agent 重新生成</li>
+</ul>
+<h3 id="wiki-h-20"><code>python -m habitlog</code> 报 "No module named habitlog"</h3>
+<ul>
+<li>确认你在仓库根目录（有 <code>habitlog/</code> 子目录的地方）</li>
+<li>确认 <code>habitlog/__init__.py</code> 文件存在</li>
+<li>pytest 是怎么跑的？pytest 也有依赖就用 pytest 直接跑</li>
+</ul>
+<h3 id="wiki-h-21">pytest 找不到测试文件</h3>
+<ul>
+<li>确认 <code>tests/</code> 目录下有 <code>test_*.py</code> 或 <code>*_test.py</code> 命名的文件</li>
+<li><code>pytest.ini</code> 或 <code>pyproject.toml</code> 里的配置可能限定了 testpaths</li>
+</ul>
+<h3 id="wiki-h-22">Agent 自审时建议的修改我没采纳</h3>
+<ul>
+<li>这是正常的。你可以在 <code>/code-review</code> 后明确告诉它不采纳哪条、为什么</li>
+<li>经验做法：保留"我接受 / 不接受"的判断权，不让 Agent 替你做决定</li>
+</ul>
+<p>下一章我们在分支上扩展三个新子命令 <code>list</code> / <code>streak</code> / <code>summary</code>，把 git 协作的完整流程走一遍。</p>
+</article>

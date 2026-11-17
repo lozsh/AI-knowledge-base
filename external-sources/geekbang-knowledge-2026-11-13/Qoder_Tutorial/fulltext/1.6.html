@@ -1,0 +1,77 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>上一章我们的「记账小管家」已经能记账了。但一个只会记、不会算的账本，价值有限——记账的意义，恰恰在于<strong>回头看清楚钱花哪儿去了</strong>。</p>
+<p>所以这一章我们要给它加上「统计分析」的本事。但在加功能之前，我想先带你经历每个程序员都逃不掉的两件事：<strong>遇到 bug、以及用测试防住 bug。</strong></p>
+<p>我会故意制造一个 bug，让你看看 Qoder 是怎么像个老练的侦探一样排查问题的。学会了这个，你以后面对满屏红色报错时，就不会再手心冒汗了。</p>
+<h2 id="wiki-h-0">5.1 先来点刺激：制造一个 bug，看 Qoder 怎么破案</h2>
+<p>先完成 <code>summary --month YYYY-MM</code>，沿用第 4 章整数分字段，运行 <code>python -m unittest discover -s tests -v</code>。固定九月样例应收入 800000、支出 4700、结余 795300；不一致时先打印被纳入统计的三条记录。</p>
+<p>然后在独立的 data/broken-lab.json 写入 <code>{broken</code>，调用 <code>python ledger.py --data data/broken-lab.json list</code>。这是确定的非法输入，不依赖 AI 恰好写出某种缺陷。用前后文件内容或哈希确认程序没有覆盖它。不要修改个人 records.json。</p>
+<h2 id="wiki-h-1">5.2 把报错交给 Qoder：正确的求助姿势</h2>
+<p>把实际命令、工作目录、退出码和 stderr 交给 Qoder，要求只分析。预期是非零退出和清楚的“数据格式错误”提示；若出现 Traceback 或覆盖原文件，先写失败回归测试再修复。若原本已友好处理，直接补回归覆盖，不把“没有 bug”当作复现失败。</p>
+<p>坏 JSON 位于专用文件，实验结束可保留为 fixture；无需恢复或删除个人数据。进入重构前完整测试必须全绿，记录提交号作为下一章起点。</p>
+<h2 id="wiki-h-2">5.3 给代码上保险：让 Qoder 写测试</h2>
+<p>刚才那个 bug，是我们<strong>手动</strong>去试探才发现的。但手动试探有个大问题：你今天试了负数，明天改了代码，又得重新试一遍，谁受得了？</p>
+<p>这就需要<strong>自动化测试</strong>——写一段专门的代码，让它自动去检查「你的程序在各种情况下表现对不对」。以后每次改动，跑一遍测试，几秒钟就知道有没有把原来好的功能改坏。这就是程序员常说的「测试是一张安全网」。</p>
+<p>很多人不爱写测试，觉得枯燥又费时。而这恰恰是 Qoder 最能帮你省心的地方之一。跟它说：</p>
+<blockquote>
+<p>帮我为记账工具写一些单元测试，用 Python 标准的 unittest 就行（不用装额外的东西）。重点覆盖这些情况：正常记一笔账、统计收入和支出的总额、以及金额为负数或数据异常时程序不应该崩溃。</p>
+</blockquote>
+<p>Qoder 会创建一个测试文件（通常叫 <code>test_ledger.py</code> 之类），并写好一个个测试用例。写完之后，让它运行测试，或者你自己跑：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover
+</code></pre><p>如果一切正常，你会看到类似 <code>OK</code> 的字样，以及跑了几个测试。如果某个测试失败了，它会显示 <code>FAILED</code> 并告诉你是哪个——这时候又可以像 5.2 那样，把失败信息交给 Qoder 去查。</p>
+<blockquote>
+<p><strong>让 Qoder 自己把关：<code>/verify</code>。</strong> 除了手动跑测试，Qoder 内置了一个 <code>/verify</code> 技能，专门用来「验证改动是否真的成立」。敲 <code>/verify</code>，它会主动去运行相关测试、检查功能是否按预期工作，把「我以为改好了」变成「我验证过确实好了」。养成「改完就 <code>/verify</code> 一下」的习惯，能帮你挡掉大量「看着对、其实错」的问题。</p>
+</blockquote>
+<p><strong>这里我想让你建立一个观念</strong>：有了测试之后，你后面再改代码就「有底气」了。因为你随时能一键验证「我这么改，有没有把别的地方弄坏」。测试不是负担，而是让你敢于大胆修改的靠山。而 Qoder 帮你把写测试这件苦差事变得轻松，你就更没有理由偷懒了。</p>
+<p>测试写好了，也提交一下：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"test: 为记账和统计功能添加单元测试"</span>
+</code></pre><h2 id="wiki-h-3">5.4 顺势重构：加一个「按分类统计」的功能</h2>
+<p>现在我们有功能、有测试、有存档，是时候做一次「优雅地长大」了。</p>
+<p>我们来加一个更实用的功能：<strong>按分类看消费</strong>。比如「这个月餐饮花了多少、交通花了多少」。跟 Qoder 说：</p>
+<blockquote>
+<p>现在我想加一个功能：按分类汇总支出，让我能看到每个分类各花了多少钱。请你先看看现有的代码结构，如果为了让这个新功能加得干净、不破坏原有逻辑，需要调整一下代码的组织方式，你可以顺便重构一下。改完记得跑一遍我们已有的测试，确保没把原来的功能弄坏。</p>
+</blockquote>
+<p>这段话里藏着一个很重要的做法，我要单独点出来：<strong>「改完跑一遍已有测试」</strong>。</p>
+<p>这就是前面写测试的回报时刻。当 Qoder 一边加新功能、一边调整（重构）老代码时，我们最怕的就是「新的加上了，老的搞坏了」。而有了测试，它每改一步都能自动验证，你也就能放心。重构（refactor）这个词你可能会觉得玄乎，其实说白了就是：<strong>在不改变功能的前提下，把代码整理得更清晰、更合理。</strong> 就像把乱糟糟的抽屉重新归置一遍，东西还是那些东西，但用起来顺手多了。</p>
+<blockquote>
+<p><strong>想专门给代码「瘦身」：<code>/simplify</code>。</strong> 如果你不是加功能，而是单纯觉得某段代码写得啰嗦、想让它更简洁干净，可以敲 <code>/simplify</code>。这个技能专门做「在不改变行为的前提下，把代码简化、整理」。重构完同样记得 <code>/verify</code> 跑一遍测试，确认功能没变。</p>
+</blockquote>
+<p>等它做完、测试全绿（全部通过），你再亲自跑一下新功能确认效果：</p>
+<pre><code class="hljs language-bash">python3 ledger.py summary --by-category
+</code></pre><p>（命令以实际实现为准。）看着自己一点点做大的工具，是不是挺有成就感？</p>
+<p>存档：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"refactor: 重构数据结构并支持按分类统计"</span>
+</code></pre><h2 id="wiki-h-4">5.5 第一道后悔药：<code>/rewind</code> 撤销 Qoder 的改动</h2>
+<p>在动用 git 之前，我要先教你一个更贴身、更常用的「后悔药」——<strong><code>/rewind</code></strong>。</p>
+<p>场景是这样的：Qoder 刚帮你改了一通代码，结果越改越乱，或者你压根就不喜欢它这次的改动，想「当作它没动过」。这时候你不需要去折腾 git，直接敲：</p>
+<pre><code>/rewind
+</code></pre><p>它会弹出一个<strong>检查点（checkpoint）列表</strong>——Qoder 在干活的过程中会自动打下一个个「快照」，记下每个节点的状态。你从列表里挑一个想回到的时间点，然后选择要恢复什么：</p>
+<ul>
+<li><strong>只恢复对话</strong>：把聊天上下文退回到那时候，但代码保持现状；</li>
+<li><strong>只恢复文件</strong>：把代码退回到那时候的样子，对话不动；</li>
+<li><strong>两者都恢复</strong>：对话和代码一起「穿越」回去。</li>
+</ul>
+<p>对「AI 刚改坏了、我想立刻退回它动手之前」这种高频情况，<code>/rewind</code> 是最快、最省心的解法——它专门管 Qoder 自己造成的改动，一步到位。</p>
+<p><strong>那 <code>/rewind</code> 和 git 有什么区别？</strong> 一句话记住：</p>
+<blockquote>
+<p><strong><code>/rewind</code> 管的是「Qoder 这一轮改了啥」，粒度细、随手就能撤；git 管的是「整个项目的历史存档」，粒度粗、但永久可靠、还能跨设备。</strong> 两者不冲突，是两层保险。</p>
+</blockquote>
+<p>所以实际的后悔顺序应该是：<strong>先想 <code>/rewind</code>（撤销刚才的 AI 改动）；如果问题更大、要退回某个更早的「正式版本」，再动用 git。</strong></p>
+<h2 id="wiki-h-5">5.6 更大的回退：动用 git 存档</h2>
+<p>如果 <code>/rewind</code> 也救不了你——比如你想退回的是好几个功能之前、某个已经 <code>git commit</code> 存档过的「正式版本」——这时候 git 的存档就派上大用场了。先看看你都有哪些存档点：</p>
+<pre><code class="hljs language-bash">git <span class="hljs-built_in">log</span> --oneline
+</code></pre><p>它会列出你的提交历史，每一行是一个存档，前面有一串字符（叫 commit 哈希，比如 <code>a1b2c3d</code>）。</p>
+<p>在动手回退之前，我要<strong>特别郑重地提醒你一件事</strong>：git 的回退操作里，有一些是「会丢弃你未保存的改动」的，用错了可能把你还没提交的心血弄没。所以：</p>
+<ul>
+<li><strong>回退前先敲一句 <code>git status</code></strong>，看看有没有「改了但还没提交」的东西。如果有，而你又不确定要不要留，可以先用 <code>git stash</code> 把它们临时收起来（相当于「先放进口袋，别丢」），这样最安全。</li>
+<li>如果你只是想<strong>看看</strong>某个旧版本长啥样，而不想真的退回去，可以用 <code>git checkout &lt;哈希&gt;</code> 去「参观」一下，看完再 <code>git checkout main</code>（或你所在的分支名）回来。</li>
+<li>真正要把项目<strong>彻底退回</strong>某个存档点，是个需要谨慎的操作。在你还不完全清楚后果之前，<strong>我建议你不要自己乱敲那些带有 <code>--hard</code>、<code>reset</code> 字样的命令</strong>，而是直接问 Qoder：「我想把项目安全地退回到上一个能用的版本，应该怎么做？会不会丢掉我没保存的东西？」让它结合你的具体情况给你最稳妥的命令，并在你理解每一步含义后再执行。</li>
+</ul>
+<p>我把这一点讲得这么啰嗦，是因为<strong>「删数据、回退」这类操作一旦做错，代价很高、又很难挽回。</strong> 养成「危险操作前先问清楚、先保护好未保存的东西」的习惯，会让你在漫长的编程生涯里少掉很多头发。</p>
+<p>好消息是：正因为我们从头就坚持<strong>小步提交</strong>，你现在其实很少需要「大回退」——最多也就是退回最近的一个存档，损失的不过是几分钟的工作量。看，好习惯又一次保护了你。</p>
+<hr>
+<p>这一章信息量不小，我们经历了完整的「酸甜苦辣」：<strong>遇到 bug 用 <code>/debug</code> 请 Qoder 破案、用 <code>/verify</code> 跑测试上保险、在测试保护下用 <code>/simplify</code> 安全重构、还学会了先用 <code>/rewind</code> 撤销 AI 改动、再必要时动用 git 回退。</strong> 你还第一次真切体会到：内置的 skill（<code>/debug</code> <code>/verify</code> <code>/simplify</code>）就是 Qoder 替你把「专业流程」打包好了，敲一个命令就能用上。</p>
+<p>到这里，你的「记账小管家」已经有了记账、汇总、按分类统计的能力，而且代码有测试兜底、历史有 git 记录。它已经像模像样了。</p>
+<p>下一章，我们跳出这个小程序，去见识 Qoder 更广阔的天地：<strong>怎么让它帮你在陌生代码库里探路、怎么用 skills 和 MCP 把它连接到外部世界、怎么让它记住你的偏好越用越懂你。</strong></p>
+<p><strong>翻到第 6 章，我们打开格局。</strong></p>
+</article>

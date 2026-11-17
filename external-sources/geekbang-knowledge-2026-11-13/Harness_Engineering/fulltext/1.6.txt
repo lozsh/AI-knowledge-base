@@ -1,0 +1,343 @@
+预计阅读与操作时间：45～60 分钟
+本篇目标：把标签筛选的产品规则转成一条可重复运行的验收命令，并建立“先复现、再修改、再验收、再回归”的 Definition of Done。
+
+配套代码说明
+
+本篇加入 assets/lesson-05-validation/，为“标签筛选”建立一条任务专用、先红后绿的验收链：
+
+lesson-05-validation/
+├── acceptance/
+│   └── tag-filter.contract.js   # 八项验收契约（故意不用 .test.js 后缀）
+├── scripts/
+│   └── accept-tag-filter.js     # 验收执行器：受保护文件比较 + 跑契约
+├── package.json                 # 新增 accept:tag-filter 入口
+├── AGENTS.md                    # 声明受保护文件，禁止实施者自行修改
+└── docs/DEVELOPMENT.md          # 加入六步 Definition of Done
+
+
+各文件实现的功能：
+
+acceptance/tag-filter.contract.js 是核心，包含八项检查：① 页面存在 id="tag-filter" 控件及“标签”文本；② public/filter-books.js 导出 filterBooks 纯函数接口；③ 科幻 恰好返回 book-001、book-006；④ 技术+reading 返回 book-003、book-008；⑤ all+planned 返回 book-004、book-007（专门防“清标签连状态一起清”的错）；⑥ public/app.js 真的读取 #tag-filter 并调用 filterBooks；⑦ 不匹配关键词必须排除结果；⑧ 非空关键词、状态与标签共同限制结果。它读取真实 data/books.json 但不修改数据，且故意不用 .test.js 后缀，避免被 npm test 的自动发现误当成已实现功能。
+scripts/accept-tag-filter.js 是执行器：先做受保护文件比较（git diff --exit-code main -- acceptance/tag-filter.contract.js docs/PRODUCT_RULES.md，不一致就失败），再用 node --test 显式运行契约文件。它支持 ACCEPTANCE_BASE 环境变量覆盖基线分支名。
+package.json 新增 accept:tag-filter，与 check 刻意分开——check 是“当前主线应始终满足的回归基线”，accept 是“尚未完成的任务目标”，实现前就应该失败。
+AGENTS.md / DEVELOPMENT.md 落地两层防作弊：前者把验收契约和产品规则标为受保护文件；后者把完成标准写成六步 DoD（复现失败→最小实现→不改受保护输入→专项验收通过→回归通过→查 Diff 并人工验证）。
+
+这里最关键的设计是“执行者不能移动终点”：因为 Agent 通常同时拥有仓库写权限，技术上它也能改测试。本篇用三层防护（受保护文件声明 + 运行前与 main 比较 + 人/CI 审查最终 Diff）来约束这件事，同时也诚实地说明——本地脚本是护栏，不是不可攻破的安全边界。
+
+到目前为止，ShelfCare 的 npm run check 可以证明环境、语法和现有两项测试正常。但如果 Agent 只给页面加了一个没有作用的下拉框，这条命令仍会变绿。
+
+这不是测试数量少这么简单，而是验证对象错了：我们验证了项目“没有明显坏掉”，却没有验证任务“真的完成”。
+
+这一篇先不实现标签筛选。我们会把预期结果写成独立验收，让它在当前 main 上明确失败。第八篇 Agent 接到原始任务时，必须把这条红色验收变绿，同时保持回归检查通过。
+
+先分清三层证据
+
+一个功能任务通常需要不止一种检查。
+
+层次	证明什么	ShelfCare 中的例子
+单元或数据测试	小块逻辑与数据约束正确	图书数据可读、状态值合法
+任务验收	本次需求的关键规则被满足	标签与搜索、状态使用 AND 组合
+用户行为验证	真正运行时，用户能完成操作	页面能选择标签并看到正确书目
+
+npm test 目前主要是第一层。本篇增加第二层。第三层需要页面和运行状态反馈，放到下一篇完成。
+
+这三层不是“越往下越高级”，而是证明范围不同。单元测试很快，适合定位；任务验收紧贴需求；真实用户行为最接近最终体验，但执行成本也更高。可靠的完成判断通常需要组合它们。
+
+从产品规则提取验收条件
+
+先打开 docs/PRODUCT_RULES.md。标签筛选至少有这些可判断条件：
+
+页面存在标签筛选控件；
+标签值 科幻 只保留两本科幻书；
+标签 技术 与状态 reading 同时生效；
+标签恢复为 all 时，只移除标签条件；
+页面代码真的读取标签控件并调用统一筛选函数。
+
+这里故意没有把“控件必须是绿色”“必须放在搜索框右边”写进验收。那些不是当前产品契约，写进去只会把一种实现偏好伪装成正确性。
+
+同样，验收也不应该只检查某段字符串存在。一个静态文本里出现“科幻”，不能证明筛选逻辑工作。我们会把核心逻辑约定成一个纯函数接口：
+
+filterBooks(books, { keyword, status, tag })
+
+
+纯函数不依赖 DOM，Node 测试可以直接输入图书和条件，再检查输出 ID。页面仍要负责读取控件和渲染结果，但最容易出错的组合逻辑可以快速、确定地验证。
+
+加入一条任务专用验收命令
+
+确认当前位于 shelfcare-lab 的 main 分支，且第四篇已经提交：
+
+git status --short --branch
+git log -1 --oneline
+
+
+工作区应干净，最近提交类似 build: add stable local project commands。
+
+复制本篇资产。
+
+macOS 或 Linux：
+
+cp -R ../assets/lesson-05-validation/. .
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force ..\assets\lesson-05-validation\* .
+
+
+新增的核心文件是：
+
+acceptance/tag-filter.contract.js
+scripts/accept-tag-filter.js
+
+
+同时更新 package.json、AGENTS.md 和 docs/DEVELOPMENT.md。新的项目入口是：
+
+npm run accept:tag-filter
+
+
+它与 npm run check 故意分开。check 代表当前主线应始终满足的回归基线；accept:tag-filter 代表尚未实现的任务目标，在开始工作前就应该失败。如果现在把它塞进 check，后续每一篇 Harness 改造都会因为“功能还没做”而无法获得绿色基线。
+
+先运行一次失败的验收
+
+运行：
+
+npm run accept:tag-filter
+
+
+当前代码没有 #tag-filter 控件，也没有 public/filter-books.js，所以命令应以非零退出码结束。示例输出会包含多项失败，例如：
+
+not ok ... the page exposes a tag-filter control
+not ok ... the browser filter module exports the agreed interface
+...
+fail 6
+
+
+Node 版本不同，行号和排版可能不同。判断成功复现的标准不是固定的失败数，而是：失败原因明确指向尚未实现的标签控件、筛选接口和页面集成。
+
+如果这条命令现在反而通过，说明你的 main 很可能还残留第二篇基线分支的实现。运行：
+
+git status --short --branch
+git log --oneline --decorate -5
+
+
+先确认自己没有停在 baseline-attempt，也没有把基线实现合并进 main。
+
+红色验收不是项目损坏
+
+运行下面的回归检查：
+
+npm run check
+
+
+它应继续以 [check] All checks passed. 结束。这两个结果可以同时成立：
+
+当前项目基线：健康
+未来任务目标：尚未完成
+
+
+这比“所有测试必须永远是绿色”更接近真实开发。关键是团队要清楚哪条命令代表当前回归，哪条命令代表正在实现的目标。
+
+验收测试到底检查了什么
+
+打开 acceptance/tag-filter.contract.js。它使用真实的 data/books.json，但不修改数据，包含八项检查。文件故意不使用 .test.js 后缀，避免 Node 的默认测试发现把尚未实现的任务契约混入 npm test；专项入口会显式运行它。
+
+1. 页面有可定位的标签控件
+
+测试要求 public/index.html 中存在 id="tag-filter"，并有“标签”文本。稳定 ID 既方便 JavaScript 绑定，也方便后续浏览器工具定位。
+
+2. 筛选逻辑有明确接口
+
+测试要求 public/filter-books.js 导出 filterBooks。这个文件当前不存在，所以它会失败。明确接口让 Agent 不必猜验收怎样调用功能，也把组合逻辑从 DOM 事件里分离出来。
+
+3. 用固定样本验证产品规则
+
+测试直接检查：
+
+科幻 -> book-001、book-006
+技术 + reading -> book-003、book-008
+all + planned -> book-004、book-007
+
+
+最后一个例子专门防止一种常见错误：用户清除标签后，状态筛选也被一起清空。
+
+4. 页面接入了新逻辑
+
+测试还要求 public/app.js 读取 #tag-filter，并调用 filterBooks(...)。这只是轻量集成信号，不能替代真实浏览器行为；它至少能阻止 Agent 只写一个从未被页面使用的纯函数。
+
+这组验收没有规定 CSS 类名、模块内部变量或代码行数。它固定的是输入、输出和必要连接点，把实现空间留给 Agent。
+
+Definition of Done 不等于“一条测试绿了”
+
+更新后的 docs/DEVELOPMENT.md 为标签任务定义了六步完成标准：
+
+1. 复现验收失败
+2. 按产品规则做最小实现
+3. 不修改受保护的验收输入
+4. npm run accept:tag-filter 通过
+5. npm run check 通过
+6. 检查 Diff，并手动验证受影响页面
+
+
+它对应一条完整证据链：
+
+先复现 -> 证明测试能发现缺失
+再实现 -> 只改变功能代码
+专项验收 -> 证明任务规则满足
+回归检查 -> 证明旧能力没被破坏
+Diff 审查 -> 证明修改范围合理
+运行验证 -> 证明真实页面可用
+
+
+只跑最后一条绿色测试不够。如果没有先看见它失败，就无法确认测试是否真的覆盖了缺失功能；如果不跑回归，可能新筛选正确但旧搜索坏了；如果不看 Diff，Agent 可能通过修改数据或验收标准获得绿色结果。
+
+防止“修改考试题获得满分”
+
+执行功能的 Agent 通常同时拥有仓库写权限，因此它技术上也能修改测试。并非每次修改测试都是作弊——需求变化时测试当然要变——但执行者不能在没有说明的情况下自行降低标准。
+
+本篇用了三层保护。
+
+第一层：把验收输入明确标成受保护
+
+AGENTS.md 写明，实施标签筛选时不得修改：
+
+acceptance/tag-filter.contract.js
+docs/PRODUCT_RULES.md
+
+
+如果产品契约确实要变，Agent 应停止并请求评审，而不是一边改实现一边移动终点。
+
+第二层：运行前与 main 比较
+
+scripts/accept-tag-filter.js 会运行类似下面的 Git 比较：
+
+git diff main -- acceptance/tag-filter.contract.js docs/PRODUCT_RULES.md
+
+
+在未来的任务分支中，只要受保护文件与 main 不同，验收就先失败。如果你的基线分支名不是 main，可以显式指定：
+
+macOS、Linux 或 Git Bash：
+
+ACCEPTANCE_BASE=your-base npm run accept:tag-filter
+
+
+Windows PowerShell：
+
+$env:ACCEPTANCE_BASE="your-base"
+npm run accept:tag-filter
+
+
+本教程统一使用 main，通常不需要设置。
+
+第三层：人或 CI 审查最终 Diff
+
+本地保护脚本也在同一个仓库里，拥有完全写权限的 Agent 理论上仍可修改它。真正高风险项目应该让 CI 或外部评审从可信基线运行检查，并限制谁能改验收规则。
+
+ShelfCare 不搭建远程 CI，但仍保留最重要的一步：完成前运行 git diff main...HEAD，确认验收与产品规则没有被悄悄弱化。Harness 的边界应该诚实；本地脚本是护栏，不是不可攻破的安全边界。
+
+验证这条验收链路本身
+
+现在做四个检查。
+
+第一，确认新测试文件语法正确：
+
+node --check acceptance/tag-filter.contract.js
+node --check scripts/accept-tag-filter.js
+
+
+两条命令都应没有输出并返回 0。
+
+第二，确认专项验收按预期失败：
+
+npm run accept:tag-filter
+
+
+失败应来自缺少功能，而不是 JSON 解析、路径拼写或测试脚本语法错误。
+
+第三，确认主线回归仍通过：
+
+npm run check
+
+
+第四，先把本篇文件加入暂存区，再查看完整改动范围。这样新文件也会进入 Diff；单纯运行 git diff 不会显示尚未跟踪的文件。
+
+git add package.json scripts/accept-tag-filter.js acceptance AGENTS.md docs/DEVELOPMENT.md
+git diff --cached --check
+git diff --cached --stat
+git diff --cached -- acceptance/tag-filter.contract.js docs/PRODUCT_RULES.md
+
+
+最后一条应显示新加入的验收文件，而 docs/PRODUCT_RULES.md 没有变化。我们把已有产品规则机器化，没有趁机改需求。若发现不该提交的文件，可以用 git restore --staged <路径> 将它移出暂存区，不会删除工作区内容。
+
+确认后提交：
+
+git commit -m "test: add tag-filter acceptance contract"
+git status --short --branch
+
+
+提交后再次运行 npm run accept:tag-filter，它仍应因为功能缺失而失败，但不再提示受保护文件与 main 不同——因为验收契约本身已经成为 main 的基线。
+
+让 Agent 读懂完成标准
+
+开一个新的只读 Agent 会话，给出：
+
+不要修改文件。请说明“按标签筛选藏书”任务的 Definition of Done：
+1. 开始实现前应该运行什么；
+2. 哪些文件不能由实施者自行修改；
+3. 完成前要提供哪些自动化与人工证据；
+4. 当前 main 为什么允许一条验收失败。
+请引用仓库内的依据。
+
+
+合格回答应引用 AGENTS.md、docs/DEVELOPMENT.md、docs/PRODUCT_RULES.md 和 acceptance/tag-filter.contract.js，并分清：
+
+npm run check 是当前回归基线；
+npm run accept:tag-filter 是未完成任务的目标；
+第八篇实现任务后，两者都必须通过；
+页面行为还需要真实运行证据。
+
+如果 Agent 把当前红色验收当成“仓库已经坏了”，说明文档没有让这两个层次足够清楚。先修知识入口，不要靠每次对话口头解释。
+
+常见阻塞
+验收失败，但原因是 Cannot find module
+
+如果缺少的是 public/filter-books.js，这是预期的功能缺口；测试会把它转成明确断言。如果缺少的是 data/books.json 或其他已有文件，先运行 npm run setup，这属于项目基线损坏，不是正确的红色验收。
+
+验收先提示 protected inputs differ from main
+
+运行：
+
+git diff main -- acceptance/tag-filter.contract.js docs/PRODUCT_RULES.md
+
+
+如果改动只是本篇文件尚未提交，先按步骤提交验收契约；如果是在功能分支中被 Agent 修改，审查差异并恢复未经批准的改动。不要为了让命令变绿而关闭比较。
+
+当前仓库的默认分支不叫 main
+
+本教程第二篇已经统一成 main。若你把方法迁移到自己的仓库，设置 ACCEPTANCE_BASE 指向真实基线分支，或在脚本配置中明确默认值。不要在每个人的电脑上靠不同的隐含分支名运行。
+
+想把所有未来需求都提前写成失败测试
+
+不要。只为已经确认、即将实施的任务建立验收。大量长期失败的测试会让红色失去信号价值，也容易在需求变化后变成垃圾。验收是任务契约，不是愿望清单。
+
+Agent 建议直接把验收加入 npm run check
+
+在功能实现完成并进入主线后，可以考虑把稳定的标签回归测试纳入普通测试；但当前阶段还不行。否则第六、七篇只改 Harness 也会一直失败。何时从“任务验收”升级为“长期回归”，应该在功能合并时决定。
+
+本篇留下了什么
+
+ShelfCare 现在同时拥有两条含义明确的验证线：
+
+npm run check
+  -> 当前主线是否健康
+
+npm run accept:tag-filter
+  -> 标签筛选任务是否达到完成标准
+
+
+第二条目前应该是红色，而且失败原因可解释。我们还保护了产品规则和验收输入，避免执行 Agent 通过移动终点获得“完成”。
+
+不过，这条验收仍然没有真正点击网页。它验证了控件标记、纯筛选逻辑和页面接入信号，却看不到浏览器控制台、运行日志和用户实际看到的结果。下一篇会把这些运行状态暴露出来，让 Agent 能从“页面有问题”一路追到可检查的证据。
+
+验收链补充检查
+
+在提交固定验收资产并确认基线存在后，先跑正常实现，再在实验副本中暂时忽略 keyword 条件；新增的非空关键词／无匹配关键词断言必须失败。恢复实现后重新通过。子进程被信号终止、启动失败或基线不存在都应返回非零，不能打印成功。首次接入先按本章提交验收契约，再运行受保护基线比较。

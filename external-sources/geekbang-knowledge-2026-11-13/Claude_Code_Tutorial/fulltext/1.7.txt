@@ -1,0 +1,420 @@
+预计用时：60～90 分钟
+本篇目标：让 Claude Code 在固定需求、固定菜谱和课程验收器约束下完成 MealCraft 1.0，并用单元测试、真实 HTTP 请求和浏览器操作三层验收。
+
+第 5 篇留下了 REQUIREMENTS.md、PROJECT_BRIEF.md、PLAN.md 和 6 份固定菜谱。本篇不会把一句“请完整实现”交给 Claude 后等待结果，而是先加入课程提供的测试，再分四个阶段推进。
+
+开始状态
+
+进入项目：
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course/mealcraft
+python3 scripts/verify_planning_state.py
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course\mealcraft"
+py scripts/verify_planning_state.py
+
+
+必须先看到：
+
+PASS: MealCraft 规划状态完整，6 份固定菜谱通过契约检查
+
+
+如果没有通过，回到第 5 篇修复规划状态。不要让实现阶段顺手改写需求或固定数据。
+
+复制课程提供的实现验收包
+
+如果当前终端没有第 5 篇的教程根目录变量，重新设置。路径必须替换为你的实际位置。
+
+macOS、Linux 或 WSL2：
+
+export COURSE_SOURCE="/替换为实际路径/claude-code-tutorial-v0.2"
+test -f "$COURSE_SOURCE/exercise-assets/mealcraft/implementation-kit/tests/test_scaling.py"
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/implementation-kit/." .
+
+
+Windows PowerShell：
+
+$CourseSource = "C:\替换为实际路径\claude-code-tutorial-v0.2"
+if (-not (Test-Path "$CourseSource\exercise-assets\mealcraft\implementation-kit\tests\test_scaling.py")) { throw "实现验收包路径错误" }
+Copy-Item "$CourseSource\exercise-assets\mealcraft\implementation-kit\*" -Destination . -Recurse
+Copy-Item "$CourseSource\exercise-assets\mealcraft\implementation-kit\.gitignore" -Destination .
+
+
+新增内容应只有：
+
+.gitignore
+tests/__init__.py
+tests/test_recipes.py
+tests/test_scaling.py
+scripts/verify_release.py
+
+
+这些是课程的外部验收标准。本篇实施期间不允许 Claude 为了让结果变绿而修改它们。
+
+把验收包也加入 Git 暂存基线，后面才能可靠发现它是否被改过：
+
+git add .gitignore tests scripts/verify_release.py
+git status --short
+
+
+预期这些文件显示为新增并已暂存。暂存不是提交，也不会妨碍后面继续创建实现文件。
+
+先观察确定的失败基线
+
+在实现任何程序前运行固定测试。
+
+macOS、Linux 或 WSL2：
+
+python3 -m unittest discover -s tests -v
+
+
+Windows PowerShell：
+
+py -m unittest discover -s tests -v
+
+
+预期失败：Python 报告找不到 mealcraft 包或其中的模块。这个失败证明测试真正指向尚未实现的代码。
+
+再运行发布检查器。
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_release.py
+
+
+Windows PowerShell：
+
+py scripts/verify_release.py
+
+
+预期以 FAIL: 缺少发布文件 退出，并列出 app.py、领域模块、静态文件或 README。此时失败是正确基线，不要删减测试或检查清单。
+
+启动 Claude 并保护固定输入
+
+从 MealCraft 根目录启动：
+
+claude
+
+
+先发送只读交接任务：
+
+只读检查 REQUIREMENTS.md、PROJECT_BRIEF.md、PLAN.md、tests/ 和 scripts/verify_release.py。
+
+请汇报：
+1. 固定模块接口和 HTTP 接口；
+2. 13 个 unittest 覆盖的行为；
+3. 发布检查器会发出的真实 HTTP 请求；
+4. 四阶段预计创建的文件；
+5. 哪些固定文件在实施中禁止修改。
+
+现在不要写文件，不要安装依赖，不要运行服务器。
+
+
+正确汇报应识别这些 Python 接口：
+
+mealcraft.scaling.scale_amount
+mealcraft.recipes.RecipeDataError
+mealcraft.recipes.load_recipes
+mealcraft.recipes.filter_recipes
+mealcraft.recipes.get_recipe
+mealcraft.recipes.scaled_recipe
+
+
+以及启动契约：
+
+python3 app.py --host 127.0.0.1 --port 8000
+
+
+如果 Claude 建议改测试来适配另一个接口，要求它回到固定契约。若你认为课程测试本身有错误，应停止实施并先独立核对，而不是授权模型修改验收器。
+
+阶段 1：领域逻辑
+
+发送：
+
+实施 PLAN.md 的阶段 1，只创建：
+- mealcraft/__init__.py
+- mealcraft/scaling.py
+- mealcraft/recipes.py
+
+严格实现 tests/test_scaling.py 和 tests/test_recipes.py 已定义的公开接口。
+
+要求：
+- 使用 Fraction 或等价的精确方法，避免浮点噪声；
+- 数字显示尽量简洁，整数不带 .0；
+- 不可解析文字保持原样；
+- 数据错误只包含安全摘要，不泄露绝对路径或 Traceback；
+- load_recipes 返回稳定顺序并拒绝重复 id；
+- scaled_recipe 深复制，不改输入对象；
+- 不修改 tests、scripts、REQUIREMENTS.md 和 data；
+- 完成后运行 13 个 unittest，然后停下来汇报。
+
+
+出现权限确认时，只批准创建三个领域文件和运行 unittest。拒绝安装包、修改固定菜谱或放宽断言。
+
+预期测试结果结尾为：
+
+Ran 13 tests
+
+OK
+
+
+测试数量如果不是 13，先检查是否从项目根目录运行，以及固定测试是否被改动。
+
+在 Claude Code 外再运行同一命令。这个第二次运行用于区分“Claude 说跑过”与磁盘上的当前代码确实通过。
+
+阶段 2：本地 HTTP API
+
+发送：
+
+实施 PLAN.md 的阶段 2，只新增 app.py。
+
+必须满足 REQUIREMENTS.md 的固定路由，并支持：
+python app.py --host 127.0.0.1 --port 8000
+
+约束：
+- 只允许 host 为 127.0.0.1；
+- 使用 Python 标准库 HTTP 服务器；
+- 查询参数错误返回 HTTP 400 和 error=invalid_request；
+- 未知菜谱返回 HTTP 404 和 error=not_found；
+- 数据损坏返回结构化 JSON，不向浏览器发送 Traceback；
+- 暂时不要创建前端和 README；
+- 不修改固定测试、检查器、需求和菜谱。
+
+完成后运行 unittest，并实际启动服务器验证 /api/recipes 和一条带 servings 的详情请求，然后停下来。
+
+
+如果 Claude 要启动服务器，确认绑定地址是 127.0.0.1 而不是 0.0.0.0。服务启动后，在另一个终端执行真实请求。
+
+macOS、Linux 或 WSL2：
+
+python3 -c "import json,urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/recipes')); assert len(data)==6; print('PASS: API 返回 6 份菜谱')"
+
+
+Windows PowerShell：
+
+py -c "import json,urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/recipes')); assert len(data)==6; print('PASS: API 返回 6 份菜谱')"
+
+
+预期打印 PASS: API 返回 6 份菜谱。停止服务器后再继续；如果端口被占用，临时改用 --port 8010，并同步修改检查 URL。
+
+阶段 3：浏览器界面与 README
+
+发送：
+
+实施 PLAN.md 的阶段 3，新增：
+- static/index.html
+- static/app.js
+- static/style.css
+- README.md
+
+页面必须从真实 API 读取数据，完成菜系、标签、最长时间的交集筛选；点击卡片显示详情；份数下拉框为 1～6，并使用 API 返回的 display_amount。
+
+只做本地个人菜谱界面：不使用框架、CDN、图片、外部字体、账号、数据库或遥测。README 必须包含四类平台的测试、发布检查、启动和停止方式。不要修改固定验收文件和菜谱。
+
+完成后运行 unittest 和 scripts/verify_release.py，再停下来汇报真实命令、退出状态和关键结果。
+
+
+verify_release.py 会选择一个临时本地端口，启动真实 app.py，请求列表、组合筛选、份数换算、404、400 和首页，最后比较 6 份菜谱的 SHA-256。通过时应看到：
+
+PASS: MealCraft 1.0 发布检查通过，源菜谱哈希未变化
+
+
+如果系统询问是否允许 Python 监听本机端口，只允许当前 MealCraft 的 127.0.0.1 临时测试。不要为此开放公网地址或长期防火墙规则。
+
+阶段 4：在 Claude 外完成三层验收
+第 1 层：单元测试
+
+macOS、Linux 或 WSL2：
+
+python3 -m unittest discover -s tests -v
+
+
+Windows PowerShell：
+
+py -m unittest discover -s tests -v
+
+
+必须是 13 个测试全部通过。
+
+第 2 层：真实服务器冒烟检查
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_release.py
+
+
+Windows PowerShell：
+
+py scripts/verify_release.py
+
+
+必须打印发布检查 PASS。只有 unittest 通过而发布检查失败时，不能宣布 1.0 完成。
+
+第 3 层：浏览器人工操作
+
+启动：
+
+macOS、Linux 或 WSL2：
+
+python3 app.py --host 127.0.0.1 --port 8000
+
+
+Windows PowerShell：
+
+py app.py --host 127.0.0.1 --port 8000
+
+
+浏览器打开 http://127.0.0.1:8000/，逐项检查：
+
+初始显示 6 张菜谱卡片；
+菜系选“家常菜”只剩“番茄炒蛋”和“清蒸鱼片”；
+清除菜系，标签选“快手”、最长时间选“20 分钟”，只剩两份菜谱；
+打开“香菇拌面”，从 2 人份切到 4 人份，生抽从 1/2 勺 变为 1 勺；
+打开“番茄炒蛋”，盐在任意份数下仍显示“适量”；
+刷新页面后功能仍正常，终端没有 Traceback。
+
+按 Ctrl+C 停止服务器。人工检查发现问题时，记录“选择了什么、预期什么、实际什么”，再交给 Claude 复现；不要只说“页面不对”。
+
+可选使用 /run 和 /verify，但保留手工退路
+
+当前 Claude Code 可能提供 /run 和 /verify。输入 / 或 /help 确认可用后，可以运行：
+
+/run
+
+
+让 Claude 启动并实际操作应用；完成修改后也可以显式调用：
+
+/verify 验证 MealCraft 的组合筛选和 2 人份到 4 人份换算
+
+
+这些是辅助 Skill，是否可用取决于当前版本和环境。它们不能替代本篇固定的 unittest、verify_release.py 和你的浏览器检查；若命令不可用，直接使用上面的手工步骤，不安装额外工具。
+
+审查 Diff 与固定文件
+
+在 Claude Code 中输入 /diff，再在外部终端运行：
+
+git status --short
+git diff --check
+git diff -- tests scripts/verify_release.py REQUIREMENTS.md data/recipes
+
+
+最后一条命令不应显示固定验收文件、需求和菜谱的工作区修改。注意：第 5 篇把一部分固定文件放入了暂存区，因此还应运行：
+
+git diff --cached --check
+
+
+检查状态中不能出现：
+
+__pycache__、.pyc、日志或临时输出；
+依赖锁文件、node_modules 或虚拟环境；
+API Key、账号、个人绝对路径；
+计划外的数据库、部署或外部服务代码。
+卡住时使用经过验证的参考快照
+
+课程附带 reference-1.0-overlay，它和 plan-starter、implementation-kit 组合后是一份通过 13 个测试与发布检查的参考实现。它是恢复材料，不是让你跳过实现练习的默认答案。
+
+不要覆盖正在工作的 mealcraft。创建独立目录：
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course
+mkdir mealcraft-reference
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/plan-starter/." mealcraft-reference/
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/implementation-kit/." mealcraft-reference/
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/reference-1.0-overlay/." mealcraft-reference/
+cd mealcraft-reference
+python3 -m unittest discover -s tests -v
+python3 scripts/verify_release.py
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course"
+if (Test-Path mealcraft-reference) { throw "mealcraft-reference 已存在，请先检查旧目录" }
+New-Item -ItemType Directory mealcraft-reference | Out-Null
+Copy-Item "$CourseSource\exercise-assets\mealcraft\plan-starter\*" -Destination mealcraft-reference -Recurse
+Copy-Item "$CourseSource\exercise-assets\mealcraft\implementation-kit\*" -Destination mealcraft-reference -Recurse
+Copy-Item "$CourseSource\exercise-assets\mealcraft\implementation-kit\.gitignore" -Destination mealcraft-reference
+Copy-Item "$CourseSource\exercise-assets\mealcraft\reference-1.0-overlay\*" -Destination mealcraft-reference -Recurse
+Set-Location mealcraft-reference
+py -m unittest discover -s tests -v
+py scripts/verify_release.py
+
+
+参考目录缺少你在第 5 篇生成的 PROJECT_BRIEF.md 和 PLAN.md，因为那两份文档用于练习评审；固定事实仍在 REQUIREMENTS.md。用 Diff 比较参考实现与你的实现，定位接口或行为差异，不要整目录盲目覆盖。
+
+留下 1.0 基线
+
+所有检查通过后，在你的主 mealcraft 目录运行：
+
+git add .
+git status --short
+git diff --cached --check
+git commit -m "build MealCraft 1.0"
+
+
+执行 git add . 前必须先确认 .gitignore 生效且状态中没有私人数据或生成物。若 Git 身份尚未配置，可以暂不提交，但下一篇开始前仍需确保工作区中的 1.0 文件完整且验收通过。
+
+提交成功后运行：
+
+git status --short
+
+
+预期没有输出。记录当前提交 ID：
+
+git rev-parse --short HEAD
+
+
+这才是后续调试可回到的 1.0 基线；聊天记忆或 Claude 的完成报告不是版本快照。
+
+本篇验收清单
+固定测试与发布检查器在实现前确实失败；
+Claude 没有修改需求、菜谱、课程测试或发布检查器；
+领域逻辑、HTTP API、界面和总体验收分阶段完成；
+13 个 unittest 全部通过；
+verify_release.py 通过真实 HTTP 检查且源数据哈希不变；
+浏览器六项人工操作全部符合预期；
+/diff 与 Git 状态中没有缓存、依赖、密钥或计划外功能；
+已提交 1.0，或明确保留了未提交但完整通过验收的状态。
+关键排错
+
+测试一开始就通过：确认你没有误在 mealcraft-reference 或旧项目中运行；主项目在复制实现验收包后、编写代码前应因模块缺失而失败。
+
+Claude 修改固定测试：拒绝该修改并用 Git Diff 恢复到课程复制后的内容。测试与需求真的冲突时应先停止并核对，不应由被测实现自行放宽标准。
+
+发布检查提示连接失败：先手工运行 app.py，确认没有语法错误、绑定 127.0.0.1 且接受 --host、--port。安全软件拦截时只允许本机回环测试。
+
+unittest 通过但网页没有菜谱：这是为什么还要真实 HTTP 和浏览器验收。打开终端日志及浏览器开发者工具的 Network/Console，记录失败 URL 和状态码，再让 Claude 复现。
+
+源 JSON 哈希变化：停止提交，查看 git diff -- data/recipes。换算必须基于深复制或新结构，不能把 display_amount 写回源文件。
+
+本篇小结
+
+MealCraft 1.0 的完成证据不是一段总结，而是固定的 13 个测试、真实服务器检查、源数据哈希和六项人工操作。分阶段停下来验证，让 Claude 的编码能力服务于已经确认的个人项目范围。
+
+下一篇会从一份课程提供的确定性缺陷状态开始，练习“先复现、再失败测试、再最小修复”，不会假设每位读者的 1.0 恰好有同一个偶发错误。
+
+官方参考：
+
+Common workflows
+Interactive mode
+Commands
+Commands：/run 与 /verify
+补齐输入与浏览器边界验收
+
+参考快照已补齐以下边界，生成自己的实现时也应满足：
+
+JSON 的 true 不能作为整数份数或分钟数；食材名不能只含空白。
+菜谱文件损坏属于服务端 500 recipe_data_error；非法参数为 400 invalid_request，不存在的菜谱为 404，分别验收。
+菜谱内容只按文本显示。把测试菜谱名设为 <img src=x onerror=alert(1)>，页面应显示原样文字，不创建图片或执行脚本。
+API 错误或服务器停止时显示可见错误，并清空旧结果；恢复服务后重新筛选可重试。
+连续改变筛选、快速切换详情时，最终界面对应最后一次选择，较早请求不能覆盖新结果。
+
+复制 implementation-kit 后，在项目根目录运行 python -m unittest discover -s tests -v（macOS/Linux 可用已验证的 python3）。新增 test_revision_boundaries.py 验证输入和 HTTP 边界。浏览器三项仍需亲自操作；单元测试通过不能代替页面验收。
+
+可选自动检查：安装 Node.js 后在合并好的项目根目录运行 node tests/test-browser-boundaries.cjs。它使用最小 DOM 替身检查文本渲染、请求乱序及 HTTP 错误，不代替真实浏览器的布局与交互验收。

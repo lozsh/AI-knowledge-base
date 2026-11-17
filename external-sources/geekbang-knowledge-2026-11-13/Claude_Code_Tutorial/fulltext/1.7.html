@@ -1,0 +1,262 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计用时：60～90 分钟<br>本篇目标：让 Claude Code 在固定需求、固定菜谱和课程验收器约束下完成 MealCraft 1.0，并用单元测试、真实 HTTP 请求和浏览器操作三层验收。</p>
+</blockquote>
+<p>第 5 篇留下了 <code>REQUIREMENTS.md</code>、<code>PROJECT_BRIEF.md</code>、<code>PLAN.md</code> 和 6 份固定菜谱。本篇不会把一句“请完整实现”交给 Claude 后等待结果，而是先加入课程提供的测试，再分四个阶段推进。</p>
+<h2 id="wiki-h-0">开始状态</h2>
+<p>进入项目：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/claude-code-course/mealcraft
+python3 scripts/verify_planning_state.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course\mealcraft"</span>
+py scripts/verify_planning_state.py
+</code></pre><p>必须先看到：</p>
+<pre><code class="hljs language-text">PASS: MealCraft 规划状态完整，6 份固定菜谱通过契约检查
+</code></pre><p>如果没有通过，回到第 5 篇修复规划状态。不要让实现阶段顺手改写需求或固定数据。</p>
+<h2 id="wiki-h-1">复制课程提供的实现验收包</h2>
+<p>如果当前终端没有第 5 篇的教程根目录变量，重新设置。路径必须替换为你的实际位置。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> COURSE_SOURCE=<span class="hljs-string">"/替换为实际路径/claude-code-tutorial-v0.2"</span>
+<span class="hljs-built_in">test</span> -f <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/implementation-kit/tests/test_scaling.py"</span>
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/implementation-kit/."</span> .
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$CourseSource</span> = <span class="hljs-string">"C:\替换为实际路径\claude-code-tutorial-v0.2"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\implementation-kit\tests\test_scaling.py"</span>)) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"实现验收包路径错误"</span> }
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\implementation-kit\*"</span> <span class="hljs-literal">-Destination</span> . <span class="hljs-literal">-Recurse</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\implementation-kit\.gitignore"</span> <span class="hljs-literal">-Destination</span> .
+</code></pre><p>新增内容应只有：</p>
+<pre><code class="hljs language-text">.gitignore
+tests/__init__.py
+tests/test_recipes.py
+tests/test_scaling.py
+scripts/verify_release.py
+</code></pre><p>这些是课程的外部验收标准。本篇实施期间不允许 Claude 为了让结果变绿而修改它们。</p>
+<p>把验收包也加入 Git 暂存基线，后面才能可靠发现它是否被改过：</p>
+<pre><code class="hljs language-bash">git add .gitignore tests scripts/verify_release.py
+git status --short
+</code></pre><p>预期这些文件显示为新增并已暂存。暂存不是提交，也不会妨碍后面继续创建实现文件。</p>
+<h2 id="wiki-h-2">先观察确定的失败基线</h2>
+<p>在实现任何程序前运行固定测试。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+</code></pre><p>预期失败：Python 报告找不到 <code>mealcraft</code> 包或其中的模块。这个失败证明测试真正指向尚未实现的代码。</p>
+<p>再运行发布检查器。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 scripts/verify_release.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py scripts/verify_release.py
+</code></pre><p>预期以 <code>FAIL: 缺少发布文件</code> 退出，并列出 <code>app.py</code>、领域模块、静态文件或 README。此时失败是正确基线，不要删减测试或检查清单。</p>
+<h2 id="wiki-h-3">启动 Claude 并保护固定输入</h2>
+<p>从 MealCraft 根目录启动：</p>
+<pre><code class="hljs language-bash">claude
+</code></pre><p>先发送只读交接任务：</p>
+<pre><code class="hljs language-text">只读检查 REQUIREMENTS.md、PROJECT_BRIEF.md、PLAN.md、tests/ 和 scripts/verify_release.py。
+
+请汇报：
+1. 固定模块接口和 HTTP 接口；
+2. 13 个 unittest 覆盖的行为；
+3. 发布检查器会发出的真实 HTTP 请求；
+4. 四阶段预计创建的文件；
+5. 哪些固定文件在实施中禁止修改。
+
+现在不要写文件，不要安装依赖，不要运行服务器。
+</code></pre><p>正确汇报应识别这些 Python 接口：</p>
+<pre><code class="hljs language-text">mealcraft.scaling.scale_amount
+mealcraft.recipes.RecipeDataError
+mealcraft.recipes.load_recipes
+mealcraft.recipes.filter_recipes
+mealcraft.recipes.get_recipe
+mealcraft.recipes.scaled_recipe
+</code></pre><p>以及启动契约：</p>
+<pre><code class="hljs language-text">python3 app.py --host 127.0.0.1 --port 8000
+</code></pre><p>如果 Claude 建议改测试来适配另一个接口，要求它回到固定契约。若你认为课程测试本身有错误，应停止实施并先独立核对，而不是授权模型修改验收器。</p>
+<h2 id="wiki-h-4">阶段 1：领域逻辑</h2>
+<p>发送：</p>
+<pre><code class="hljs language-text">实施 PLAN.md 的阶段 1，只创建：
+- mealcraft/__init__.py
+- mealcraft/scaling.py
+- mealcraft/recipes.py
+
+严格实现 tests/test_scaling.py 和 tests/test_recipes.py 已定义的公开接口。
+
+要求：
+- 使用 Fraction 或等价的精确方法，避免浮点噪声；
+- 数字显示尽量简洁，整数不带 .0；
+- 不可解析文字保持原样；
+- 数据错误只包含安全摘要，不泄露绝对路径或 Traceback；
+- load_recipes 返回稳定顺序并拒绝重复 id；
+- scaled_recipe 深复制，不改输入对象；
+- 不修改 tests、scripts、REQUIREMENTS.md 和 data；
+- 完成后运行 13 个 unittest，然后停下来汇报。
+</code></pre><p>出现权限确认时，只批准创建三个领域文件和运行 unittest。拒绝安装包、修改固定菜谱或放宽断言。</p>
+<p>预期测试结果结尾为：</p>
+<pre><code class="hljs language-text">Ran 13 tests
+
+OK
+</code></pre><p>测试数量如果不是 13，先检查是否从项目根目录运行，以及固定测试是否被改动。</p>
+<p>在 Claude Code 外再运行同一命令。这个第二次运行用于区分“Claude 说跑过”与磁盘上的当前代码确实通过。</p>
+<h2 id="wiki-h-5">阶段 2：本地 HTTP API</h2>
+<p>发送：</p>
+<pre><code class="hljs language-text">实施 PLAN.md 的阶段 2，只新增 app.py。
+
+必须满足 REQUIREMENTS.md 的固定路由，并支持：
+python app.py --host 127.0.0.1 --port 8000
+
+约束：
+- 只允许 host 为 127.0.0.1；
+- 使用 Python 标准库 HTTP 服务器；
+- 查询参数错误返回 HTTP 400 和 error=invalid_request；
+- 未知菜谱返回 HTTP 404 和 error=not_found；
+- 数据损坏返回结构化 JSON，不向浏览器发送 Traceback；
+- 暂时不要创建前端和 README；
+- 不修改固定测试、检查器、需求和菜谱。
+
+完成后运行 unittest，并实际启动服务器验证 /api/recipes 和一条带 servings 的详情请求，然后停下来。
+</code></pre><p>如果 Claude 要启动服务器，确认绑定地址是 <code>127.0.0.1</code> 而不是 <code>0.0.0.0</code>。服务启动后，在另一个终端执行真实请求。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -c <span class="hljs-string">"import json,urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/recipes')); assert len(data)==6; print('PASS: API 返回 6 份菜谱')"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-c</span> <span class="hljs-string">"import json,urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/recipes')); assert len(data)==6; print('PASS: API 返回 6 份菜谱')"</span>
+</code></pre><p>预期打印 <code>PASS: API 返回 6 份菜谱</code>。停止服务器后再继续；如果端口被占用，临时改用 <code>--port 8010</code>，并同步修改检查 URL。</p>
+<h2 id="wiki-h-6">阶段 3：浏览器界面与 README</h2>
+<p>发送：</p>
+<pre><code class="hljs language-text">实施 PLAN.md 的阶段 3，新增：
+- static/index.html
+- static/app.js
+- static/style.css
+- README.md
+
+页面必须从真实 API 读取数据，完成菜系、标签、最长时间的交集筛选；点击卡片显示详情；份数下拉框为 1～6，并使用 API 返回的 display_amount。
+
+只做本地个人菜谱界面：不使用框架、CDN、图片、外部字体、账号、数据库或遥测。README 必须包含四类平台的测试、发布检查、启动和停止方式。不要修改固定验收文件和菜谱。
+
+完成后运行 unittest 和 scripts/verify_release.py，再停下来汇报真实命令、退出状态和关键结果。
+</code></pre><p><code>verify_release.py</code> 会选择一个临时本地端口，启动真实 <code>app.py</code>，请求列表、组合筛选、份数换算、404、400 和首页，最后比较 6 份菜谱的 SHA-256。通过时应看到：</p>
+<pre><code class="hljs language-text">PASS: MealCraft 1.0 发布检查通过，源菜谱哈希未变化
+</code></pre><p>如果系统询问是否允许 Python 监听本机端口，只允许当前 MealCraft 的 <code>127.0.0.1</code> 临时测试。不要为此开放公网地址或长期防火墙规则。</p>
+<h2 id="wiki-h-7">阶段 4：在 Claude 外完成三层验收</h2>
+<h3 id="wiki-h-8">第 1 层：单元测试</h3>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+</code></pre><p>必须是 13 个测试全部通过。</p>
+<h3 id="wiki-h-9">第 2 层：真实服务器冒烟检查</h3>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 scripts/verify_release.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py scripts/verify_release.py
+</code></pre><p>必须打印发布检查 <code>PASS</code>。只有 unittest 通过而发布检查失败时，不能宣布 1.0 完成。</p>
+<h3 id="wiki-h-10">第 3 层：浏览器人工操作</h3>
+<p>启动：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 app.py --host 127.0.0.1 --port 8000
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py app.py <span class="hljs-literal">--host</span> <span class="hljs-number">127.0</span>.<span class="hljs-number">0.1</span> <span class="hljs-literal">--port</span> <span class="hljs-number">8000</span>
+</code></pre><p>浏览器打开 <code>http://127.0.0.1:8000/</code>，逐项检查：</p>
+<ol>
+<li>初始显示 6 张菜谱卡片；</li>
+<li>菜系选“家常菜”只剩“番茄炒蛋”和“清蒸鱼片”；</li>
+<li>清除菜系，标签选“快手”、最长时间选“20 分钟”，只剩两份菜谱；</li>
+<li>打开“香菇拌面”，从 2 人份切到 4 人份，生抽从 <code>1/2 勺</code> 变为 <code>1 勺</code>；</li>
+<li>打开“番茄炒蛋”，盐在任意份数下仍显示“适量”；</li>
+<li>刷新页面后功能仍正常，终端没有 Traceback。</li>
+</ol>
+<p>按 <code>Ctrl+C</code> 停止服务器。人工检查发现问题时，记录“选择了什么、预期什么、实际什么”，再交给 Claude 复现；不要只说“页面不对”。</p>
+<h2 id="wiki-h-11">可选使用 <code>/run</code> 和 <code>/verify</code>，但保留手工退路</h2>
+<p>当前 Claude Code 可能提供 <code>/run</code> 和 <code>/verify</code>。输入 <code>/</code> 或 <code>/help</code> 确认可用后，可以运行：</p>
+<pre><code class="hljs language-text">/run
+</code></pre><p>让 Claude 启动并实际操作应用；完成修改后也可以显式调用：</p>
+<pre><code class="hljs language-text">/verify 验证 MealCraft 的组合筛选和 2 人份到 4 人份换算
+</code></pre><p>这些是辅助 Skill，是否可用取决于当前版本和环境。它们不能替代本篇固定的 unittest、<code>verify_release.py</code> 和你的浏览器检查；若命令不可用，直接使用上面的手工步骤，不安装额外工具。</p>
+<h2 id="wiki-h-12">审查 Diff 与固定文件</h2>
+<p>在 Claude Code 中输入 <code>/diff</code>，再在外部终端运行：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --check
+git diff -- tests scripts/verify_release.py REQUIREMENTS.md data/recipes
+</code></pre><p>最后一条命令不应显示固定验收文件、需求和菜谱的工作区修改。注意：第 5 篇把一部分固定文件放入了暂存区，因此还应运行：</p>
+<pre><code class="hljs language-bash">git diff --cached --check
+</code></pre><p>检查状态中不能出现：</p>
+<ul>
+<li><code>__pycache__</code>、<code>.pyc</code>、日志或临时输出；</li>
+<li>依赖锁文件、<code>node_modules</code> 或虚拟环境；</li>
+<li>API Key、账号、个人绝对路径；</li>
+<li>计划外的数据库、部署或外部服务代码。</li>
+</ul>
+<h2 id="wiki-h-13">卡住时使用经过验证的参考快照</h2>
+<p>课程附带 <code>reference-1.0-overlay</code>，它和 <code>plan-starter</code>、<code>implementation-kit</code> 组合后是一份通过 13 个测试与发布检查的参考实现。它是恢复材料，不是让你跳过实现练习的默认答案。</p>
+<p>不要覆盖正在工作的 <code>mealcraft</code>。创建独立目录：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/claude-code-course
+<span class="hljs-built_in">mkdir</span> mealcraft-reference
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/plan-starter/."</span> mealcraft-reference/
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/implementation-kit/."</span> mealcraft-reference/
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/reference-1.0-overlay/."</span> mealcraft-reference/
+<span class="hljs-built_in">cd</span> mealcraft-reference
+python3 -m unittest discover -s tests -v
+python3 scripts/verify_release.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> mealcraft<span class="hljs-literal">-reference</span>) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"mealcraft-reference 已存在，请先检查旧目录"</span> }
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory mealcraft<span class="hljs-literal">-reference</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\plan-starter\*"</span> <span class="hljs-literal">-Destination</span> mealcraft<span class="hljs-literal">-reference</span> <span class="hljs-literal">-Recurse</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\implementation-kit\*"</span> <span class="hljs-literal">-Destination</span> mealcraft<span class="hljs-literal">-reference</span> <span class="hljs-literal">-Recurse</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\implementation-kit\.gitignore"</span> <span class="hljs-literal">-Destination</span> mealcraft<span class="hljs-literal">-reference</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\reference-1.0-overlay\*"</span> <span class="hljs-literal">-Destination</span> mealcraft<span class="hljs-literal">-reference</span> <span class="hljs-literal">-Recurse</span>
+<span class="hljs-built_in">Set-Location</span> mealcraft<span class="hljs-literal">-reference</span>
+py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+py scripts/verify_release.py
+</code></pre><p>参考目录缺少你在第 5 篇生成的 <code>PROJECT_BRIEF.md</code> 和 <code>PLAN.md</code>，因为那两份文档用于练习评审；固定事实仍在 <code>REQUIREMENTS.md</code>。用 Diff 比较参考实现与你的实现，定位接口或行为差异，不要整目录盲目覆盖。</p>
+<h2 id="wiki-h-14">留下 1.0 基线</h2>
+<p>所有检查通过后，在你的主 <code>mealcraft</code> 目录运行：</p>
+<pre><code class="hljs language-bash">git add .
+git status --short
+git diff --cached --check
+git commit -m <span class="hljs-string">"build MealCraft 1.0"</span>
+</code></pre><p>执行 <code>git add .</code> 前必须先确认 <code>.gitignore</code> 生效且状态中没有私人数据或生成物。若 Git 身份尚未配置，可以暂不提交，但下一篇开始前仍需确保工作区中的 1.0 文件完整且验收通过。</p>
+<p>提交成功后运行：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>预期没有输出。记录当前提交 ID：</p>
+<pre><code class="hljs language-bash">git rev-parse --short HEAD
+</code></pre><p>这才是后续调试可回到的 1.0 基线；聊天记忆或 Claude 的完成报告不是版本快照。</p>
+<h2 id="wiki-h-15">本篇验收清单</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">固定测试与发布检查器在实现前确实失败；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">Claude 没有修改需求、菜谱、课程测试或发布检查器；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">领域逻辑、HTTP API、界面和总体验收分阶段完成；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">13 个 unittest 全部通过；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>verify_release.py</code> 通过真实 HTTP 检查且源数据哈希不变；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">浏览器六项人工操作全部符合预期；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>/diff</code> 与 Git 状态中没有缓存、依赖、密钥或计划外功能；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已提交 1.0，或明确保留了未提交但完整通过验收的状态。</li>
+</ul>
+<h2 id="wiki-h-16">关键排错</h2>
+<p><strong>测试一开始就通过</strong>：确认你没有误在 <code>mealcraft-reference</code> 或旧项目中运行；主项目在复制实现验收包后、编写代码前应因模块缺失而失败。</p>
+<p><strong>Claude 修改固定测试</strong>：拒绝该修改并用 Git Diff 恢复到课程复制后的内容。测试与需求真的冲突时应先停止并核对，不应由被测实现自行放宽标准。</p>
+<p><strong>发布检查提示连接失败</strong>：先手工运行 <code>app.py</code>，确认没有语法错误、绑定 <code>127.0.0.1</code> 且接受 <code>--host</code>、<code>--port</code>。安全软件拦截时只允许本机回环测试。</p>
+<p><strong>unittest 通过但网页没有菜谱</strong>：这是为什么还要真实 HTTP 和浏览器验收。打开终端日志及浏览器开发者工具的 Network/Console，记录失败 URL 和状态码，再让 Claude 复现。</p>
+<p><strong>源 JSON 哈希变化</strong>：停止提交，查看 <code>git diff -- data/recipes</code>。换算必须基于深复制或新结构，不能把 <code>display_amount</code> 写回源文件。</p>
+<h2 id="wiki-h-17">本篇小结</h2>
+<p>MealCraft 1.0 的完成证据不是一段总结，而是固定的 13 个测试、真实服务器检查、源数据哈希和六项人工操作。分阶段停下来验证，让 Claude 的编码能力服务于已经确认的个人项目范围。</p>
+<p>下一篇会从一份课程提供的确定性缺陷状态开始，练习“先复现、再失败测试、再最小修复”，不会假设每位读者的 1.0 恰好有同一个偶发错误。</p>
+<p>官方参考：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/common-workflows">Common workflows</a></li>
+<li><a href="https://code.claude.com/docs/en/interactive-mode">Interactive mode</a></li>
+<li><a href="https://code.claude.com/docs/en/commands">Commands</a></li>
+<li><a href="https://code.claude.com/docs/en/commands">Commands：<code>/run</code> 与 <code>/verify</code></a></li>
+</ul>
+<h2 id="wiki-h-18">补齐输入与浏览器边界验收</h2>
+<p>参考快照已补齐以下边界，生成自己的实现时也应满足：</p>
+<ul>
+<li>JSON 的 <code>true</code> 不能作为整数份数或分钟数；食材名不能只含空白。</li>
+<li>菜谱文件损坏属于服务端 <code>500 recipe_data_error</code>；非法参数为 <code>400 invalid_request</code>，不存在的菜谱为 404，分别验收。</li>
+<li>菜谱内容只按文本显示。把测试菜谱名设为 <code>&lt;img src=x onerror=alert(1)&gt;</code>，页面应显示原样文字，不创建图片或执行脚本。</li>
+<li>API 错误或服务器停止时显示可见错误，并清空旧结果；恢复服务后重新筛选可重试。</li>
+<li>连续改变筛选、快速切换详情时，最终界面对应最后一次选择，较早请求不能覆盖新结果。</li>
+</ul>
+<p>复制 implementation-kit 后，在项目根目录运行 <code>python -m unittest discover -s tests -v</code>（macOS/Linux 可用已验证的 <code>python3</code>）。新增 <code>test_revision_boundaries.py</code> 验证输入和 HTTP 边界。浏览器三项仍需亲自操作；单元测试通过不能代替页面验收。</p>
+<p>可选自动检查：安装 Node.js 后在合并好的项目根目录运行 <code>node tests/test-browser-boundaries.cjs</code>。它使用最小 DOM 替身检查文本渲染、请求乱序及 HTTP 错误，不代替真实浏览器的布局与交互验收。</p>
+</article>

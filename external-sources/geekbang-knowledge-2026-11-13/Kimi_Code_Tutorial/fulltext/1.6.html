@@ -1,0 +1,42 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>到目前为止，我们的工作都发生在"一次对话"里。但真实的项目是要做好多天的：晚上关掉终端，明天早上接着干；聊了一个小时，上下文越积越多；聊得好好的，突然想试试另一个方向……这些都要靠会话管理来解决。</p>
+<p>这一章学四件事：会话的保存与恢复、上下文压缩、会话分叉、会话导出。学完后，你和 Kimi 的协作就从"一次性聊天"升级成了"可持续的项目搭档"。</p>
+<h2 id="wiki-h-0">5.1 会话就是存档，而且会自动保存</h2>
+<p>先建立一个关键认知：<strong>每一次对话都会自动保存为一个"会话"（session）</strong>，存在本地 <code>~/.kimi-code/sessions/</code> 目录下，并且按工作目录分组——你在 <code>weight-tracker</code> 里聊的内容，和在别的目录里聊的内容，各存各的，互不干扰。你不需要手动保存任何东西，反过来，也不要去手动修改 sessions 目录里的文件，那可能导致会话无法恢复。</p>
+<p>基于这个机制，常用的操作是这些：</p>
+<p><strong>接着上次干。</strong> 在 <code>weight-tracker</code> 目录里运行：</p>
+<pre><code class="hljs language-bash">kimi --<span class="hljs-built_in">continue</span>
+</code></pre><p>就会恢复这个目录下最近的会话，之前的对话上下文原封不动。简写是 <code>kimi -c</code>。你可以现在就试试：退出 Kimi（<code>/exit</code>），重新运行 <code>kimi -c</code>，看它是不是还记得我们的体重管理项目。</p>
+<p><strong>浏览历史会话。</strong> 两种入口：终端里运行 <code>kimi --session</code>（不带参数会进入交互式列表），或者在会话中输入 <code>/sessions</code>（别名 <code>/resume</code>），用方向键挑选、回车进入。想直达某个会话，用 <code>kimi --session &lt;会话ID&gt;</code>。</p>
+<p><strong>给会话起名。</strong> 会话多了以后，列表里全是一串 ID 可不好认。输入：</p>
+<pre><code>/title v0.2-每日热量预算
+</code></pre><p>给当前会话起个好认的名字（别名 <code>/rename</code>；不带参数时显示当前标题）。</p>
+<p><strong>开新会话。</strong> 输入 <code>/new</code>（别名 <code>/clear</code>）。什么时候该开新的？记住一个原则：<strong>话题切换就开新会话</strong>。上下文是 Kimi 的记忆也是它的注意力——里面堆着无关内容，它反而容易分心。同一个功能接着聊，换个功能换个话题，就 <code>/new</code> 一下。</p>
+<h2 id="wiki-h-1">5.2 上下文压缩：/compact</h2>
+<p>聊得越久，上下文就越长。接近模型上限时，Kimi Code 会自动压缩历史消息腾出空间，但自动压缩的时机未必合你意，所以你也可以随时手动来一下：</p>
+<pre><code>/compact
+</code></pre><p>还可以带一句提示，告诉它压缩时重点保留什么：</p>
+<pre><code>/compact 保留关于数据存储结构的讨论和尚未完成的任务
+</code></pre><p>什么时候压缩？可以类比 git commit 的时机：<strong>一个阶段性工作收尾时</strong>。比如刚完成"每日热量预算"功能、准备开始下一个功能，先 <code>/compact</code> 一下，把前面的讨论浓缩成摘要，轻装上阵。</p>
+<p>而如果你要切换到完全不相关的任务，就别压缩了，直接 <code>/new</code>——压缩是为了"接着做"，新会话是为了"换着做"。</p>
+<h2 id="wiki-h-2">5.3 /fork：给会话开一个"分支"</h2>
+<p><code>/fork</code> 分叉对话，但仍可能操作同一目录。实验前确认工作已提交，在终端运行 <code>git worktree add -b experiment/theme ../weight-theme HEAD</code>，再到新目录启动 Kimi。</p>
+<p>喜欢结果时提交并在主目录合并该分支；不满意时先查看实验目录的 <code>git status --short</code>、<code>git diff</code> 和 <code>git diff --cached</code>，保存仍有价值的内容，再由你决定是否删除实验副本。<code>git restore .</code> 只恢复已跟踪文件的未暂存修改，既不撤销暂存，也不删除新文件。</p>
+<p>会话 fork、分支、worktree 分别管理对话、提交历史和文件工作目录，不应互相替代。</p>
+<h2 id="wiki-h-3">5.4 导出会话：存档与分享</h2>
+<p>有些对话值得留下来：一次精彩的排错过程、一段重要的方案讨论。在会话中输入：</p>
+<pre><code>/ex<span class="hljs-keyword">port</span>-md
+</code></pre><p>就能把当前对话导出成一份可读的 Markdown 文件（别名 <code>/export</code>；可带路径参数，不带就写到当前目录，文件名类似 <code>kimi-export-a1b2c3-20260923.md</code>）。我们之前给界面定方案的讨论，就可以导出存进项目的 <code>docs/</code> 目录，作为"设计决策记录"——这是很多专业团队都在用的习惯。</p>
+<p>如果是遇到了程序异常、需要反馈问题，则在终端里用 <code>kimi export &lt;会话ID&gt;</code>，它会把会话打包成 ZIP（含诊断日志），方便提交给官方排查。</p>
+<blockquote>
+<p><strong>分享前检查一下内容。</strong> 导出的文件里可能包含代码、命令输出、文件路径等敏感信息，发给别人之前先翻一遍。</p>
+</blockquote>
+<h2 id="wiki-h-4">本章小结</h2>
+<p>这一章让项目具备了"跨天续命"的能力：</p>
+<ul>
+<li>会话<strong>自动保存</strong>、按工作目录分组；<code>kimi --continue</code> 接着上次干，<code>/sessions</code> 浏览历史，<code>/title</code> 起名，<code>/new</code> 开新话题；</li>
+<li>阶段性收尾用 <code>/compact</code> 压缩上下文，换任务用 <code>/new</code> 开新会话；</li>
+<li><code>/fork</code> 分叉会话做零成本实验，记住<strong>对话分叉归 fork，代码后悔归 git</strong>，两者搭配使用；</li>
+<li><code>/export-md</code> 导出对话存档，重要讨论留作设计记录。</li>
+</ul>
+<p>工具层面的基本功到这里就齐了。下一章是全书的核心章：我们回到项目本身，完整走几遍专业的开发流程——写清需求与验收标准、给应用配测试、用正确的方法修 bug、放心大胆地重构，以及 git 分支与项目文档。</p>
+</article>

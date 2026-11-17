@@ -1,0 +1,245 @@
+本文属于《DeepSeek Harness 入门教程（实战版）》· 第四部分 · 沿着项目掌握核心能力
+
+Windows 前提：使用 PowerShell 7.4+，先检查 $PSVersionTable.PSVersion；不要在 Windows PowerShell 5.1 直接复制本章重定向。将 $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) 用于中文管道；调用 DSH 后立即保存 $dshExit = $LASTEXITCODE，非零时停止后续解析。对照 macOS/Linux bash 的 $? 含义，不能混用。
+
+第 16 章　案例七：把经验沉淀到项目、Skill 与 Profile
+
+日报助手现在已经可以开发、测试、审查和定时运行。最后一步不是再加一个功能，而是把这些经验放到正确的地方：下次打开项目时仍然有效，换一个项目时又不会带过去无关限制。
+
+本章会完成两件事：
+
+把第 14 章新增的 npm run check 写进项目 Skill；
+从官方 Web 模板创建一个隔离的 daily-report-lab Profile，只在其中启用时间上下文，然后用配置 dump 证明日常 web Profile 没有被改动。
+
+第二个实验故意重用第 10 章已经熟悉的 time-context。这次不是重学插件开关，而是验证 Profile 隔离。
+
+16.1 先决定“该放在哪里”
+
+“一切皆插件”描述的是 DSH 如何组装能力，不等于每条经验都应做成插件。先用下表判断：
+
+要沉淀的内容	放置位置	日报助手示例
+项目事实、命令和可验收规则	项目文件、README、测试	sources.json 格式、npm run check
+处理某类任务时应遵守的方法	项目级 Skill	先跑离线检查，再报告未执行的外部操作
+某个 DSH 运行实例的组合和配置	Profile	只给实验环境启用时间上下文
+现有 DSH 根本没有的服务、工具或界面	Plugin / bundle	新的数据接入能力或界面面板
+
+一个实用的顺序是：先用项目文档和测试固定事实，再用 Skill 固定方法；只有运行时组合真的需要隔离时才建 Profile，缺少新能力时才写或安装插件。
+
+Skill 不会增加工具或绕过权限，Profile 也不会自动让一条错误的项目规则变正确。它们解决的是不同问题。
+
+16.2 确认项目起点
+
+在系统终端进入 daily-report 目录，先跑基线：
+
+npm run check
+npm test
+
+
+两条命令都应以 0 退出。然后查看项目 Skill 的当前内容：
+
+node -e "console.log(require('node:fs').readFileSync('.dsh/skills/daily-report-maintainer/SKILL.md','utf8'))"
+
+
+如果文件不存在，说明你跳过了第 12 章。先回去建立完整 Skill，不要为了跟本章而临时创建一份空文件。
+
+此时第 5 条规则应还是“先运行直接相关的聚焦测试，再运行 npm test”。它没有错，但还不知道后来新增的离线健康检查。
+
+16.3 把新约定写回项目 Skill
+
+回到 daily-report 工作区的标准模式任务，使用 Workspace Write 权限，发送：
+
+/daily-report-maintainer
+
+请只修改 .dsh/skills/daily-report-maintainer/SKILL.md 的第 5 条规则，
+在“再运行 npm test”之后增加“和 npm run check”。
+
+要求：
+1. 不改 frontmatter、其他规则和项目文件；
+2. 不运行 npm start，不访问网络；
+3. 修改后重新读取整个 Skill，确认仍有完整 frontmatter 和 7 条规则；
+4. 最后只报告实际差异和验证结果。
+
+
+预期只有一行差异：
+
+-5. 先运行直接相关的聚焦测试，再运行 npm test。
++5. 先运行直接相关的聚焦测试，再运行 npm test 和 npm run check。
+
+
+在系统终端独立验收：
+
+node -e "const s=require('node:fs').readFileSync('.dsh/skills/daily-report-maintainer/SKILL.md','utf8'); if(!s.includes('npm test 和 npm run check')||(s.match(/^\d+\./gm)||[]).length!==7) process.exit(1); console.log('SKILL_OK')"
+npm run check
+npm test
+
+
+看到 SKILL_OK，且两条项目命令均成功，才算沉淀完成。这次没有修改程序行为，因此不需要为了“看起来更完整”再改 README 或测试。
+
+16.4 Profile 实际保存什么
+
+一个正在运行的 DSH 是由多层配置组装出来的插件树。Profile 是这份组合在 Harness Home 下的命名记录，包含：
+
+package.json：记录外部依赖和有序的 bundle 列表；
+cordis.patch.yml：记录该 Profile 自己的配置覆盖。
+
+官方的 web、headless、sdk、sdk-minimal 和 acp 是随附模板。desktop 则是 Electron 应用保留的 Profile，公共 CLI 不允许启动、dump 或用 dsh plugin 管理它。所以本章创建的是 CLI/Web Profile，不会替换 Desktop 里已有的模型和插件设置。CLI 官方说明
+
+更容易误解的是：“从 web 模板创建”只复制官方模板当前的 bundle 列表，不会复制你本机 web Profile 已安装的依赖和 cordis.patch.yml。这正是我们要的隔离起点。
+
+16.5 创建隔离的 daily-report-lab Profile
+
+先确认当前使用的 CLI 版本：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 --version
+
+
+本教程按 v0.1.7-rc.2 核对。如果你的版本不同，先查看对应版本发布说明，不要盲目照抄 patch。
+
+在 daily-report 目录中建立一个只用于本章比较的目录：
+
+node -e "require('node:fs').mkdirSync('profile-audit',{recursive:true})"
+
+
+下面的第一条命令会创建新 Profile，但不启动 Web 服务：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --from-default-profile web --dump-default-config > profile-audit/lab-default.yml
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --dump-config > profile-audit/lab-before.yml
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile web --dump-config > profile-audit/web-before.yml
+
+
+Windows PowerShell 可以使用同样的参数；如果系统找不到 npx，把命令头换成 npx.cmd。
+
+三个文件各有不同用途：
+
+lab-default.yml 只包含官方 bundle 各层；
+lab-before.yml 还包含 Profile patch、Home 级 patch 和本次命令的 overlay；
+web-before.yml 是日常 CLI/Web Profile 的对照快照。
+
+用 Node.js 确认三次 dump 都真的有输出：
+
+node -e "const fs=require('node:fs'); for(const f of ['lab-default.yml','lab-before.yml','web-before.yml']){const n=fs.statSync('profile-audit/'+f).size; if(!n) process.exit(1); console.log(f,n+' bytes')}"
+
+
+如果创建命令提示 Profile 已存在，不要直接删目录。这通常说明你之前已做过实验；去掉 --from-default-profile web 后重新 dump 即可。如果你不确定里面是什么，换一个新名字比删除旧 Profile 更安全。
+
+16.6 只在实验 Profile 中启用时间上下文
+
+启动自定义 Profile，使用 3081 避开可能正在使用的默认端口：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --port 3081 --no-open
+
+
+启动器应打印本地地址。在浏览器打开 http://127.0.0.1:3081，然后按下列顺序操作：
+
+打开“设置 → 插件 → 插件列表”，搜索 time-context；
+确认条目 ID 为 time-context、包名为 @deepseek-ai/dsh-time-context；
+打开左侧边栏的“插件”管理页，只启用这一项；
+回到只读插件列表，确认它已启用且没有加载错误。
+
+如果界面提示需要重启，在终端按 Ctrl+C，再用同一条命令启动。不要转到 Desktop 里操作；那是另一个保留 Profile，不能验证 daily-report-lab 的隔离。
+
+本次不需要发送模型消息。我们要验证的是配置作用域，不必为此产生一次模型调用。
+
+16.7 用两组快照证明隔离生效
+
+在终端按 Ctrl+C 停止实验 Web Host，再生成两份快照：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --dump-config > profile-audit/lab-after.yml
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile web --dump-config > profile-audit/web-after.yml
+
+
+现在计算四个文件的 SHA-256，并直接判断两组是否发生变化：
+
+node -e "const fs=require('node:fs'),c=require('node:crypto'); const h=f=>c.createHash('sha256').update(fs.readFileSync('profile-audit/'+f)).digest('hex'); const a=h('lab-before.yml'),b=h('lab-after.yml'),x=h('web-before.yml'),y=h('web-after.yml'); console.log({labChanged:a!==b,webUnchanged:x===y,labBefore:a,labAfter:b,webBefore:x,webAfter:y});"
+
+
+如果你从第 10 章的停用状态出发，预期看到：
+
+labChanged: true
+webUnchanged: true
+
+
+这比“界面说已保存”更可靠：第一个值只说明实验 dump 的字节变化，第二个值说明 web dump 的字节未变。还需用文本 diff 定位 time-context 条目，核对 disabled 从 true 变为 false（或该版本对应的明确启用状态）；来源注释或其他元数据变化不能算启用成功。保存这项差异与 web 未变的证据，哈希仅作辅助。
+
+如果 labChanged 为 false，先确认你在 3081 的界面中点击了实际的启用/保存操作，而不是只打开只读列表。如果 webUnchanged 为 false，不要立刻判定 DSH 串了配置；先检查比较期间是否有另一个 web 实例、页面或脚本正在保存设置。
+
+profile-audit 中的 dump 是诊断文件，可能暴露本机路径、Provider 配置或凭证引用。不要提交到仓库、上传网盘或原样发给别人；验收完成后可用文件管理器删除这个明确的临时目录。删除 dump 不会删除 daily-report-lab Profile。
+
+16.8 配置层的真实优先级
+
+当某一行配置在多层都出现时，当前启动器依次应用：
+
+bundle patches
+    ↓
+Profile 的 cordis.patch.yml
+    ↓
+Harness Home 级 cordis.patch.yml
+    ↓
+本次命令的 --patch（可重复，按参数顺序）
+
+
+后应用的层对同一行优先。但这里有一个很重要的细节：patch 会替换目标行完整的 config，不是只深度合并你写出来的那个字段。
+
+所以，不要只看一篇旧教程就手写半行覆盖。安全顺序是：
+
+用 --dump-config 找到当前完整行和来源；
+用 --dump-config-schema 核对可用字段与类型；
+先用一次性 --patch <path> 试运行；
+验证无误后，再通过界面或 Profile 自己的 patch 持久化；
+保留变更前 dump，方便回退。
+
+--dump-default-config 适合看“官方 bundle 给了什么”，--dump-config 适合看“我这台机器实际会启动什么”。排错时不要把两者混用。Profile 与 bundle 架构说明
+
+16.9 什么时候才用 dsh plugin
+
+本章启用的 time-context 已经随 DSH 发布，不需要下载陌生包。当你确定需要一个当前 Profile 没有的外部 bundle 时，CLI 语法才是：
+
+以下为参数模板，执行前先将尖括号占位符替换为实际值：
+
+npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile <PROFILE_NAME> add <TRUSTED_BUNDLE>
+npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile <PROFILE_NAME> remove <TRUSTED_BUNDLE>
+
+
+这里的尖括号是占位符，不能原样运行。dsh plugin 会在 Profile 目录中调用 pnpm，所以系统 PATH 里必须有 pnpm；它会改变依赖、锁文件和 bundle 列表。添加、移除或更新 bundle 后，正在运行的 Profile 仍保持启动时的组合，必须重启才能获得新集合。CLI 插件管理约定
+
+外部 bundle 可以在 DSH Host 进程中运行代码。安装前要核对来源、完整包名、版本、许可证、源码、依赖、构建脚本和 DSH 兼容范围。“试试看”不是安装一个未审查 Host 插件的充分理由。
+
+16.10 常见问题
+--from-default-profile 报目录已存在
+
+这个选项只能创建全新的非随附 Profile。已存在时去掉该选项使用原 Profile，或改用一个新名称；不要为了重试而删除不明目录。
+
+自定义 Profile 里没有日常 web 的模型或插件设置
+
+这是预期行为。模板初始化只复制官方 bundle 列表，不复制本机同名 web Profile 的依赖和 patch。只补实验真正需要的配置，不要整份复制包含凭证的文件。
+
+dump 成功，启动却失败
+
+dump 只证明 patch 能组合，不代表所有插件在运行时都能激活。检查 stderr 中的模块解析、schema、服务依赖和端口错误；启动前也要确认 3081 没被其他进程占用。
+
+Profile 改了，已打开的任务却没反应
+
+普通 Profile/Home patch 在 Web 组合中可以热重载，但 bundle 成员的添加、移除或更新需要重启 Profile。已创建 Agent 还可能保留旧的预设或会话上下文，所以配置验收优先使用新任务。
+
+Desktop 中看不到 daily-report-lab
+
+daily-report-lab 是 CLI/Web Profile，Desktop 使用保留的 desktop Profile。两者共享部分产品数据，但可执行包、锁文件、依赖和启用选择不是同一份。这不是同步失败。
+
+16.11 本章验收
+
+进入下一章前，请确认：
+
+能根据作用域选择项目文档/测试、Skill、Profile 或 Plugin；
+daily-report-maintainer 的第 5 条已包含 npm run check；
+修改 Skill 后已独立运行 npm run check 和 npm test；
+已从官方 web 模板创建 daily-report-lab；
+能解释“复制模板”为什么不等于“复制本机 web Profile”；
+已只在实验 Profile 中启用 time-context；
+快照比较结果为 labChanged: true 且 webUnchanged: true；
+知道 bundle、Profile patch、Home patch 和 --patch 的顺序；
+知道 patch 会替换目标行完整 config，不是深度合并；
+没有将可能包含本机配置的 dump 文件对外分享。
+
+到这里，项目内的方法已收进 Skill，DSH 运行时的实验变更也收进独立 Profile。下一章不再引入新机制，而是把安装、模型、工具、会话和项目中最容易阻塞学习的问题收拢成一套排查方法。
+
+← 上一章：案例六：定时任务与 Headless 自动化　|　回目录　|　下一章：常见问题排查：先定位哪一层坏了 →

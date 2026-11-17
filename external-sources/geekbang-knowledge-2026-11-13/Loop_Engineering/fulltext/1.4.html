@@ -1,0 +1,177 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与练习时间：50～70 分钟<br>本篇目标：让 Issue Garden 完整运行一轮——检查基线、领取一个任务、调用确定性模拟 Agent、观察真实 Diff、执行验证，并输出 <code>completed</code> 或明确停止原因。</p>
+</blockquote>
+<p>上一篇结束时，我们已经有了有效的 <code>loop.yaml</code>，但还没有程序根据它做决定。现在要补上第一个 Runner。</p>
+<p>这版 Runner 故意只跑一轮。它不会自动重试，也不会连接真实编码 Agent。这样我们可以先看清一轮里哪些动作属于控制面、哪些结果必须由外部观察，而不被模型输出、网络和多轮状态同时干扰。</p>
+<h2 id="wiki-h-0">把本篇素材加入实验副本</h2>
+<p>起点应是第 2 篇留下的 <code>issue-garden-lab/</code>：虚拟环境已经安装 PyYAML，Git 已有一个干净的基线提交。若你跳过了上一篇，请先按上一篇的方法复制 <code>assets/issue-garden-starter/</code>、安装依赖并提交基线。</p>
+<p>回到课程根目录，把本篇增量素材覆盖复制进实验副本。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R assets/lesson-03-runner/. issue-garden-lab/
+<span class="hljs-built_in">cd</span> issue-garden-lab
+<span class="hljs-built_in">source</span> .venv/bin/activate
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> assets/lesson<span class="hljs-literal">-03-runner</span>/* issue<span class="hljs-literal">-garden-lab</span>
+<span class="hljs-built_in">Set-Location</span> issue<span class="hljs-literal">-garden-lab</span>
+.\.venv\Scripts\Activate.ps1
+</code></pre><p>新增内容包括：</p>
+<pre><code class="hljs language-text">issue_garden/single_round.py       单轮控制逻辑和模拟适配器
+tools/run_once.py                  命令行入口
+tasks/inbox/issue-001.json         第一项待处理任务
+loop_tests/test_single_round.py    命令边界与路径边界测试
+</code></pre><p>先运行控制面测试：</p>
+<pre><code class="hljs language-bash">python -m unittest discover -s loop_tests -p <span class="hljs-string">"test_*.py"</span> -v
+</code></pre><p>你应该看到第 2 篇的四项契约测试和本篇的四项单轮测试，共八项通过。新增测试特别检查了：任务可以调用指定的 Node 验收测试，<code>&amp;&amp;</code> 拼接命令会被拒绝，<code>../</code> 越界路径会被拒绝，修改受保护测试文件会被报告。</p>
+<p>确认测试通过后，把本篇文件保存为新的课程基线：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"feat: add single-round runner"</span>
+git status --short
+</code></pre><p>最后一条命令应没有输出。这样，接下来看到的 Diff 就只来自本轮运行，不会混入刚复制的课程文件。</p>
+<h2 id="wiki-h-1">先确认任务确实没有完成</h2>
+<p>打开 <code>tasks/inbox/issue-001.json</code>，任务内容可以概括为：当搜索词里出现全角空格时，ShelfCare 仍能匹配不带空格的中文书名；Agent 只允许修改 <code>src/</code>。</p>
+<p>其中最值得注意的是验收命令：</p>
+<pre><code class="hljs language-json"><span class="hljs-attr">"verification_command"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+  <span class="hljs-string">"node"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-string">"--test"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-string">"acceptance/fullwidth-space.test.mjs"</span>
+<span class="hljs-punctuation">]</span>
+</code></pre><p>它是参数数组，不是一段交给 Shell 解释的文本。当前 Runner 只接受 <code>node --test acceptance/*.mjs</code> 这种固定形状，像 <code>&amp;&amp; curl ...</code>、项目外路径或其他可执行程序都会在领取任务前被拒绝。</p>
+<p>先手工运行验收测试：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/fullwidth-space.test.mjs
+</code></pre><p>此时测试应该失败，核心差异是实际结果为空数组 <code>[]</code>，预期结果包含《深入理解计算机系统》。这是我们故意保留的任务缺陷，不是环境安装失败。</p>
+<p>再运行项目基础检查：</p>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+npm run check
+</code></pre><p>这两条应该通过。它们与失败的任务验收并不矛盾：基础检查证明当前项目没有已知回归，任务验收则定义本轮要新增的行为。Runner 必须分清“基线本来就坏了”和“新需求尚未满足”。</p>
+<h2 id="wiki-h-2">一轮不是“一次调用 Agent”</h2>
+<p><code>tools/run_once.py</code> 的核心入口是 <code>run_one_round()</code>。它依次完成八个动作：</p>
+<pre><code class="hljs language-text">验证 loop.yaml
+  -&gt; 运行干净基线检查
+  -&gt; 从 inbox 选择文件名排序最前的任务
+  -&gt; 检查任务及验收命令
+  -&gt; 把任务原子移动到 processing
+  -&gt; 调用 Agent 适配器
+  -&gt; 观察 Git Diff 并运行外部验证
+  -&gt; 作出决策并移动已完成任务
+</code></pre><p>这也是“运行（run）”和“一轮（round）”的实际区别：Agent 调用只是其中一步。一轮还包含调用前的准入检查，以及调用后的观察、验证和裁决。</p>
+<h3 id="wiki-h-3">为什么先检查基线，再领取任务</h3>
+<p>如果 <code>npm test</code> 在开始前就失败，Runner 会输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"stopped"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dirty_baseline"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>任务仍留在 <code>inbox</code>，Agent 不会启动。否则一轮结束时，Runner 无法判断失败是旧问题还是本次修改引入的。</p>
+<h3 id="wiki-h-4">为什么领取使用文件移动</h3>
+<p>Runner 把：</p>
+<pre><code class="hljs language-text">tasks/inbox/issue-001.json
+</code></pre><p>移动为：</p>
+<pre><code class="hljs language-text">tasks/processing/issue-001.json
+</code></pre><p>在同一个本地文件系统中，重命名比“先复制、再删除”更接近一次原子状态转换：另一个 Runner 不会在中间看到两份同名待办。它还不是完整的并发锁；第 7 篇会加入调度与隔离。目前请只启动一个 Runner。</p>
+<h3 id="wiki-h-5">为什么先用确定性模拟 Agent</h3>
+<p><code>agent_adapter</code> 目前是 <code>mock</code>。它只认识 <code>fix_fullwidth_space</code> 场景，并执行一项固定修改：用 Unicode NFKC 统一字符宽度，再移除检索字符串中的空白。</p>
+<p>模拟适配器有两个作用：</p>
+<ol>
+<li>同一输入总得到同一改动，便于验证控制逻辑；</li>
+<li>它不需要账号、API Key 或网络，失败来源只有本地代码和 Runner。</li>
+</ol>
+<p>它仍遵守适配器边界：接收结构化任务，返回 <code>status</code> 与 <code>summary</code>。以后接入真实 CLI Agent，只替换“怎样产生候选改动”，任务领取、Diff 观察、验证和决策不应全部重写。</p>
+<p>为避免覆盖读者已有修改，模拟 Agent 会先比对 <code>src/search.mjs</code> 是否仍是课程基线。只要文件内容不同，它就停止，而不是强行写回固定答案。</p>
+<h2 id="wiki-h-6">真正运行第一轮</h2>
+<p>确认当前目录是 <code>issue-garden-lab/</code>，执行：</p>
+<pre><code class="hljs language-bash">python tools/run_once.py
+</code></pre><p>成功时会输出一份较长的 JSON 报告。下面只保留关键字段，实际报告还会包含每条命令的输出和耗时：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"completed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"verified"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-001"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"agent"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"changed"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"summary"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"已用 NFKC 统一字符宽度并移除检索空白；只修改 src/search.mjs"</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"changes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"files"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"src/search.mjs"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"lines"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">9</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"boundary_errors"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"verification"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span><span class="hljs-attr">"command"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"npm"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"test"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"exit_code"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span><span class="hljs-attr">"command"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"npm"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"run"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"check"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"exit_code"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"command"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"node"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"--test"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"acceptance/fullwidth-space.test.mjs"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"exit_code"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"recovery_note"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>只有下面四个条件同时成立，决策才是 <code>completed</code>：</p>
+<ul>
+<li>模拟 Agent 确实产生了候选修改；</li>
+<li>基础检查和任务验收全部以 <code>0</code> 退出；</li>
+<li>Git Diff 没有离开 <code>src/</code>，也没有触碰保护路径；</li>
+<li>修改文件数和 Diff 行数没有超过 <code>loop.yaml</code> 的预算。</li>
+</ul>
+<p>Agent 的 <code>summary</code> 不参与成功裁决。即使它声称“已修复”，只要验收失败或真实 Diff 越界，Runner 就不会完成任务。</p>
+<h3 id="wiki-h-7">Windows 上为什么也能直接运行 <code>npm</code></h3>
+<p>Runner 会先用系统路径查找命令的实际可执行文件，再通过 <code>subprocess</code> 以参数数组调用，且设置 <code>shell=False</code>。这既兼容 Windows 常见的 <code>npm.cmd</code>，也避免把任务内容交给 Shell 展开。</p>
+<p>这不代表任意参数都安全。可执行文件和任务验收路径仍必须通过允许规则；使用参数数组只是减少一层注入面。</p>
+<h2 id="wiki-h-8">别只相信 Runner 的报告</h2>
+<p>现在独立检查它留下的结果。</p>
+<p>先确认任务已从待办箱进入完成区。macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">ls</span> tasks/inbox
+<span class="hljs-built_in">ls</span> tasks/done
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span> tasks/inbox
+<span class="hljs-built_in">Get-ChildItem</span> tasks/done
+</code></pre><p><code>inbox</code> 应为空，<code>done</code> 中应出现 <code>issue-001.json</code>。</p>
+<p>重新运行三类验证：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/fullwidth-space.test.mjs
+npm <span class="hljs-built_in">test</span>
+npm run check
+</code></pre><p>现在任务验收应由失败变为通过，原有两项搜索测试仍通过，语法检查退出码仍为 <code>0</code>。这证明修复了新增行为，同时没有破坏原有行为。</p>
+<p>最后直接查看改动，而不是只读 Agent 摘要：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+git status --short
+</code></pre><p>Diff 应只显示 <code>src/search.mjs</code> 增加 <code>normalizeText()</code> 并在查询与候选书目上使用它。状态列表还会显示任务从 <code>tasks/inbox/</code> 移到 <code>tasks/done/</code>；这是 Runner 自己管理的队列状态，不属于 Agent 的代码修改。</p>
+<p>代码 Diff 和任务移动暂时都没有提交。课程默认把结果留给人审阅，不会替你合并或发布。</p>
+<h2 id="wiki-h-9">验证“没有任务”也会结束</h2>
+<p>再次运行同一命令：</p>
+<pre><code class="hljs language-bash">python tools/run_once.py
+</code></pre><p>这次应输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"stopped"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"no_task"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>命令退出码为 <code>2</code>，表示没有完成新任务。<code>no_task</code> 不是异常事故，而是“不应继续启动 Agent”的正常停止原因。一个可靠循环不应该在队列为空时发明工作。</p>
+<p>macOS 或 Linux 用 <code>echo $?</code>、PowerShell 用 <code>$LASTEXITCODE</code>，可以确认退出码。第二次运行不会再次改写 <code>src/search.mjs</code>，也不会复制一份完成记录。</p>
+<h2 id="wiki-h-10">当前版本故意没有解决什么</h2>
+<p>这个 Runner 已经形成了单轮闭环，但还不能用来无人值守运行真实 Agent。</p>
+<ul>
+<li><strong>报告只打印到终端。</strong> 进程退出后，没有结构化历史供下一轮恢复；</li>
+<li><strong>失败任务会留在 <code>tasks/processing/</code>。</strong> 当前版本宁可停住，也不冒险自动重放；</li>
+<li><strong>队列移动没有独立锁。</strong> 两个进程同时启动的竞争条件尚未完整处理；</li>
+<li><strong>Git 观察针对已跟踪代码 Diff。</strong> 现在的模拟 Agent只修改一个已跟踪文件；接入任意真实 Agent 前，还要处理新文件、删除、重命名和工作区隔离；</li>
+<li><strong>验证逻辑与 Runner 在同一模块。</strong> 第 5 篇会把生成者和验证者拆开，避免执行者影响裁决规则。</li>
+</ul>
+<p>这些不是让读者自己猜着补的遗漏，而是后续课程要逐步解决的问题。现在的边界很明确：它只用于本地、单进程、确定性实验。</p>
+<h2 id="wiki-h-11">常见阻塞与恢复</h2>
+<h3 id="wiki-h-12">输出 <code>dirty_baseline</code></h3>
+<p>先手工运行报告里的基础命令。若 <code>npm test</code> 或 <code>npm run check</code> 失败，修复环境或还原无关改动，再启动 Runner。不要为了让循环继续而关闭基线检查。</p>
+<h3 id="wiki-h-13">模拟 Agent 提示课程基线不同</h3>
+<p>先查看：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+</code></pre><p>如果这些是你希望保留的改动，不要还原，改用一份新的实验副本。如果只是重复练习产生的修改，可以先把任务文件移回 <code>inbox</code>，再还原源文件。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mv</span> tasks/done/issue-001.json tasks/inbox/issue-001.json
+git restore src/search.mjs
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Move-Item</span> tasks/done/issue<span class="hljs-literal">-001</span>.json tasks/inbox/issue<span class="hljs-literal">-001</span>.json
+git restore src/search.mjs
+</code></pre><p>若失败任务在 <code>tasks/processing/</code>，把上面的 <code>done</code> 换成 <code>processing</code>。<code>git restore</code> 会丢弃该文件尚未提交的修改，所以一定先看 Diff；不确定时，重新复制实验目录更稳妥。</p>
+<h3 id="wiki-h-14">输出 <code>verification_command_not_allowed</code></h3>
+<p>检查任务里的命令是否恰好是三个参数：<code>node</code>、<code>--test</code>、<code>acceptance/</code> 下的 <code>.mjs</code> 文件。不要通过放宽到“允许任意字符串命令”来绕过错误。真实项目应建立自己的验证命令注册表，而不是允许任务正文决定执行什么程序。</p>
+<h2 id="wiki-h-15">本篇留下了什么</h2>
+<p>Issue Garden 已经完成第一轮真实控制流程：有效契约和干净基线允许任务进入处理区，模拟 Agent 产生可预测修改，Runner 从 Git 和进程退出码中收集观察，外部验证通过后才把任务标记为 <code>completed</code>；队列为空时，下一次运行会明确停止。</p>
+<p>下一篇，我们会处理这版 Runner 最明显的缺口：终端输出不是记忆，<code>processing</code> 里的半成品也不会自己解释发生过什么。我们将建立 <code>.loop/</code> 状态脊柱，把任务事实、每轮尝试、验证证据和最终决策分别持久化，让循环在进程中断后仍然知道从哪里继续。</p>
+<h2 id="wiki-h-16">修订后的边界验收</h2>
+<p>超时输出统一转为文本，退出码为 124。stdout、stderr 有无内容都必须能写入 JSON。修订版在 POSIX 终止整个命令进程组；Windows 使用 taskkill /T，仍需在目标 Windows 环境验证进程树清理。</p>
+</article>

@@ -1,0 +1,220 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>复习助手想估计读完一篇笔记需要多久。我们先用一个极简模型：笔记长度乘以一个系数，就得到预测时长。</p>
+<p>假设一篇 2000 字的笔记，目标阅读时长是 6 分钟。当前模型的系数是“每千字 1 分钟”，于是预测只有 2 分钟。它偏低了，接下来应该怎么改？</p>
+<p>这个小问题，人可以直接把系数改成 3。但上一篇的网络已经有多个参数，大模型的参数更多；每个参数又通过不同计算影响最终结果。训练需要一套能够重复执行的方法，计算哪些参数该怎样调整。</p>
+<p>本篇把这套过程拆成四步：<strong>前向计算、计算损失、计算梯度、更新参数</strong>。我们会真正算出几次更新，但全部使用教学构造的数据与公式，不代表对真实阅读时长或大模型做了实验。你不需要安装软件，也不用先掌握微积分；涉及导数的地方会解释它在回答什么问题。</p>
+<h2 id="wiki-h-0">先把“要改什么”和“按什么改”分开</h2>
+<p>给笔记长度换一个便于手算的单位：<code>x=字数÷1000</code>，所以 2000 字对应 <code>x=2</code>。模型暂时没有偏置，只有一个参数 <code>w</code>：</p>
+<pre><code class="hljs language-text">预测时长 ŷ = w × x
+目标时长 y = 6
+损失 L = (ŷ - y)²
+</code></pre><p><code>ŷ</code> 读作“y 帽”，这里只表示预测值，与目标 <code>y</code> 区分。损失沿用第 06 篇的平方误差；因为当前只有一个样本，不需要另外求平均。时长以分钟计，损失单位就是分钟的平方。</p>
+<p>当 <code>w=1</code> 时：</p>
+<pre><code class="hljs language-text">预测：ŷ = 1 × 2 = 2
+损失：L = (2 - 6)² = 16
+</code></pre><p>输入 <code>x</code> 和目标 <code>y</code> 在这次训练计算中固定。我们要改的是参数 <code>w</code>，希望改完以后，按同一条损失规则重新计算的结果更小。</p>
+<p>这与修改标签凑出低损失完全不同。训练目标是调整模型，让它适应提供的数据，而不是把“6 分钟”偷偷改成它已经预测的“2 分钟”。</p>
+<h2 id="wiki-h-1">梯度：轻轻改动参数，损失会怎样变化</h2>
+<p>先试着把 <code>w</code> 从 1 增加到 1.01：</p>
+<pre><code class="hljs language-text">新预测：1.01 × 2 = 2.02
+新损失：(2.02 - 6)² = 15.8404
+</code></pre><p>参数增加 0.01，损失下降 0.1596。两者的变化量相除，得到约 -15.96。这提示我们：在当前点附近，稍微增加 <code>w</code>，损失会降低。</p>
+<p>如果考察越来越小的参数改动，就得到这里所说的<strong>导数</strong>：损失相对于这个参数的局部变化率。对有许多参数的模型，每次固定其他参数，分别考察一个参数的这种变化率，再组成一组数，就是损失相对于参数的<strong>梯度，gradient</strong>。</p>
+<p>本例的精确计算规则是：</p>
+<pre><code class="hljs language-text">损失对 w 的梯度 g = 2 × (w×x - y) × x
+
+代入 w=1、x=2、y=6：
+g = 2 × (2 - 6) × 2 = -16
+</code></pre><p>暂时不会推导也没关系。记住它告诉我们的方向：梯度为负，表示在这个点附近增加 <code>w</code> 会降低损失；梯度为正，则减小 <code>w</code> 是局部下降方向。这里的“附近”很重要，不能据此断言参数增加得越多越好。<a href="https://developers.google.com/machine-learning/crash-course/linear-regression/gradient-descent">Google：梯度下降与平方误差的参数导数</a></p>
+<p>梯度不是损失本身。损失 16 描述当前计分，梯度 -16 描述当前对参数变化的敏感程度，恰好绝对值相同只是这个算例的巧合。它也不是模型用语言写下的一段“反省”。</p>
+<h2 id="wiki-h-2">梯度下降：按方向走多远</h2>
+<p>最基础的更新规则叫作<strong>梯度下降，gradient descent</strong>：</p>
+<pre><code class="hljs language-text">新参数 = 旧参数 - 学习率 × 梯度
+</code></pre><p><strong>学习率，learning rate</strong>，控制更新幅度，常用希腊字母 <code>η</code> 表示。这里先取 <code>η=0.1</code>：</p>
+<pre><code class="hljs language-text">新 w = 1 - 0.1 × (-16) = 2.6
+新预测 = 2.6 × 2 = 5.2
+新损失 = (5.2 - 6)² = 0.64
+</code></pre><p>减去一个负数，参数反而增大，这正是我们需要的方向。下一步必须在新参数处重新计算梯度，不能一直重复使用最初的 -16：</p>
+<pre><code class="hljs language-text">新梯度 = 2 × (5.2 - 6) × 2 = -3.2
+再更新 w = 2.6 - 0.1 × (-3.2) = 2.92
+</code></pre><p>把过程列成表，就能看出训练循环在做什么：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th align="right">完成的更新次数</th>
+<th align="right">参数 w</th>
+<th align="right">当前预测时长</th>
+<th align="right">当前损失</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">2</td>
+<td align="right">16</td>
+</tr>
+<tr>
+<td align="right">1</td>
+<td align="right">2.6</td>
+<td align="right">5.2</td>
+<td align="right">0.64</td>
+</tr>
+<tr>
+<td align="right">2</td>
+<td align="right">2.92</td>
+<td align="right">5.84</td>
+<td align="right">0.0256</td>
+</tr>
+<tr>
+<td align="right">3</td>
+<td align="right">2.984</td>
+<td align="right">5.968</td>
+<td align="right">0.001024</td>
+</tr>
+</tbody></table></div>
+<p>对于这一个样本，理想的系数是 3，我们的更新正在接近它。这还没有证明“所有笔记每千字都需要 3 分钟”，只证明这条规则在当前样本上逐步降低了损失。</p>
+<p>学习率通常由训练设置指定，属于<strong>超参数</strong>；<code>w</code> 则是被优化的模型参数。软件可以按计划改变学习率，但它与普通梯度更新中的权重仍是不同角色。<a href="https://developers.google.com/machine-learning/crash-course/linear-regression/hyperparameters">Google：学习率与其他超参数</a></p>
+<h2 id="wiki-h-3">同一个梯度，步子太大也会走错</h2>
+<p>都从 <code>w=1、梯度=-16</code> 出发，换几个学习率，看看一次更新后的结果：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th align="right">学习率</th>
+<th align="right">更新后的 w</th>
+<th align="right">更新后的预测</th>
+<th align="right">更新后的损失</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="right">0.01</td>
+<td align="right">1.16</td>
+<td align="right">2.32</td>
+<td align="right">13.5424</td>
+</tr>
+<tr>
+<td align="right">0.10</td>
+<td align="right">2.60</td>
+<td align="right">5.20</td>
+<td align="right">0.64</td>
+</tr>
+<tr>
+<td align="right">0.30</td>
+<td align="right">5.80</td>
+<td align="right">11.60</td>
+<td align="right">31.36</td>
+</tr>
+</tbody></table></div>
+<p>0.01 让损失有所下降，但这一步改善较小；0.30 则跨过了合适位置，新的预测过高，损失甚至比原来的 16 更大。</p>
+<p>所以“沿下降方向更新”和“更新之后一定下降”不能混为一谈。方向是局部信息，步幅还需要合适。这里的 0.1 也不是通用推荐值：输入单位、损失缩放、网络结构和更新算法改变后，合适的数值都可能不同。</p>
+<p>在深层网络里，损失随参数变化的形状远比本例复杂。梯度下降也不承诺找到全局最好的参数。看到梯度接近 0，需要结合更多信息判断，不能仅凭这一点认定已经获得最好的模型。</p>
+<h2 id="wiki-h-4">多层网络里的梯度，怎样算回去</h2>
+<p>前面的模型只有一个参数，公式很短。现在增加一层，但暂时不加非线性，方便看清梯度沿途怎样传递：</p>
+<pre><code class="hljs language-text">输入 x → h = a×x → 预测 ŷ = b×h → 损失 L = (ŷ-y)²
+</code></pre><p><code>a、b</code> 是两个不同层的权重，均暂取 1；这里的 <code>b</code> 是乘法权重，不是上一篇公式中的偏置。仍用 <code>x=2、y=6</code>，前向结果就是 <code>h=2、ŷ=2、L=16</code>。</p>
+<p>先看离损失最近的一步：预测值稍微增加时，损失怎样变？平方误差对预测值的变化率是 <code>2×(ŷ-y)</code>，当前为 -8。</p>
+<p>再往前看：</p>
+<ul>
+<li>改变 <code>b</code>，会先通过 <code>ŷ=b×h</code> 影响预测。在当前 <code>h=2</code> 的位置，预测对 <code>b</code> 的变化率是 2。因此损失对 <code>b</code> 的梯度是 <code>-8×2=-16</code>。</li>
+<li>改变 <code>a</code>，要经过 <code>a → h → ŷ → L</code>。沿途的变化率分别是 <code>x=2</code>、<code>b=1</code>、<code>-8</code>，相乘得到损失对 <code>a</code> 的梯度 <code>-8×1×2=-16</code>。</li>
+</ul>
+<p>这种把沿途变化率连接起来的规则叫作<strong>链式法则</strong>。在这个例子中，我们可以把它读成“参数先影响中间值，中间值再影响预测，预测最后影响损失”。</p>
+<p><strong>反向传播，backpropagation</strong>，就是沿计算关系反向组织这些梯度计算的方法。它从损失开始，逐步计算更早的中间值和参数如何影响损失，复用已经算出的结果；如果一个参数通过多条路径影响损失，就需要汇总这些路径的贡献。<a href="https://d2l.ai/chapter_multilayer-perceptrons/backprop.html">《动手学深度学习》：反向传播与计算图</a></p>
+<p>上一篇说过，纯线性层可以合并。本例保留两层只是为了展示链式计算，不是为了增加表达能力。实际网络有激活函数时，也要把相应的局部变化率纳入链条。</p>
+<p>反向传播不需要让每个隐藏单元先得到一个人工标签，也不是把正确答案“倒着塞回去”。它计算的是给定损失对各参数的梯度。</p>
+<h2 id="wiki-h-5">反向传播和更新参数，是两件事</h2>
+<p>这几个词经常同时出现，但职责不同：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>环节</th>
+<th>做什么</th>
+<th>是否已经改变参数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>前向传播</td>
+<td>用当前参数计算中间值和预测</td>
+<td>没有</td>
+</tr>
+<tr>
+<td>计算损失</td>
+<td>对照目标，给本次预测计分</td>
+<td>没有</td>
+</tr>
+<tr>
+<td>反向传播</td>
+<td>计算损失对参数的梯度</td>
+<td>通常还没有</td>
+</tr>
+<tr>
+<td>优化器更新</td>
+<td>使用梯度和更新规则修改参数</td>
+<td>是</td>
+</tr>
+</tbody></table></div>
+<p><strong>优化器，optimizer</strong>，是执行参数更新规则的组件。最简单的更新可以用刚才的梯度下降公式；其他优化器还可能利用历史梯度等信息，不必都严格等于这一条公式。</p>
+<p>现代深度学习框架可以自动记录运算关系并计算梯度，这叫作<strong>自动微分</strong>。例如 PyTorch 的自动微分教程把梯度计算展示为单独一步；得到梯度，并不等于已经执行参数更新。自动微分也不同于对每个参数都加一点、重新试跑整个模型的数值差分方法。<a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">PyTorch：Automatic Differentiation with torch.autograd</a></p>
+<p>本篇一开始把 <code>w</code> 增加 0.01，是为了帮助理解变化率，不是在建议大型网络按这种方式逐个试探所有参数。</p>
+<p>把训练循环画完整，就会看到目标和参数进入了不同的位置：</p>
+<pre><code class="hljs language-text">取一批输入和目标
+        ↓
+当前参数 → 前向计算 → 预测 → 与目标比较 → 损失
+   ↑                                      ↓
+   └──────── 优化器更新 ← 参数梯度 ← 反向传播
+
+然后取下一批数据，用更新后的参数重新计算。
+</code></pre><h2 id="wiki-h-6">为什么训练常常一批一批进行</h2>
+<p>真实训练通常不会只看一篇笔记。若有大量样本，每更新一次都计算全部数据，可能太慢；每次只看一个样本，又可能难以充分利用硬件。<strong>小批量，mini-batch</strong>，是一次处理一组样本的常见折中。</p>
+<p>例如，一批里有 20 篇笔记，可以先得到各样本损失，再对它们求平均并计算梯度。对于这种平均损失，其梯度也相应汇总了这些样本的贡献。有些样本希望参数变大，有些希望变小，合在一起决定这一步的更新。<a href="https://d2l.ai/chapter_optimization/minibatch-sgd.html">《动手学深度学习》：小批量随机梯度下降</a></p>
+<p>假设训练集恰有 100 篇，每批 20 篇，每批更新一次，不重复抽样、不跨批累计梯度：</p>
+<pre><code class="hljs language-text">处理 1 批并更新一次：1 个优化步骤，step
+100 篇全部处理一次：1 轮，epoch
+这个例子中：1 epoch = 5 个更新步骤
+</code></pre><p>这是特定设置下的对应关系，不是通用等式。有些系统会把多批梯度累计后才更新，也有持续采样的数据流，因此阅读日志时要看具体定义。</p>
+<p>换了一批数据，计算的损失也换了样本依据。它偶尔比上一批高，并不足以证明训练出故障。应结合一段时间的趋势和固定评估数据判断，而不是要求每一批的数字都严格下降。</p>
+<h2 id="wiki-h-7">训练不稳定，不一定只是学习率的问题</h2>
+<p>前面的“大步跨过目标”解释了一种常见问题。深层网络还可能遇到<strong>梯度消失</strong>或<strong>梯度爆炸</strong>：沿多层传播以后，某些梯度变得极小，参数几乎不动；或者变得过大，更新幅度失控。初始化方式、激活函数和网络结构都会影响这些现象。<a href="https://d2l.ai/chapter_multilayer-perceptrons/numerical-stability-and-init.html">《动手学深度学习》：数值稳定性与初始化</a></p>
+<p>作为应用开发者，先能区分现象与结论即可：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>可能需要检查的方向</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>损失持续剧烈增大</td>
+<td>学习率、梯度大小、异常输入与数值计算</td>
+</tr>
+<tr>
+<td>损失长期几乎不变</td>
+<td>参数是否真的在更新、梯度是否过小、设置是否合适</td>
+</tr>
+<tr>
+<td>训练损失下降，实际笔记效果却变差</td>
+<td>数据代表性、过拟合、训练目标与任务是否一致</td>
+</tr>
+</tbody></table></div>
+<p>这张表不是凭曲线确诊原因的规则。尤其是最后一种情况，可能训练本身运行正常，只是它优化的内容没有转化成我们想要的能力。下一篇会专门讨论泛化和过拟合。</p>
+<h2 id="wiki-h-8">使用模型时，为什么通常没有这一整套循环</h2>
+<p>在通常的推理过程中，我们加载已经训练好的参数，把新输入送进去，计算输出。中间值会变化，但不会因为这次回答自动执行上述参数更新。</p>
+<p>复习助手把你的新笔记作为参考资料，模型据此生成卡片，属于使用输入信息；把新笔记整理为训练样本，再计算损失、梯度并更新参数，则属于另一条训练流程。是否保存聊天记录、是否以后把反馈用于训练，又是产品和数据流程的安排，不能仅从“它记住了上一句话”推断。</p>
+<p>同样，推理模型生成较长的思考过程，或者 Agent 多次调用工具，也不能因此就叫作反向传播。多做几次计算与改变模型参数，是两个不同维度。</p>
+<h2 id="wiki-h-9">理解检查：轮到你更新参数</h2>
+<ol>
+<li>沿用 <code>ŷ=w×x、L=(ŷ-y)²</code>，令 <code>x=2、y=6、w=4</code>。梯度是多少？学习率为 0.1 时，新参数和新损失是多少？</li>
+<li>反向传播已算出梯度，但没有执行任何参数更新规则。能否说权重已经学到了这批数据？</li>
+<li>在本篇 100 篇、每批 20 篇、每批更新一次的设置下，完成 3 个 epoch，共更新多少次？</li>
+<li>某一批损失比上一批高，是否足以证明学习率太大？</li>
+<li>用户上传一篇笔记后，模型能回答其中的新信息，是否证明其权重刚刚改变？</li>
+</ol>
+<p><strong>第 1 题：</strong> 当前预测为 8，梯度为 <code>2×(8-6)×2=8</code>。新参数 <code>4-0.1×8=3.2</code>，新预测为 6.4，新损失为 <code>0.4²=0.16</code>。梯度为正，所以本次更新减小参数。</p>
+<p><strong>第 2 题：</strong> 不能。梯度是更新依据；按题设，权重还没有改变。需要区分“算出该怎么改”与“真正改了参数”。</p>
+<p><strong>第 3 题：</strong> 每轮 5 次，3 轮共 15 次。这个答案依赖题目约定，若使用梯度累计等设置就要重新计算。</p>
+<p><strong>第 4 题：</strong> 不足以。不同批次可能难度不同，随机更新也可能有波动，需要观察趋势和相关训练状态。</p>
+<p><strong>第 5 题：</strong> 不能。新笔记可能只是进入了本次上下文，模型用已有参数处理了新输入；有无参数更新，要看是否实际运行了训练流程。</p>
+<p>到这里，数据、表示、网络、损失与参数更新已经连成一条线。下一篇要问一个更贴近使用的问题：模型在练习材料上越来越熟练，为什么遇到新笔记还是会出错？</p>
+<hr>
+<p>上一篇：07｜神经网络与深度学习：多层计算怎样形成能力</p>
+<p>下一篇：09｜学会与背会有什么区别：泛化、过拟合与分布变化</p>
+<p>返回：第一部分大纲</p>
+</article>

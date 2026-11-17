@@ -1,0 +1,293 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本附录按 DeepSeek Harness <code>v0.1.7-rc.2</code> 整理，适合学完正文后查阅。它只收录正文中已经解释或实际验证过的内容，不能代替对应章节的操作步骤与安全说明。</p>
+</blockquote>
+<h2 id="wiki-h-0">A. 容易混淆的术语</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>术语</th>
+<th>在本教程中的准确含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DSH / DeepSeek Harness</td>
+<td>面向 Agent 的开源运行框架。它把模型、工具、审批、插件、工作区、会话和界面组织成可运行的系统。</td>
+</tr>
+<tr>
+<td>Host / Client</td>
+<td>Host 是实际运行 Agent、插件和会话的后端进程；Desktop、Web 等 Client 负责展示与交互。关闭一个界面不一定等于 Host 已退出。</td>
+</tr>
+<tr>
+<td>Workspace（工作区）</td>
+<td>当前会话选中的项目目录，也是许多文件与终端操作的默认位置。它有助于限定任务范围，但不自动代表所有外部进程都被关在这里。</td>
+</tr>
+<tr>
+<td>Model Provider</td>
+<td>模型调用路线，例如 DeepSeek 官方 API、内置第三方 Provider 或兼容协议的自定义 API。不要和插件系统中的 Provider 角色混为一谈。</td>
+</tr>
+<tr>
+<td>Agent 预设</td>
+<td>决定 Agent 采用哪些工具和工作方式的插件组合。课程实操了标准、PTC、极简和创造模式。</td>
+</tr>
+<tr>
+<td>标准模式</td>
+<td>模型直接调用文件、终端等原生工具；轨迹直观，适合多数日常任务。</td>
+</tr>
+<tr>
+<td>PTC 模式</td>
+<td>模型主要通过 <code>run_code</code> 编排工具 SDK；适合需要在一次代码执行中批量处理、循环或聚合大量工具结果的任务。它不是“更强的标准模式”。</td>
+</tr>
+<tr>
+<td>极简模式</td>
+<td>工具更少、执行路径更短，适合只需推理或少量操作的任务；工具少不等于权限天然更安全。</td>
+</tr>
+<tr>
+<td>创造模式</td>
+<td>用自然语言组合并保存自定义 Agent 预设的入口。创建后仍要检查实际 bundle、工具和权限。</td>
+</tr>
+<tr>
+<td>Profile</td>
+<td>一套可独立保存的运行配置，包含插件组合、补丁和依赖状态。Desktop 的保留 Profile 与 CLI/Web 自建 Profile 不应视为同一份配置。</td>
+</tr>
+<tr>
+<td>Plugin / Bundle</td>
+<td>Plugin 是一个能力模块；Bundle 是可被 Profile 加载的一组插件配置。第三方 bundle 会在 Host 中运行代码，因此应像依赖包一样审查来源与权限。</td>
+</tr>
+<tr>
+<td>Cordis</td>
+<td>DSH 的插件框架，负责插件生命周期、服务注册和依赖关系。</td>
+</tr>
+<tr>
+<td>Service Definition / Provider / Consumer</td>
+<td>插件系统中的接口定义、接口实现和接口使用方。这里的 Provider 不是模型 Provider。</td>
+</tr>
+<tr>
+<td>Skill</td>
+<td>一份可发现、按需加载的任务说明，告诉 Agent 应遵循什么流程。Skill 本身不会凭空增加工具、模型权限或系统权限。</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td>连接外部 MCP Server 的标准协议。课程实操的是一个受限目录的 MCP 工具；没有把所有 MCP Resource 能力都当作已掌握内容。</td>
+</tr>
+<tr>
+<td>Subagent</td>
+<td>由主 Agent 派出的子任务执行者，适合并行进行边界清晰的读取、研究或审查。最终结论仍需主 Agent 汇总和核证。</td>
+</tr>
+<tr>
+<td>Workflow</td>
+<td>把多个步骤或 Agent 组织成显式流程的机制，适合结构稳定、需要复用的编排。</td>
+</tr>
+<tr>
+<td>Agent Team</td>
+<td>当前仍属实验性能力。正文只解释了它与 Subagent、Workflow 的边界，没有把它作为主线实操。</td>
+</tr>
+<tr>
+<td>Goal</td>
+<td>让同一个长期目标跨多个 Round 自动推进的机制。它不是后台服务、定时器、并行系统或权限豁免。</td>
+</tr>
+<tr>
+<td>Schedule</td>
+<td>由运行中的 DSH Host 在指定时间触发任务。Host 未运行、时区错误或任务重复都会影响结果。</td>
+</tr>
+<tr>
+<td>Headless</td>
+<td>不打开交互界面，以命令行方式执行一次任务并返回退出状态或事件流。</td>
+</tr>
+<tr>
+<td>审批</td>
+<td>对一次敏感操作是否放行的用户决定。批准一条命令，不等于永久授权同类命令。</td>
+</tr>
+<tr>
+<td>权限 / 沙箱</td>
+<td>限制 Agent 或进程能够访问什么的边界。工作区、DSH 原生工具和外部 MCP Server 可能各有不同的边界。</td>
+</tr>
+<tr>
+<td>Trajectory（轨迹）</td>
+<td>一次任务中模型思考、工具调用、结果和错误组成的执行记录，是审查 Agent 是否按要求工作的主要证据。</td>
+</tr>
+<tr>
+<td>Python SDK / ACP</td>
+<td>两种程序化集成入口：SDK 用 Python 代码驱动 DSH；ACP 用协议让兼容客户端连接 DSH。它们不是同一种接口。</td>
+</tr>
+</tbody></table></div>
+<p>如果只记住一条：<strong>预设决定 Agent 怎么工作，Profile 决定一套环境加载什么，Skill 提供做事说明，Plugin 与 MCP 才会真正接入能力。</strong></p>
+<h2 id="wiki-h-1">B. 常用命令</h2>
+<h3 id="wiki-h-2">B.1 DSH 与 CLI/Web</h3>
+<p>以下命令使用课程推荐的临时运行方式，不要求全局安装。请在系统终端执行；Windows PowerShell 如果无法解析 <code>npx</code>，可把它替换成 <code>npx.cmd</code>。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>用途</th>
+<th>命令</th>
+<th>结果或注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>查看版本</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --version</code></td>
+<td>输出当前实际运行版本。排错时先记录它。</td>
+</tr>
+<tr>
+<td>查看总帮助</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --help</code></td>
+<td>以本机输出为准，不要凭旧教程猜参数。</td>
+</tr>
+<tr>
+<td>启动 Web</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 web</code></td>
+<td>启动 Web Profile；终端进程需要保持运行。</td>
+</tr>
+<tr>
+<td>指定端口且不自动开浏览器</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 web --port 3100 --no-open</code></td>
+<td>适合端口冲突、服务器或 SSH 隧道场景。不要直接把服务暴露到公网。</td>
+</tr>
+<tr>
+<td>查看 Web Profile 的最终配置</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --profile web --dump-config</code></td>
+<td>输出可能含本机路径与 Provider 信息，不要未经脱敏上传。</td>
+</tr>
+<tr>
+<td>查看 Headless 帮助</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --help</code></td>
+<td>先用帮助确认当前版本的选项。</td>
+</tr>
+<tr>
+<td>执行一次 Headless 任务</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless "任务描述"</code></td>
+<td>任务结束后进程退出，可用退出码判断成功与否。</td>
+</tr>
+<tr>
+<td>输出 Headless 事件流</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --json "任务描述"</code></td>
+<td>输出 NDJSON，适合脚本逐行处理，不是一个普通 JSON 数组。</td>
+</tr>
+<tr>
+<td>继续已有 Headless 会话</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --session-id &lt;SESSION_ID&gt; "任务描述"</code></td>
+<td>把 <code>&lt;SESSION_ID&gt;</code> 换成真实会话 ID，尖括号只是占位符。</td>
+</tr>
+<tr>
+<td>从 Web 模板创建隔离 Profile 并检查配置</td>
+<td><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --from-default-profile web --dump-config</code></td>
+<td>创建或使用 <code>daily-report-lab</code>；它不会自动同步到 Desktop 的保留 Profile。</td>
+</tr>
+</tbody></table></div>
+<p>第三方插件安装没有列入“常用命令”。这类操作会改变 Profile 的依赖、锁文件和 bundle，并让外部代码进入 Host；需要时应回到<a href="16-%E7%AC%AC16%E7%AB%A0-%E6%A1%88%E4%BE%8B%E4%B8%83-%E6%B2%89%E6%B7%80%E9%85%8D%E7%BD%AE.md">第 16 章</a>，先核验来源，再在隔离 Profile 中操作。</p>
+<h3 id="wiki-h-3">B.2 日报助手项目</h3>
+<p>下面三条命令要在 <code>daily-report</code> 项目根目录执行：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>是否联网</th>
+<th>是否写入报告</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm run check</code></td>
+<td>否</td>
+<td>否</td>
+<td>校验默认 <code>sources.json</code> 和项目配置；成功时应以退出码 <code>0</code> 结束。</td>
+</tr>
+<tr>
+<td><code>npm test</code></td>
+<td>否</td>
+<td>否</td>
+<td>使用伪造的 <code>fetch</code> 做完整回归测试。</td>
+</tr>
+<tr>
+<td><code>npm start</code></td>
+<td>是</td>
+<td>是</td>
+<td>请求两个 GitHub Releases API，并在全部数据获取成功后生成或覆盖 <code>daily-report.md</code>。</td>
+</tr>
+</tbody></table></div>
+<p>如果项目使用 Git，还可以运行 <code>git diff --check</code> 检查空白错误；它不验证程序逻辑，也不能替代测试。</p>
+<h2 id="wiki-h-4">C. 日报助手的最终状态</h2>
+<p>完成第 7～16 章后，项目应大致包含这些产物：</p>
+<pre><code class="hljs language-text">daily-report/
+├── .dsh/
+│   ├── mcp-filesystem.yml
+│   └── skills/
+│       └── daily-report-maintainer/
+│           └── SKILL.md
+├── mcp-scratch/
+│   └── mcp-check.txt
+├── src/
+├── test/
+├── AUDIT.md
+├── PROJECT.md
+├── README.md
+├── daily-report.md
+├── package.json
+└── sources.json
+</code></pre><p><code>src/</code> 和 <code>test/</code> 中的具体文件名可能因 Agent 批准的实现计划而不同，这不影响验收。<code>.dsh/mcp-filesystem.yml</code> 与 <code>mcp-scratch/mcp-check.txt</code> 是第 12 章留下的 MCP 实验产物；如果你按文中说明清理了实验，也可以不存在。</p>
+<p>最终验收关注行为，而不是目录是否和示意图逐字一致：</p>
+<ol>
+<li><code>npm run check</code> 能离线检查配置，不修改 <code>daily-report.md</code>；</li>
+<li><code>npm test</code> 能离线通过，测试不会真的请求 GitHub；</li>
+<li><code>npm start</code> 会真实联网，并生成含两个数据源和有效链接的报告；</li>
+<li><code>.dsh/skills/daily-report-maintainer/SKILL.md</code> 已包含测试、检查和外部操作边界；</li>
+<li><code>AUDIT.md</code> 记录了子智能体审查后由主 Agent 核证的结论。</li>
+</ol>
+<p>另外还有两类状态不在项目树中：</p>
+<ul>
+<li><code>daily-report-lab</code> 是 DSH Home 下的隔离 Profile，不是项目文件；</li>
+<li>第 15 章创建的 Schedule 任务是否保留，由你在章末明确选择。它不能通过查看项目目录来确认。</li>
+</ul>
+<h2 id="wiki-h-5">D. 官方资料入口</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>想继续了解</th>
+<th>官方入口</th>
+<th>正文对应位置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>项目源码、版本和已知变化</td>
+<td><a href="https://github.com/deepseek-ai/deepseek-harness">官方仓库</a> · <a href="https://github.com/deepseek-ai/deepseek-harness/releases">Releases</a></td>
+<td>第 1～3 章</td>
+</tr>
+<tr>
+<td>Desktop 安装与生命周期</td>
+<td><a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/desktop/README.zh.md">Desktop 中文说明</a></td>
+<td>第 4、6 章</td>
+</tr>
+<tr>
+<td>CLI 参数与 Profile</td>
+<td><a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.zh.md">CLI 中文参考</a></td>
+<td>第 4～6、15～17 章</td>
+</tr>
+<tr>
+<td>模型 Provider</td>
+<td><a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/guide/providers.zh.md">Provider 中文指南</a></td>
+<td>第 8 章</td>
+</tr>
+<tr>
+<td>插件与整体架构</td>
+<td><a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md">架构说明</a></td>
+<td>第 9、10、16 章</td>
+</tr>
+<tr>
+<td>项目级 Skill</td>
+<td><a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.zh.md">Skill 文件系统</a></td>
+<td>第 12、16 章</td>
+</tr>
+<tr>
+<td>MCP 接入</td>
+<td><a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/mcp/mcp-client/README.zh.md">MCP Client 中文说明</a></td>
+<td>第 12 章</td>
+</tr>
+<tr>
+<td>Headless 自动化</td>
+<td><a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/bundle/headless/README.zh.md">Headless 中文说明</a></td>
+<td>第 15 章</td>
+</tr>
+</tbody></table></div>
+<p>产品仍在快速迭代。遇到界面名称、参数或默认行为与教程不同，先运行 <code>--version</code> 和 <code>--help</code>，再查对应版本的 Release 与官方文档；不要为了“跟教程一致”而降级、清空配置或放宽权限。</p>
+<hr>
+<p>上一篇：<a href="18-%E7%AC%AC18%E7%AB%A0-%E8%BF%9B%E9%98%B6%E5%AD%A6%E4%B9%A0%E8%B7%AF%E7%BA%BF.md">第 18 章　进阶学习路线：从会用走向会设计</a><br>返回：<a href="00-%E5%B0%81%E9%9D%A2%E4%B8%8E%E5%AF%BC%E8%AF%BB.md">封面与导读</a></p>
+</article>

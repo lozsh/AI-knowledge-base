@@ -1,0 +1,248 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>前几篇的笔记都写在 Python 代码里。你已经能把它们变成复习卡，也能让模型提出一项等待确认的复习安排。可是，自己的资料往往放在 Markdown 文件、读书笔记和课程摘录里。每增加一份资料就去修改代码，很快会变得麻烦。</p>
+<p>把文件读进来并不难。更容易被忽略的问题是：<strong>一个月后再看这张卡，你还能确认它引用了哪个文件、当时哪一版文字吗？</strong> 文件可能改过，文件名可能相同，模型说“根据笔记”也不意味着程序已经留下依据。本篇把这些问题一起解决。</p>
+<p>完成后，你可以指定一到三份小型文本或 Markdown 笔记，预览实际读取内容，再围绕一个问题生成卡片。每次生成都会留下来源快照。先用配套样例离线走通；真实调用是可选步骤。</p>
+<p>下载本篇完整代码 · 代码说明 · 上一篇：工具调用</p>
+<blockquote>
+<p>核实日期：2026年10月4日。示例使用 Python 3.11+、openai 3.24.0；离线验证环境为 Python 3.11.8。没有使用真实 API 密钥，没有发起付费请求。演示答案由作者预先编写，不能作为模型效果测试。</p>
+</blockquote>
+<h2 id="wiki-h-0">先决定“读取文件”具体做什么</h2>
+<p>假设你有两份笔记：<code>rag.md</code> 介绍 RAG 的流程，<code>review.txt</code> 提醒自己核对证据。我们希望回答：“笔记中的RAG流程是什么？”</p>
+<p>程序会依次完成这些事：</p>
+<pre><code class="hljs language-text">你明确选定的文件
+    ↓ 检查路径、大小、编码
+规范化后的完整文本 + 来源信息
+    ↓ 预览；真实运行时先保存快照
+只把笔记编号、文本和问题放进模型请求
+    ↓ 获取 JSON 答案
+检查字段、资料编号、引用是否确实存在
+    ↓
+保留卡片与来源快照，人工核对引用是否支持结论
+</code></pre><p>本篇读取文件的全部文本，还没有“按问题检索相关片段”这一步。它为下一篇的最小 RAG 准备资料入口，但不能因为模型看到了文件，就把这一版称为完整检索系统。</p>
+<p>读取 Markdown 也有明确范围：<code># 标题</code>、列表、代码围栏都按文字保留。程序不渲染网页、不执行代码，不访问其中的链接，不下载图片。PDF、Word、扫描件暂不支持；把 <code>.pdf</code> 改名成 <code>.md</code> 不会完成格式转换。</p>
+<p>这次新增 <code>source_files.py</code> 管理读取，<code>file_cards.py</code> 管理文件卡片入口；复用第06篇以来的 JSON 请求与卡片校验。旧 <code>main.py</code> 聊天、<code>cards.py</code> 固定笔记卡片和 <code>planner.py</code> 复习计划入口仍保留，文件卡片不会自动给计划工具增加新权限。</p>
+<h2 id="wiki-h-1">准备项目，先看程序实际读到了什么</h2>
+<p>解压 ZIP，进入其中的 <code>lesson-11</code> 文件夹。它是完整独立快照，不需要把零散代码粘到上一课。目录中已经有 <code>sample-notes/rag.md</code> 和 <code>sample-notes/review.txt</code>。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+<span class="hljs-built_in">cp</span> config.example.json config.json
+.venv/bin/python file_cards.py --inspect
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements.txt
+<span class="hljs-built_in">Copy-Item</span> config.example.json config.json
+.\.venv\Scripts\python.exe file_cards.py <span class="hljs-literal">--inspect</span>
+</code></pre><p>已有 <code>config.json</code> 就保留，跳过复制。安装依赖需要网络，但不会请求模型；<code>--inspect</code> 本身不读密钥、不联网，也不需要配置文件。省略所有模式参数时，默认行为同样是检查，只有显式 <code>--run</code> 才会发送资料。</p>
+<p>终端会打印一份 JSON，随后提示“仅本地读取；没有请求模型，也没有保存新记录”。先找 <code>notes</code>：应有 <code>F1</code> 和 <code>F2</code>。<code>F1.text</code> 包含 <code># RAG基础</code> 以及流程说明；<code>F2.text</code> 包含核查引用的提醒。JSON 显示的 <code>\n</code> 是换行的表示方式，不是文件出现了乱码。</p>
+<p>再找 <code>sources</code>：第一项应指向你电脑上的 <code>rag.md</code>，第二项指向 <code>review.txt</code>。对于原封不动的配套文件，两项的 <code>line_end</code> 分别为5和2；这里表示整份文本覆盖的行范围，<strong>不是答案引用已经精确定位到这些行</strong>。引用本身仍用原文片段定位。</p>
+<p>此时没有新增 <code>records</code> 文件。若目录里已有旧记录，它们不会被删除。成功标准是“读到了自己选定的文字，来源路径正确”，不是“终端没有报错”。</p>
+<h2 id="wiki-h-2">编码与长度：为什么不直接忽略错误或截一半</h2>
+<p>文件在磁盘上是字节，模型请求里需要的是文字。编码规则决定如何把两者对应起来。本课只接受 UTF-8，也兼容 UTF-8 文件开头的 BOM 标记。Python 的 <code>utf-8-sig</code> 解码器会识别并跳过开头的这个标记；普通无 BOM 的 UTF-8 也能读取。<a href="https://docs.python.org/3.11/library/codecs.html#encodings.utf_8_sig">Python 编码文档</a></p>
+<p>代码中的关键处理如下，见 <code>source_files.py</code>：</p>
+<pre><code class="hljs language-python">        <span class="hljs-keyword">try</span>:
+            text = raw.decode(<span class="hljs-string">"utf-8-sig"</span>)
+        <span class="hljs-keyword">except</span> UnicodeDecodeError:
+            <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">"文件不是有效UTF-8，请另存为UTF-8后再试。"</span>) <span class="hljs-keyword">from</span> <span class="hljs-literal">None</span>
+        text = text.replace(<span class="hljs-string">"\r\n"</span>, <span class="hljs-string">"\n"</span>).replace(<span class="hljs-string">"\r"</span>, <span class="hljs-string">"\n"</span>)
+</code></pre><p>最后一行把常见换行表示统一为 <code>\n</code>。它不会删掉标题、段落空行或行首空格，也不会顺便改写标点。后续引用要和处理后的文本比较，所以这些规则必须明确。</p>
+<p>遇到无法按 UTF-8 解码的字节，例如常见的 GBK 中文文件，程序会停止，要求你在编辑器中另存为 UTF-8。程序不猜测原始编码；解码成功后也应预览文字是否符合原意。不要使用 <code>errors="ignore"</code> 把无法解码的字节偷偷跳过：假如被删掉的恰好是“不得”中的关键文字，读到的资料就变了，而你可能完全没有注意到。</p>
+<p>我们还设置了四个教学限制：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>检查位置</th>
+<th>本课上限</th>
+<th>超出后的行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文件数量</td>
+<td>1到3份</td>
+<td>要求缩小选择范围</td>
+</tr>
+<tr>
+<td>单文件原始大小</td>
+<td>16384字节，即16 KiB</td>
+<td>停止，不截断</td>
+</tr>
+<tr>
+<td>所有规范化文本合计</td>
+<td>10000个 Python 字符</td>
+<td>停止，不截断</td>
+</tr>
+<tr>
+<td>整个消息列表序列化后</td>
+<td>12000个字符</td>
+<td>停止，不发送</td>
+</tr>
+</tbody></table></div>
+<p>中文字符通常占多个 UTF-8 字节，因此“16 KiB”和“一万字符”不是同一个计量单位。消息还包含任务说明和 JSON 转义，所以文本未到一万字符，也可能先触及最后一道限制。</p>
+<p>这些数字是本课程为小项目选择的边界，不是 DeepSeek 服务限制，更不是精确 token 计数或费用承诺。聊天入口原有的2000字符检查仍保留；文件入口独立计算自己的消息预算，没有把聊天限制悄悄改大。</p>
+<p>读取时最多拿到“单文件上限加一个字节”，足以判断是否超限，避免为了发现文件太大先把整个大文件装进内存。我们也不自动只取前半部分：文件后面可能恰好写着例外条件。资料太大，先选一份完整的小笔记；下一篇再学习怎样选取相关片段并保留出处。</p>
+<h2 id="wiki-h-3">F1、路径和两个哈希分别解决什么问题</h2>
+<p><code>F1</code> 只是这一次请求里的资料编号。你先传 <code>rag.md</code>，它就是 <code>F1</code>；下次先传别的文件，<code>F1</code> 的含义就会变。因此不能拿着一个脱离请求的 <code>F1</code> 去查“全局笔记库”。</p>
+<p>程序为每份资料留下以下对应关系：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>用途</th>
+<th>不能说明什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>note_id</code></td>
+<td>把模型引用关联到本次资料</td>
+<td>不代表跨运行固定身份</td>
+</tr>
+<tr>
+<td><code>path</code> / <code>name</code></td>
+<td>告诉你当时从哪里读取</td>
+<td>文件后来可能移动或被修改</td>
+</tr>
+<tr>
+<td><code>raw_sha256</code></td>
+<td>标记原始字节内容</td>
+<td>不是资料可信度评分</td>
+</tr>
+<tr>
+<td><code>text_sha256</code></td>
+<td>标记规范化后送入任务的文本</td>
+<td>不能证明模型理解正确</td>
+</tr>
+<tr>
+<td><code>notes[].text</code></td>
+<td>保留本次实际使用的文本</td>
+<td>不会自动保留以后每一次编辑</td>
+</tr>
+</tbody></table></div>
+<p>SHA-256 会把一段字节计算为固定长度的摘要，本课把它当作内容的“指纹”。Python 标准库提供相应实现。<a href="https://docs.python.org/3.11/library/hashlib.html">Python hashlib 文档</a></p>
+<p>为什么留下两个？同样两行文字，从 Windows 换行改成另一种换行，原始字节会变，<code>raw_sha256</code> 也会变；经过本课规范化后文本可能完全一样，<code>text_sha256</code> 就仍相同。这样可以区分“磁盘文件表示变了”和“本次输入文字变了”。</p>
+<p>哈希不是加密。旁边的快照就含有明文笔记；也不能靠哈希判断笔记是否真实、是否过时。它更不等于版本管理：本课只在生成卡片时留下一份输入快照，不监控文件编辑。</p>
+<p>文件路径用 <code>Path.resolve()</code> 转为解析后的绝对路径，并处理符号链接。本次输入同一个解析后路径两次会被拒绝；这不等于按内容消除了所有重复文件。<a href="https://docs.python.org/3.11/library/pathlib.html#pathlib.Path.resolve">Python pathlib 文档</a></p>
+<p>本地绝对路径有助于你找回资料，但不需要交给模型。本课只将 <code>notes</code> 和问题加入消息；路径、哈希和读取时间放在本地记录里。如果你自己在笔记正文里写了路径，那段文字仍属于正文，会随正文发送。</p>
+<h2 id="wiki-h-4">离线生成一张卡，核对五份记录</h2>
+<p>在项目目录运行：</p>
+<pre><code class="hljs language-bash">.venv/bin/python file_cards.py --dry-run
+.venv/bin/python file_cards.py --demo
+</code></pre><p>Windows 将开头的 <code>.venv/bin/python</code> 换成 <code>.\.venv\Scripts\python.exe</code>，其他参数相同。</p>
+<p>先看预演：请求里仍是 <code>deepseek-flash</code>、非流式 JSON 输出、关闭思考。本入口只做一次尝试，不启用自动重试；输出预算默认来自配置的1024。消息是独立的 system 和 user 两条，不混入之前聊天历史。当前 JSON 输出仍需要设置 <code>response_format</code>，提示里明确 JSON 格式并提供样例；也必须检查空内容和输出截断。<a href="https://api-docs.deepseek.com/guides/json_mode/">DeepSeek JSON Output</a></p>
+<p>再看演示：你应看到“规则检查通过：1 张卡。语义仍待人工审核。”完整运行后，同一个运行编号下新增五份文件：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>文件名末尾</th>
+<th>保存的内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-sources.json</code></td>
+<td>来源信息，以及实际用于本次任务的规范化文本</td>
+</tr>
+<tr>
+<td><code>-request.json</code></td>
+<td>本地实验信息与模型请求体，并指向来源快照文件</td>
+</tr>
+<tr>
+<td><code>-attempt-01.json</code></td>
+<td>这一次模拟尝试的状态</td>
+</tr>
+<tr>
+<td><code>-response.json</code></td>
+<td>作者构造的 SDK 形状响应</td>
+</tr>
+<tr>
+<td><code>-result.json</code></td>
+<td>本地校验状态及通过规则的卡片</td>
+</tr>
+</tbody></table></div>
+<p>它们位于脚本旁的 <code>records</code> 中，文件名以 <code>files-demo-</code> 开头。每运行一次都会生成新编号，不覆盖上次。<code>source_snapshot_file</code> 在请求记录的外层；它只是本地文件关联信息，不会被加进 API 请求体。</p>
+<p>请独立检查三组关系：</p>
+<ol>
+<li>打开最新 <code>-result.json</code>，卡片引用的 <code>note_id</code> 应为 <code>F1</code>。打开同编号 <code>-sources.json</code>，确认 <code>F1</code> 确实对应 <code>rag.md</code>。</li>
+<li>把卡片的 <code>quote</code> 与快照中 <code>F1.text</code> 对照。引用应该逐字存在；再用自己的理解判断它是否支持答案。</li>
+<li>打开同编号 <code>-request.json</code>，检查 <code>request.messages</code> 中的笔记与来源快照一致，且没有自动加入本地来源路径。<code>experiment.simulated</code> 应为 <code>true</code>；模拟响应的 <code>usage</code> 是 <code>null</code>，不是实测用量为零。</li>
+</ol>
+<p>程序先保存来源快照和请求记录，再进入发送步骤。若这些记录保存失败，就不会继续请求模型。快照保存的是已经读入内存、构建请求的那份文本；运行途中原文件再被修改，不会让本次请求悄悄变成新版本。</p>
+<p>但它没有备份原始字节，不能从规范化文本完整还原原来的 BOM 和换行形式。它也不是能抵御其他程序同时恶意修改文件的文件系统事务。本课需要保证的是：我们能核对应用本次实际使用的那份资料。</p>
+<h2 id="wiki-h-5">换成自己的笔记，再决定是否真实调用</h2>
+<p>先准备一份没有敏感信息的 UTF-8 小笔记。可以把它放在 <code>sample-notes/my-note.md</code>，在编辑器里写上几段内容，然后运行：</p>
+<pre><code class="hljs language-bash">.venv/bin/python file_cards.py --files <span class="hljs-string">"sample-notes/my-note.md"</span> --question <span class="hljs-string">"这份笔记建议如何检查回答？"</span> --inspect
+.venv/bin/python file_cards.py --files <span class="hljs-string">"sample-notes/my-note.md"</span> --question <span class="hljs-string">"这份笔记建议如何检查回答？"</span> --dry-run
+</code></pre><p><code>--files</code> 后可以连续写多个文件路径。路径有空格就加引号；相对路径按终端的当前目录解释。默认的两份样例则按脚本所在目录定位，所以从其他目录启动默认演示也能找到它们。路径不确定时，使用文件的完整绝对路径。</p>
+<p>检查确认后，愿意自行发起可能计费的请求，再将最后的模式改为 <code>--run</code>：</p>
+<pre><code class="hljs language-bash">.venv/bin/python file_cards.py --files <span class="hljs-string">"sample-notes/my-note.md"</span> --question <span class="hljs-string">"这份笔记建议如何检查回答？"</span> --run
+</code></pre><p>程序会提示即将把所选文件文本和问题发送到 DeepSeek，再隐藏读取你的密钥。本篇不上传原始文件附件，而是把读取后的文本放进请求消息。第一次使用建议选公开或自己构造的练习资料；检查和演示阶段没有这种外发。</p>
+<p>文件入口的消息组装函数如下，见 <code>file_cards.py</code>：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">prepare</span>(<span class="hljs-params">paths, question</span>):
+    require(<span class="hljs-built_in">isinstance</span>(question, <span class="hljs-built_in">str</span>) <span class="hljs-keyword">and</span> <span class="hljs-number">1</span> &lt;= <span class="hljs-built_in">len</span>(question.strip()) &lt;= <span class="hljs-number">200</span>, <span class="hljs-string">"问题应为1到200字符。"</span>)
+    bundle = load_sources(paths)
+    questions = [{<span class="hljs-string">"id"</span>: <span class="hljs-string">"Q1"</span>, <span class="hljs-string">"text"</span>: question.strip()}]
+    <span class="hljs-comment"># Separate file entry has its own total payload guard, not the chat's per-message limit.</span>
+    messages = task_history() + [{<span class="hljs-string">"role"</span>: <span class="hljs-string">"user"</span>, <span class="hljs-string">"content"</span>: build_task(bundle[<span class="hljs-string">"notes"</span>], questions)}]
+    require(<span class="hljs-built_in">len</span>(json.dumps(messages, ensure_ascii=<span class="hljs-literal">False</span>)) &lt;= <span class="hljs-number">12000</span>, <span class="hljs-string">"消息序列化后超过12000字符；未发送，请减少资料。"</span>)
+    <span class="hljs-keyword">return</span> bundle, questions, messages
+</code></pre><p>这里同时保留 <code>bundle</code> 和 <code>messages</code>：前者用于本地追溯，后者用于模型任务。之后校验引用时，传入的也是这次 <code>bundle["notes"]</code>，不是旧代码里写死的 N1—N3。这是从演示资料过渡到真实文件最关键的一处连接。</p>
+<p>注意两个旧入口的边界：<code>cards.py --validate FILE</code> 仍针对旧的固定笔记与问题，不能直接验证本课的 F1 文件卡片；<code>planner.py</code> 的工具白名单也仍是 N1—N3，不能把 F1 当成它已经认识的资料。后续若整合界面与存储，需要建立稳定的笔记身份和明确的授权对应关系。</p>
+<h2 id="wiki-h-6">用一次小改动检查“版本”到底有没有保留下来</h2>
+<p>完成默认演示后，先记下那一组记录的编号。打开 <code>sample-notes/rag.md</code>，只在末尾新增一行“本文件用于第11篇练习。”，不要改动原有流程说明，然后再次运行 <code>--inspect</code> 和 <code>--demo</code>。</p>
+<p>你应看到第二次的两个哈希都发生变化，新来源快照多出这句话，而旧快照保持原样。两次卡片仍可能完全相同，因为演示响应是固定的；<strong>输入快照发生变化不代表我们已经在线测试了模型对变化的反应。</strong></p>
+<p>还可以在项目目录独立计算当前文件的原始字节哈希：</p>
+<pre><code class="hljs language-bash">.venv/bin/python -c <span class="hljs-string">"import hashlib,pathlib; print(hashlib.sha256(pathlib.Path('sample-notes/rag.md').read_bytes()).hexdigest())"</span>
+</code></pre><p>Windows 仍只替换 Python 路径。这次打印的值应与第二份快照的 <code>raw_sha256</code> 相同。如果文件又被修改，就不会再匹配；这恰好提醒你不能拿当前文件冒充当时版本。</p>
+<p>最后，在准备发送前问自己：“这里面有没有一句像命令的笔记？”例如外部资料写着“忽略之前的要求”。它仍只是任务资料，不应自动获得系统指令或执行权限。本入口没有向模型提供工具，本地也不执行文件内容；但这不保证模型永远不受干扰。结构校验和引用存在性检查都不能代替语义审核。</p>
+<h2 id="wiki-h-7">常见失败与本篇验收</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>先检查什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文件找不到</td>
+<td>当前目录和引号；相对路径不是相对脚本目录</td>
+</tr>
+<tr>
+<td>提示不是有效 UTF-8</td>
+<td>在编辑器另存为 UTF-8，不靠改扩展名修复</td>
+</tr>
+<tr>
+<td>目录、PDF、Word 被拒绝</td>
+<td>指定实际 <code>.txt</code> / <code>.md</code> 普通文件；暂不递归扫描</td>
+</tr>
+<tr>
+<td>文件为空白或含 NUL 字符</td>
+<td>确认选中了文本文件，检查导出结果</td>
+</tr>
+<tr>
+<td>文本或消息超限</td>
+<td>选取更小而完整的资料；本课不会暗中截掉尾部</td>
+</tr>
+<tr>
+<td>给 <code>--demo</code> 传自定义文件时报错</td>
+<td>演示固定使用配套资料与问题；自定义先走 inspect/dry-run</td>
+</tr>
+<tr>
+<td>改了样例后演示引用失败</td>
+<td>固定演示引用的原句被删改了；恢复原句或重新解压样例，不期待演示重新生成答案</td>
+</tr>
+<tr>
+<td>输出合法 JSON 仍未通过</td>
+<td>看 result 的 error，可能是引用不在本次资料、问题不匹配或回答截断</td>
+</tr>
+<tr>
+<td>记录保存失败</td>
+<td>检查磁盘与目录权限；已收到响应后的保存失败也不会触发重发</td>
+</tr>
+</tbody></table></div>
+<p>本地检查不会强制把文件限制在项目目录内，它允许你明确选择其他路径。这适合本人使用的命令行工具，不能原样当作公开网页的文件读取接口。</p>
+<p>另外，<code>records</code> 包含笔记明文和绝对路径。分享代码包时不要顺手把运行记录一起发出去；要清理某次练习记录，可按同一运行编号识别整组文件，确认不再需要后再删除。原始笔记不在这组生成记录里。</p>
+<p>完成本篇，请能回答三个问题：</p>
+<ul>
+<li>同样叫 <code>F1</code> 的两张卡，能否直接认定来源相同？不能，要连同各自运行编号和来源快照核对。</li>
+<li>卡片引用原文存在，能否认定答案正确？不能，原文还必须真正支持答案，资料本身也可能过时。</li>
+<li>哈希还在，正文快照被删了，能否靠哈希恢复旧文字？不能，哈希不保存可还原的原文。</li>
+</ul>
+<p>本篇代码通过60项离线测试，覆盖之前的请求、重试、计费与工具流程，以及新增的编码、大小、路径、动态引用和来源保存边界；没有真实 API 效果测试。到这里，你的助手已经有了一个可核对的文件入口。下一篇会处理新的问题：资料多起来后，怎样只挑相关片段交给模型，并让引用仍能追溯到原文。</p>
+</article>

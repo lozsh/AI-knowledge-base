@@ -1,0 +1,94 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>前面八章，我们用的是"出厂设置"的 Kimi Code——它已经很好用，但还不是"你的"。这一章做三件事：认识配置文件的存放方式、用 <code>AGENTS.md</code> 给项目立下规矩、把你重复使用的流程固化成自己的 Skill。做完这些，Kimi 会越来越像一个了解你习惯的老搭档。</p>
+<h2 id="wiki-h-0">9.1 配置文件与数据都在哪儿</h2>
+<p>先建立一个全局认知：Kimi Code 的所有本地数据，默认都放在一个目录里——<code>~/.kimi-code/</code>（Windows 原生路线是 <code>C:\Users\你的用户名\.kimi-code\</code>）。里面值得你认识的有三样：</p>
+<ul>
+<li><code>config.toml</code>：主配置文件，模型的选择、API 来源、各种开关都在这里；</li>
+<li><code>sessions/</code>：你所有的会话记录（第 5 章讲过，按工作目录分组存放）；</li>
+<li><code>logs/</code>：运行日志，排查问题时用得上。</li>
+</ul>
+<p>日常使用中，最常用的调整是切换模型——在会话里输入 <code>/model</code>，从列表里选择即可，不用手动改配置文件。想改更细的设置（比如默认模型、自定义数据目录），去翻官方文档的 <a href="https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/config-files.html">Configuration</a> 章节，这里不展开——本章的重点是下面两个更有"创造感"的定制方式。</p>
+<h2 id="wiki-h-1">9.2 AGENTS.md：给项目立一份"家规"</h2>
+<p>到目前为止，你每次想让 Kimi 遵守某个约定，都得在对话里说一遍："提交信息用「类型: 简述」格式""代码注释用中文""改完记得跑测试"……说一遍它记一遍，新会话、新同事来了还得再说。</p>
+<p><strong>AGENTS.md</strong> 就是为解决这个问题而生的：在项目根目录放一个名叫 <code>AGENTS.md</code> 的 Markdown 文件，写下这个项目的约定，Kimi 每次在这个项目里工作时都会自动读到它——相当于给项目立了一份"家规"。</p>
+<p>实战：在 <code>weight-tracker</code> 根目录创建 <code>AGENTS.md</code>，把这几条写进去：</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># 项目约定</span>
+
+<span class="hljs-section">## 技术栈</span>
+纯前端三件套（HTML/CSS/JS），不引入框架和第三方库；数据存 localStorage。
+
+<span class="hljs-section">## 代码风格</span>
+<span class="hljs-bullet">-</span> 变量名用 camelCase，常量用 UPPER<span class="hljs-emphasis">_SNAKE_</span>CASE
+<span class="hljs-bullet">-</span> 注释用中文
+<span class="hljs-bullet">-</span> 每个函数开头用一行注释说明作用
+
+<span class="hljs-section">## 工作习惯</span>
+<span class="hljs-bullet">-</span> 改动计算逻辑（calc.js）后，必须打开 tests.html 跑一遍测试
+<span class="hljs-bullet">-</span> 提交信息遵循「类型: 简述」格式，类型从 feat / fix / refactor / docs / chore 中选
+</code></pre><p>写好后，<strong>新开会话</strong>让它生效（已有的会话不会自动重新读取）。然后验证一下：随便让它改个小功能，观察它是否主动遵守了这些约定——比如改完 calc.js 后会不会主动提醒"该跑一遍 tests.html 了"。</p>
+<p>AGENTS.md 的价值会随着项目变大而凸显：约定写一次，永远生效；团队里每个人、每个 AI 会话都遵循同一套标准。它是"把最佳实践沉淀进项目"的最省事方式。</p>
+<h2 id="wiki-h-2">9.3 自定义 Skill：把重复流程变成一句话</h2>
+<p>AGENTS.md 管的是"默认规则"，Skill 管的是"可复用的流程"。</p>
+<p>想一想这几章里你重复做过的事：生成周报、按固定格式写提交信息、给应用做一遍功能体检……这些事每次都要打一大段提示词。Skill 让你把这段提示词<strong>存成一个文件</strong>，以后用 <code>/skill:名字</code> 一句话就能调用，甚至 Kimi 会在合适的场景自动想起来用它。</p>
+<p><strong>Skill 放在哪儿？</strong> 按作用范围分四级，优先级从高到低：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>作用域</th>
+<th>位置</th>
+<th>什么时候用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>项目级</td>
+<td>项目里的 <code>.kimi-code/skills/</code> 或 <code>.agents/skills/</code></td>
+<td>只对当前项目生效</td>
+</tr>
+<tr>
+<td>用户级</td>
+<td><code>~/.kimi-code/skills/</code> 或 <code>~/.agents/skills/</code></td>
+<td>对所有项目生效</td>
+</tr>
+<tr>
+<td>额外目录</td>
+<td>在 <code>config.toml</code> 里用 <code>extra_skill_dirs</code> 声明</td>
+<td>团队共享的技能库</td>
+</tr>
+<tr>
+<td>内置</td>
+<td>随 CLI 自带</td>
+<td>官方提供的常用技能</td>
+</tr>
+</tbody></table></div>
+<p><strong>文件长什么样？</strong> 推荐"目录形式"：建一个以技能名命名的文件夹，里面放主文件 <code>SKILL.md</code>（还可以放脚本、清单等辅助文件）。<code>SKILL.md</code> 由两部分组成——YAML 头部（写元信息）和 Markdown 正文（写给 Kimi 的指令）。</p>
+<p>来个实战。我们给体重管理项目做一个"周回顾"技能。在<strong>项目根目录</strong>创建 <code>.kimi-code/skills/weekly-review/SKILL.md</code>，内容如下：</p>
+<pre><code class="hljs language-markdown">---
+name: weekly-review
+description: 根据本周的饮食、运动、体重记录生成一段中文周回顾
+<span class="hljs-section">whenToUse: 当用户要求生成本周回顾、周报、周总结时
+---</span>
+
+请为用户生成一份本周体重管理回顾：
+
+<span class="hljs-bullet">1.</span> 读取应用的数据（localStorage 导出的 JSON，或用户粘贴的数据）
+<span class="hljs-bullet">2.</span> 统计：本周体重变化（对比上周末）、日均摄入热量、日均运动消耗
+<span class="hljs-bullet">3.</span> 找出：哪几天摄入超标、哪几天坚持得最好
+<span class="hljs-bullet">4.</span> 写一段 100~200 字的中文回顾，语气像朋友聊天，先肯定坚持、再温和地指出可以改进的一天
+<span class="hljs-bullet">5.</span> 保存为 weekly-review-本周日期.md
+</code></pre><p>保存后<strong>新开会话</strong>让它生效。以后只要在会话里输入 <code>/skill:weekly-review</code>（或者直接说"帮我做个本周回顾"，它也可能根据 <code>whenToUse</code> 自动调用），它就会按这份流程执行。</p>
+<p>再看头部那几个字段的作用：</p>
+<ul>
+<li><code>name</code>：技能的名字，调用时用 <code>/skill:weekly-review</code>；</li>
+<li><code>description</code>：一句话说明，Kimi 靠它判断"什么时候该自动想起这个技能"；</li>
+<li><code>whenToUse</code>：更明确的触发时机描述。</li>
+</ul>
+<p>技能还支持<strong>参数</strong>和<strong>占位符</strong>（比如 <code>$ARGUMENTS</code>、<code>${KIMI_SKILL_DIR}</code>），可以做更复杂的流程，这些属于进阶用法，用到时查<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html">官方文档</a>即可。</p>
+<p>体会一下 AGENTS.md 和 Skill 的分工：<strong>AGENTS.md 是"永远生效的规矩"，Skill 是"随叫随到的流程"</strong>。一个让 Kimi 变得更懂项目，一个让 Kimi 变得更懂你。</p>
+<h2 id="wiki-h-3">本章小结</h2>
+<p>这一章我们把 Kimi 从"出厂设置"调成了"私人订制"：</p>
+<ul>
+<li>本地数据集中在 <code>~/.kimi-code/</code>，日常最常用的调整是 <code>/model</code> 换模型；</li>
+<li><strong>AGENTS.md</strong>：项目根目录的一份 Markdown，写下技术栈、代码风格、工作习惯，每次会话自动生效——永远生效的规矩；</li>
+<li><strong>自定义 Skill</strong>：把重复流程写成 <code>SKILL.md</code>，用 <code>/skill:名字</code> 一句话调用，还能被 Kimi 自动触发——随叫随到的流程；我们给项目做了一个"周回顾"技能。</li>
+</ul>
+<p>到这里，CLI 的个性化定制你已经掌握了。但 Skill 只是最轻的扩展方式——下一章我们认识四种更"重"的扩展机制：子代理、MCP、Hooks 与插件，把 Kimi 的能力边界再往外推一大圈。</p>
+</article>

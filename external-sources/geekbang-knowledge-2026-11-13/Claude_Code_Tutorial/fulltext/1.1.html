@@ -1,0 +1,84 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>版本基准：2026-09-29<br>面向读者：第一次接触 Claude Code、愿意在终端中完成练习的中国初学者</p>
+</blockquote>
+<p>这套教程只介绍 <strong>Claude Code 命令行</strong>，不讲桌面客户端或 IDE 扩展。你会用一个本地个人项目 <strong>MealCraft</strong> 走完调查、规划、修改、测试、验收和自动化，再用三个独立练习检验自己能否把方法迁移到别的项目。</p>
+<p>完整学完后，你应该能够：</p>
+<ul>
+<li>安装 Claude Code，并判断版本、认证和当前工作目录是否正确；</li>
+<li>让 Claude 先调查和规划，再在明确边界内修改文件；</li>
+<li>用权限、Sandbox、Git、测试和人工操作控制风险；</li>
+<li>用 <code>CLAUDE.md</code>、Skills 和 Hooks 固化项目知识与重复流程；</li>
+<li>实际连接一个本地 MCP、加载一个本地插件、调用一个受限 Subagent；</li>
+<li>管理长会话与后台任务，并用 <code>claude -p</code> 完成受限、可验证的自动化。</li>
+</ul>
+<p>主线预计需要 12～16 小时。不同系统、模型响应和终端经验会影响实际时间；文章长度不代表重要程度。</p>
+<h2 id="wiki-h-0">开始前要准备什么</h2>
+<p><strong>本套教程配套代码文件：</strong><a href="https://gitee.com/geektime-geekbang_admin/ai-tutorial-material/tree/master/claudecode-materials">https://gitee.com/geektime-geekbang_admin/ai-tutorial-material/tree/master/claudecode-materials</a></p>
+<p>你需要一台支持 Claude Code 的 macOS、Windows 或 Linux 电脑，以及可以使用的 Claude Code 账号或官方支持的 API/云提供方配置。第 2、3 篇会从安装和认证开始，不要求你提前安装 Python、Node.js 或准备代码项目。</p>
+<p>课程会使用 Git 保存练习节点，并从第 5 篇开始使用 Python 3.11+。如果尚未安装，相关文章会给出检查方法和恢复路径。中国读者还可能遇到账号地区、网络或支付可用性限制；第 3 篇会解释官方登录、API 和第三方兼容网关的边界，但不会承诺某一种方式在所有地区都可用。</p>
+<p>Claude Code 更新很快。遇到教程文字与本机界面不一致时，先记录版本，再查看：</p>
+<pre><code class="hljs language-bash">claude --version
+claude --<span class="hljs-built_in">help</span>
+</code></pre><p>进入交互会话后，输入 <code>/help</code> 查看当前可用命令。不要因为某个命令没有出现在旧截图里，就用作用相近但风险更高的参数代替。</p>
+<h2 id="wiki-h-1">第一部分：认识、安装和完成第一次闭环</h2>
+<p>这一部分结束时，你会在一个可丢弃目录中完成第一次调查、计划、文件修改和实际运行。</p>
+<ol>
+<li>Claude Code 到底是什么<br>分清模型建议、CLI 权限和验证证据各自负责什么。</li>
+<li>在 macOS、Windows 和 Linux 上安装 Claude Code<br>安装并用版本与健康检查证明命令可用。</li>
+<li>登录、选择模型与配置连接方式<br>分清订阅登录、Console/API 计费与兼容网关的信任边界。</li>
+<li>第一次使用 Claude Code<br>在练习目录中完成“只读调查 → Plan → 修改 → <code>/diff</code> → 实际运行”。</li>
+</ol>
+<h2 id="wiki-h-2">第二部分：完成并保护 MealCraft 1.0</h2>
+<p>MealCraft 是一个只在本地运行的个人菜谱网站。练习素材会随相关文章放入 <code>exercise-assets/</code>；每篇都会给出复制起点、验证状态和重新开始的方法，不要求你临时拼出未知项目。</p>
+<ol start="5">
+<li>规划 MealCraft 第一版<br>从固定 starter 出发，确定数据格式、范围、阶段和可观察的验收标准。</li>
+<li>完成 MealCraft 第一版<br>分阶段实现浏览、筛选和份数换算，并用测试与浏览器操作验收。</li>
+<li>先复现，再修复食材换算错误<br>在确定存在缺陷的版本上完成失败测试、最小修复、回归验证和 Diff 审查。</li>
+<li>权限、Sandbox 与安全配置<br>分清权限模式、规则和操作系统级隔离，并为导出功能验证路径边界。</li>
+<li>用 CLAUDE.md 教会 Claude 理解项目<br>用项目说明、路径 Rules 和实际会话验证长期上下文是否生效。</li>
+</ol>
+<h2 id="wiki-h-3">第三部分：长任务、扩展能力与自动化</h2>
+<p>先把基础工作流跑稳，再增加扩展。这里的 Skills、Hooks、MCP、插件和 Subagents 都会有真实文件、触发动作、预期结果和独立验证，不只停留在概念介绍。</p>
+<ol start="10">
+<li>管理长任务：把 MealCraft 升级到 2.0<br>分阶段完成一周菜单和购物清单，并练习恢复、分支、压缩及后台 Agent。</li>
+<li>用 Skills 和 Hooks 固化工作流<br>创建可调用的周菜单 Skill，并让 Hook 在菜谱修改后执行确定性校验。</li>
+<li>MCP、插件与代码智能<br>连接只读本地库存 MCP，把稳定能力打包成本地插件；代码智能作为选学边界。</li>
+<li>用 Subagents 隔离调查任务<br>创建只读审查 Agent、限制工具、检查结果并由主会话复核；Agent Teams 只作选学说明。</li>
+<li>使用 <code>claude -p</code> 实现受限自动化<br>正确区分工具白名单、免审批和 Bare Mode，验证退出码、结构化输出与预算边界。</li>
+</ol>
+<h2 id="wiki-h-4">第四部分：三个可重置的综合实战</h2>
+<p>这三篇不再增加大量新功能，而是检验你能否独立使用前面的工作方法。每个练习都会提供固定夹具和重置方法。</p>
+<ol start="15">
+<li>修复个人博客的搜索问题<br>稳定复现异步竞态，比较两种方案并完成最小修复。</li>
+<li>批量升级旅行笔记格式<br>对模拟个人笔记执行盘点、Dry Run、小批量、全量、幂等和回滚验证。</li>
+<li>排查个人项目中偶发失败的测试<br>从三平台日志建立假设，把偶发失败变成确定性测试后再修复。</li>
+</ol>
+<h2 id="wiki-h-5">第五部分：排错和查找</h2>
+<ol start="18">
+<li>常见问题与排查手册<br>按症状查安装、认证、权限、扩展、后台任务和非交互运行问题。</li>
+</ol>
+<p>以下附录用于快速查找，不能替代正文中的完整练习：</p>
+<ul>
+<li>附录一：CLI 命令与参数速查</li>
+<li>附录二：斜杠命令与快捷键速查</li>
+<li>附录三：配置与项目说明示例</li>
+<li>附录四：高质量任务描述模板</li>
+<li>附录五：扩展能力选择指南</li>
+<li>附录六：安全检查与验收清单</li>
+<li>附录七：操作系统差异与学习资源</li>
+</ul>
+<h2 id="wiki-h-6">怎样选择学习路径</h2>
+<ul>
+<li><strong>第一次使用 Claude Code：</strong> 按 1～14 篇顺序完成，再至少选择一个综合实战。第 5 篇以后会复用前面留下的项目状态，不建议随意跳过。</li>
+<li><strong>已经用过其他编码 Agent：</strong> 仍先完成第 4 篇，确认 Claude Code 的目录、权限和验证节奏，再从第 5 篇进入 MealCraft。</li>
+<li><strong>已有 Claude Code 基础：</strong> 阅读第 8～14 篇，并用第 16 或 17 篇检查自己是否能处理权限、扩展和不确定问题。</li>
+<li><strong>只在排错时查阅：</strong> 先到第 18 篇按症状定位，再回到对应正文；不要直接复制附录中的配置到重要项目。</li>
+</ul>
+<h2 id="wiki-h-7">练习时守住三条线</h2>
+<ol>
+<li>第一次操作只在教程目录、练习副本或临时目录中进行；不要把真实笔记或唯一一份个人数据当实验素材。</li>
+<li>Claude 报告“完成”不是验收。每次都查看实际文件、运行测试或亲自操作结果。</li>
+<li>Checkpoint 适合短期试错，Git 或独立备份负责长期恢复；批量脚本、外部程序和部分 Agent 修改不能假设一定可由 <code>/rewind</code> 撤销。</li>
+</ol>
+<p>准备好后，从第 1 篇开始建立正确的工作模型，再动手安装和修改项目。</p>
+</article>

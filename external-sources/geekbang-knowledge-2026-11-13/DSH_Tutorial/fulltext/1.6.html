@@ -1,0 +1,157 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本文属于《DeepSeek Harness 入门教程（实战版）》· 第二部分 · 安装并完成第一次启动</p>
+</blockquote>
+<h1>第 5 章　Linux 安装：用 Web UI 跑起 DSH</h1>
+<p>Linux 版 DeepSeek Harness 的使用路线和 macOS、Windows 略有不同：目前官方桌面客户端主要面向 macOS 和 Windows，Linux 用户更适合用命令行启动 DSH，再在浏览器里操作 Web UI。</p>
+<p>这并不意味着 Linux 版只有一块黑色终端。终端只是负责启动服务，真正的对话、配置和任务执行仍然在图形化页面里完成。本章会分别处理两种情况：</p>
+<ul>
+<li>你的 Linux 电脑有桌面和浏览器；</li>
+<li>你通过 SSH 连接一台没有图形界面的 Linux 服务器。</li>
+</ul>
+<p>以下步骤以 Ubuntu、Debian 为主。其他发行版只在安装 Node.js 时有所不同，DSH 的安装和启动命令完全相同。</p>
+<h2 id="wiki-h-0">5.1 先确认 Node.js 版本要求</h2>
+<p>DSH 通过 npm 分发，因此系统里必须先有 Node.js。按照本教程核对时的官方要求，可用的版本是：</p>
+<ul>
+<li>Node.js <code>22.19.0</code> 或更高的 22.x；</li>
+<li>Node.js <code>24.0.0</code> 或更高版本。</li>
+</ul>
+<p>如果电脑里已经装过 Node.js，先执行：</p>
+<pre><code class="hljs language-bash">node -v
+npm -v
+</code></pre><p>第一条命令应输出类似 <code>v22.22.1</code> 或 <code>v24.x.x</code> 的结果。只看到 <code>v22</code> 还不够，要继续确认小版本不低于 <code>22.19.0</code>。如果出现 <code>node: command not found</code>，或版本低于要求，继续完成下一节。</p>
+<blockquote>
+<p>DSH 仍处于 Developer Preview，版本要求可能继续变化。以后若安装时出现 <code>Unsupported engine</code>，请以 <a href="https://github.com/deepseek-ai/deepseek-harness">DSH 官方仓库</a> 中 <code>package.json</code> 的 <code>engines.node</code> 为准。</p>
+</blockquote>
+<h2 id="wiki-h-1">5.2 安装 Node.js：优先使用 nvm</h2>
+<p>nvm 会把 Node.js 安装在当前用户目录，不会修改系统自带的 Node，也不需要用 <code>sudo npm</code>。对个人电脑、开发机和普通云服务器来说，这条路线最省心。</p>
+<h3 id="wiki-h-2">第一步：准备下载工具</h3>
+<p>Ubuntu、Debian 可以这样安装 <code>curl</code> 和证书包：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update
+<span class="hljs-built_in">sudo</span> apt install -y curl ca-certificates
+</code></pre><h3 id="wiki-h-3">第二步：安装 nvm</h3>
+<p>nvm 官方会不断更新安装脚本的版本号。打开 <a href="https://github.com/nvm-sh/nvm#installing-and-updating">nvm 官方仓库的 Installing and Updating</a>，复制其中最新的 <code>curl</code> 安装命令执行。</p>
+<p>以本文核对时的官方命令为例：</p>
+<pre><code class="hljs language-bash">curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash
+</code></pre><p>这条命令会下载脚本并立即执行。如果你所在的团队不允许直接执行网络脚本，应先从官方仓库下载并审查 <code>install.sh</code>，再在本地运行；不要从不明博客复制同名脚本。</p>
+<p>安装结束后，最稳妥的做法是关闭当前终端，再打开一个新终端。也可以根据自己使用的 Shell 手动重新载入配置：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># Bash</span>
+<span class="hljs-built_in">source</span> ~/.bashrc
+
+<span class="hljs-comment"># Zsh</span>
+<span class="hljs-built_in">source</span> ~/.zshrc
+</code></pre><p>两组命令只执行与你所用 Shell 对应的一组。然后验证：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">command</span> -v nvm
+</code></pre><p>正常结果是 <code>nvm</code>。这里不要用 <code>which nvm</code> 判断，因为 nvm 是 Shell 函数，不是普通的可执行文件。</p>
+<h3 id="wiki-h-4">第三步：安装符合要求的 Node.js</h3>
+<p>本教程统一使用 Node.js 22：</p>
+<pre><code class="hljs language-bash">nvm install 22
+nvm use 22
+nvm <span class="hljs-built_in">alias</span> default 22
+</code></pre><p>再检查一次：</p>
+<pre><code class="hljs language-bash">node -v
+npm -v
+<span class="hljs-built_in">command</span> -v node
+</code></pre><p>你应看到不低于 <code>v22.19.0</code> 的版本；<code>command -v node</code> 返回的路径通常位于 <code>~/.nvm/</code> 下。这样以后打开新终端，也会默认使用刚安装的 Node.js。</p>
+<h3 id="wiki-h-5">如果你坚持使用系统包管理器</h3>
+<p>服务器管理员有时会要求所有软件都由 <code>apt</code> 管理。可以先查看软件源准备安装哪个版本：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update
+apt-cache policy nodejs
+</code></pre><p>找到输出中的 <code>Candidate</code>。只有它不低于 <code>22.19.0</code> 时，才继续安装：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt install -y nodejs npm
+node -v
+npm -v
+</code></pre><p>Ubuntu、Debian 的稳定软件源可能提供较旧的 Node.js。如果候选版本不满足要求，不要勉强安装，也不要随手执行第三方网站提供的 <code>curl | sudo bash</code> 命令；改用前面的 nvm 路线，或遵循你所在组织批准的软件源方案。</p>
+<h2 id="wiki-h-6">5.3 第一次运行 DSH</h2>
+<p>初次体验不必先全局安装。<code>npx</code> 会下载当前版本并直接运行，既方便试用，也避免全局命令的 PATH 问题。</p>
+<p>先准备一个课程目录：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p ~/dsh-learning
+<span class="hljs-built_in">cd</span> ~/dsh-learning
+</code></pre><p>检查 DSH 是否能正常启动：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --version
+</code></pre><p>第一次运行时，npm 可能询问是否下载 <code>@deepseek-ai/dsh</code>，输入 <code>y</code> 并回车。随后应该看到 DSH 的版本号。版本可能比本文使用的 <code>0.1.7-rc.2</code> 更新，这是正常现象。</p>
+<p>接下来启动 Web UI：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 web
+</code></pre><p>正常情况下，终端会显示一个以 <code>http://127.0.0.1:3080</code> 开头的地址：</p>
+<ul>
+<li>有桌面环境时，DSH 会尝试打开默认浏览器；</li>
+<li>浏览器没有自动打开时，手动输入终端显示的地址即可；</li>
+<li>这个终端需要保持运行，关闭终端或按 <code>Ctrl+C</code> 会停止 DSH。</li>
+</ul>
+<p>页面能正常打开，就说明 Node.js、npm、DSH 和本机 Web 服务这四个环节都已通过验证。此时先不急着配置模型，后面的章节会统一完成。</p>
+<h3 id="wiki-h-7">可选：全局安装</h3>
+<p>如果你确定会长期使用，也可以安装全局命令：</p>
+<pre><code class="hljs language-bash">npm install -g @deepseek-ai/dsh
+dsh --version
+dsh web
+</code></pre><p>使用 nvm 安装的 Node.js 时，全局包仍然属于当前用户，一般不会遇到权限问题。请不要在命令前加 <code>sudo</code>；一旦混用 <code>sudo npm</code>，后续很容易留下 root 所有的缓存和配置文件。</p>
+<p>全局安装不是后续学习的前提。拿不准时，继续使用 <code>npx @deepseek-ai/dsh@0.1.7-rc.2 ...</code> 就可以。</p>
+<h2 id="wiki-h-8">5.4 在没有桌面的服务器上使用</h2>
+<p>假设 DSH 装在远程服务器，而你正在自己的电脑上通过 SSH 操作。服务器没有浏览器，此时应让 DSH 只负责启动服务，再用 SSH 隧道把页面安全地带回本机。</p>
+<h3 id="wiki-h-9">第一步：从本机建立 SSH 隧道</h3>
+<p>在你自己的电脑上打开终端，执行：</p>
+<pre><code class="hljs language-bash">ssh -L 3080:127.0.0.1:3080 用户名@服务器地址
+</code></pre><p>把 <code>用户名</code> 和 <code>服务器地址</code> 换成真实值。登录成功后不要关闭这个 SSH 窗口。</p>
+<h3 id="wiki-h-10">第二步：在服务器上启动 DSH</h3>
+<p>仍在刚才登录后的远程 Shell 中执行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/dsh-learning
+npx @deepseek-ai/dsh@0.1.7-rc.2 web --no-open
+</code></pre><p><code>--no-open</code> 表示只启动服务，不尝试调用服务器上的浏览器。SSH 场景下，DSH 也可能只打印地址而不自动打开页面，这不是故障。</p>
+<h3 id="wiki-h-11">第三步：在本机浏览器访问</h3>
+<p>在你自己的电脑上打开：</p>
+<pre><code class="hljs language-text">http://127.0.0.1:3080
+</code></pre><p>如果页面能打开，说明隧道已经生效。结束使用时，先在远程 Shell 按 <code>Ctrl+C</code> 停止 DSH，再输入 <code>exit</code> 关闭 SSH 连接。</p>
+<p>如果本机的 3080 端口已被占用，可以只更换隧道左侧的本地端口：</p>
+<pre><code class="hljs language-bash">ssh -L 3081:127.0.0.1:3080 用户名@服务器地址
+</code></pre><p>这时浏览器访问 <code>http://127.0.0.1:3081</code>，服务器上的 DSH 仍然使用 3080。</p>
+<blockquote>
+<p>不要为了省一步，把 DSH 的 3080 端口直接暴露到公网。SSH 隧道让服务继续监听服务器本机回环地址，同时只对经过认证的 SSH 用户开放访问，边界更清楚。</p>
+</blockquote>
+<h2 id="wiki-h-12">5.5 常见问题：按现象排查</h2>
+<h3 id="wiki-h-13"><code>nvm: command not found</code></h3>
+<p>先关闭终端并重新打开。如果仍然无效，确认自己的 Shell：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-variable">$SHELL</span>
+</code></pre><p>Bash 执行 <code>source ~/.bashrc</code>，Zsh 执行 <code>source ~/.zshrc</code>。再用 <code>command -v nvm</code> 检查。不要用 <code>which nvm</code> 作为判断依据。</p>
+<h3 id="wiki-h-14">装了 Node 22，<code>node -v</code> 仍显示旧版本</h3>
+<p>执行：</p>
+<pre><code class="hljs language-bash">nvm use 22
+<span class="hljs-built_in">command</span> -v node
+node -v
+</code></pre><p>如果路径没有指向 <code>~/.nvm/</code>，通常是当前 Shell 没有正确载入 nvm，回到上一项处理。</p>
+<h3 id="wiki-h-15">npm 提示 <code>EACCES: permission denied</code></h3>
+<p>不要改用 <code>sudo npm install -g ...</code>。先运行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">command</span> -v node
+npm config get prefix
+</code></pre><p>如果 Node 不是来自 <code>~/.nvm/</code>，切回 nvm 安装的 Node；如果暂时不想处理全局目录，直接使用 <code>npx @deepseek-ai/dsh@0.1.7-rc.2 web</code>，它已经足够完成本教程。</p>
+<h3 id="wiki-h-16"><code>npx</code> 下载失败或长时间没有进度</h3>
+<p>先分别检查 DNS、HTTPS 和 npm 仓库：</p>
+<pre><code class="hljs language-bash">curl -I https://github.com
+npm ping
+npm view @deepseek-ai/dsh version
+</code></pre><p>前两项失败通常是网络、DNS、代理或证书问题；最后一项失败则要继续检查 npm 的 registry 设置：</p>
+<pre><code class="hljs language-bash">npm config get registry
+</code></pre><p>公司网络或镜像站的配置各不相同，优先按组织的网络规范处理。不要把代理密码或访问令牌直接贴进聊天窗口。</p>
+<h3 id="wiki-h-17">终端显示已启动，浏览器却打不开</h3>
+<p>先确认你在哪台机器上运行了 DSH：</p>
+<ul>
+<li>本机 Linux：打开终端打印的 <code>127.0.0.1</code> 地址；</li>
+<li>远程服务器：不能在自己电脑上直接访问“服务器的 127.0.0.1”，要按 5.4 建立 SSH 隧道；</li>
+<li>页面曾经能打开，后来失联：检查运行 DSH 的终端是否被关闭，或进程是否已被 <code>Ctrl+C</code> 停止。</li>
+</ul>
+<h3 id="wiki-h-18">3080 端口被占用</h3>
+<p>先查看当前版本提供的参数：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 web --<span class="hljs-built_in">help</span>
+</code></pre><p>使用帮助中列出的端口选项启动到其他端口。不要凭旧文章猜参数名，因为 DSH 仍在快速迭代。若问题只发生在 SSH 隧道的本机一侧，则按 5.4 把本地端口改为 3081 即可。</p>
+<h2 id="wiki-h-19">5.6 本章验收</h2>
+<p>进入下一章前，请确认下面几项都成立：</p>
+<ul>
+<li><code>node -v</code> 不低于 <code>v22.19.0</code>，或使用 Node.js 24 及以上版本；</li>
+<li><code>npm -v</code> 能正常输出版本号；</li>
+<li><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --version</code> 能输出 DSH 版本；</li>
+<li><code>npx @deepseek-ai/dsh@0.1.7-rc.2 web</code> 能启动服务；</li>
+<li>本机或经过 SSH 隧道后，浏览器能打开 DSH 页面；</li>
+<li>你知道 <code>Ctrl+C</code> 会停止服务，也没有把 3080 端口直接暴露到公网。</li>
+</ul>
+<p>做到这些，Linux 安装就算真正完成了。下一章处理 Windows；如果你只使用 Linux，可以直接读完 Windows 章节的路线差异，再进入首次配置。</p>
+<hr>
+<p>← 上一章：macOS 安装　|　回目录　|　下一章：Windows 安装 →</p>
+</article>

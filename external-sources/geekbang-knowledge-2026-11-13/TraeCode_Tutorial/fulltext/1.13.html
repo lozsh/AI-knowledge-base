@@ -1,0 +1,13 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">12.1 先区分产品入口</h2>
+<p>当前查证的完整 Hook 协议来自 <strong>TraeCode IDE</strong> 的 Hook 文档，不将其自动视为 CLI 2.0 的同名功能。本节 Hook 实验在 IDE 独立项目副本完成；CLI 用户可先完成第 11 章 Git hook，再跳到 12.4 ACP。</p>
+<h2 id="wiki-h-1">12.2 一份合并配置与三个实际脚本</h2>
+<p>将 <a href="revision-assets/">revision-assets</a> 中 hook_guard.py、hook_check.py、hook_stop.py 和 configure_ide_hooks.py 复制到项目 scripts/，在项目根目录执行 <code>python scripts/configure_ide_hooks.py</code>。它记录当前解释器绝对路径，生成一份含三个事件的 <code>.trae/hooks.json</code>；已有文件时拒绝覆盖，先人工合并。</p>
+<p>PreToolUse 要求 shell 命令确认并拦截直接数据库文件编辑；PostToolUse 对 Python 文件作语法检查，不承诺自动格式化；Stop 运行 unittest，失败把日志写 stderr 并返回 2。它们是教学检查，不是完整沙箱或数据库访问控制。</p>
+<h2 id="wiki-h-2">12.3 单独验收再联合启用</h2>
+<p>该 IDE 协议中，0 正常，2 为按事件定义的阻断，其他非零通常只是非阻断错误。不能直接用 pytest 的 1 当作 Stop 阻断。</p>
+<p>先用有效／非法 JSON 输入验证脚本：正常测试 Stop 返回 0；失败、超时和缺 cwd 返回 2；PreToolUse 的 RunCommand 返回 ask；PostToolUse 的坏 Python 返回 2。再在 IDE 实际触发对应动作核对事件名及 tool_input.file_path。若目标版本字段不同，先修适配再启用，不能静默放行。</p>
+<p>Stop 的 loop_limit 为 3，达到限制会跳过该组，并不等于测试通过；最终仍以外部 CI／测试退出码验收。不要连续覆盖三个 hooks.json，后一次会丢掉前面的事件。</p>
+<h2 id="wiki-h-3">12.4 ACP 由编辑器启动</h2>
+<p>CLI 2.0 支持 <code>traecli acp</code>。在支持 ACP 的编辑器中配置 command 为 traecli 的绝对路径、args 为 ["acp"]，让编辑器接管 stdio；不要先后台启动一份再期待编辑器附着。先只读核对项目路径和测试入口，再做小改动查看 diff。</p>
+<p>参考：<a href="https://docs.trae.cn/ide_hook-configuration-reference">IDE Hook 配置</a>、<a href="https://docs.trae.cn/cli_command-line-parameters">CLI 子命令</a>。</p>
+</article>

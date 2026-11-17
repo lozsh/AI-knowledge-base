@@ -1,0 +1,98 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">常用命令对照</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>macOS / Linux / WSL2</th>
+<th>Windows PowerShell</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>进入目录</td>
+<td><code>cd ~/codex-course/taskflow</code></td>
+<td><code>Set-Location "$HOME\codex-course\taskflow"</code></td>
+</tr>
+<tr>
+<td>创建目录</td>
+<td><code>mkdir -p path</code></td>
+<td><code>New-Item -ItemType Directory -Force path</code></td>
+</tr>
+<tr>
+<td>查看文件</td>
+<td><code>ls -la</code></td>
+<td><code>Get-ChildItem -Force</code></td>
+</tr>
+<tr>
+<td>Python</td>
+<td><code>python3</code></td>
+<td><code>py</code> 或 <code>python</code></td>
+</tr>
+<tr>
+<td>设置当前会话环境变量</td>
+<td><code>export NAME="value"</code></td>
+<td><code>$env:NAME = "value"</code></td>
+</tr>
+<tr>
+<td>删除当前会话环境变量</td>
+<td><code>unset NAME</code></td>
+<td><code>Remove-Item Env:NAME</code></td>
+</tr>
+<tr>
+<td>用户目录</td>
+<td><code>$HOME</code> 或 <code>~</code></td>
+<td><code>$HOME</code> / <code>$env:USERPROFILE</code></td>
+</tr>
+<tr>
+<td>路径分隔符</td>
+<td><code>/</code></td>
+<td><code>\</code>，PowerShell 多数场景也接受 <code>/</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-1">Python 启动器</h2>
+<p>macOS 和多数 Linux 发行版使用：</p>
+<pre><code class="hljs language-bash">python3 --version
+python3 -m unittest discover -s tests -v
+</code></pre><p>Windows 常见：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">--version</span>
+py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+</code></pre><p>如果 <code>python</code>、<code>python3</code> 和 <code>py</code> 指向不同版本，优先选择明确满足项目要求的那个，并把真实命令写进 <code>AGENTS.md</code>。</p>
+<h2 id="wiki-h-2">路径与引号</h2>
+<p>路径包含空格时始终加引号：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> <span class="hljs-string">"/Users/you/My Projects/taskflow"</span>
+</code></pre><pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"C:\Users\you\My Projects\taskflow"</span>
+</code></pre><p>教程中的 <code>~/...</code> 不能原样复制到 CMD。PowerShell 可使用 <code>$HOME</code>，WSL2 使用 Linux 风格路径。</p>
+<h2 id="wiki-h-3">环境变量</h2>
+<p>只在当前终端设置密钥更适合练习，关闭窗口后自动失效。</p>
+<p>macOS、Linux、WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> PROVIDER_API_KEY=<span class="hljs-string">"&lt;your-key&gt;"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$env:PROVIDER_API_KEY</span> = <span class="hljs-string">"&lt;your-key&gt;"</span>
+</code></pre><p>验证变量是否存在时不要把完整值打印出来。可以只检查是否为空。</p>
+<h2 id="wiki-h-4">换行符与 Git</h2>
+<p>Windows 常见 CRLF，macOS/Linux 常见 LF。团队应通过 <code>.gitattributes</code> 或 Git 配置统一策略，避免一次修改出现整文件换行变化。</p>
+<p>审查时若 Diff 几乎每行都变化，先检查换行符，不要立即提交。</p>
+<h2 id="wiki-h-5">文件名大小写</h2>
+<p>Linux 通常区分大小写；默认的 Windows 和 macOS 文件系统往往不区分。<code>README.md</code> 与 <code>readme.md</code> 在不同系统上的行为可能不同。仓库中文件引用要保持精确大小写。</p>
+<h2 id="wiki-h-6">权限与锁定</h2>
+<p>Linux/macOS 可能遇到执行权限；Windows 可能遇到文件被编辑器、Excel 或杀毒软件锁定。先关闭占用程序，再重试，不要直接用管理员权限掩盖原因。</p>
+<p>脚本需要可执行权限时：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">chmod</span> +x script.sh
+</code></pre><p>但 Python 脚本通常可以直接通过 <code>python3 script.py</code> 运行，无需修改权限。</p>
+<h2 id="wiki-h-7">WSL2 的边界</h2>
+<ul>
+<li>WSL2 中使用 Linux 版 Node、Python、Git 和 Codex；</li>
+<li>Windows 文件位于 <code>/mnt/c/...</code>；</li>
+<li>大量小文件项目优先放在 <code>~/...</code>，性能通常更稳定；</li>
+<li>不要让 Windows Git 与 WSL Git 同时修改同一工作区；</li>
+<li>浏览器登录可能在 Windows 浏览器中打开，按终端提示完成回调。</li>
+</ul>
+<h2 id="wiki-h-8">命令不可用时的排查顺序</h2>
+<ol>
+<li>查看当前 shell；</li>
+<li>查看程序版本；</li>
+<li>用系统自己的命令查找程序路径；</li>
+<li>重新打开终端；</li>
+<li>核对安装目录是否进入 <code>PATH</code>；</li>
+<li>避免把另一操作系统的命令直接照搬。</li>
+</ol>
+</article>

@@ -1,0 +1,275 @@
+预计用时：30～45 分钟
+本篇目标：在一个可丢弃的 Git 目录里完成第一次完整闭环，并亲自验证 Claude 只创建了要求的文件和内容。
+
+这一篇暂时不进入 MealCraft。你会先在隔离的 playground 中熟悉 Claude Code 命令行：确认工作目录，使用 Manual 和 Plan 两种权限模式，观察工具调用，批准一次修改，再用预先写好的检查命令验收结果。
+
+开始状态
+
+开始前应满足：
+
+已完成第 2、3 篇，claude --version 和 claude auth status --text 正常；
+Git 和 Python 3.11+ 可用；
+当前没有需要保留的旧 playground 目录。
+
+本篇不会访问网络、安装依赖或修改课程目录之外的文件。如果你的 playground 已经有内容，不要覆盖它；换一个目录名，或先把旧目录移到安全位置。
+
+创建可丢弃的练习目录
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course
+mkdir playground
+cd playground
+git init
+pwd
+git status --short
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course"
+New-Item -ItemType Directory playground | Out-Null
+Set-Location playground
+git init
+Get-Location
+git status --short
+
+
+预期结果：
+
+当前路径最后一级是 playground；
+git init 成功；
+git status --short 没有输出，因为目录还是空的。
+
+如果创建目录时报“已经存在”，不要加 -Force 继续覆盖。先进入旧目录运行 git status --short 并确认内容，或改用 playground-2。
+
+从正确目录启动并判断是否可信
+
+仍在 playground 中运行：
+
+claude
+
+
+首次进入一个目录时，Claude Code 可能显示工作区信任确认。只在你核对路径确实是刚创建的空目录后接受。
+
+工作区信任不是“这个目录里的所有内容都安全”的证明。项目以后可能加入 .claude/settings.json、Hooks、Skills 或其他可执行配置；从陌生来源克隆的仓库应先在 Claude Code 外查看来源和文件，再决定是否信任。第 8 篇会系统处理权限和 Sandbox。
+
+进入后依次输入：
+
+/status
+
+/help
+
+
+在 /status 中确认当前工作目录以 playground 结尾。/help 和输入 / 后出现的列表，是当前版本最可靠的命令入口；某些命令会随平台、方案和配置而不同。
+
+切换到 Manual 模式
+
+观察终端底部的权限模式。按 Shift+Tab 循环切换，直到看到 Manual。在部分 Windows 终端或运行时环境中，替代按键是 Alt+M。
+
+Manual 是配置名 default 在当前 CLI 中的显示名称。它通常允许工作目录内的只读文件操作，并在首次写文件或运行需要确认的命令前询问你。它不是操作系统 Sandbox，也不能代替你检查目标路径和命令。
+
+完成第一次只读调查
+
+发送下面的任务：
+
+只读调查当前工作目录，不要创建或修改文件，不要访问父目录，也不要访问网络。
+
+请告诉我：
+1. 当前目录的绝对路径最后一级是什么；
+2. 这里是否是 Git 仓库；
+3. 当前有哪些普通文件；
+4. Git 工作区是否干净。
+
+请列出你实际使用的检查方法，不要开始实现页面。
+
+
+按 Ctrl+O 可以打开工具调用详情，再按一次返回。你应看到 Claude 读取目录或执行只读检查，而不是写文件。
+
+稳定判定条件：
+
+路径最后一级为 playground；
+是 Git 仓库；
+没有普通文件；
+工作区干净。
+
+不要只相信 Claude 的文字。退出会话后才检查会丢失练习节奏，因此可以在另一个终端进入同一目录，运行：
+
+git status --short
+
+
+预期仍然没有输出。如果出现文件，回到 Claude Code 输入 /diff 查看；不要在不知道来源时直接删除。
+
+在 Plan Mode 中先限定方案
+
+在 Claude Code 中输入：
+
+/plan 创建一个单文件欢迎页面
+
+
+如果命令没有携带后续描述，再发送：
+
+计划创建 index.html，要求如下：
+- 只允许一个文件，不安装依赖；
+- 使用原生 HTML 和文件内 CSS；
+- 页面必须原样包含 `<title>我的 Claude Code 练习场</title>` 和 `<h1>我的 Claude Code 练习场</h1>`；
+- 正文必须包含“这是我的第一次 Claude Code 文件修改。”；
+- 包含字面量日期占位符 [YYYY-MM-DD]；
+- 不使用 JavaScript，不引用外部 URL。
+
+现在只调查并给出简短计划，不要创建文件。
+
+
+Plan Mode 允许 Claude 读取文件并运行受限的只读调查，但不会直接编辑源文件。检查计划必须明确：只创建 index.html，没有依赖、脚本、图片或额外配置。
+
+如果计划超出范围，直接纠偏：
+
+请删掉所有额外文件、依赖和 JavaScript，只保留 index.html 的方案。仍然不要实施。
+
+
+预期结果：磁盘仍为空。用另一个终端再次运行 git status --short，不应有输出。
+
+回到 Manual，批准第一次修改
+
+按 Shift+Tab 切换回 Manual，确认终端底部不再显示 Plan。然后发送：
+
+按刚才确认的方案实施。只创建 index.html；完成后检查文件内容是否满足六条要求，但不要启动服务器，不要创建其他文件，也不要提交 Git。
+
+
+出现文件修改权限提示时，先检查：
+
+工具要写入的是当前 playground/index.html；
+没有父目录、隐藏配置或第二个文件；
+Diff 与刚才的计划一致。
+
+本次练习选择“只允许这一次”或等效的一次性批准即可，不需要把写入规则永久保存。界面措辞可能随版本变化，以“一次性、仅当前动作”为判断标准。
+
+如果请求的路径或动作不符合范围，选择拒绝，并在评论中写：
+
+只允许在当前 playground 创建 index.html，请按已确认的单文件方案重试。
+
+先看 Diff，再做独立验证
+
+Claude 完成后，先在另一个终端运行：
+
+git status --short
+git add --intent-to-add index.html
+
+
+第一条命令应显示 ?? index.html。第二条命令只让 Git 把这个新路径纳入 Diff，不会暂存文件内容。回到 Claude Code 输入：
+
+/diff
+
+
+预期只有 index.html。/diff 展示整个 Git 工作区尚未提交的变化，其中可能也包含你自己此前的修改；它不等于“全是 Claude 刚刚改的”。在本篇新建的空仓库中，差异来源应当只有这次练习。
+
+退出 Diff 查看后，不要先问 Claude“是不是完成了”，而是在另一个终端运行固定检查。
+
+macOS、Linux 或 WSL2：
+
+python3 -c "from pathlib import Path; p=Path('index.html'); s=p.read_text(encoding='utf-8'); assert p.is_file(); assert '<title>我的 Claude Code 练习场</title>' in s; assert '<h1>我的 Claude Code 练习场</h1>' in s; assert '这是我的第一次 Claude Code 文件修改。' in s; assert '[YYYY-MM-DD]' in s; assert '<script' not in s.lower(); assert 'http://' not in s.lower() and 'https://' not in s.lower(); assert sorted(x.name for x in Path('.').iterdir() if x.name != '.git') == ['index.html']; print('PASS: index.html 符合练习约束')"
+git diff --check
+git status --short
+
+
+Windows PowerShell：
+
+py -c "from pathlib import Path; p=Path('index.html'); s=p.read_text(encoding='utf-8'); assert p.is_file(); assert '<title>我的 Claude Code 练习场</title>' in s; assert '<h1>我的 Claude Code 练习场</h1>' in s; assert '这是我的第一次 Claude Code 文件修改。' in s; assert '[YYYY-MM-DD]' in s; assert '<script' not in s.lower(); assert 'http://' not in s.lower() and 'https://' not in s.lower(); assert sorted(x.name for x in Path('.').iterdir() if x.name != '.git') == ['index.html']; print('PASS: index.html 符合练习约束')"
+git diff --check
+git status --short
+
+
+通过标准：
+
+Python 命令打印 PASS: index.html 符合练习约束；
+git diff --check 没有输出；
+git status --short 只显示 index.html；执行过 --intent-to-add 后通常是左侧空格、右侧 A，即 A index.html。
+
+这里的 Python 断言是教程预先给出的验收标准，不是 Claude 临场为自己的结果写测试，因此能提供独立证据。
+
+在浏览器中人工验收
+
+在 playground 的另一个终端启动本地服务器。
+
+macOS、Linux 或 WSL2：
+
+python3 -m http.server 8000 --bind 127.0.0.1
+
+
+Windows PowerShell：
+
+py -m http.server 8000 --bind 127.0.0.1
+
+
+用你已有的浏览器打开：
+
+http://127.0.0.1:8000/
+
+
+只检查网页结果，不使用 Claude 桌面客户端或内嵌预览。你应看到标题、正文和 [YYYY-MM-DD] 占位符；页面不应加载外部资源。回到服务器终端按 Ctrl+C 停止。
+
+如果端口 8000 被占用，把命令和 URL 中的 8000 同时改为 8010。
+
+练习一次及时纠偏
+
+回到 Claude Code，发送一个故意容易越界的请求：
+
+让这个页面更丰富一些。
+
+
+当 Claude 开始解释或准备动作时，按 Esc 或 Ctrl+C 中断，然后立即补充边界：
+
+停止扩展范围。不要修改文件。先用一句话复述当前验收已经通过的事实，并说明这个模糊请求缺少哪些约束。
+
+
+Esc 或 Ctrl+C 会停止当前响应或工具调用，但已经完成的修改会保留。中断之后始终重新运行 git status --short 和 /diff，不要假设“按了中断就什么都没发生”。
+
+如果意外产生修改，可以输入 /rewind 或在空输入框按两次 Esc 查看检查点选项。但 Checkpoint 只跟踪 Claude 文件编辑工具产生的修改；Bash 命令、手工修改和部分 Subagent 修改不一定能恢复。第 7 篇会进一步区分 /rewind 与 Git。现在不要用删除命令清理，先在 /diff 中确认变化。
+
+保存一个可核对的 Git 状态
+
+本篇不要求提交，因为 Git 用户名和邮箱可能尚未配置。至少在 Claude Code 外执行：
+
+git diff --check
+git status --short
+
+
+应当仍然只有  A index.html。如果你已经配置 Git 身份并希望保留练习，可选执行：
+
+git add index.html
+git commit -m "add playground welcome page"
+
+
+提交成功后，git status --short 应无输出。提交失败但提示缺少 user.name 或 user.email 时，不影响本篇通关；不要为了练习随意填入假的全局身份。
+
+本篇验收清单
+从自己创建的 playground 启动 Claude Code，并在信任前核对路径；
+在 Manual 模式完成只读调查并查看实际工具记录；
+在 Plan Mode 中确认磁盘没有变化；
+回到 Manual，只批准创建 index.html；
+/diff 只出现一个文件；
+固定 Python 检查打印 PASS，git diff --check 无输出；
+浏览器人工验收通过，并停止本地服务器；
+能解释权限确认、工作区信任、Checkpoint 和 Git 各自不能替代什么。
+关键排错
+
+Claude 一启动就在错误目录：退出会话，在终端用 pwd 或 Get-Location 核对路径，再从 playground 重新运行 claude。
+
+Plan Mode 仍提出要写文件：计划文字可以描述未来修改，但此阶段磁盘不应改变。用 git status --short 判断事实；若真的改动，停止并检查当前模式和配置。
+
+Python 断言失败：报错行后的断言就是未满足的条件。把完整错误和 index.html 路径告诉 Claude，要求只修复该条件，然后重新运行整条检查。
+
+/diff 看不到新文件：先运行 git status --short。确认当前是 Git 仓库且文件位于仓库内；终端过窄时 /diff 可能使用另一种查看界面，但不应改变 Git 的结果。
+
+本篇小结
+
+第一次使用的重点不是让 Claude 一次写出漂亮网页，而是掌握可重复的控制环：从正确目录启动，先调查，在 Plan Mode 审方案，回到 Manual 批准有限修改，然后用 /diff、固定检查和人工运行验证。
+
+下一篇会把这套节奏迁移到 MealCraft，并先固定需求、目录、数据结构和验收标准，避免后续文章依赖随机生成的项目状态。
+
+官方参考：
+
+Interactive mode
+Commands
+Configure permissions
+Checkpointing

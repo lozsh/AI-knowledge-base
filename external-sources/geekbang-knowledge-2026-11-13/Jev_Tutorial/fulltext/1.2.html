@@ -1,0 +1,205 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：20 分钟<br>本篇目标：理解 Jev 与聊天模型、传统规则和普通分类器的区别，并能判断一个需求是否适合使用 Jev。</p>
+</blockquote>
+<p>我们已经很习惯让 AI “生成”东西：写一封邮件、补一段代码、总结一份文档。可是在很多软件流程里，真正高频的工作并不是写内容，而是做一个很小的判断：</p>
+<ul>
+<li>这条留言应该进入哪个队列？</li>
+<li>这段反馈有多紧急？</li>
+<li>这条命令是否可能破坏数据？</li>
+<li>这份检索结果与问题相关吗？</li>
+<li>当前结果要自动通过，还是交给人看一眼？</li>
+</ul>
+<p>这些问题需要一点语义理解，却不需要一篇回答。让通用大模型先写一段话，再从话里解析出 <code>yes</code>、<code>billing</code> 或 <code>high</code>，总觉得绕了一圈。</p>
+<p>Jev 就是为这类位置设计的。</p>
+<h2 id="wiki-h-0">先用一句话说清 Jev</h2>
+<p>Jev 是 TypeSafe AI 发布的第一个 System One Model。你向它提供一份当前状态，再定义几个答案范围明确的问题；它不会生成说明文字，而是返回类型确定的判断结果和概率。</p>
+<p>TypeSafe 官方把这种接口概括为：状态和类型化问题进去，结构化答案出来。官方文档：<a href="https://docs.typesafe.ai/introduction">Introduction</a>、<a href="https://docs.typesafe.ai/concepts/system-one">System One</a>。</p>
+<p>可以先把它想成一个带语义理解能力的函数：</p>
+<pre><code class="hljs language-text">普通函数：明确数据 + 明确规则 -&gt; 确定结果
+Jev：自然语言状态 + 预先定义的答案空间 -&gt; 概率化判断
+聊天模型：开放问题 -&gt; 一段新生成的文字
+</code></pre><p>比如收到下面这条留言：</p>
+<pre><code class="hljs language-text">我连续两次收到扣款通知，但只买了一份会员，请尽快帮我核对。
+</code></pre><p>你可以事先定义三个问题：</p>
+<pre><code class="hljs language-text">类别：billing / technical / account / other
+紧急程度：low / medium / high
+是否明确要求退款：是或否
+</code></pre><p>Jev 返回的不是一段客服分析，而是类似下面的结构：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"category"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"choice"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"billing"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"probabilities"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"billing"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.94</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"technical"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.02</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"account"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.03</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"other"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.01</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"confidence"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.88</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"refund_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"noul"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.37</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>这里有一个很重要的区别：留言明显与扣款有关，但它只是要求“核对”，未必已经明确要求退款。一个系统可以把 <code>category</code> 用来分流，同时因为 <code>refund_requested</code> 不够明确而继续询问用户，而不是擅自创建退款操作。</p>
+<p>这正是概率有价值的地方。它不仅告诉程序“最像什么”，还让程序知道这个判断有多确定。</p>
+<h2 id="wiki-h-1">Jev 不是缩小版聊天模型</h2>
+<p>Jev 能理解文本，但它并不负责写文本。官方文档明确列出了当前边界：它不会写回复、生成代码，也不会解释自己的推理过程；目前接受的是文本内容，包括字符串、由文本组成的 JSON 对象或数组，暂不支持图片、音频和视频。</p>
+<p>因此，下面这些任务并不适合直接交给 Jev：</p>
+<ul>
+<li>写一封有礼貌的客服回复；</li>
+<li>总结一份二十页的研究报告；</li>
+<li>根据需求生成程序代码；</li>
+<li>对一个开放问题给出完整解决方案；</li>
+<li>解释为什么某个架构设计更好。</li>
+</ul>
+<p>Jev 可以参与这些流程，但它只负责其中答案范围明确的判断。例如：</p>
+<ul>
+<li>在写客服回复前，判断问题类别和情绪；</li>
+<li>在总结报告前，筛选哪些段落与主题相关；</li>
+<li>在编码 Agent 执行命令前，判断命令是否涉及删除、凭据或越界路径；</li>
+<li>在多个工具之间，选择更适合当前任务的一个；</li>
+<li>在生成结果后，按几个明确维度打分，决定是否转人工检查。</li>
+</ul>
+<p>真正的写作、推理和执行仍然由普通代码、通用模型或人来完成。</p>
+<h2 id="wiki-h-2">先认识三个核心输入输出</h2>
+<p>完整语法会在第三篇讲，这里先建立整体认识。</p>
+<h3 id="wiki-h-3">State：需要被判断的当前状态</h3>
+<p><code>state</code> 可以是一段留言，也可以是包含留言、账号状态和处理规则的 JSON 对象。它相当于你在请别人判断前递给他的材料。</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"message"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"我连续两次收到扣款通知，请尽快核对。"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"account_plan"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"monthly"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"recent_charge_count"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>事实和原始材料放在 <code>state</code> 中，不要把它们偷偷混进问题描述里。这样后续增加问题时，可以继续复用同一份状态。</p>
+<h3 id="wiki-h-4">Questions：你希望 Jev 做出的具体判断</h3>
+<p>Jev 当前提供三类问题：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>适合回答什么</th>
+<th>典型结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Choice</code></td>
+<td>从一组已知选项中选一个</td>
+<td><code>billing</code></td>
+</tr>
+<tr>
+<td><code>Score</code></td>
+<td>在定义清楚的等级上评分</td>
+<td><code>1.6</code></td>
+</tr>
+<tr>
+<td><code>Noul</code></td>
+<td>某个判断为真的概率</td>
+<td><code>0.87</code></td>
+</tr>
+</tbody></table></div>
+<p>一个问题应该只判断一件事。与其问“这条留言重要吗，应该怎么处理”，不如拆成“紧急程度”“信息是否完整”“是否需要人工处理”三个问题，再由代码组合答案。</p>
+<h3 id="wiki-h-5">Answers：由代码直接读取的类型化结果</h3>
+<p>答案只能落在你定义的范围内。Choice 不会突然返回一个没有定义的部门；Score 会落在你给出的等级范围中；Noul 返回 0 到 1 之间的概率。</p>
+<p>这让代码不需要从一段自由文本里猜测模型到底想表达什么。不过，它只能保证“输出形状正确”，不能保证“每次判断都正确”。这个区别必须牢牢记住。</p>
+<h2 id="wiki-h-6">“不会输出幻觉”不等于“不会判断错”</h2>
+<p>TypeSafe 在发布 Jev 时强调类型安全：模型不会返回答案空间之外的值。比如你只允许 <code>billing</code>、<code>technical</code> 和 <code>other</code>，程序就不需要防备它突然输出 <code>maybe_sales_team</code>。</p>
+<p>但这不代表 Jev 永远会选对。</p>
+<p>官方 System One 文档也明确提醒：概率校准是从一组预测的统计表现来衡量的，并不保证某一个具体答案正确。Jev 仍然可能：</p>
+<ul>
+<li>把含义模糊的留言分到错误类别；</li>
+<li>因为状态缺少关键信息而给出不可靠判断；</li>
+<li>因为选项设计重叠而在两个答案之间摇摆；</li>
+<li>在与主要训练语言不同的文本上表现下降；</li>
+<li>对超出其适用形状的复杂推理任务给出不好的结果。</li>
+</ul>
+<p>所以更准确的说法是：Jev 避免了自由生成带来的“格式失控”，但语义判断依然需要评估、阈值和人工兜底。</p>
+<h2 id="wiki-h-7">Jev、规则和通用大模型怎么选</h2>
+<p>三者不是替代关系，而是适合处理不同形状的问题。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>更适合</th>
+<th>不适合</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>普通代码规则</td>
+<td>金额比较、字段校验、精确关键词、权限列表、数学计算</td>
+<td>表达方式很多、边界模糊的语义判断</td>
+</tr>
+<tr>
+<td>Jev</td>
+<td>已知答案范围内的分类、评分、路由、筛选和校验</td>
+<td>写作、长推理、开放式回答、执行副作用</td>
+</tr>
+<tr>
+<td>通用大模型</td>
+<td>生成文字、解释、规划、编码、综合推理</td>
+<td>大量高频且答案空间固定的小判断</td>
+</tr>
+</tbody></table></div>
+<p>以退款流程为例：</p>
+<pre><code class="hljs language-text">是否存在两笔相同订单号和金额的扣款 -&gt; 普通代码
+用户是否表达了退款诉求               -&gt; Jev
+根据情况起草一封解释邮件             -&gt; 通用大模型
+真正发起退款                         -&gt; 业务系统 + 权限与人工确认
+</code></pre><p>把每一层放在合适的位置，比寻找一个“什么都能做”的模型可靠得多。</p>
+<h2 id="wiki-h-8">一个需求适不适合 Jev</h2>
+<p>可以先问下面五个问题：</p>
+<ol>
+<li>这个步骤需要理解自然语言或带语义的状态吗？</li>
+<li>合法答案能否在调用前定义清楚？</li>
+<li>结果是否会被代码用来选择、排序、过滤或分支？</li>
+<li>不确定时，系统是否有暂停、补充信息或转人工的路径？</li>
+<li>能否准备一批真实样本验证它，而不是只凭几个演示判断效果？</li>
+</ol>
+<p>如果前三个回答为“是”，Jev 可能合适。如果第四、第五个回答为“否”，先不要自动化。</p>
+<p>下面这些判断适合用来练习：</p>
+<ul>
+<li>为个人收件箱区分账单、日程、学习资料和其他内容；</li>
+<li>按信息完整程度给反馈评分；</li>
+<li>判断搜索结果是否与问题相关；</li>
+<li>为编码 Agent 选择技能或工具；</li>
+<li>判断一段操作描述是否可能涉及删除或泄露凭据。</li>
+</ul>
+<p>下面这些则应优先使用确定性代码：</p>
+<ul>
+<li>文件扩展名是不是 <code>.pdf</code>；</li>
+<li>金额是否超过 1000 元；</li>
+<li>测试进程的退出码是否为 0；</li>
+<li>用户是否拥有某个明确权限；</li>
+<li>一段 JSON 能否通过 Schema 校验。</li>
+</ul>
+<p>不要为了“用 AI”而把本来可以精确解决的问题改成概率问题。</p>
+<h2 id="wiki-h-9">中文用户需要提前知道的限制</h2>
+<p>TypeSafe 当前的 <a href="https://docs.typesafe.ai/models">Models 文档</a> 说明，Jev 的主要训练语言是英语，英语也是目前准确率最好的语言。中文、日文、韩文等 CJK 文本可以作为输入，但表现并不等同于英语。</p>
+<p>这不等于中文完全不能用，而是意味着：</p>
+<ul>
+<li>不要拿英文示例跑通，就默认中文业务也同样可靠；</li>
+<li>教程中的中文案例用于理解结构，真正上线前必须使用自己的中文数据评估；</li>
+<li>高风险判断应该使用更保守的阈值并保留人工确认；</li>
+<li>如果中文效果不满足需求，可以尝试更明确的状态结构、不同方案或暂时不自动执行。</li>
+</ul>
+<p>后面的 Decision Inbox 会刻意保留一小组中文样本。第七篇我们会把这些样本变成可重复运行的评估，而不是靠感觉判断“看起来不错”。</p>
+<h2 id="wiki-h-10">这套教程要做的项目</h2>
+<p>接下来我们会完成一个小型 <code>Decision Inbox</code>：</p>
+<pre><code class="hljs language-text">留言进入
+  ↓
+Jev 判断类别、紧急程度和是否明确要求行动
+  ↓
+普通 Python 代码读取概率和置信度，决定是否需要人工复核
+  ↓
+进入正常队列 / 人工复核 / 停止自动处理
+</code></pre><p>这个项目故意不加入数据库、网页界面和复杂账号系统。我们只保留最能体现 Jev 价值的部分：如何定义状态，如何拆判断，如何读取不确定性，以及如何让代码始终掌握最终控制权。</p>
+<p>下一篇先完成两件实事：在 Playground 里看见 Jev 的真实返回结果，再用 Python SDK 发出第一次调用。</p>
+<h2 id="wiki-h-11">本篇检查</h2>
+<p>读完后，你应该能解释：</p>
+<ul>
+<li>Jev 为什么不是聊天模型；</li>
+<li>类型安全与判断正确为什么是两回事；</li>
+<li>哪些工作交给代码、Jev 和通用模型；</li>
+<li>为什么低置信度结果不能直接触发高风险操作。</li>
+</ul>
+<p>如果这四点还混在一起，先不要急着写 API 调用。后面所有工作流设计都会建立在这些边界之上。</p>
+</article>

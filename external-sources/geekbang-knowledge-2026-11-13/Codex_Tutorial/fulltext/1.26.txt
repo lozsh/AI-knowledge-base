@@ -1,0 +1,87 @@
+常用命令对照
+目的	macOS / Linux / WSL2	Windows PowerShell
+进入目录	cd ~/codex-course/taskflow	Set-Location "$HOME\codex-course\taskflow"
+创建目录	mkdir -p path	New-Item -ItemType Directory -Force path
+查看文件	ls -la	Get-ChildItem -Force
+Python	python3	py 或 python
+设置当前会话环境变量	export NAME="value"	$env:NAME = "value"
+删除当前会话环境变量	unset NAME	Remove-Item Env:NAME
+用户目录	$HOME 或 ~	$HOME / $env:USERPROFILE
+路径分隔符	/	\，PowerShell 多数场景也接受 /
+Python 启动器
+
+macOS 和多数 Linux 发行版使用：
+
+python3 --version
+python3 -m unittest discover -s tests -v
+
+
+Windows 常见：
+
+py --version
+py -m unittest discover -s tests -v
+
+
+如果 python、python3 和 py 指向不同版本，优先选择明确满足项目要求的那个，并把真实命令写进 AGENTS.md。
+
+路径与引号
+
+路径包含空格时始终加引号：
+
+cd "/Users/you/My Projects/taskflow"
+
+Set-Location "C:\Users\you\My Projects\taskflow"
+
+
+教程中的 ~/... 不能原样复制到 CMD。PowerShell 可使用 $HOME，WSL2 使用 Linux 风格路径。
+
+环境变量
+
+只在当前终端设置密钥更适合练习，关闭窗口后自动失效。
+
+macOS、Linux、WSL2：
+
+export PROVIDER_API_KEY="<your-key>"
+
+
+Windows PowerShell：
+
+$env:PROVIDER_API_KEY = "<your-key>"
+
+
+验证变量是否存在时不要把完整值打印出来。可以只检查是否为空。
+
+换行符与 Git
+
+Windows 常见 CRLF，macOS/Linux 常见 LF。团队应通过 .gitattributes 或 Git 配置统一策略，避免一次修改出现整文件换行变化。
+
+审查时若 Diff 几乎每行都变化，先检查换行符，不要立即提交。
+
+文件名大小写
+
+Linux 通常区分大小写；默认的 Windows 和 macOS 文件系统往往不区分。README.md 与 readme.md 在不同系统上的行为可能不同。仓库中文件引用要保持精确大小写。
+
+权限与锁定
+
+Linux/macOS 可能遇到执行权限；Windows 可能遇到文件被编辑器、Excel 或杀毒软件锁定。先关闭占用程序，再重试，不要直接用管理员权限掩盖原因。
+
+脚本需要可执行权限时：
+
+chmod +x script.sh
+
+
+但 Python 脚本通常可以直接通过 python3 script.py 运行，无需修改权限。
+
+WSL2 的边界
+WSL2 中使用 Linux 版 Node、Python、Git 和 Codex；
+Windows 文件位于 /mnt/c/...；
+大量小文件项目优先放在 ~/...，性能通常更稳定；
+不要让 Windows Git 与 WSL Git 同时修改同一工作区；
+浏览器登录可能在 Windows 浏览器中打开，按终端提示完成回调。
+命令不可用时的排查顺序
+查看当前 shell；
+查看程序版本；
+用系统自己的命令查找程序路径；
+重新打开终端；
+核对安装目录是否进入 PATH；
+避免把另一操作系统的命令直接照搬。

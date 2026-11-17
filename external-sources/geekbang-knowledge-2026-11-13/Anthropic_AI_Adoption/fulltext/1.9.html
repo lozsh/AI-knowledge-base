@@ -1,0 +1,19 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《How Anthropic teams use Claude Code》部门版 PDF，共 23 页，本页面对应原文 P15-P16<br><strong>版本</strong>：PDF 由 Anthropic 于 2025-06-03 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 6 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<p>增长营销团队（Growth Marketing team）专注于搭建覆盖付费搜索、付费社交、移动应用商店、电子邮件营销和 SEO 的效果营销（performance marketing）渠道。作为一个只有一人的非技术团队，他们用 Claude Code 自动化重复性的营销任务，并搭建以往需要大量工程资源的智能体工作流（agentic workflow）。</p>
+<h2 id="wiki-h-0">Claude Code 的主要用例</h2>
+<p><strong>自动化 Google Ads 创意生成（Automated Google Ads creative generation）</strong> —— 团队搭建了一条智能体工作流，用来处理包含数百条现有广告及其效果指标的 CSV 文件，找出表现不佳、需要迭代的广告，并生成符合严格字符限制的新变体（标题 30 个字符，描述 90 个字符）。借助两个专门化的子智能体（一个负责标题，一个负责描述），这套系统几分钟内就能生成数百条新广告，而不必跨多个广告活动手动创建。这让他们能够大规模地测试和迭代，而这在以前要花大量时间才能实现。</p>
+<p><strong>用于批量创意生产的 Figma 插件（Figma plugin for mass creative production）</strong> —— 与其为付费社交广告手动复制和编辑静态图片，他们开发了一个 Figma 插件，它能识别画框（frame），通过替换标题和描述，以编程方式生成最多 100 条广告变体，把原本要花数小时的复制粘贴压缩到每批半秒钟。这带来了 10 倍的创意产出，让团队能在关键社交渠道上测试多得多的创意变体。</p>
+<p><strong>用于广告活动分析的 Meta Ads MCP 服务器（Meta Ads MCP server for campaign analytics）</strong> —— 他们搭建了一个与 Meta Ads API 集成的模型上下文协议（MCP）服务器，可以直接在 Claude Desktop 应用中查询广告活动表现、花费数据和广告效果，省去了为做效果分析而在平台之间来回切换的麻烦，节省了关键时间——在这里，每一次效率提升都转化为更好的投入产出比（ROI）。</p>
+<p><strong>带记忆系统的进阶提示词（prompt）工程（Advanced prompt engineering with memory systems）</strong> —— 他们实现了一套简易的记忆系统（memory system），记录各次广告迭代中的假设和实验，让系统在生成新变体时能把此前的测试结果拉进上下文（context），从而形成一个自我改进的测试框架。这使得系统化的实验成为可能，而这靠人工是无法追踪的。</p>
+<h2 id="wiki-h-1">团队影响</h2>
+<p><strong>重复性任务大幅省时（Dramatic time savings on repetitive tasks）</strong> —— 广告文案的创建从 2 小时缩短到 15 分钟，腾出时间用于战略性工作。</p>
+<p><strong>创意产出增长 10 倍（10x increase in creative output）</strong> —— 借助自动化生成和 Figma 集成，团队现在能在各渠道测试多得多的广告变体。</p>
+<p><strong>像更大的团队一样运作（Operating like a larger team）</strong> —— 团队能处理以往需要专门工程资源的任务。</p>
+<p><strong>战略重心转移（Strategic focus shift）</strong> —— 团队能把更多时间花在整体战略和构建智能体（agent）自动化上，而不是手动执行。</p>
+<h2 id="wiki-h-2">来自增长营销团队（Growth Marketing team）的建议</h2>
+<p><strong>识别具备 API 能力的重复性任务（Identify API-enabled repetitive tasks）</strong> —— 寻找那些涉及重复操作、且所用工具具备 API（如广告平台、设计工具、分析平台）的工作流（workflow）。这些是自动化的首选对象，也是 Claude Code 价值最大的地方。</p>
+<p><strong>把复杂工作流拆成专门化的子智能体（Break complex workflows into specialized sub-agents）</strong> —— 与其试图在一个提示词（prompt）或一条工作流里处理所有事情，不如为特定任务创建单独的智能体（比如他们的标题智能体与描述智能体）。在处理复杂需求时，这样调试更容易、输出质量也更高。</p>
+<p><strong>编码前先充分头脑风暴并规划提示词（Thoroughly brainstorm and prompt plan before coding）</strong> —— 前期花大量时间用 Claude.ai 把整个工作流想透，再让 Claude.ai 生成一份全面的提示词与代码结构，供 Claude Code 参照。另外，要一步一步来，不要要求一次性方案，以免 Claude 被复杂任务压垮。</p>
+</article>

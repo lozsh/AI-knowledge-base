@@ -1,0 +1,169 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">第二章 安装与初始化（多操作系统详解）</h2>
+<p>本章手把手带你完成安装。<strong>文字步骤尽量写清楚，让你光看文字就能操作。</strong></p>
+<h3 id="wiki-h-1">2.1 系统要求</h3>
+<p>安装前，请确认设备满足以下要求：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>操作系统</th>
+<th>最低版本</th>
+<th>架构</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>macOS</td>
+<td>macOS 14.7.8 及以上</td>
+<td>x86_64（Intel）、ARM64（Apple Silicon）</td>
+</tr>
+<tr>
+<td>Linux</td>
+<td>Ubuntu 20.04+、Debian 10+</td>
+<td>x86_64、ARM64</td>
+</tr>
+<tr>
+<td>Windows</td>
+<td>Windows 10 及以上</td>
+<td>x86_64、ARM64</td>
+</tr>
+</tbody></table></div>
+<p>此外，你的电脑需要有<strong>可用的终端环境</strong>和<strong>可用的 TRAE 账号权限</strong>。</p>
+<blockquote>
+<p>本教程以 <strong>TraeCode CLI 2.0</strong>（当前最新版本）为准。</p>
+</blockquote>
+<h3 id="wiki-h-2">2.2 macOS 安装</h3>
+<p><strong>第 1 步：打开终端</strong></p>
+<ul>
+<li>方式一：按 <code>Command + 空格</code> 打开「聚焦搜索」，输入 <code>终端</code> 或 <code>Terminal</code>，回车打开。</li>
+<li>方式二：打开「访达」→ 顶部菜单「前往」→「实用工具」→ 双击「终端」。</li>
+</ul>
+<p><strong>第 2 步：执行安装脚本</strong></p>
+<p>在终端窗口中，粘贴下面这一行命令并回车：</p>
+<pre><code class="hljs language-bash">sh -c <span class="hljs-string">"<span class="hljs-subst">$(curl -fsSL https://trae.cn/trae-cli/install_v2.sh)</span>"</span>
+</code></pre><p>脚本会自动下载并安装最新版 TraeCode CLI。过程中可能提示输入密码（你的 Mac 登录密码，输入时不会显示字符，属正常现象）。</p>
+<p><strong>第 3 步：验证安装</strong></p>
+<p>安装完成后，在终端执行：</p>
+<pre><code class="hljs language-bash">traecli --version
+</code></pre><p>如果输出类似 <code>traecli version 2.x.x</code> 的版本号，说明安装成功，可以跳到 2.6 节登录。</p>
+<p><strong>如果提示 <code>command not found: traecli</code></strong>：说明可执行文件所在目录不在 PATH 中。CLI 通常安装到 <code>~/.local/bin</code>，手动把它加进 PATH：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">'export PATH=~/.local/bin:$PATH'</span> &gt;&gt; ~/.zshrc
+<span class="hljs-built_in">source</span> ~/.zshrc
+</code></pre><blockquote>
+<p>如果你用的是 bash 而非 zsh，把上面两行里的 <code>.zshrc</code> 换成 <code>.bash_profile</code>。</p>
+</blockquote>
+<h3 id="wiki-h-3">2.3 Linux 安装</h3>
+<p><strong>第 1 步：打开终端</strong></p>
+<ul>
+<li>Ubuntu/Debian：按 <code>Ctrl + Alt + T</code> 打开终端。</li>
+<li>其他发行版：在应用列表中搜索「Terminal」或「终端」。</li>
+</ul>
+<p><strong>第 2 步：执行安装脚本</strong></p>
+<pre><code class="hljs language-bash">sh -c <span class="hljs-string">"<span class="hljs-subst">$(curl -fsSL https://trae.cn/trae-cli/install_v2.sh)</span>"</span>
+</code></pre><p>如果系统提示缺少 <code>curl</code>，先装一下：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update &amp;&amp; <span class="hljs-built_in">sudo</span> apt install -y curl
+</code></pre><p><strong>第 3 步：验证安装</strong></p>
+<pre><code class="hljs language-bash">traecli --version
+</code></pre><p>看到版本号即成功。若提示 <code>command not found</code>，把 <code>~/.local/bin</code> 加入 PATH：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">'export PATH=~/.local/bin:$PATH'</span> &gt;&gt; ~/.bashrc
+<span class="hljs-built_in">source</span> ~/.bashrc
+</code></pre><h3 id="wiki-h-4">2.4 Windows WSL2 安装（Windows 用户推荐）</h3>
+<p>TraeCode 官方建议 Windows 用户<strong>优先使用 WSL2</strong>，因为能获得接近原生 Linux 的开发体验。本节带你从零配置。</p>
+<p><strong>第 1 步：确认 Windows 版本</strong></p>
+<p>按 <code>Win + R</code>，输入 <code>winver</code> 回车。需为 Windows 10（版本 2004+）或 Windows 11。若版本过低，先更新系统。</p>
+<p><strong>第 2 步：安装 WSL2 与 Ubuntu</strong></p>
+<p>以<strong>管理员身份</strong>打开 PowerShell：右键点击「开始」菜单 → 选择「Windows PowerShell（管理员）」或「终端（管理员）」。</p>
+<p>执行：</p>
+<pre><code class="hljs language-powershell">wsl <span class="hljs-literal">--install</span> <span class="hljs-literal">-d</span> Ubuntu
+</code></pre><p>这会一次性安装 WSL2 虚拟机平台和一个 Ubuntu 发行版。安装完成后<strong>重启电脑</strong>。</p>
+<p>重启后，Ubuntu 会自动弹出窗口（或从开始菜单点开「Ubuntu」），首次启动会让你设置一个 Linux 用户名和密码。<strong>密码输入时不显示字符</strong>，这是正常的，设好并记住。</p>
+<p><strong>第 3 步：进入 WSL 终端</strong></p>
+<p>以后打开 WSL 的方式：</p>
+<ul>
+<li>方式一：开始菜单搜索「Ubuntu」并打开。</li>
+<li>方式二：在 PowerShell 或 Windows Terminal 里输入 <code>wsl</code> 回车。</li>
+</ul>
+<p>进入后，提示符会变成类似 <code>用户名@电脑名:~$</code>，说明你已在 Linux 环境中。</p>
+<p><strong>第 4 步：在 WSL 中安装 TraeCode CLI</strong></p>
+<p>在 WSL 终端中执行（和 Linux 一样的脚本）：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update &amp;&amp; <span class="hljs-built_in">sudo</span> apt install -y curl
+sh -c <span class="hljs-string">"<span class="hljs-subst">$(curl -fsSL https://trae.cn/trae-cli/install_v2.sh)</span>"</span>
+</code></pre><p><strong>第 5 步：验证安装</strong></p>
+<pre><code class="hljs language-bash">traecli --version
+</code></pre><p>看到版本号即成功。若 <code>command not found</code>，同样把 <code>~/.local/bin</code> 加入 PATH：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">'export PATH=~/.local/bin:$PATH'</span> &gt;&gt; ~/.bashrc
+<span class="hljs-built_in">source</span> ~/.bashrc
+</code></pre><blockquote>
+<p><strong>小贴士</strong>：在 WSL 中，你的 Windows C 盘挂在 <code>/mnt/c</code>。建议把项目放在 WSL 原生目录（如 <code>~</code> 下），性能比放在 <code>/mnt/c</code> 更好。</p>
+</blockquote>
+<h3 id="wiki-h-5">2.5 Windows PowerShell 原生安装</h3>
+<p>如果你不想用 WSL2，也可以在 Windows 原生环境安装。</p>
+<p><strong>第 1 步：打开 PowerShell</strong></p>
+<p>按 <code>Win + S</code> 打开搜索，输入 <code>PowerShell</code>，点击「Windows PowerShell」打开（普通权限即可，无需管理员）。</p>
+<p><strong>第 2 步：执行安装脚本</strong></p>
+<p>在 PowerShell 窗口中粘贴并回车：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">irm</span> https://trae.cn/trae<span class="hljs-literal">-cli</span>/install_v2.ps1 | <span class="hljs-built_in">iex</span>
+</code></pre><p>脚本会自动下载安装。</p>
+<p><strong>第 3 步：安装 VC 运行库（如需要）</strong></p>
+<p>如果安装后提示 TraeCode CLI 自带的 Ripgrep 不可用，需要额外安装 <strong>Visual C++ Redistributable（VC 运行库）</strong>：</p>
+<ul>
+<li>打开浏览器访问 <a href="https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-supported-redistributable-version">微软官方下载页</a></li>
+<li>下载 <code>vc_redist.x64.exe</code> 并双击安装</li>
+</ul>
+<p><strong>第 4 步：验证安装</strong></p>
+<p>关闭并重新打开 PowerShell（让 PATH 生效），执行：</p>
+<pre><code class="hljs language-powershell">traecli <span class="hljs-literal">--version</span>
+</code></pre><p>看到版本号即成功。</p>
+<p><strong>第 5 步：完成沙箱初始化（首次启动时）</strong></p>
+<p>首次运行 <code>traecli</code> 时，Windows 原生版会按界面提示引导你完成沙箱初始化，按提示操作即可。沙箱用于在受限环境中执行命令，降低误操作风险。</p>
+<h3 id="wiki-h-6">2.6 首次启动与登录</h3>
+<p>安装完成后，我们来启动并登录。</p>
+<p><strong>第 1 步：进入一个项目目录</strong></p>
+<p>随便选一个文件夹（可以先用一个已有项目，或新建一个）：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># macOS / Linux / WSL2</span>
+<span class="hljs-built_in">cd</span> ~/Desktop/my-project
+
+<span class="hljs-comment"># Windows PowerShell</span>
+<span class="hljs-built_in">cd</span> <span class="hljs-variable">$env</span>:USERPROFILE\Desktop\my-project
+</code></pre><blockquote>
+<p>如果目录不存在，先用 <code>mkdir my-project &amp;&amp; cd my-project</code>（macOS/Linux/WSL2）或 <code>New-Item -ItemType Directory my-project; cd my-project</code>（PowerShell）创建。</p>
+</blockquote>
+<p><strong>第 2 步：启动 TraeCode CLI</strong></p>
+<pre><code class="hljs language-bash">traecli
+</code></pre><p>启动后你会进入交互式 TUI（终端图形界面），底部有一个输入框。</p>
+<p><strong>第 3 步：登录</strong></p>
+<p>首次打开时，TUI 会自动引导你登录。登录界面支持：</p>
+<ul>
+<li><strong>账号登录</strong>：用你的 TRAE 企业账号。</li>
+<li><strong>自定义域登录</strong>：如果你的组织使用自定义 API 域名，按提示填写。</li>
+</ul>
+<p>在输入框随便发一句话（比如「你好」），首次会唤起登录页面，按网页提示完成授权，然后返回 CLI 即可开始使用。</p>
+<p><strong>查看 / 退出登录状态</strong>（在终端中执行）：</p>
+<pre><code class="hljs language-bash">traecli login status   <span class="hljs-comment"># 查看登录状态</span>
+traecli <span class="hljs-built_in">logout</span>          <span class="hljs-comment"># 退出登录</span>
+</code></pre><p><strong>自动化场景用 PAT 登录</strong>（无需交互，适合 CI）：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># 交互输入，不把真实 token 写进 shell 历史</span>
+<span class="hljs-built_in">stty</span> -<span class="hljs-built_in">echo</span>
+IFS= <span class="hljs-built_in">read</span> -r TRAECLI_PERSONAL_ACCESS_TOKEN
+<span class="hljs-built_in">stty</span> <span class="hljs-built_in">echo</span>
+<span class="hljs-built_in">export</span> TRAECLI_PERSONAL_ACCESS_TOKEN
+traecli login --with-trae-pat
+</code></pre><p>如果组织用自定义 API 域名，再加一个环境变量：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> TRAECLI_HOST=<span class="hljs-string">"https://api.example.com"</span>
+<span class="hljs-comment"># 交互输入，不把真实 token 写进 shell 历史</span>
+<span class="hljs-built_in">stty</span> -<span class="hljs-built_in">echo</span>
+IFS= <span class="hljs-built_in">read</span> -r TRAECLI_PERSONAL_ACCESS_TOKEN
+<span class="hljs-built_in">stty</span> <span class="hljs-built_in">echo</span>
+<span class="hljs-built_in">export</span> TRAECLI_PERSONAL_ACCESS_TOKEN
+traecli login --with-trae-pat
+</code></pre><blockquote>
+<p>PAT 是可选自动化路线。Windows 请使用 Read-Host -AsSecureString 后在当前进程设置变量；不要在命令行字面写入真实 token。主线使用交互登录即可。</p>
+</blockquote>
+<h3 id="wiki-h-7">2.7 升级方式</h3>
+<p>TraeCode CLI 支持两种升级方式：</p>
+<ul>
+<li><strong>自动升级</strong>：启动 CLI 后，若当前版本非最新，会自动开始升级并在界面右下角提示状态。</li>
+<li><strong>手动升级</strong>：在终端执行：</li>
+</ul>
+<pre><code class="hljs language-bash">traecli update
+</code></pre><p>至此，你已经装好并登录了 TraeCode CLI。下一章我们先用一个现成项目练手，熟悉基本交互。</p>
+<hr>
+</article>

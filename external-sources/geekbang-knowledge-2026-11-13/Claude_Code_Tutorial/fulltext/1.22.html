@@ -1,0 +1,411 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>核对日期：2026-09-30<br>核对环境：Claude Code 2.1.281<br>范围：只包含终端中的 Claude Code CLI 交互会话，不含桌面客户端快捷键。</p>
+</blockquote>
+<p>先记住两个现场入口：</p>
+<ul>
+<li>在空输入框键入 <code>/</code>：查看当前账号、平台与版本实际可用的 Commands 和 Skills；</li>
+<li>在空输入框键入 <code>?</code>：打开当前终端快捷键帮助。</li>
+</ul>
+<p>命令会随版本、平台、账号方案和功能开关变化。若本附录与界面不一致，以这两个现场入口和当前官方文档为准。</p>
+<h2 id="wiki-h-0">命令怎样输入</h2>
+<p>斜杠命令必须出现在消息开头，后面的文字作为参数：</p>
+<pre><code class="hljs language-text">/compact 只保留当前计划、关键决定和未完成项
+</code></pre><p>输入 <code>/</code> 再输入若干字母可筛选；看到补全后按 <code>Tab</code> 或按界面提示选择。Skills 也以 <code>/&lt;skill-name&gt;</code> 出现；最多可以在消息开头连续调用六个 Skill，再写共同参数。</p>
+<p>下面的 <code>[参数]</code> 表示可选，不要把方括号原样输入。</p>
+<h2 id="wiki-h-1">先看状态和排障</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>用途</th>
+<th>你应该看到什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/help</code></td>
+<td>查看帮助与当前可用入口</td>
+<td>命令、输入和快捷键提示</td>
+</tr>
+<tr>
+<td><code>/status</code></td>
+<td>查看版本、模型、账号、连接和会话类型</td>
+<td>当前实际状态，不靠猜设置</td>
+</tr>
+<tr>
+<td><code>/doctor</code></td>
+<td>检查安装、设置和扩展，并提出可确认的修复</td>
+<td>先显示发现，再询问是否处理</td>
+</tr>
+<tr>
+<td><code>/debug [问题描述]</code></td>
+<td>从当前点启用日志并诊断运行问题</td>
+<td>调试日志与针对性分析</td>
+</tr>
+<tr>
+<td><code>/context [all]</code></td>
+<td>查看上下文由什么占用</td>
+<td>Memory、Skills、工具和消息的占比</td>
+</tr>
+<tr>
+<td><code>/permissions</code></td>
+<td>查看和编辑 Allow、Ask、Deny 与工作目录</td>
+<td>当前解析后的权限规则</td>
+</tr>
+<tr>
+<td><code>/tasks</code></td>
+<td>查看本会话的后台 Bash、Subagents 等任务</td>
+<td>状态、输出与管理动作</td>
+</tr>
+</tbody></table></div>
+<p><code>/doctor</code> 与终端外的 <code>claude doctor</code> 不相同：后者是只读检查；前者可以在你确认后应用修复。完整诊断链见第 18 篇。</p>
+<h2 id="wiki-h-2">日常开发与验证</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>用途</th>
+<th>关键边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/plan [任务]</code></td>
+<td>切到 Plan Mode，先调查和规划</td>
+<td>不应直接修改源文件</td>
+</tr>
+<tr>
+<td><code>/model [模型]</code></td>
+<td>选择或查看当前模型</td>
+<td>列表取决于账号与提供商</td>
+</tr>
+<tr>
+<td><code>/effort [级别]</code></td>
+<td>调整当前模型的推理强度</td>
+<td>可用级别取决于模型</td>
+</tr>
+<tr>
+<td><code>/diff</code></td>
+<td>查看未提交变化和逐轮 Diff</td>
+<td>是审查入口，不等于测试通过</td>
+</tr>
+<tr>
+<td><code>/run</code></td>
+<td>启动并操作项目，观察真实行为</td>
+<td>Bundled Skill；可用性以 <code>/</code> 菜单为准</td>
+</tr>
+<tr>
+<td><code>/verify</code></td>
+<td>构建、运行并观察改动结果</td>
+<td>必须由用户显式调用，不代替固定验收脚本</td>
+</tr>
+<tr>
+<td><code>/rewind</code></td>
+<td>恢复代码/对话到检查点，或从某处总结</td>
+<td>不保证恢复外部脚本和所有后台改动</td>
+</tr>
+<tr>
+<td><code>/sandbox</code></td>
+<td>在受支持平台切换命令 Sandbox</td>
+<td>Sandbox 与权限审批是两层控制</td>
+</tr>
+</tbody></table></div>
+<p>课程中的最低验收仍是：检查 Diff、运行固定测试、运行独立验证，再进行必要的人工操作。<code>/run</code> 或 <code>/verify</code> 不可用时，按正文里的手工命令完成同一证据链。</p>
+<h2 id="wiki-h-3">上下文与会话</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>用途</th>
+<th>何时用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/compact [重点]</code></td>
+<td>总结历史，释放上下文</td>
+<td>任务相同但对话变长</td>
+</tr>
+<tr>
+<td><code>/btw [问题]</code></td>
+<td>问一个不进入主对话历史的旁支问题</td>
+<td>快速确认，不想污染上下文</td>
+</tr>
+<tr>
+<td><code>/clear [名称]</code></td>
+<td>开始空白对话，可给旧会话命名</td>
+<td>任务已经完全改变</td>
+</tr>
+<tr>
+<td><code>/resume [会话]</code></td>
+<td>恢复指定会话或打开选择器</td>
+<td>回到过去任务</td>
+</tr>
+<tr>
+<td><code>/branch [名称]</code></td>
+<td>从当前位置分出会话并切过去</td>
+<td>自己探索另一条路线</td>
+</tr>
+<tr>
+<td><code>/fork [任务]</code></td>
+<td>复制当前对话到新的后台会话，主会话继续</td>
+<td>让完整副本独立工作</td>
+</tr>
+<tr>
+<td><code>/background [补充任务]</code></td>
+<td>把当前会话移到后台并释放终端</td>
+<td>当前长任务继续跑；别名 <code>/bg</code></td>
+</tr>
+<tr>
+<td><code>/subtask &lt;任务&gt;</code></td>
+<td>派生带当前上下文的后台 Subagent</td>
+<td>结果要回到当前会话</td>
+</tr>
+<tr>
+<td><code>/rename [名称]</code></td>
+<td>给当前会话命名</td>
+<td>方便稍后恢复和区分</td>
+</tr>
+<tr>
+<td><code>/exit</code></td>
+<td>退出；若附着后台会话则只分离</td>
+<td>别名 <code>/quit</code></td>
+</tr>
+</tbody></table></div>
+<p>四个容易混淆的动作：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>你想要的结果</th>
+<th>使用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>同一会话继续，只缩短历史</td>
+<td><code>/compact</code></td>
+</tr>
+<tr>
+<td>切到一条新对话分支亲自工作</td>
+<td><code>/branch</code></td>
+</tr>
+<tr>
+<td>复制成独立后台会话，原会话继续</td>
+<td><code>/fork</code></td>
+</tr>
+<tr>
+<td>派侧任务，结果回报当前会话</td>
+<td><code>/subtask</code></td>
+</tr>
+</tbody></table></div>
+<p><code>/background</code> 是把<strong>当前会话</strong>移到后台，不是复制。之后在普通终端用 <code>claude agents</code> 查看，或用 <code>claude attach &lt;id&gt;</code> 接管。完整后台流程见第 10 篇。</p>
+<p>上表按启用 Agent view 的当前版本说明。若组织关闭了 Agent view，或你使用的是较旧版本，<code>/fork</code> 可能仍表示 forked Subagent，<code>/subtask</code> 也可能不可用；以本机会话的 <code>/help</code> 为准。</p>
+<h2 id="wiki-h-4">项目记忆与扩展</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>用途</th>
+<th>关键边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/init</code></td>
+<td>为当前项目生成起始 <code>CLAUDE.md</code></td>
+<td>生成后仍要人工精简和审查</td>
+</tr>
+<tr>
+<td><code>/memory</code></td>
+<td>查看和管理 CLAUDE.md 与 Auto Memory</td>
+<td>用 <code>/context</code> 验证是否实际加载</td>
+</tr>
+<tr>
+<td><code>/skills</code></td>
+<td>列出并筛选项目、用户和插件 Skills</td>
+<td>可查看来源与可见性</td>
+</tr>
+<tr>
+<td><code>/reload-skills</code></td>
+<td>重新扫描运行中新增或修改的 Skills</td>
+<td>无需仅为 Skill 改动重启</td>
+</tr>
+<tr>
+<td><code>/hooks</code></td>
+<td>查看当前已注册 Hooks</td>
+<td>Hook 缺失时先查来源与 matcher</td>
+</tr>
+<tr>
+<td><code>/mcp</code></td>
+<td>查看连接、审批、工具和认证状态</td>
+<td>项目 MCP 未批准时不会连接</td>
+</tr>
+<tr>
+<td><code>/plugin [子命令]</code></td>
+<td>管理插件</td>
+<td>安装或启用后按提示 reload/restart</td>
+</tr>
+<tr>
+<td><code>/reload-plugins [--force]</code></td>
+<td>重新加载活跃插件</td>
+<td>MCP 工具变化可能需要 <code>--force</code> 并影响缓存</td>
+</tr>
+<tr>
+<td><code>/config</code></td>
+<td>打开终端设置界面</td>
+<td>别名 <code>/settings</code></td>
+</tr>
+</tbody></table></div>
+<p>当前 <code>/agents</code> 不再打开旧版 Agent 创建向导；它会提醒你让 Claude 创建 Agent，或直接编辑 <code>.claude/agents/</code> 与 <code>~/.claude/agents/</code>。运行中的 Subagent 看 <code>/tasks</code>，跨会话后台工作看终端命令 <code>claude agents</code>。Skills、Hooks、MCP、插件与 Agent 的完整练习分别见第 11 篇、第 12 篇和第 13 篇。</p>
+<h2 id="wiki-h-5">账号与退出</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>用途</th>
+<th>注意点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/login</code></td>
+<td>登录 Anthropic 账号</td>
+<td>环境变量仍可能覆盖认证路径</td>
+</tr>
+<tr>
+<td><code>/logout</code></td>
+<td>退出当前账号</td>
+<td>切换身份前先保存任务状态</td>
+</tr>
+<tr>
+<td><code>/usage</code></td>
+<td>查看上下文与方案用量</td>
+<td>别名 <code>/cost</code>、<code>/stats</code></td>
+</tr>
+<tr>
+<td><code>/export [文件名]</code></td>
+<td>导出当前会话为纯文本</td>
+<td>分享前必须脱敏</td>
+</tr>
+</tbody></table></div>
+<p>第三方网关、云提供商和环境变量问题应回到第 3 篇，不要通过反复登录掩盖路由配置错误。</p>
+<h2 id="wiki-h-6">最常用的终端快捷键</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>快捷键</th>
+<th>用途</th>
+<th>细节</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Ctrl+C</code></td>
+<td>中断当前动作或清空输入</td>
+<td>无任务时第一次清空，第二次退出</td>
+</tr>
+<tr>
+<td><code>Esc</code></td>
+<td>中断响应、关闭对话框或拒绝权限</td>
+<td>已完成的磁盘改动会保留</td>
+</tr>
+<tr>
+<td>空输入时 <code>Esc</code> 两次</td>
+<td>打开 Rewind 菜单</td>
+<td>有输入时会清空草稿并存入历史</td>
+</tr>
+<tr>
+<td><code>Ctrl+D</code></td>
+<td>退出 Claude Code</td>
+<td>空输入时需在约 800 ms 内再按一次确认</td>
+</tr>
+<tr>
+<td><code>Ctrl+O</code></td>
+<td>打开/关闭详细 Transcript</td>
+<td>查看工具调用、时间和模型</td>
+</tr>
+<tr>
+<td><code>Ctrl+T</code></td>
+<td>显示/隐藏 Claude 的任务清单</td>
+<td>不是后台任务视图；后台任务用 <code>/tasks</code></td>
+</tr>
+<tr>
+<td><code>Ctrl+B</code></td>
+<td>把运行中的 Bash 或 Agent 放到后台</td>
+<td>tmux 用户通常需要按两次</td>
+</tr>
+<tr>
+<td><code>Ctrl+R</code></td>
+<td>反向搜索历史输入</td>
+<td>继续输入可缩小匹配</td>
+</tr>
+<tr>
+<td><code>Ctrl+G</code></td>
+<td>用默认编辑器编辑长输入</td>
+<td>也可用 <code>Ctrl+X</code> 后再按 <code>Ctrl+E</code></td>
+</tr>
+<tr>
+<td><code>Ctrl+S</code></td>
+<td>暂存/恢复当前输入</td>
+<td>再次在空输入时恢复</td>
+</tr>
+<tr>
+<td><code>Shift+Tab</code></td>
+<td>循环权限模式</td>
+<td>Windows 某些运行时用 <code>Alt+M</code></td>
+</tr>
+<tr>
+<td><code>Ctrl+J</code></td>
+<td>插入换行</td>
+<td>各终端都可用；也可用反斜杠后按 Enter</td>
+</tr>
+<tr>
+<td>空输入时 <code>?</code></td>
+<td>打开快捷键帮助</td>
+<td>当前版本的现场依据</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-7">终端拦截时怎么处理</h3>
+<ul>
+<li><code>Ctrl+S</code> 无响应或冻结输出：终端可能启用了软件流控；优先用 <code>/help</code> 核对，再调整终端设置，不要反复按键；</li>
+<li>macOS 的 <code>Option</code> 组合键：终端可能需要把 Option 配置为 Meta；</li>
+<li>tmux 中 <code>Ctrl+B</code>：它本身是 tmux 前缀，Claude Code 通常要求按两次；</li>
+<li><code>Shift+Enter</code> 不换行：使用通用的 <code>Ctrl+J</code>，或按官方终端配置处理；</li>
+<li>键位与本表不同：以空输入 <code>?</code> 和当前 <code>/help</code> 为准。</li>
+</ul>
+<h2 id="wiki-h-8">三个快速输入入口</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>开头字符</th>
+<th>作用</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/</code></td>
+<td>Command 或 Skill</td>
+<td><code>/weekly-menu 3</code></td>
+</tr>
+<tr>
+<td><code>!</code></td>
+<td>直接运行 Shell 命令，并把输出加入会话</td>
+<td><code>!git status --short</code></td>
+</tr>
+<tr>
+<td><code>@</code></td>
+<td>文件路径补全和引用</td>
+<td><code>@src/app.py</code></td>
+</tr>
+</tbody></table></div>
+<p>Shell 模式仍受权限与 Sandbox 约束。不要用 <code>!</code> 绕开项目验证流程，也不要把含密钥的文件用 <code>@</code> 加入上下文。</p>
+<h2 id="wiki-h-9">自检</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">能用 <code>/</code> 和空输入 <code>?</code> 找到本机真实入口；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能区分 <code>/tasks</code>、<code>/background</code>、<code>/fork</code> 和 <code>/subtask</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能用 <code>/context</code> 找到上下文占用，而不是盲目 <code>/compact</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">知道 <code>/agents</code> 不再是旧版向导；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">知道 <code>/rewind</code> 不能替代 Git 与独立验证；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">快捷键被终端拦截时，会回到现场帮助核对。</li>
+</ul>
+<p>官方入口：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/commands">Commands</a></li>
+<li><a href="https://code.claude.com/docs/en/interactive-mode">Interactive mode</a></li>
+<li><a href="https://code.claude.com/docs/en/agent-view">Agent view</a></li>
+<li><a href="https://code.claude.com/docs/en/permissions">Permissions</a></li>
+</ul>
+</article>

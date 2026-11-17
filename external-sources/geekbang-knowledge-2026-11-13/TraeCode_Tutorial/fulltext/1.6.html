@@ -1,0 +1,13 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">5.1 接续第 4 章的固定接口</h2>
+<p>先确认 <code>python -m src.cli_app --data data/ledger.db list</code> 能读到三条九月样例。金额存整数分；输入 --amount 的单位为元。让助手说明 src/ledger.py 的业务函数、src/storage.py 的 load/save 和 src/cli_app.py 的 CLI 入口，不要猜测不存在的 get_records 或 run 接口。</p>
+<h2 id="wiki-h-1">5.2 增加月度汇总</h2>
+<p>从干净提交创建 feat/monthly-report 分支。先要求助手写计划，确认后实现 summary --month YYYY-MM 和 report --month YYYY-MM --export 路径。汇总 JSON 固定包含 month、income_cents、expense_cents、balance_cents、categories_cents；分类只统计支出。report 与 summary 复用 summarize，导出 CSV 时字段同样标明 cents，不把分显示成元。</p>
+<pre><code class="hljs language-bash">python -m src.cli_app --data data/ledger.db summary --month 2026-09
+python -m src.cli_app --data data/ledger.db report --month 2026-09 --<span class="hljs-built_in">export</span> reports/2026-09.csv
+</code></pre><p>固定样例应得到收入 800000 分、支出 4700 分、结余 795300 分。若要面向用户显示金额，4700 分显示为 47.00 元；餐饮 3500 分、交通 1200 分，占支出的 74.47% 与 25.53%。空月份返回全零、空分类，不除以零。</p>
+<h2 id="wiki-h-2">5.3 先运行契约测试，再合并</h2>
+<p>第 4 章 starter 附带 tests/test_contract.py。完成实现后运行 <code>python -m unittest discover -s tests -v</code>，它使用临时数据库，不修改真实账本；再打开导出文件核对数据。若卡住可对照 exercise-assets/ledger-reference，先读差异再理解原因，不把参考文件直接覆盖自己的数据。</p>
+<p>确认参数错误非零退出、非法输入不增加账目、月度筛选正确。检查 git status 和 diff，提交本功能后切回 main 合并。删除已合并分支用 git branch -d，合并冲突须解决并重跑测试，不能通过删除测试来“消除冲突”。</p>
+<h2 id="wiki-h-3">5.4 适度拆分</h2>
+<p>本课实现规模不大，先保持 CLI、存储、业务三个边界。只有报表输出与业务计算开始互相干扰时，再抽出 report 模块；不为了展示模块数重复 SQL 或另建一套金额模型。</p>
+</article>

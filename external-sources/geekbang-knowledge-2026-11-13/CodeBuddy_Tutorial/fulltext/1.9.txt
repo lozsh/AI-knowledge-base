@@ -1,0 +1,32 @@
+8.1 明确第一版契约
+
+复制 materials-cbc/05-service-starter 到独立 shortlink 项目，阅读需求说明：GET /health 返回 {"status":"ok"}；POST /api/shorten 接收 url，返回 code；GET /{code} 返回 302 与 Location；GET /api/stats/{code} 返回 clicks。非法 URL 返回 4xx，未知 code 返回 404。只接受 http/https，拒绝空值和 javascript: 等协议。
+
+让助手先规划 FastAPI、SQLite 和测试入口，确认后才实施。锁定实际安装的依赖版本，生成 requirements.txt 或锁文件；不要假定未安装的测试客户端可用。DATABASE_PATH 是唯一数据库路径配置，默认本地 data/shortlink.db，容器用 /data/shortlink.db。
+
+8.2 本地验收
+
+启动命令、端口和环境变量写入 README；以下约定服务在 8000。把配套 smoke.py 复制到 scripts/，执行：
+
+python scripts/smoke.py http://127.0.0.1:8000
+
+
+脚本验证健康响应、创建、302 Location 和计数，不跟随外站跳转；任一失败必须非零退出。另写 pytest 覆盖非法 URL、未知 code、数据库临时目录隔离。把健康状态改错或跳转状态改成 200 时，smoke 必须失败；恢复后再继续。
+
+8.3 容器持久卷
+
+要求助手生成 Dockerfile：锁定依赖，使用非 root 用户，创建 /data 并将所有权交给该用户；服务监听 0.0.0.0:8000。构建前确认 Docker 可用。
+
+docker build -t shortlink:lesson .
+docker volume create shortlink-data
+docker run -d --name shortlink-lesson -p 8000:8000 -e DATABASE_PATH=/data/shortlink.db -v shortlink-data:/data shortlink:lesson
+python scripts/smoke.py http://127.0.0.1:8000
+
+
+保存 smoke 输出的 code，再 docker stop shortlink-lesson、docker rm shortlink-lesson，以同一命令重建容器。访问旧 code 应仍然 302，stats 保留先前点击记录；只创建新 code 不能证明持久化。若 volume 权限错误，修正镜像目录权限，不能退回每次随机临时数据库。
+
+8.4 云端部署
+
+选用支持持久磁盘的平台，把同一个 DATABASE_PATH 指向实际挂载点，核对 HTTPS、端口映射和重启策略。存储和计费以平台当前文档为准，不承诺免费层具备持久卷。部署后重新执行 smoke 与旧 code 重启验证，再记录镜像版本、配置变量名和回滚方法。凭据不提交。
+
+本地验证不能替代云端验证；没有云账号时做到容器实验并在 README 标注“云端未验证”，不要虚构已上线地址。

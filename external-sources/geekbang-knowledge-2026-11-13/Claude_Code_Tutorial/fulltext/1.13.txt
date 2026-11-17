@@ -1,0 +1,463 @@
+预计用时：75～100 分钟
+本篇目标：把一份固定本地库存作为只读 MCP 接入 Claude Code，真实完成添加、连接、调用、停用、恢复与移除；再把同一个 MCP、一个 Skill 和一个审查 Agent 打包成只在当前会话加载的插件。
+
+MealCraft 已经能生成周菜单和购物清单，但它不知道你家里现有多少食材。把库存复制进对话当然可行；当数据由另一个工具维护、需要反复查询时，才值得接入 MCP。
+
+本篇不要求注册新服务、不访问网络，也不使用来历不明的第三方包。教程提供一个只读、无依赖的本地库存服务器，所有数据和代码都能先检查再运行。你会先把它当普通 MCP 使用，再把它连同第 11 篇学过的 Skill 思路和一个窄职责 Agent 打包成插件。
+
+完成后，你应能用证据回答三个问题：
+
+MCP 服务器到底暴露了哪些工具，Claude 是否真的调用了它；
+插件加载后增加了哪些组件，退出会话后为什么不再生效；
+代码智能何时值得安装，为什么它不是“所有项目都必须有”的默认步骤。
+开始状态
+
+从完成第 11 篇后的 MealCraft 项目开始。先退出 Claude Code，在普通终端确认项目健康。
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course/mealcraft
+git status --short
+python3 scripts/verify_2_0.py --stage complete
+python3 -m unittest discover -s tests -v
+claude --version
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course\mealcraft"
+git status --short
+py scripts/verify_2_0.py --stage complete
+py -m unittest discover -s tests -v
+claude --version
+
+
+预期工作区为空，2.0 检查通过，23 项测试全部通过。插件中的 MCP 配置校验需要 Claude Code 2.1.281 或更高版本；若版本更低，先运行 claude update，重开终端后再检查版本。
+
+本篇只读取一份固定快照，不代表真实冰箱库存，也不提供营养或医疗建议。
+
+先分清三层扩展
+机制	本篇负责什么	不负责什么
+MCP	定义 Claude Code 如何启动库存服务、发现工具并调用工具	不自动证明服务可信，也不自动限制服务进程的系统权限
+Plugin	把 MCP、Skill、Agent 等组件作为一个有名称和版本的目录加载	不等于 Marketplace，也不必发布或安装
+Code intelligence	通过 LSP 提供诊断、定义与引用导航	不替代测试、运行验证或普通文本搜索
+
+第 11 篇的 Skill 是一套按需工作流程，Hook 是事件触发的固定动作。MCP 则给 Claude 增加来自另一个进程或远端系统的工具。插件是打包与分发层：它可以同时装下 Skills、Agents、Hooks、MCP 和 LSP 配置。
+
+如果需求只是读取仓库中的 pantry.json，内置 Read 已经够用。本篇故意使用 MCP，是为了练习“数据由另一个工具提供”的边界，而不是宣称 MCP 比读文件更高级。
+
+复制并检查固定素材
+
+把教程中的扩展包复制到 MealCraft。不要直接在教程目录里改原素材。
+
+macOS、Linux 或 WSL2：
+
+export COURSE_SOURCE="/替换为实际路径/claude-code-tutorial-v0.2"
+export EXTENSION_SOURCE="$COURSE_SOURCE/exercise-assets/mealcraft/extension-kit"
+test -f "$EXTENSION_SOURCE/mealcraft-tools/servers/pantry_server.py"
+test ! -e extensions/mealcraft-kit
+mkdir -p extensions
+cp -R "$EXTENSION_SOURCE" extensions/mealcraft-kit
+python3 extensions/mealcraft-kit/configure_plugin_python.py
+python3 extensions/mealcraft-kit/verify_extension_kit.py --phase complete
+
+
+Windows PowerShell：
+
+$CourseSource = "C:\替换为实际路径\claude-code-tutorial-v0.2"
+$ExtensionSource = "$CourseSource\exercise-assets\mealcraft\extension-kit"
+if (-not (Test-Path "$ExtensionSource\mealcraft-tools\servers\pantry_server.py")) { throw "扩展素材路径错误" }
+if (Test-Path "extensions\mealcraft-kit") { throw "extensions\mealcraft-kit 已存在，请先人工比较" }
+New-Item -ItemType Directory -Force extensions | Out-Null
+Copy-Item $ExtensionSource "extensions\mealcraft-kit" -Recurse
+py extensions\mealcraft-kit\configure_plugin_python.py
+py extensions\mealcraft-kit\verify_extension_kit.py --phase complete
+
+
+配置脚本只修改项目副本中的 .mcp.json，把启动命令固定为当前 Python 解释器的绝对路径。这样原生 Windows 不必假设存在 python3 命令，macOS/Linux 也不会误用另一个 Python。连续运行两次是幂等的，第二次会显示 unchanged。
+
+预期检查结果包含：
+
+PASS layout: plugin manifest, MCP config, Skill, Agent, server assets
+PASS protocol: initialize, tools/list, list_pantry, get_pantry_item
+PASS extension kit phase=complete
+
+
+项目中新增的结构是：
+
+extensions/mealcraft-kit/
+├── configure_plugin_python.py
+├── verify_extension_kit.py
+└── mealcraft-tools/
+    ├── .claude-plugin/
+    │   └── plugin.json
+    ├── .mcp.json
+    ├── agents/
+    │   └── pantry-reviewer.md
+    ├── servers/
+    │   ├── pantry.json
+    │   └── pantry_server.py
+    └── skills/
+        └── pantry-audit/
+            └── SKILL.md
+
+
+先自己打开 pantry.json、pantry_server.py 和 verify_extension_kit.py。你应确认：
+
+库存只有 6 项，快照日期固定为 2026-09-29；
+服务器只公布 list_pantry 与 get_pantry_item；
+两个工具都声明了 readOnlyHint，代码中没有写文件、网络请求或执行任意命令；
+检查器直接走 MCP 的初始化、工具发现和工具调用协议，不依赖 Claude 的文字结论。
+
+readOnlyHint 是给客户端和模型的工具注解，不是操作系统强制隔离。真正的安全依据仍是你审查过的实现、进程权限、Claude Code 权限规则与 Sandbox。陌生 MCP 即使自称只读，也可能在启动时执行任意代码或读取当前用户有权访问的数据。
+
+先提交这个确定起点：
+
+git add extensions/mealcraft-kit
+git diff --cached --check
+git commit -m "add local MealCraft extension lab"
+
+把库存服务作为普通 MCP 添加
+
+先不加载插件，只把同一服务器以 local 作用域加入当前项目。
+
+macOS、Linux 或 WSL2：
+
+export PANTRY_SERVER="$PWD/extensions/mealcraft-kit/mealcraft-tools/servers/pantry_server.py"
+test -f "$PANTRY_SERVER"
+claude mcp add --scope local mealcraft-pantry -- python3 "$PANTRY_SERVER"
+claude mcp get mealcraft-pantry
+claude mcp list
+
+
+Windows PowerShell：
+
+$PantryServer = (Resolve-Path "extensions\mealcraft-kit\mealcraft-tools\servers\pantry_server.py").Path
+claude mcp add --scope local mealcraft-pantry -- py $PantryServer
+claude mcp get mealcraft-pantry
+claude mcp list
+
+
+这里的 -- 很重要：它把 claude mcp add 自己的选项与服务器启动命令分开，后面的内容会原样交给服务器。
+
+预期 get 与 list 都显示：
+
+mealcraft-pantry
+Scope: Local config (private to you in this project)
+Status: ✔ Connected
+Type: stdio
+
+
+完整排版可能随版本略变，但名称、Local、stdio 和 Connected 四项必须一致。local 是默认作用域，本篇仍显式写出它，方便清理时精确指定。它保存在当前用户配置中并绑定当前项目，不会创建仓库根目录的 .mcp.json。
+
+如果列表里还有你自己的其他服务器，不要删除它们；本篇只操作 mealcraft-pantry。
+
+三种作用域怎么选
+作用域	保存位置与可见范围	合适场景
+local	用户配置中，仅当前项目可见，不提交仓库	第一次试用、个人路径、个人凭据
+project	项目根目录 .mcp.json，可提交共享	团队已审查、启动方式可移植的服务
+user	用户配置中，对本机所有项目可见	你在多数项目都要用的个人工具
+
+项目级 .mcp.json 来自仓库，首次使用要经过审批；不要因为文件被提交过，就把其中命令自动当成可信代码。远端服务优先使用当前文档推荐的 HTTP transport；旧 SSE transport 已进入兼容路径，不应作为新配置的默认选择。
+
+在 Claude Code 中真实调用两次
+
+从 MealCraft 根目录启动：
+
+claude
+
+
+先输入：
+
+/mcp
+
+
+确认 mealcraft-pantry 显示 connected，并且只提供两个工具。然后发送这条约束明确的任务：
+
+只调用 mealcraft-pantry 的 list_pantry 工具，category 设为 fresh。不要读项目里的 pantry.json，不要修改任何文件。请报告快照日期、返回数量和每一项的 id、数量、单位，并在末尾写出实际工具名。
+
+
+第一次调用 MCP 工具时，Claude Code 可能显示权限确认。展开工具记录，确认服务器和工具名正确后再批准，不要只看最终回答。
+
+确定性结果应为：
+
+as_of: 2026-09-29
+count: 4
+chicken-breast: 500 g
+cucumber: 2 个
+eggs: 8 个
+tomatoes: 4 个
+
+
+再发一次单项查询：
+
+只调用 mealcraft-pantry 的 get_pantry_item，item_id 设为 tomatoes。不要读取本地文件。只报告 id、中文名、数量、单位和快照日期。
+
+
+预期为 tomatoes / 番茄 / 4 / 个 / 2026-09-29。这两次结果相互交叉验证：列表与单项查询中的番茄数量都必须是 4。
+
+如果 Claude 没调用 MCP 而是直接猜答案，结论不算通过。重新开一个新会话，明确要求“必须出现工具记录，否则停止”，并确认 /mcp 中服务处于 connected。
+
+停用、恢复和精确移除
+
+仍在当前会话中，先停用服务器：
+
+/mcp disable mealcraft-pantry
+
+
+预期出现 disabled 状态。再次要求调用 get_pantry_item，Claude Code 不应再提供该服务器的工具；如果模型仅凭刚才的对话复述了 4 个番茄，也不能算工具调用成功。工具记录里不应出现新的 MCP 调用。
+
+恢复连接：
+
+/mcp enable mealcraft-pantry
+
+
+再次运行单项查询，工具应重新可用。若仍断开，执行：
+
+/mcp reconnect mealcraft-pantry
+
+
+退出 Claude Code，回到普通终端精确移除本篇配置。
+
+macOS、Linux、WSL2 与 PowerShell 都使用：
+
+claude mcp remove --scope local mealcraft-pantry
+claude mcp list
+
+
+预期显示已从 local config 移除；列表中不再出现 mealcraft-pantry。若你本来没有其他 MCP，列表会提示没有已配置服务器。素材目录和插件目录仍在，移除 MCP 配置不会删除项目文件。
+
+最后再做一次与 Claude 无关的协议检查：
+
+macOS、Linux 或 WSL2：
+
+python3 extensions/mealcraft-kit/verify_extension_kit.py --phase protocol
+
+
+Windows PowerShell：
+
+py extensions\mealcraft-kit\verify_extension_kit.py --phase protocol
+
+
+预期 initialize、tools/list、两次工具调用全部 PASS。这证明服务本身仍然可运行；claude mcp list 中名称消失，则证明客户端配置确实已清理。
+
+把 MCP、Skill 和 Agent 打成插件
+
+普通 MCP 练习中，服务注册在用户配置里。现在看插件目录的三个关键入口：
+
+.claude-plugin/plugin.json   插件名称、版本和描述
+.mcp.json                    插件加载时启动的 MCP 服务
+skills/ 与 agents/           以插件名为前缀的组件
+
+
+.mcp.json 使用 ${CLAUDE_PLUGIN_ROOT} 引用插件内部脚本。无论插件目录被复制到哪里，Claude Code 都会在 command、args 和 env 中替换这个变量。Skill 和 Agent 的公开名称则自动带上 mealcraft-tools: 前缀，避免与其他插件同名组件冲突。
+
+先在普通终端严格验证：
+
+macOS、Linux 或 WSL2：
+
+export PLUGIN_DIR="$PWD/extensions/mealcraft-kit/mealcraft-tools"
+claude plugin validate "$PLUGIN_DIR" --strict
+claude --plugin-dir "$PLUGIN_DIR" plugin list
+claude --plugin-dir "$PLUGIN_DIR" plugin details mealcraft-tools
+
+
+Windows PowerShell：
+
+$PluginDir = (Resolve-Path "extensions\mealcraft-kit\mealcraft-tools").Path
+claude plugin validate $PluginDir --strict
+claude --plugin-dir $PluginDir plugin list
+claude --plugin-dir $PluginDir plugin details mealcraft-tools
+
+
+预期看到 Validation passed、mealcraft-tools@inline、scope session 或 Session-only plugins，以及这份组件清单：
+
+Skills (1)      pantry-audit
+Agents (1)      pantry-reviewer
+MCP servers (1) pantry
+
+
+--plugin-dir 必须指向含有 .claude-plugin/plugin.json 的插件根目录，而不是它的父目录，也不是 .claude-plugin 自身。把参数放在 plugin list 前面，是因为它是 claude 的会话加载参数。
+
+临时加载并调用 Skill
+
+启动一个只在本次会话加载插件的 Claude Code：
+
+macOS、Linux 或 WSL2：
+
+claude --plugin-dir "$PLUGIN_DIR"
+
+
+Windows PowerShell：
+
+claude --plugin-dir $PluginDir
+
+
+进入后依次检查：
+
+/plugin
+/mcp
+
+
+插件应显示为 session-only；MCP 应显示为 plugin:mealcraft-tools:pantry 且 connected。普通 MCP 已经移除，所以这里不应再出现 mealcraft-pantry。
+
+运行插件 Skill：
+
+/mealcraft-tools:pantry-audit fresh
+
+
+预期它调用插件自带的 list_pantry，报告 4 项 fresh 库存、快照日期，并在证据中写出服务器 plugin:mealcraft-tools:pantry。Skill 的命名空间来自 manifest 中的 mealcraft-tools 和目录名 pantry-audit，不是文件正文随意起的别名。
+
+显式调用插件 Agent 做第二意见
+
+输入：
+
+@agent-mealcraft-tools:pantry-reviewer 独立检查库存快照的一致性，只按你的既定格式返回结果。
+
+
+预期 Agent 单独调用列表与番茄单项查询，并用三个标题返回：
+
+结论
+证据
+边界
+
+
+结论 应为 PASS；证据应包含总数 6、列表与单项查询中的番茄数量均为 4；边界应说明这是固定本地快照且没有修改文件。第 13 篇会系统学习 Subagent 的上下文、工具边界和主 Agent 复核，本节只验证“插件可以携带并命名一个 Agent”。
+
+独立确认项目没有被调用过程修改：
+
+请运行 git status --short，只报告结果，不要修复或提交。
+
+
+预期为空。若出现改动，先查看 Diff；不要接受“只读 Agent”这句话作为证据。
+
+停止加载插件
+
+输入 /exit 退出，然后从同一项目普通启动：
+
+claude
+
+
+输入 /plugin 和 /mcp。预期不再有 mealcraft-tools@inline 与 plugin:mealcraft-tools:pantry；输入 /mealcraft-tools:pantry-audit 也不应被识别。因为 --plugin-dir 只是单会话加载，没有安装、没有写入项目或用户的 enabledPlugins 配置。
+
+如果以后把插件安装到某个 Marketplace，再使用 claude plugin disable <插件名>、enable 或 uninstall 管理；不要把这些安装态命令与本篇的 session-only 加载混为一谈。
+
+代码智能是选学，不是本篇依赖
+
+代码智能插件通过 Language Server Protocol 给 Claude Code 增加两类能力：
+
+编辑后接收类型错误、缺失导入等诊断；
+用只读 LSP 工具按符号查定义和引用，而不是只做文本搜索。
+
+它在大型类型化项目、跨文件重构或同名符号很多时很有价值。当前 MealCraft 规模小、Python 接口简单，又有 23 项固定测试；为了本篇强装语言服务器，成本大于收益。
+
+当前官方 Python 组合是：
+
+语言服务器二进制：pyright-langserver
+Claude Code 插件：pyright-lsp@claude-plugins-official
+
+
+插件不会替你安装语言服务器二进制。如果未来确实需要，应按官方插件 README 安装并先确认二进制在启动 Claude Code 的同一个 shell 的 PATH 中，然后在会话内运行：
+
+/plugin install pyright-lsp@claude-plugins-official
+
+
+第一次编辑 .py 文件后，真正的成功证据是编辑记录下出现新的 diagnostics 摘要；如果没有，打开 /plugin 的 Errors，检查 Executable not found in $PATH。只看到“插件已安装”不能证明语言服务器已经启动。
+
+选择顺序可以很简单：
+
+只需找字符串、读少量文件：先用 Grep、Glob、Read；
+已有测试能直接证明行为：先运行测试；
+大型类型项目需要符号导航或即时诊断：再安装对应官方 LSP 插件与二进制；
+官方没有对应语言时，才考虑自己写 .lsp.json 插件。
+关键排错
+claude mcp list 显示 Failed 或 Disconnected
+
+先运行不经过 Claude Code 的协议检查：
+
+python3 extensions/mealcraft-kit/verify_extension_kit.py --phase protocol
+
+
+Windows 换成 py。若这里失败，先修素材路径或 Python；若这里通过，运行 claude mcp get mealcraft-pantry 检查保存的绝对路径，再用 /mcp reconnect mealcraft-pantry。stdio 服务器的 stdout 只能写协议消息，调试日志必须写 stderr；额外 print 到 stdout 会破坏连接。
+
+提示 mealcraft-pantry already exists
+
+不要再加一个同名服务。先运行：
+
+claude mcp get mealcraft-pantry
+
+
+核对 Scope、Command 和 Args。若是之前未清理的本篇配置，执行 claude mcp remove --scope local mealcraft-pantry 后再添加；若不是，换一个明确名称，不要误删别的作用域。
+
+插件通过验证，但 Skill 不见了
+
+依次检查：
+
+--plugin-dir 是否指向包含 .claude-plugin/plugin.json 的 mealcraft-tools；
+skills/pantry-audit/SKILL.md 是否位于插件根目录下，而不是 .claude-plugin/ 里面；
+是否用完整名称 /mealcraft-tools:pantry-audit；
+修改发生在会话启动之后时，运行 /reload-plugins，若它提示 MCP 变化会使缓存失效，再按提示决定是否使用 --force。
+插件 MCP 不连接
+
+运行：
+
+claude plugin validate extensions/mealcraft-kit/mealcraft-tools --strict
+
+
+再打开 /plugin 的 Errors 和 /mcp。确认你执行过 configure_plugin_python.py，.mcp.json 中 command 是当前解释器绝对路径，args 仍是 ${CLAUDE_PLUGIN_ROOT}/servers/pantry_server.py。使用插件 MCP 配置检查需要 Claude Code 2.1.281 或更高版本。
+
+Agent 调用了不该有的工具
+
+先在工具记录中核对实际名称，再检查 agents/pantry-reviewer.md 的 tools 列表。工具列表约束 Agent 的可用工具，但服务器进程本身仍按启动用户权限运行；两层边界不能相互替代。发现任何项目改动时，以 git diff 为准并停止验收。
+
+文章级验收
+
+退出所有 Claude Code 会话，在普通终端执行：
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course/mealcraft
+python3 extensions/mealcraft-kit/configure_plugin_python.py
+python3 extensions/mealcraft-kit/verify_extension_kit.py --phase complete
+claude plugin validate extensions/mealcraft-kit/mealcraft-tools --strict
+claude mcp list
+git status --short
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course\mealcraft"
+py extensions\mealcraft-kit\configure_plugin_python.py
+py extensions\mealcraft-kit\verify_extension_kit.py --phase complete
+claude plugin validate extensions\mealcraft-kit\mealcraft-tools --strict
+claude mcp list
+git status --short
+
+
+完成标准：
+
+扩展包 layout 与 MCP protocol 两阶段都 PASS；
+插件 strict validation 通过；
+claude mcp list 中没有残留的 mealcraft-pantry；
+git status --short 为空；
+你亲眼见过普通 MCP 的两次工具调用、disable 后不可调用、enable 后恢复；
+你亲眼见过插件 Skill 与 Agent 的命名空间调用；
+退出 --plugin-dir 会话后，插件组件不再加载。
+本篇小结
+
+MCP 负责“连接一个工具服务”，插件负责“把多种扩展组件作为一个有名称的单元加载”，代码智能则是插件的一种专门用途。三者都应从真实需求出发，并用工具记录、状态命令、独立检查器和 Git 状态验证，而不是接受模型或安装器的一句“成功”。
+
+本篇没有安装远端服务、没有写入凭据，也没有把 MealCraft 改造成企业系统。下一篇将在现有个人项目中继续，只把 Subagent 的隔离上下文、窄工具范围与主 Agent 复核做完整。
+
+官方参考：
+
+MCP：添加 stdio 服务、作用域与连接管理
+插件创建与单会话加载
+插件组件：Skills、Agents、MCP 与命名空间
+插件 CLI：validate、list、details 与 --plugin-dir
+代码智能插件与语言服务器边界
+协议协商补充验收
+
+本课 pantry server 明确支持 2025-06-18。初始化请求的版本受支持时返回该版本，否则返回服务端支持的版本，由客户端决定接受或断开；不能原样承诺未知版本。
+
+将 initialize 的 protocolVersion 改成 2099-01-01 再独立发送一次，预期响应为 2025-06-18。这只验版本协商，仍要完成列工具和实际工具调用。参考：MCP 生命周期规范。

@@ -1,0 +1,251 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>这一章的目标只有一个：<strong>不管你用什么机器，走完这一章，<code>codebuddy</code> 这条命令能用。</strong></p>
+<p>先说清楚一件事：这一章看起来长，是因为我把 macOS、Linux、Windows PowerShell、WSL2 四种环境分开写了。<strong>你只需要看你那一段</strong>，别的一眼扫过就行。</p>
+<h2 id="wiki-h-0">先确认你在哪个环境</h2>
+<p>如果你分不清自己属于哪一类，先做这个判断：</p>
+<p><strong>macOS / Linux（bash、zsh）</strong></p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">uname</span> -a
+</code></pre><p>有输出（一串系统信息）→ 你在这两类里。再敲 <code>sw_vers</code> 有输出就是 macOS，没有就是 Linux。</p>
+<p><strong>Windows PowerShell</strong></p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$PSVersionTable</span>.PSVersion
+</code></pre><p>能显示版本号 → 你在 PowerShell 里。</p>
+<p><strong>WSL2</strong></p>
+<p>在 Windows 上打开 Ubuntu（或你装的发行版）终端，敲：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">uname</span> -a
+</code></pre><p>输出里带 <code>microsoft</code> 或 <code>WSL</code> 字样 → 你在 WSL2 里。</p>
+<blockquote>
+<p>关键区别：<strong>WSL2 是 Windows 里跑的 Linux</strong>，它按 Linux 的方式装、按 Linux 的方式用。它和"Windows PowerShell 原生"是两套环境，可以各装一份，互不干扰，但坑不一样——后面单独讲。</p>
+</blockquote>
+<h2 id="wiki-h-1">三条安装路线，选一条</h2>
+<p>CodeBuddy Code 有三种装法，挑一种就行：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>路线</th>
+<th>命令</th>
+<th>前提</th>
+<th>适合谁</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>npm 系</strong></td>
+<td><code>npm install -g @tencent-ai/codebuddy-code</code></td>
+<td>Node.js ≥ 18.20</td>
+<td>机器上本来就有 Node 的开发者</td>
+</tr>
+<tr>
+<td><strong>Homebrew</strong></td>
+<td><code>brew install Tencent-CodeBuddy/tap/codebuddy-code</code></td>
+<td>无（不用 Node）</td>
+<td>macOS / Linux 用户，最省事</td>
+</tr>
+<tr>
+<td><strong>原生安装器（Beta）</strong></td>
+<td>一行脚本</td>
+<td>无（不用 Node）</td>
+<td>想要单文件、启动快、自动更新稳的人</td>
+</tr>
+</tbody></table></div>
+<p><strong>我的建议</strong>：macOS 和 Linux 用 Homebrew，Windows 用原生安装器脚本。都不想折腾就直接用原生安装器，三种系统都能跑。</p>
+<p>三条路最后得到的命令都是 <code>codebuddy</code>，功能没有区别。</p>
+<hr>
+<h2 id="wiki-h-2">macOS</h2>
+<h3 id="wiki-h-3">第一步：装命令行工具（首次需要）</h3>
+<p>打开"终端"（Terminal），敲：</p>
+<pre><code class="hljs language-bash">xcode-select --install
+</code></pre><p>弹窗点"安装"，等它跑完。这一步是为了拿到 git 和基础编译工具，后面会用到。</p>
+<h3 id="wiki-h-4">第二步：选一条安装路线</h3>
+<p><strong>路线 A：Homebrew（推荐）</strong></p>
+<p>没有 Homebrew 先装它：</p>
+<pre><code class="hljs language-bash">/bin/bash -c <span class="hljs-string">"<span class="hljs-subst">$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)</span>"</span>
+</code></pre><p>装完按提示把 brew 加进 PATH。注意 Apple 芯片（M1/M2/M3/M4）的 brew 在 <code>/opt/homebrew</code>，Intel 在 <code>/usr/local</code>，装完终端会告诉你该加哪一行。</p>
+<p>然后装 CodeBuddy：</p>
+<pre><code class="hljs language-bash">brew install Tencent-CodeBuddy/tap/codebuddy-code
+</code></pre><p><strong>路线 B：原生安装器（不用装 Node）</strong></p>
+<pre><code class="hljs language-bash">curl -fsSL https://www.codebuddy.cn/cli/install.sh | bash
+</code></pre><p><strong>路线 C：npm（需要 Node ≥ 18.20）</strong></p>
+<pre><code class="hljs language-bash">npm install -g @tencent-ai/codebuddy-code
+</code></pre><p>没有 Node 的话：<code>brew install node</code>。</p>
+<h3 id="wiki-h-5">第三步：如果命令找不到</h3>
+<p>原生安装器会把可执行文件放在 <code>~/.local/bin</code>。如果敲 <code>codebuddy</code> 提示 <code>command not found</code>，手动加 PATH：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">'export PATH="$HOME/.local/bin:$PATH"'</span> &gt;&gt; ~/.zshrc
+<span class="hljs-built_in">source</span> ~/.zshrc
+</code></pre><blockquote>
+<p>macOS 从 Catalina 开始默认 shell 是 zsh，配置文件是 <code>~/.zshrc</code>。如果你改过默认 shell 用 bash，那就是 <code>~/.bash_profile</code>。不确定？敲 <code>echo $SHELL</code>，显示 <code>/bin/zsh</code> 就用 <code>.zshrc</code>，<code>/bin/bash</code> 就用 <code>.bash_profile</code>。</p>
+</blockquote>
+<hr>
+<h2 id="wiki-h-6">Linux</h2>
+<h3 id="wiki-h-7">第一步：装依赖</h3>
+<p><strong>Ubuntu / Debian</strong></p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update
+<span class="hljs-built_in">sudo</span> apt install -y curl git
+</code></pre><p><strong>CentOS / RHEL / Fedora</strong></p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> dnf install -y curl git
+</code></pre><p>（老版本 CentOS 用 <code>yum</code> 代替 <code>dnf</code>。）</p>
+<h3 id="wiki-h-8">第二步：选一条安装路线</h3>
+<p><strong>路线 A：Homebrew（如果已装 brew）</strong></p>
+<pre><code class="hljs language-bash">brew install Tencent-CodeBuddy/tap/codebuddy-code
+</code></pre><p><strong>路线 B：原生安装器（推荐，不用 Node）</strong></p>
+<pre><code class="hljs language-bash">curl -fsSL https://www.codebuddy.cn/cli/install.sh | bash
+</code></pre><p><strong>路线 C：npm</strong></p>
+<pre><code class="hljs language-bash">npm install -g @tencent-ai/codebuddy-code
+</code></pre><blockquote>
+<p>注意：apt 源里的 Node 版本经常很旧（可能低于 18.20）。要用 npm 路线，建议先装 nvm 或按 NodeSource 的指引装 LTS 版本，别直接 <code>apt install nodejs</code>。</p>
+</blockquote>
+<h3 id="wiki-h-9">第三步：PATH</h3>
+<p>命令找不到就加：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">'export PATH="$HOME/.local/bin:$PATH"'</span> &gt;&gt; ~/.bashrc
+<span class="hljs-built_in">source</span> ~/.bashrc
+</code></pre><p>用 zsh 的话把 <code>.bashrc</code> 换成 <code>.zshrc</code>。</p>
+<h3 id="wiki-h-10">没有 sudo 权限怎么办</h3>
+<p>用原生安装器时它会装到你的家目录，不需要 sudo。如果还是报权限错误，可以先指定一个自己的安装目录（具体参数以官方安装脚本提示为准），或者直接用 npm 路线配 nvm（nvm 装在 <code>~/.nvm</code>，也不需 sudo）。</p>
+<hr>
+<h2 id="wiki-h-11">Windows PowerShell（原生）</h2>
+<h3 id="wiki-h-12">第一步：确认执行策略</h3>
+<p>PowerShell 默认可能禁止运行远程脚本。先看一下当前策略：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ExecutionPolicy</span>
+</code></pre><p>如果显示 <code>Restricted</code>，改成允许本地用户运行签名脚本：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-ExecutionPolicy</span> <span class="hljs-literal">-Scope</span> CurrentUser RemoteSigned
+</code></pre><p>提示确认时输入 <code>Y</code> 回车。这一条只改当前用户，不影响系统其他账户。</p>
+<h3 id="wiki-h-13">第二步：安装</h3>
+<p><strong>路线 A：原生安装器（推荐）</strong></p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">irm</span> https://www.codebuddy.cn/<span class="hljs-built_in">cli</span>/install.ps1 | <span class="hljs-built_in">iex</span>
+</code></pre><p>（<code>irm</code> 是 <code>Invoke-RestMethod</code> 的简写，<code>iex</code> 是 <code>Invoke-Expression</code> 的简写，作用类似于 bash 里的 <code>curl | bash</code>。）</p>
+<p><strong>路线 B：npm</strong></p>
+<p>没有 Node 先装：</p>
+<pre><code class="hljs language-powershell">winget install OpenJS.NodeJS.LTS
+</code></pre><p>装完<strong>关掉终端重开一次</strong>（让 PATH 生效），再：</p>
+<pre><code class="hljs language-powershell">npm install <span class="hljs-literal">-g</span> @tencent<span class="hljs-literal">-ai</span>/codebuddy<span class="hljs-literal">-code</span>
+</code></pre><h3 id="wiki-h-14">第三步：PATH</h3>
+<p>原生安装器装在 <code>%USERPROFILE%\AppData\Local\codebuddy\bin</code>。命令找不到就手动加进用户 PATH：</p>
+<pre><code class="hljs language-powershell">[<span class="hljs-type">Environment</span>]::SetEnvironmentVariable(
+  <span class="hljs-string">"Path"</span>,
+  [<span class="hljs-type">Environment</span>]::GetEnvironmentVariable(<span class="hljs-string">"Path"</span>, <span class="hljs-string">"User"</span>) + <span class="hljs-string">";<span class="hljs-variable">$env:USERPROFILE</span>\AppData\Local\codebuddy\bin"</span>,
+  <span class="hljs-string">"User"</span>
+)
+</code></pre><p><strong>改完必须重开终端</strong>，新开的窗口才会生效。</p>
+<h3 id="wiki-h-15">建议：换个好点的终端</h3>
+<p>系统自带的 PowerShell 窗口体验一般，推荐装 Windows Terminal（微软商店里搜就有），它可以同时开 PowerShell、WSL、cmd 的标签页。</p>
+<hr>
+<h2 id="wiki-h-16">WSL2</h2>
+<p>WSL2 是在 Windows 里跑一个真正的 Linux。它按 Linux 的方式装 CodeBuddy，但有四个坑必须提前知道。</p>
+<h3 id="wiki-h-17">第一步：装 WSL2（如果还没装）</h3>
+<p>在 PowerShell（管理员身份）里敲：</p>
+<pre><code class="hljs language-powershell">wsl <span class="hljs-literal">--install</span>
+</code></pre><p>它会自动装默认的 Ubuntu。想指定版本：</p>
+<pre><code class="hljs language-powershell">wsl <span class="hljs-literal">--list</span> <span class="hljs-literal">--online</span>
+wsl <span class="hljs-literal">--install</span> <span class="hljs-literal">-d</span> Ubuntu<span class="hljs-literal">-24</span>.<span class="hljs-number">04</span>
+</code></pre><p>装完重启，开始菜单里会出现 Ubuntu，打开后设置用户名密码。</p>
+<p>确认一下版本是 2：</p>
+<pre><code class="hljs language-powershell">wsl <span class="hljs-literal">-l</span> <span class="hljs-literal">-v</span>
+</code></pre><p><code>VERSION</code> 那一列应该是 <code>2</code>。如果是 1，执行 <code>wsl --set-version Ubuntu-24.04 2</code>。</p>
+<h3 id="wiki-h-18">第二步：在 WSL 里装 CodeBuddy</h3>
+<p>打开 Ubuntu 终端，按 Linux 的方式装：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> apt update &amp;&amp; <span class="hljs-built_in">sudo</span> apt install -y curl git
+curl -fsSL https://www.codebuddy.cn/cli/install.sh | bash
+</code></pre><p>装完如果需要：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">'export PATH="$HOME/.local/bin:$PATH"'</span> &gt;&gt; ~/.bashrc
+<span class="hljs-built_in">source</span> ~/.bashrc
+</code></pre><h3 id="wiki-h-19">坑一：项目必须放在 WSL 的文件系统里</h3>
+<p>这是 WSL 性能问题里最大的一个。</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># 对的：放在 WSL 自己的家目录</span>
+<span class="hljs-built_in">cd</span> ~/projects/my-app
+
+<span class="hljs-comment"># 错的：放在 Windows 盘符映射过来的目录，会慢到怀疑人生</span>
+<span class="hljs-built_in">cd</span> /mnt/c/Users/xxx/projects/my-app
+</code></pre><p><code>/mnt/c/</code> 是跨文件系统的访问，读写速度差一个量级，尤其跑 npm install、git 操作的时候。<strong>代码放 WSL 里，需要用 Windows 工具编辑时再映射过去。</strong></p>
+<h3 id="wiki-h-20">坑二：换行符</h3>
+<p>Windows 用 CRLF，Linux 用 LF。你在 WSL 里写代码、Windows 侧用编辑器打开，很容易搞出满屏 diff。</p>
+<p>在 WSL 里设一次：</p>
+<pre><code class="hljs language-bash">git config --global core.autocrlf input
+</code></pre><p>含义是：提交时统一转成 LF，检出时不转换。这样仓库里永远是干净的 LF。</p>
+<h3 id="wiki-h-21">坑三：cron 不会自动启动</h3>
+<p>WSL 里 cron 服务默认不随系统启动。要用定时任务时：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">sudo</span> service cron start
+</code></pre><p>想每次开机自动起，可以把这行加进 <code>~/.bashrc</code>（或者配置 WSL 的 <code>/etc/wsl.conf</code> 开启 systemd）。</p>
+<h3 id="wiki-h-22">坑四：和 Windows 侧各装一套</h3>
+<p>你可以在 PowerShell 里装一份、在 WSL 里再装一份，两者独立，配置目录也不共享（Windows 是 <code>%USERPROFILE%\.codebuddy</code>，WSL 是 <code>~/.codebuddy</code>）。</p>
+<p><strong>建议只在你主要干活的那一侧装</strong>，避免自己搞混"我刚才在哪边跑的"。</p>
+<hr>
+<h2 id="wiki-h-23">验证：确认装好了</h2>
+<p>不管哪个平台，都敲这一条：</p>
+<pre><code class="hljs language-bash">codebuddy --version
+</code></pre><p>显示版本号就是装好了。再进一次会话，敲 <code>/doctor</code> 让它自己体检一遍环境。</p>
+<p>顺便认识一下它的短命令：</p>
+<pre><code class="hljs language-bash">cbc --version
+</code></pre><p><code>cbc</code> 是 <code>codebuddy</code> 的简写，后面教程里两个都会出现，你习惯哪个用哪个。</p>
+<h2 id="wiki-h-24">登录</h2>
+<p>第一次启动：</p>
+<pre><code class="hljs language-bash">codebuddy
+</code></pre><p>会让你选登录方式：</p>
+<pre><code><span class="hljs-title class_">Select</span> login method:
+› <span class="hljs-title class_">Log</span> <span class="hljs-keyword">in</span> via <span class="hljs-title class_">Chinese</span> <span class="hljs-title class_">Site</span>
+  <span class="hljs-title class_">Log</span> <span class="hljs-keyword">in</span> via <span class="hljs-title class_">International</span> <span class="hljs-title class_">Site</span>
+  <span class="hljs-title class_">Log</span> <span class="hljs-keyword">in</span> via <span class="hljs-title class_">Enterprise</span> <span class="hljs-title class_">Domain</span>
+  <span class="hljs-title class_">Log</span> <span class="hljs-keyword">in</span> via iOA (<span class="hljs-title class_">Tencent</span> only)
+</code></pre><p>用 <code>↑↓</code> 选择，<code>Enter</code> 确认，然后浏览器会自动打开让你完成认证。</p>
+<p>四个选项的区别：</p>
+<ul>
+<li><strong>Chinese Site（国内站）</strong>：国内用户选这个，走腾讯云国内站</li>
+<li><strong>International Site（国际站）</strong>：海外用户</li>
+<li><strong>Enterprise Domain（企业域名）</strong>：公司自建或专享版，需要填企业给的服务地址</li>
+<li><strong>iOA</strong>：腾讯内部员工专用</li>
+</ul>
+<p>选错了没关系，随时可以 <code>/logout</code> 再 <code>/login</code> 换。</p>
+<h2 id="wiki-h-25">更新与卸载</h2>
+<p><strong>更新</strong></p>
+<pre><code class="hljs language-bash">codebuddy update
+</code></pre><p>它会自动检测你的安装方式并执行对应更新。默认也会自动更新，想关掉：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> DISABLE_AUTOUPDATER=1
+</code></pre><p><strong>从 npm 版迁移到原生版</strong></p>
+<pre><code class="hljs language-bash">codebuddy install
+</code></pre><p><strong>卸载</strong></p>
+<p>用哪条路装的就用哪条卸：<code>brew uninstall codebuddy-code</code> / <code>npm uninstall -g @tencent-ai/codebuddy-code</code>。原生安装器的话，删掉 <code>~/.local/bin/codebuddy</code>（Windows 是 <code>%USERPROFILE%\AppData\Local\codebuddy</code>）即可。</p>
+<h2 id="wiki-h-26">四个平台的常见坑</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>症状</th>
+<th>可能原因</th>
+<th>怎么解决</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>command not found</code> / 不是内部或外部命令</td>
+<td>PATH 没配对</td>
+<td>按上面各平台的 PATH 步骤加，且<strong>重开终端</strong></td>
+</tr>
+<tr>
+<td>装了一半卡住</td>
+<td>网络问题</td>
+<td>换网络，或改用国内镜像地址 <code>https://copilot.tencent.com/cli/install.sh</code>（PowerShell 是 <code>install.ps1</code>）</td>
+</tr>
+<tr>
+<td>Node 版本报错</td>
+<td>Node 低于 18.20</td>
+<td>换 Homebrew 或原生安装器路线，绕开 Node</td>
+</tr>
+<tr>
+<td>PowerShell 报"禁止运行脚本"</td>
+<td>执行策略限制</td>
+<td><code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code></td>
+</tr>
+<tr>
+<td>WSL 里跑得极慢</td>
+<td>项目放在 <code>/mnt/c/</code></td>
+<td>把代码挪到 WSL 家目录</td>
+</tr>
+<tr>
+<td>git diff 全是改动其实没改</td>
+<td>换行符不一致</td>
+<td>WSL/Linux/macOS 设 <code>core.autocrlf input</code></td>
+</tr>
+<tr>
+<td>装完命令能跑但登录不了</td>
+<td>网络或代理</td>
+<td>检查代理环境变量，或换一种登录方式</td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-27">小结</h2>
+<p>现在你手上有了一条能用的 <code>codebuddy</code> 命令。</p>
+<p>下一章我们真的用它干活：建一个练习目录、跑第一次对话、把项目记忆建起来。那之后你才会发现，装好只是最简单的一步。</p>
+</article>

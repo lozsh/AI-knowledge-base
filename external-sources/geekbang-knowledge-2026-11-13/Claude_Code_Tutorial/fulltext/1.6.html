@@ -1,0 +1,205 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计用时：40～55 分钟<br>本篇目标：从固定的个人菜谱素材出发，产出两份可检查的规划文档；不实现程序，不让一次随机对话决定后续课程的目录、接口或缺陷状态。</p>
+</blockquote>
+<p>从这一篇开始，我们制作贯穿课程的 MealCraft。它始终是一个本地、个人化的小项目：浏览自己的菜谱、调整份数，后续再生成一周菜单和购物清单。不会改造成企业系统。</p>
+<p>本篇随教程提供 6 份固定菜谱、需求契约和规划检查脚本。Claude 的任务是发现歧义、组织实施步骤并帮助你评审，而不是自由发明产品范围。</p>
+<h2 id="wiki-h-0">开始状态</h2>
+<p>开始前应满足：</p>
+<ul>
+<li>第 4 篇的调查—计划—修改—验证节奏已经练习过；</li>
+<li><code>claude auth status --text</code>、Git 和 Python 3.11+ 可用；</li>
+<li><code>~/claude-code-course/mealcraft</code> 尚不存在，或旧目录已由你另行保存；</li>
+<li>你知道修订版教程根目录的位置，其中包含 <code>exercise-assets/mealcraft/plan-starter</code>。</li>
+</ul>
+<p>本篇只允许创建规划文档。程序、测试、服务器和网页将在第 6 篇基于固定素材实施。</p>
+<h2 id="wiki-h-1">从课程素材创建项目，不从空白生成</h2>
+<p>先把教程根目录保存为一个临时 Shell 变量。下面的路径是占位符，必须替换成你实际存放 <code>claude-code-tutorial-v0.2</code> 的位置。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> COURSE_SOURCE=<span class="hljs-string">"/替换为实际路径/claude-code-tutorial-v0.2"</span>
+<span class="hljs-built_in">test</span> -f <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/plan-starter/REQUIREMENTS.md"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$CourseSource</span> = <span class="hljs-string">"C:\替换为实际路径\claude-code-tutorial-v0.2"</span>
+<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\plan-starter\REQUIREMENTS.md"</span>
+</code></pre><p>预期结果：macOS/Linux/WSL2 的 <code>test</code> 退出码为 0；PowerShell 显示 <code>True</code>。如果失败，先修正路径，不要创建一个同名空目录代替课程素材。</p>
+<p>确认目标目录不存在后复制：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/claude-code-course
+<span class="hljs-built_in">test</span> ! -e mealcraft
+<span class="hljs-built_in">mkdir</span> mealcraft
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/plan-starter/."</span> mealcraft/
+<span class="hljs-built_in">cd</span> mealcraft
+git init
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> mealcraft) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"mealcraft 已存在，请先保存旧目录或换一个练习根目录"</span> }
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory mealcraft | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\plan-starter\*"</span> <span class="hljs-literal">-Destination</span> mealcraft <span class="hljs-literal">-Recurse</span>
+<span class="hljs-built_in">Set-Location</span> mealcraft
+git init
+</code></pre><p>复制不会修改教程中的原始素材。项目目录现在应包含：</p>
+<pre><code class="hljs language-text">mealcraft/
+├── REQUIREMENTS.md
+├── data/
+│   └── recipes/
+│       ├── chicken-cucumber-salad.json
+│       ├── curry-rice.json
+│       ├── mushroom-noodles.json
+│       ├── pumpkin-porridge.json
+│       ├── steamed-fish.json
+│       └── tomato-eggs.json
+└── scripts/
+    └── verify_planning_state.py
+</code></pre><h2 id="wiki-h-2">先验证素材，再让 Claude 阅读</h2>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 scripts/verify_planning_state.py --data-only
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py scripts/verify_planning_state.py <span class="hljs-literal">--data-only</span>
+</code></pre><p>预期输出：</p>
+<pre><code class="hljs language-text">PASS: 6 份固定菜谱通过契约检查
+</code></pre><p>检查脚本会验证菜谱数量、固定 ID、文件名、字段、数据类型和唯一性。它不调用 Claude，也不访问网络。</p>
+<p>把固定输入加入 Git 暂存区，作为本篇的比较基线：</p>
+<pre><code class="hljs language-bash">git add REQUIREMENTS.md data scripts
+git status --short
+</code></pre><p>预期只出现 <code>A</code> 状态的需求、菜谱和检查脚本。此时暂不提交，以免尚未配置 Git 身份的初学者被阻塞。</p>
+<h2 id="wiki-h-3">人工阅读固定需求</h2>
+<p>先亲自打开 <code>REQUIREMENTS.md</code>。至少确认四件事：</p>
+<ol>
+<li>只使用 Python 3.11+ 标准库与原生前端；</li>
+<li>固定 API 为 <code>/api/recipes</code> 和 <code>/api/recipes/&lt;id&gt;</code>；</li>
+<li>份数只能是 1～6，源 JSON 永不因查看或换算而改变；</li>
+<li>登录、数据库、图片上传、推荐、云同步和一周菜单明确不属于 1.0。</li>
+</ol>
+<p>数据契约把 <code>amount</code> 保留为字符串，因为它可能是 <code>2</code>、<code>1.5</code>、<code>1/2</code>、<code>1 1/2</code> 或“适量”。显示层可以解析可计算数字，但不能把源文件字段改成浮点数。</p>
+<p>这份需求是后续文章的共同事实。Claude 可以指出冲突，却不能静默改写需求来配合自己的实现。</p>
+<h2 id="wiki-h-4">在 Plan Mode 中做差距分析</h2>
+<p>从 MealCraft 根目录启动：</p>
+<pre><code class="hljs language-bash">claude
+</code></pre><p>确认工作区路径后，进入 Plan Mode：</p>
+<pre><code class="hljs language-text">/plan 规划 MealCraft 1.0，但不要创建或修改文件
+</code></pre><p>发送：</p>
+<pre><code class="hljs language-text">完整阅读 REQUIREMENTS.md、6 个 data/recipes/*.json 和 scripts/verify_planning_state.py。
+
+现在只做规划前调查，不写文件：
+1. 用不超过 10 条概括固定范围；
+2. 列出需求中的歧义、冲突或无法验收的表述；
+3. 提议最小目录结构和模块职责；
+4. 将每条验收标准映射到自动检查或人工步骤；
+5. 指出实现中最可能破坏源 JSON、泄露 Traceback 或扩大范围的风险。
+
+不得增加依赖、数据库、账号、外部 API、部署或 2.0 功能。
+</code></pre><p>预期结果：Claude 只读文件并给出分析，<code>git status --short</code> 中不应出现新文件。</p>
+<p>在另一个终端运行：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>如果出现未计划的新文件，拒绝继续并用 <code>/diff</code> 查清来源。不要为了“让状态干净”直接删除不明文件。</p>
+<h2 id="wiki-h-5">确认本课程采用的设计决策</h2>
+<p>Claude 可能提出不同方案。为了让第 6～13 篇可以复现，本课程采用以下固定决策：</p>
+<ul>
+<li><code>app.py</code> 是本地 HTTP 服务入口；</li>
+<li><code>mealcraft/recipes.py</code> 负责加载、校验和筛选；</li>
+<li><code>mealcraft/scaling.py</code> 负责解析并缩放食材用量；</li>
+<li><code>static/index.html</code>、<code>static/app.js</code>、<code>static/style.css</code> 构成原生前端；</li>
+<li><code>tests/</code> 使用 <code>unittest</code>，数据错误测试必须使用临时目录或 fixture；</li>
+<li><code>scripts/verify_release.py</code> 在第 6 篇作为独立发布检查器；</li>
+<li>API 错误使用 JSON 和明确 HTTP 状态码，不显示 Python Traceback；</li>
+<li>不同单位不互相换算，显示值优先保持简洁而可理解。</li>
+</ul>
+<p>告诉 Claude：</p>
+<pre><code class="hljs language-text">采用下面的固定目录和职责：
+- app.py：仅负责本地 HTTP 路由和启动；
+- mealcraft/recipes.py：加载、校验和筛选；
+- mealcraft/scaling.py：解析并缩放 amount；
+- static/：原生 HTML/CSS/JavaScript；
+- tests/：unittest、fixture 和临时目录；
+- scripts/verify_release.py：发布级独立检查。
+
+API、字段、范围和验收仍以 REQUIREMENTS.md 为准。请更新你的计划说明，但仍不要写文件。
+</code></pre><p>如果 Claude 建议前端框架、数据库或新的 API 路径，要求它说明这些内容解决了哪条 1.0 验收标准。没有直接映射就删除。</p>
+<h2 id="wiki-h-6">只创建两份规划文档</h2>
+<p>检查计划后，按 <code>Shift+Tab</code> 回到 <code>Manual</code>。确认底部不再显示 Plan，再发送：</p>
+<pre><code class="hljs language-text">现在只创建 PROJECT_BRIEF.md 和 PLAN.md，不修改 REQUIREMENTS.md、data、scripts 或其他文件。
+
+PROJECT_BRIEF.md 必须使用这些原样标题：
+# MealCraft 1.0 项目简报
+## 用户目标
+## 功能范围
+## 明确不做
+## 数据契约
+## 验收标准
+
+它必须明确写出：Python 3.11+、不安装第三方依赖、data/recipes、份数 1～6、不修改源 JSON，以及 REQUIREMENTS.md 中的固定接口与验收标准。
+
+PLAN.md 必须使用这些原样标题：
+# MealCraft 1.0 实施计划
+## 阶段 1
+## 阶段 2
+## 阶段 3
+## 阶段 4
+## 风险与恢复
+
+四个阶段依次是：领域逻辑、HTTP API、浏览器界面、完整验证与文档。每阶段列出预计文件、前置状态、实施动作、局部 unittest、预期结果和停止点。风险部分必须包含临时目录、完整测试、人工验收和不执行 git commit。
+
+不要实现代码，不要创建空占位程序，不要改写固定素材。
+</code></pre><p>出现写入确认时，只批准这两个 Markdown 文件。如果请求修改 <code>REQUIREMENTS.md</code>、菜谱或检查脚本，拒绝并附上原因。</p>
+<h2 id="wiki-h-7">用课程检查器验收规划状态</h2>
+<p>先让 Git 显示两个新文档的正文 Diff：</p>
+<pre><code class="hljs language-bash">git add --intent-to-add PROJECT_BRIEF.md PLAN.md
+git diff --check
+git diff -- REQUIREMENTS.md data scripts
+</code></pre><p>预期：两条 <code>git diff</code> 检查都没有输出。第一条没有空白错误；第二条证明固定素材相对暂存基线没有被修改。</p>
+<p>运行完整规划检查。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 scripts/verify_planning_state.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py scripts/verify_planning_state.py
+</code></pre><p>预期输出：</p>
+<pre><code class="hljs language-text">PASS: MealCraft 规划状态完整，6 份固定菜谱通过契约检查
+</code></pre><p>如果检查失败，错误会指出缺少的文件、标题或关键约束。只修复对应规划文档，再从头运行检查；不要降低脚本标准来迁就文档。</p>
+<h2 id="wiki-h-8">做一次人工规划审查</h2>
+<p>在 Claude Code 中输入：</p>
+<pre><code class="hljs language-text">/diff
+</code></pre><p>结合 <code>PROJECT_BRIEF.md</code> 和 <code>PLAN.md</code> 回答：</p>
+<ul>
+<li>每个阶段是否都有可观察的停止点？</li>
+<li>自动测试与浏览器人工验收是否各自负责清楚？</li>
+<li>是否有测试会修改真实 <code>data/recipes</code>？</li>
+<li>是否出现 1.0 明确不做的功能？</li>
+<li>是否把“Claude 说完成”当成唯一验收证据？</li>
+</ul>
+<p>再让 Claude 做一次只读交叉检查：</p>
+<pre><code class="hljs language-text">只读对照 REQUIREMENTS.md、PROJECT_BRIEF.md 和 PLAN.md。列出遗漏、矛盾和无法验证的条目；每项给出文件名和标题。不要修改文件，也不要建议 1.0 范围外功能。
+</code></pre><p>如果发现问题，逐项修订文档并重新运行规划检查器。</p>
+<h2 id="wiki-h-9">留下第 6 篇可用的状态</h2>
+<p>退出 Claude Code 后运行：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>状态中只能有固定素材、<code>PROJECT_BRIEF.md</code> 和 <code>PLAN.md</code>。不应出现 <code>app.py</code>、<code>mealcraft/</code>、<code>static/</code>、<code>tests/</code>、缓存或依赖锁文件。</p>
+<p>如果已配置 Git 身份，可以提交规划基线：</p>
+<pre><code class="hljs language-bash">git add PROJECT_BRIEF.md PLAN.md
+git commit -m <span class="hljs-string">"plan MealCraft 1.0 from fixed requirements"</span>
+</code></pre><p>如果提交因 <code>user.name</code> 或 <code>user.email</code> 缺失而失败，不影响本篇验收；保留当前文件，下一篇仍可继续。不要使用虚假的全局身份只为通过练习。</p>
+<h2 id="wiki-h-10">本篇验收清单</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">项目来自 <code>plan-starter</code>，而不是 Claude 临场生成的数据；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>--data-only</code> 检查确认 6 份固定菜谱有效；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">亲自读过 <code>REQUIREMENTS.md</code> 的必做与不做范围；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">Plan Mode 调查期间磁盘没有变化；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">只创建 <code>PROJECT_BRIEF.md</code> 和 <code>PLAN.md</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">固定需求、菜谱和检查脚本相对 Git 基线没有修改；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">完整规划检查输出 <code>PASS</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">两份文档包含分阶段停止点、自动验证、人工验收和风险恢复。</li>
+</ul>
+<h2 id="wiki-h-11">关键排错</h2>
+<p><strong>复制后找不到素材</strong>：重新检查 <code>$COURSE_SOURCE</code> 或 <code>$CourseSource</code> 是否指向教程根目录；不要把 <code>plan-starter</code> 路径当成 MealCraft 项目根目录直接运行。</p>
+<p><strong>检查器提示“还不是 Git 仓库”</strong>：确认当前路径最后一级是你复制出的 <code>mealcraft</code>，然后在这里运行 <code>git init</code>。</p>
+<p><strong>Claude 在 Plan Mode 创建了文件</strong>：立即中断，用 <code>git status --short</code> 和 <code>/diff</code> 确认事实；检查是否真的处于 Plan，以及是否有自定义权限或 Hook 改变行为。</p>
+<p><strong>完整检查缺少关键词</strong>：回到提示中要求的原样标题和约束。不要向检查脚本添加同义词，也不要把关键词堆在无意义的附录里。</p>
+<p><strong><code>git diff -- REQUIREMENTS.md data scripts</code> 有输出</strong>：固定素材被改过。先审查 Diff；如果修改无意发生，从教程的 <code>plan-starter</code> 重新复制对应文件前，确认不会覆盖你自己的规划文档。</p>
+<h2 id="wiki-h-12">本篇小结</h2>
+<p>这次规划留下了三个层次的事实：不可随意改写的 <code>REQUIREMENTS.md</code>，用于沟通范围的 <code>PROJECT_BRIEF.md</code>，以及带停止点和验证的 <code>PLAN.md</code>。6 份固定菜谱和检查器保证每位读者从同一个可验证状态进入实现。</p>
+<p>下一篇会补入固定测试与发布检查素材，再按四个阶段实现 MealCraft 1.0。这样 Claude 仍负责真实编码，但成功标准不会由它临场决定。</p>
+<p>官方参考：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/best-practices">Best practices for Claude Code</a></li>
+<li><a href="https://code.claude.com/docs/en/common-workflows">Common workflows</a></li>
+<li><a href="https://code.claude.com/docs/en/interactive-mode">Interactive mode</a></li>
+</ul>
+</article>

@@ -1,0 +1,31 @@
+8.1 分清作用
+
+Skill 提供任务做法和约束；MCP 暴露可调用工具；Plugin 打包分发扩展。Agent 接上 MCP，不会自动让最终应用也拥有同一连接，应用运行时调用需要自己实现客户端。
+
+8.2 固定 SDK 基线
+
+本练习显式使用官方 Python SDK 1.26.0，不是对最新主分支 API 的承诺。把 remind_server.py 和 check_mcp.py 复制到项目 tests/fixtures/reminder/。这两份无凭证文件必须提交 Git，CI 才能运行；不要忽略整个 fixtures 或 mocks 目录。
+
+在第 5 章虚拟环境安装并验证：
+
+python -m pip install mcp==1.26.0
+python tests/fixtures/reminder/check_mcp.py
+
+
+期望显示 initialize、tools/list、tools/call 均通过。SDK 负责 JSON-RPC、初始化、通知和工具参数校验；普通自定义 JSON 行协议不能冒充 MCP。
+
+8.3 查看服务和调用结果
+
+客户端检查包含有效“读书”调用和空字符串错误调用。服务 stdout 只用于协议，不加普通 print；诊断写 stderr。stdio 客户端负责启动服务进程，无需先后台启动第二份。
+
+在 MiniMax Code 的 MCP 配置中添加 stdio 服务时，command 使用当前虚拟环境解释器的绝对路径，args 使用 remind_server.py 的绝对路径。先在终端用 python -c "import sys; print(sys.executable)" 获取解释器，再按当前 profile 的配置入口填写，见第 13 章官方配置文档；不要把旧 ~/.mcode/config.toml 套到当前发行版。
+
+重新加载后，用 /mcp 查看状态，并让 Agent 列出 reminder 的工具、调用 remind(读书)。以真实工具返回为验收，而非只看“已连接”。
+
+8.4 应用集成作为独立练习
+
+若要实现 python -m habitlog remind 读书，请将 check_mcp.py 的客户端生命周期封装为模块函数：启动服务、initialize、call_tool、检查 isError、返回文本并关闭连接，设置总超时。主程序只打印返回文案，不修改打卡记录。测试服务文件是应用依赖时应移入明确的可分发目录，不能依赖被忽略的个人路径。
+
+Skill／Plugin 制作放到选读；先完成上面的协议闭环，避免同时引入多套未经验证的配置。
+
+参考：官方 SDK v1.26.0、CLI 配置。

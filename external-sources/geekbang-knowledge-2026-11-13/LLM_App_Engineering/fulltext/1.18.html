@@ -1,0 +1,210 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>搜索功能在你的电脑上通过了测试，你把项目文件夹压缩，发给另一台电脑。对方解压后却启动不了：你漏了模板，依赖版本不一致，或者把自己的数据库和配置一起打包了。</p>
+<p>另一种麻烦发生得更晚：新版本用了两小时才发现问题。你换回旧代码，以为一切恢复正常，却发现新代码已经改过数据库结构；或者顺手恢复了早上的备份，把这两小时的新记录也一起覆盖掉了。</p>
+<p>上一篇讲多个工作项如何集成。这一篇走完集成之后的最后一段：留下可识别的交付物，验证交付物本身，并提前练习怎样退回。我们用本地源码包和隔离的回滚演练理解这些机制，不需要购买服务器。</p>
+<h2 id="wiki-h-0">“代码完成”以后，还差哪几件事</h2>
+<p>测试通过通常只能说明：某个版本，在某个环境、某组输入下，满足了某些预期。交付还要回答：别人拿到的是不是这个版本，能否准备相容的运行环境，遇到问题有没有可执行的恢复路径。</p>
+<p>把一次交付拆成三个对象，会清楚很多：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>对象</th>
+<th>本项目中的例子</th>
+<th>要记录什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>代码与静态文件</td>
+<td>Python、模板、样例、依赖说明</td>
+<td>版本标识、文件清单、内容指纹</td>
+</tr>
+<tr>
+<td>环境与配置</td>
+<td>Python、安装的库、非秘密配置</td>
+<td>实测版本、配置变化、未验证环境</td>
+</tr>
+<tr>
+<td>持续变化的数据</td>
+<td>问答记录、计划、会话密钥、个人笔记</td>
+<td>存放位置、兼容范围、备份与恢复办法</td>
+</tr>
+</tbody></table></div>
+<p>源码包主要解决第一项。它不会自动替你备份数据，也不会把运行环境完整地装进去。</p>
+<p>本课继续使用已经正确实现搜索的笔记助手。应用仍调用 DeepSeek，Kimi Code 仍是开发工具。为了专注交付，本篇不新增业务功能；我们会制造一个明确标记的故障副本，只用于回滚练习。</p>
+<h2 id="wiki-h-1">起点：独立目录，干净源码</h2>
+<p>下载第17篇练习包，解压后在外层 <code>lesson-17</code> 目录操作。先读当前任务，确认有 <code>release_lab.py</code>、<code>rollback_lab.py</code>、<code>verify_release.py</code> 和 <code>project</code>。</p>
+<p>主路径只需要 Python 3.11 或更高版本及标准库，不需要 Key，也不需要安装模型 SDK。<code>project</code> 的38个文件与上一课相同。不要用它覆盖自己正在运行的项目。</p>
+<p>这里有两种 ZIP，名称和用途不同：</p>
+<ul>
+<li>下载的 <code>lesson-17.zip</code> 是完整课程材料，包含外层脚本、任务说明和应用源码。</li>
+<li>稍后生成的 <code>source.zip</code> 是应用源码候选，只含38个白名单文件。外层的导出实验、评测、Harness 和 Loop 等课程工具不在里面。</li>
+</ul>
+<p>应用原有的 <code>package_project.py</code> 使用显式清单打包，不把整个运行目录一股脑压进去。因此 <code>config.json</code>、真实 Key、数据库、<code>session.key</code> 和个人运行记录不会因为与代码放在一起就被收进包里。</p>
+<p>不过，白名单不是秘密扫描器。你若把密码直接写进一个白名单 Python 文件，打包器依然可能把它带走。分享前仍要审查实际改动；本课使用干净教学快照，也不读取你的私人资料。</p>
+<h2 id="wiki-h-2">创建一个能核对身份的候选</h2>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 release_lab.py --name local-v1
+python3 verify_release.py --name local-v1
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> release_lab.py <span class="hljs-literal">--name</span> local<span class="hljs-literal">-v1</span>
+py <span class="hljs-literal">-3</span> verify_release.py <span class="hljs-literal">--name</span> local<span class="hljs-literal">-v1</span>
+</code></pre><p>后续以 <code>python3</code> 展示；PowerShell 换成 <code>py -3</code>，参数相同。每次使用新名称，工具不覆盖已有候选。</p>
+<p>第一条命令应输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"release_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"local-v1"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"candidate"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"files"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">38</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"search_exit"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"published"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">}</span>
+</code></pre><p><code>local-v1</code> 是本次练习的候选名，不是自动生成的 Git 提交号。真实项目可以同时记录提交号与包指纹：提交号说明源码历史位置，包指纹帮助识别实际交付的文件。不要只用“最新版.zip”作为唯一标识。</p>
+<p>构建过程做了几件具体的事：读取源码指纹，调用既有打包器，再比较包内内容和打包后的源码，最后从 ZIP 展开一份应用，对展开的代码运行四项搜索边界测试。</p>
+<p>最后一步很关键。只测工作目录、然后把另一个目录打包，会产生“测试对象与交付对象不同”的空隙。本课至少让搜索边界检查直接对包里的代码执行。</p>
+<p>生成的目录是：</p>
+<pre><code class="hljs language-text">releases/local-v1/
+  source.zip
+  manifest.json
+  search.stdout.log
+  search.stderr.log
+  unpacked/
+    verify_search_boundary.py
+    project/                  从source.zip展开的38个文件
+</code></pre><p><code>manifest.json</code> 是交付清单：候选名称、ZIP 的 SHA256、各文件指纹、实际 Python 版本、依赖说明、数据结构版本和本轮验证范围都在这里。SHA256 可以帮助发现文件变化，但不是发布者身份签名。</p>
+<p>第二条独立核对命令应输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"result"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"release_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"local-v1"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"files"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">38</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"published"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">}</span>
+</code></pre><p>它重新读 ZIP 和清单，检查缺失、多余或重复成员，比较展开内容，并核对测试版本与四项通过的日志。只把清单里的 <code>status</code> 改成成功，不能替代这些证据。</p>
+<p>正常结束仍然叫 <code>candidate</code>，即候选。<code>published: false</code> 明确表示没有发布；它不会因为测试通过就自动把文件发送给别人或上线服务。</p>
+<h2 id="wiki-h-3">四项通过，不等于可以略过其他检查</h2>
+<p>四项搜索边界是这个构建工具固定执行的最小检查，不是整款产品的完整验收。交付前还应根据本轮变化补齐相应证据。</p>
+<p>例如，改过页面，就应验证 HTTP 输入、显示和会话隔离；改过资料不足的处理，就需要查看固定题集和人工语义判断；改过导出，就需要核对实际文件。本项目已有这些工具，应该使用与当前范围相关的检查，而不是重新发明一个只有“成功”两字的发布报告。</p>
+<p>作者本轮还在已有的隔离 Python 环境里，针对展开包执行了搜索存储与 HTTP 检查、预览检查，以及应用原有的十项验收。这是作者环境中的实际离线验证，没有把它写成读者电脑也已通过。</p>
+<p>如果你已经有前面课程的可用虚拟环境，可以使用其中的 Python，在外层目录运行：</p>
+<pre><code class="hljs language-bash">python -B releases/local-v1/unpacked/project/acceptance.py
+</code></pre><p>预期出现十项测试通过及 <code>OK</code>。这里的 <code>python</code> 指已激活虚拟环境的解释器；<code>-B</code> 避免在待核验源码中生成字节码缓存。若没有环境，可以在新的练习目录准备一个；安装依赖会联网下载包，但不会调用模型：</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+<span class="hljs-built_in">source</span> .venv/bin/activate
+python -m pip install -r releases/local-v1/unpacked/project/requirements.txt
+python -B releases/local-v1/unpacked/project/acceptance.py
+</code></pre><p>PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> releases/local<span class="hljs-literal">-v1</span>/unpacked/project/requirements.txt
+.\.venv\Scripts\python.exe <span class="hljs-literal">-B</span> releases/local<span class="hljs-literal">-v1</span>/unpacked/project/acceptance.py
+</code></pre><p>Windows 直接调用环境中的解释器，不必为激活脚本修改系统执行策略。主路径的打包与回滚实验不依赖这次安装；遇到下载问题，应把扩展验收记为尚未完成，不要将未执行写成通过。</p>
+<p>当前 <code>requirements.txt</code> 固定了 <code>openai==3.24.0</code> 和 <code>Flask==3.1.3</code>。这是本项目的验证基线，不是在推荐读者追逐最新版本。它还没有固定全部传递依赖——也就是这些库继续依赖的其他库。</p>
+<p>在专用且已经验证过的虚拟环境中，可以用 <code>python -m pip freeze</code> 记录实际安装集合；以后需要更强的可重复性，再结合完整锁定与依赖包哈希。不要把平常混装许多工具的全局环境原样当成项目依赖。<a href="https://pip.pypa.io/en/stable/topics/repeatable-installs/">pip 的可重复安装文档</a>解释了版本固定、传递依赖和哈希检查的作用。</p>
+<h2 id="wiki-h-4">给候选补一份人能读懂的说明</h2>
+<p>指纹能回答“是不是同一份文件”，却回答不了“这次改了什么”。配套的候选说明给出了本项目的记录方式。</p>
+<p>真正交付时，应把说明、实际检查结果与源码包放在一起。重点写清行为变化、兼容条件、已知限制和恢复路径，不需要罗列每一行代码修改。</p>
+<p>本课可以写成：历史搜索和证据统计沿用上一版正确实现；本次只整理交付方法；数据库结构仍为1，没有执行迁移；源码包不含私人配置或运行数据；测试使用构造样例，真实模型效果没有在本轮测量。这样的说明比“全面优化，稳定可靠”更有用。</p>
+<p>此前的 <code>semantic_review: pending</code> 也不能在发布清单中悄悄变成通过。人工确实审查后，应该留下审查对象、结论和范围，而不是为了完成状态表而更改一个单词。</p>
+<h2 id="wiki-h-5">实际做一次本地回滚演练</h2>
+<p>先确认前面的 <code>local-v1</code> 候选核对通过，再执行：</p>
+<pre><code class="hljs language-bash">python3 rollback_lab.py --release local-v1 --run drill-01
+python3 verify_release.py --drill drill-01
+</code></pre><p>脚本只在新建的 <code>release-drills/drill-01</code> 内操作。它不会替换外层 <code>project</code>，不会连接正在运行的 Web 服务，也不会接触你的真实数据库。</p>
+<p>它从已核对的 ZIP 展开三份代码：<code>before</code>、<code>fault</code>、<code>restored</code>。其中 <code>fault</code> 被作者故意加上一处错误：搜索先取最近50条，再匹配关键词。这个版本应该被正常发布检查拦住；这里故意切入它，只是为了演练退回，绝不是建议带着失败测试发布。</p>
+<p>本次顺序如下：</p>
+<pre><code class="hljs language-text">已验证源码包
+    ↓
+before：四项搜索边界通过
+    ↓
+fault：注入先取50条的错误，两项边界失败
+    ↓
+保留故障代码、日志和当前教学数据
+    ↓
+restored：重新展开原包，四项边界再次通过
+</code></pre><p><code>active.json</code> 是演练脚本读取的逻辑指向，表示下一次检查选哪个副本。它不控制真实服务器流量，也不会让应用自动支持生产版本切换。</p>
+<p>两条命令正常时都应返回：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"result"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"active"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"restored"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"current_records"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"backup_records"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"schema2_rejected"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">}</span>
+</code></pre><p>打开 <code>before.stderr.log</code>、<code>fault.stderr.log</code>、<code>after.stderr.log</code>：先是四项通过，中间是 <code>FAILED (failures=2)</code>，最后重新通过。故障失败属于预期；如果故障阶段也全绿，应检查注入或检查范围，而不是认为系统更可靠了。</p>
+<p>然后查看 <code>drill.json</code>。四个退出码应依次为：<code>before=0</code>、<code>fault=1</code>、<code>after=0</code>、<code>schema=1</code>。独立验证还会检查恢复代码是否等于原包、指向是否真的切回，以及实际数据库内容是否符合预期。</p>
+<h2 id="wiki-h-6">为什么当前记录是2条，备份只有1条</h2>
+<p>演练先在全新的教学 SQLite 中写入 <code>old</code>，再创建备份；随后写入 <code>new</code>，代表升级期间新增的数据。切回原代码时，没有把旧备份覆盖到当前数据库，因此两条记录都保留。</p>
+<p>脚本另外把备份恢复到 <code>restore-preview.sqlite3</code>，检查那里面只有 <code>old</code>。这说明备份确实能恢复，但也直观地暴露了它的时间边界：备份以后的数据不在里面。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>演练结束时的内容</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>data.sqlite3</code></td>
+<td><code>old</code>、<code>new</code></td>
+<td>保留当前教学数据</td>
+</tr>
+<tr>
+<td><code>backup.sqlite3</code></td>
+<td><code>old</code></td>
+<td>升级前备份</td>
+</tr>
+<tr>
+<td><code>restore-preview.sqlite3</code></td>
+<td><code>old</code></td>
+<td>验证备份能恢复，未覆盖当前数据</td>
+</tr>
+<tr>
+<td><code>schema2.sqlite3</code></td>
+<td>两条记录，版本标记为2</td>
+<td>单独测试不兼容版本拒绝</td>
+</tr>
+</tbody></table></div>
+<p>代码回退和数据恢复是不同操作。新旧代码都支持现有数据时，可以先回退代码；若数据已经发生不兼容变化，就不能机械套用这条路径。</p>
+<p>本课备份使用 SQLite 的备份接口，而不是在数据库仍可能写入时只复制一个主文件。<a href="https://docs.python.org/3.11/library/sqlite3.html#sqlite3.Connection.backup">Python sqlite3 文档</a>提供了 <code>Connection.backup</code> 的用法。真实项目还需把会话密钥、配置、笔记和相关文件纳入一致的恢复计划，单独一份数据库不代表整个应用都能恢复。</p>
+<p>本演练的搜索测试使用独立临时数据库；保留两条记录的检查则针对教学数据文件。它证明了本次回退没有覆盖数据，不代表已经测完生产环境的所有数据读写路径。</p>
+<h2 id="wiki-h-7">数据版本拒绝，比“强行启动”更有用</h2>
+<p>本项目现有数据库使用版本1，<code>Store</code> 会拒绝不支持的版本。脚本在另一份数据库副本中把 <code>user_version</code> 标记设为2，再让恢复版本的 <code>Store</code> 打开它，预期被拒绝。</p>
+<p>注意，这里只改了版本标记，没有真的改表结构；它是检查旧代码拒绝未知数据版本的教学情景，不是完整的数据库迁移实验。</p>
+<p>真实升级若增加字段、改变状态含义，甚至改写已有记录，兼容性就不止一个版本号。回退前要确认旧代码还能解释新数据，配置是否改变，旧依赖是否仍可用，以及备份后新增记录怎么处理。</p>
+<p>如果不兼容，可以考虑在新版本上修复问题，或者在明确恢复目标和新增数据处理办法后恢复备份。不要为了绕过拒绝，把版本号直接改回1；这样只是移除了提示，没有恢复数据含义。</p>
+<p>配套回滚工作卡让你在操作前写清这些决定。它还是待填写模板，不是已经为你的真实项目完成备份和恢复的凭据。</p>
+<h2 id="wiki-h-8">让 Kimi 帮你审交付范围</h2>
+<p>作者核实了本机 Kimi Code 2.0.2 的帮助信息，但没有发起真实开发请求。若你已有可用服务，可以在外层工作区先运行 <code>kimi --plan</code>，让它先审材料；这会使用开发服务额度。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html">官方命令文档</a>将该选项描述为从计划模式开始，不应把它误认为所有操作都受绝对只读沙箱限制。</p>
+<p>可以提供这段任务：</p>
+<pre><code class="hljs language-text">先读AGENTS.md、docs/release/TASK.md与docs/release/RELEASE_NOTES.md。
+结合releases/local-v1的manifest和日志，审查这次本地候选：
+1. 包内有哪些内容，哪些外层能力并未打包？
+2. 哪些结论已有实际证据，哪些还没有？
+3. 现有依赖、配置与数据库兼容范围是什么？
+4. 回退代码时，怎样避免覆盖备份之后的新数据？
+
+只返回发现、依据和建议补做的验证，暂不改文件、不执行发布，
+不读取个人配置、Key或真实数据，不把候选写成已经上线。
+如需额外命令，先解释其目的和作用目录。
+</code></pre><p>当它指出一个缺口时，先判断缺口是否属于本次交付范围，再补相应证据。无需因为出现“发布”两个字就把个人学习项目扩成复杂部署平台；也不能因为项目小，就跳过包内容和数据兼容性检查。</p>
+<h2 id="wiki-h-9">如果以后要对外提供服务</h2>
+<p>本课完成的是本地交付与回滚准备。把源码发给另一个学习者，与让陌生用户访问一个持续运行的服务，要求不同。</p>
+<p>对外服务还需要生产服务器配置、访问控制、密钥管理、HTTPS、资源和费用限制，以及可用的日志与恢复流程。现有 Flask 开发服务器不能直接承担生产服务；这一点在<a href="https://flask.palletsprojects.com/en/stable/deploying/">Flask 官方部署文档</a>中有明确说明。</p>
+<p>因此，不要通过修改监听地址就把本课的个人学习版称作“已经安全上线”。真正需要部署时，应单独确定目标环境和访问范围，再做那一层的工作。本篇没有替你做外部发布。</p>
+<h2 id="wiki-h-10">常见卡点与完成标准</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>检查与处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>提示候选或演练目录已存在</td>
+<td>换新名称，保留已有结果，不覆盖旧证据</td>
+</tr>
+<tr>
+<td>包核对失败</td>
+<td>对照文件清单、ZIP和展开目录；不手改指纹掩盖差异</td>
+</tr>
+<tr>
+<td>演练故障阶段失败</td>
+<td>两个指定边界失败是预期；其他错误需要单独排查</td>
+</tr>
+<tr>
+<td>恢复后测试仍失败</td>
+<td>确认实际使用哪个副本及其文件指纹，不能只看目录名字</td>
+</tr>
+<tr>
+<td>SDK或Flask导入失败</td>
+<td>检查当前解释器和依赖；主路径标准库实验与扩展验收分别记录</td>
+</tr>
+<tr>
+<td>数据版本不支持</td>
+<td>停止强行启动，检查兼容方案，不直接修改版本号</td>
+</tr>
+</tbody></table></div>
+<p>本篇作者实际完成了候选构建、包核对、回滚及备份恢复副本检查，并验证了多余ZIP成员、展开文件改动、错误当前指向和新增数据丢失等反例会被拒绝。展开包也通过了上述离线回归检查。未进行真实模型调用、Windows实机验证、在线发布或真实数据库迁移。</p>
+<p>结束前可以检查三个判断：源码包里没有数据库，是否意味着已备份数据？没有。恢复旧备份能否自动保留此后的新记录？不能。候选检查通过能否直接写成发布完成？仍要看是否实际交付、执行了哪些环境与业务检查。</p>
+<p>现在你得到了一份可核对的本地源码候选，以及保留故障现场、切回代码和验证备份时间边界的演练记录。下一篇会把需求、修改、验证、恢复和交付合起来，完成第四部分最后一次可验收的项目迭代。</p>
+</article>

@@ -1,0 +1,478 @@
+预计用时：65～90 分钟
+本篇目标：把“生成周菜单”做成可以反复调用的 /weekly-menu Skill，再让一个 PostToolUse Hook 在菜谱 JSON 被编辑后自动校验，并用日志证明成功和失败都真实触发过。
+
+到了 MealCraft 2.0，我们已经有一条可靠的菜单生成命令。但“记住参数、先跑检查、生成后再核对”仍要每次重新交代。更麻烦的是，只要有人编辑了菜谱 JSON，就可能忘记运行结构校验。
+
+这两件事看起来都叫自动化，性质却不一样：
+
+问题	交给谁	原因
+根据参数完成一套多步骤任务	Skill	Claude 需要理解输入、选择工具、阅读结果并汇报
+每次文件编辑后执行固定检查	Hook	触发时机和命令都应确定，不需要模型临场判断
+
+一句话记住：Skill 是写给 Claude 的可复用办事流程，Hook 是挂在 Claude Code 生命周期事件上的固定动作。
+
+本篇会把两者都真正跑一遍。你不需要让 Claude 临场猜配置，教程已经准备了完整文件和检查脚本。
+
+开始状态
+
+从完成并提交第 10 篇的 MealCraft 2.0 项目开始。
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course/mealcraft
+git status --short
+python3 scripts/verify_2_0.py --stage complete
+python3 -m unittest discover -s tests -v
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course\mealcraft"
+git status --short
+py scripts/verify_2_0.py --stage complete
+py -m unittest discover -s tests -v
+
+
+预期工作区为空，2.0 检查通过，23 项测试全部通过。若不满足，先回到第 10 篇的参考覆盖层恢复；不要在一个起点不明的项目上继续叠加自动化。
+
+还要确认第 8 篇的项目设置仍在：
+
+.claude/settings.json
+
+
+本篇配置脚本会在这个文件中合并 Hook，不会重建或覆盖原有 permissions、sandbox。
+
+复制固定工作流素材
+
+先退出 Claude Code，在普通终端操作。把下面的教程目录占位符替换成你的实际路径。
+
+macOS、Linux 或 WSL2：
+
+export COURSE_SOURCE="/替换为实际路径/claude-code-tutorial-v0.2"
+export WORKFLOW_SOURCE="$COURSE_SOURCE/exercise-assets/mealcraft/workflow-kit"
+test -f "$WORKFLOW_SOURCE/.claude/skills/weekly-menu/SKILL.md"
+test ! -e .claude/skills/weekly-menu
+test ! -e .claude/hooks/recipe_post_edit.py
+cp -R "$WORKFLOW_SOURCE/." .
+
+
+Windows PowerShell：
+
+$CourseSource = "C:\替换为实际路径\claude-code-tutorial-v0.2"
+$WorkflowSource = "$CourseSource\exercise-assets\mealcraft\workflow-kit"
+if (-not (Test-Path "$WorkflowSource\.claude\skills\weekly-menu\SKILL.md")) { throw "工作流素材路径错误" }
+if (Test-Path ".claude\skills\weekly-menu") { throw "weekly-menu Skill 已存在，请先人工比较" }
+if (Test-Path ".claude\hooks\recipe_post_edit.py") { throw "同名 Hook 已存在，请先人工比较" }
+Get-ChildItem $WorkflowSource -Force | Copy-Item -Destination . -Recurse
+
+
+新增文件如下：
+
+.claude/
+├── hooks/
+│   └── recipe_post_edit.py
+└── skills/
+    └── weekly-menu/
+        └── SKILL.md
+scripts/
+├── configure_workflow_hook.py
+├── validate_recipes.py
+└── verify_workflow_kit.py
+tests/fixtures/hook-recipes/
+└── hook-sample.json
+
+
+先检查素材本身：
+
+python3 scripts/verify_workflow_kit.py --phase skill
+python3 scripts/validate_recipes.py
+python3 scripts/validate_recipes.py tests/fixtures/hook-recipes
+
+
+Windows 把三处 python3 换成 py。预期三条命令都输出 PASS。第一条验证 Skill 和 Hook 所需文件，后两条分别验证真实菜谱与专用练习夹具；校验器只读文件，不会自动修正数据。
+
+如果出现 No module named mealcraft，说明你没有从 MealCraft 根目录运行，或第 6 篇的项目结构不完整。先执行 pwd（PowerShell 用 Get-Location）并确认当前目录中同时存在 mealcraft/、data/ 和 scripts/。
+
+把固定素材提交，后面才有可靠的恢复点：
+
+git add .claude/skills/weekly-menu/SKILL.md .claude/hooks/recipe_post_edit.py scripts/configure_workflow_hook.py scripts/validate_recipes.py scripts/verify_workflow_kit.py tests/fixtures/hook-recipes/hook-sample.json
+git diff --cached --check
+git commit -m "add reusable MealCraft workflow"
+
+读懂 /weekly-menu Skill
+
+打开 .claude/skills/weekly-menu/SKILL.md。完整内容如下：
+
+---
+name: weekly-menu
+description: Generate a local MealCraft weekly menu and shopping list from the existing 2.0 command. Use only when the user explicitly invokes this skill with complete days, servings, date, output path, and optional excluded tags.
+disable-model-invocation: true
+argument-hint: "<3-7 days> <1-6 servings> <YYYY-MM-DD> <output path> [excluded tags]"
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash(python3 scripts/verify_2_0.py --stage complete)
+  - Bash(python3 scripts/generate_week.py *)
+  - PowerShell(py scripts/verify_2_0.py --stage complete)
+  - PowerShell(py scripts/generate_week.py *)
+---
+
+# Generate a MealCraft weekly menu
+
+User arguments: `$ARGUMENTS`
+
+## Required input
+
+Extract all of these from the arguments:
+
+- days from 3 through 7;
+- servings from 1 through 6;
+- a fixed date in `YYYY-MM-DD` form;
+- a new Markdown path under `output/`;
+- zero or more excluded tags.
+
+If any required value is missing or invalid, do not run tools. Ask for the missing value and tell the user to invoke `/weekly-menu` again with the complete arguments. Never invent preferences.
+
+## Workflow
+
+1. Read `MEALCRAFT_2_SPEC.md` and the `scripts/generate_week.py --help` interface. Do not read or modify secrets.
+2. Confirm the requested output is a relative `.md` path directly under `output/`. Refuse absolute paths, `..`, or an existing file; do not delete or overwrite it.
+3. Run the complete 2.0 verifier with the platform-appropriate Python command.
+4. Run `scripts/generate_week.py` with explicit `--days`, `--servings`, `--seed 17`, `--date`, `--output`, and one `--exclude` per excluded tag.
+5. Read the generated report. Verify its date, servings, number of days, exclusions, calculated items, and text-amount section.
+6. Run `git diff -- data/recipes .claude/settings.json` and confirm it is empty.
+7. Report the output path, selected recipes, excluded tags, text amounts that were not merged, commands run, and verification results.
+
+## Boundaries
+
+- Never modify `data/recipes`, fixed tests, permission rules, Sandbox settings, or this skill.
+- Never access the network, add dependencies, commit, push, or make nutrition or medical claims.
+- `allowed-tools` pre-approves only the listed calls for the invocation turn. It is not a tool whitelist and does not weaken project deny rules.
+
+
+先看 frontmatter 中最关键的四项：
+
+name 决定菜单中的 /weekly-menu 名称；目录名也能作为调用名。
+argument-hint 在自动补全时提示参数形式。
+disable-model-invocation: true 表示只有用户能启动它。生成文件有副作用，适合保留人为触发点。
+allowed-tools 让列出的工具调用在这次 Skill 调用所在的轮次免去重复审批。你发送下一条消息后，这份临时授权就结束。
+
+最后一项最容易误解。allowed-tools 没有隐藏其他工具，也不是安全白名单；未列出的工具仍受项目权限规则和当前权限模式管理。真正不允许修改源菜谱的强制边界，仍来自第 8 篇 .claude/settings.json 中的 Deny 与 Sandbox。Skill 里的文字是一层流程约束，不应冒充安全隔离。
+
+$ARGUMENTS 会被替换成 /weekly-menu 后面的全部内容。Skill 没有重新实现生成算法，而是要求 Claude 调用已经通过 23 项测试的 2.0 命令。这比让模型每周现场计算购物清单可靠得多。
+
+真实调用一次 Skill
+
+先确认固定输出名没有被用过：
+
+macOS、Linux 或 WSL2：
+
+test ! -e output/week-skill.md
+
+
+Windows PowerShell：
+
+if (Test-Path "output\week-skill.md") { throw "输出已存在，请换一个新文件名，并同步替换后文命令" }
+
+
+然后从项目根目录启动 Claude Code：
+
+claude
+
+
+输入：
+
+/skills
+
+
+列表中应出现 weekly-menu。如果你是在当前 Claude Code 会话启动之后才创建顶层 .claude/skills/ 目录，输入 /reload-skills 再查；正常情况下 Claude Code 会监听已有 Skill 目录中的 SKILL.md 变化，不需要每改一个字都重启。
+
+现在调用：
+
+/weekly-menu 5 2 2026-09-30 output/week-skill.md 辣
+
+
+不要只看 Claude 最后的“已完成”。展开工具记录，你应该看到它读取规范、运行 2.0 检查、调用真实生成脚本、读取报告，并检查源菜谱与设置文件的 Diff。生成命令中应明确出现：
+
+--days 5 --servings 2 --seed 17 --date 2026-09-30 --output output/week-skill.md --exclude 辣
+
+
+退出 Claude Code，在普通终端做独立验收：
+
+python3 scripts/verify_workflow_kit.py --phase skill-result --report output/week-skill.md --date 2026-09-30 --days 5 --servings 2 --exclude 辣
+git diff -- data/recipes .claude/settings.json
+
+
+Windows：
+
+py scripts/verify_workflow_kit.py --phase skill-result --report output/week-skill.md --date 2026-09-30 --days 5 --servings 2 --exclude "辣"
+git diff -- data/recipes .claude/settings.json
+
+
+第一条应输出：
+
+PASS: MealCraft workflow-kit skill-result 阶段通过
+
+
+第二条不应输出任何 Diff。检查器会核对固定日期、人数、排除标签、连续 5 天菜单，以及可计算食材和文字用量两个区块。output/ 已被忽略，因此报告不进入 Git 提交。
+
+再做一个反向测试。在 Claude Code 中只输入：
+
+/weekly-menu 5 2
+
+
+它应该停下来说明缺少日期和输出路径，而不是猜今天日期或覆盖默认报告。这个失败路径很重要：好的 Skill 不只告诉 Claude 怎么成功，也要告诉它输入不完整时不要做什么。
+
+先独立理解 Hook 要运行的检查
+
+Skill 由用户显式调用，Hook 则监听事件。本篇使用的校验器是：
+
+python3 scripts/validate_recipes.py
+
+
+它复用 MealCraft 自己的 load_recipes，检查目录中所有 JSON 是否满足项目数据契约。校验器成功返回 0，失败返回 1；它只报告问题，不编辑文件。
+
+自动触发脚本位于 .claude/hooks/recipe_post_edit.py。完整实现如下：
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[2]
+TARGETS = (ROOT / "data" / "recipes", ROOT / "tests" / "fixtures" / "hook-recipes")
+LOG = ROOT / "output" / "hook-events.log"
+
+
+def target_directory(raw_path: str, cwd: str) -> Path | None:
+    path = Path(raw_path)
+    if not path.is_absolute():
+        path = Path(cwd) / path
+    resolved = path.resolve()
+    if resolved.suffix.lower() != ".json":
+        return None
+    for directory in TARGETS:
+        try:
+            resolved.relative_to(directory.resolve())
+            return directory
+        except ValueError:
+            continue
+    return None
+
+
+def record(status: str, path: str, detail: str) -> None:
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).isoformat()
+    with LOG.open("a", encoding="utf-8") as handle:
+        handle.write(f"{timestamp}\t{status}\t{path}\t{detail}\n")
+
+
+def main() -> None:
+    try:
+        event = json.load(sys.stdin)
+    except json.JSONDecodeError as exc:
+        print(f"MealCraft hook input is not valid JSON: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+    raw_path = event.get("tool_input", {}).get("file_path", "")
+    directory = target_directory(raw_path, event.get("cwd", str(ROOT)))
+    if directory is None:
+        return
+
+    command = [sys.executable, str(ROOT / "scripts" / "validate_recipes.py"), str(directory)]
+    result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+    detail = (result.stdout if result.returncode == 0 else result.stderr).strip().replace("\n", " | ")
+    if result.returncode == 0:
+        record("PASS", raw_path, detail)
+        return
+    record("FAIL", raw_path, detail)
+    print(f"MealCraft recipe validation failed after editing {raw_path}: {detail}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+if __name__ == "__main__":
+    main()
+
+
+Claude Code 会把 Hook 事件作为 JSON 写入标准输入。对 Edit 和 Write，tool_input.file_path 是绝对路径；Windows 使用反斜杠。脚本用 pathlib 归一化路径，只处理两个目标目录中的 .json：
+
+data/recipes 是真实数据；
+tests/fixtures/hook-recipes 是本篇可随时恢复的练习区。
+
+第二个目录不是多余的。第 8 篇已经用 Deny 和 Sandbox 保护真实菜谱，不应该为了演示 Hook 而放松那条规则。我们会在夹具中故意制造一次错误。
+
+把 PostToolUse Hook 合并进项目设置
+
+不要手工复制一大段 JSON 覆盖 .claude/settings.json。运行幂等配置脚本，它只移除旧的同名 Handler，再保留其他设置并加入当前版本。
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/configure_workflow_hook.py --runtime python3
+python3 scripts/verify_workflow_kit.py --phase configured
+
+
+Windows PowerShell：
+
+py scripts/configure_workflow_hook.py --runtime py
+py scripts/verify_workflow_kit.py --phase configured
+
+
+两条命令都应输出 PASS。打开 .claude/settings.json，原有 permissions、sandbox 仍在，并多出下面这个结构：
+
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/recipe_post_edit.py"
+            ],
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+
+
+Windows 的 command 应是 py。这里只展示新增片段，不代表你的完整设置文件只能有 hooks。
+
+这段配置有四个要点：
+
+PostToolUse 表示工具成功执行后触发。
+matcher: "Edit|Write" 精确匹配 Claude Code 的两个文件编辑工具。
+command 加 args 使用 exec form，不依赖 shell 引号规则；${CLAUDE_PROJECT_DIR} 让脚本路径不受当前子目录影响。
+脚本仍会检查真实目标路径，所以编辑普通 Markdown 时虽然匹配了 Edit|Write，但会立即返回，不运行菜谱校验。
+
+再次执行同一条配置命令，然后重跑 --phase configured，结果仍应通过，并且设置中只有一个 MealCraft Handler。这证明合并脚本是幂等的。
+
+提交设置：
+
+git add .claude/settings.json
+git diff --cached --check
+git commit -m "validate recipe edits with a project hook"
+
+制造一次失败，再恢复为成功
+
+为确保新设置已加载，退出旧会话，从项目根目录重新运行：
+
+claude
+
+
+输入 /hooks，确认能看到来自项目设置的 PostToolUse、Edit|Write 和 recipe_post_edit.py。界面文字会随版本变化，稳定判断标准是事件、matcher 和脚本路径三者都正确。
+
+然后发送下面这条指令：
+
+只用 Edit 工具把 tests/fixtures/hook-recipes/hook-sample.json 中的 "servings": 2 改成 "servings": 0，然后停下。看到 Hook 校验错误也不要自动修复，不要改其他文件。
+
+
+Edit 本身会成功，随后 Hook 校验失败。你应在工具结果附近看到包含 MealCraft recipe validation failed 的反馈。现在退出或另开普通终端，验证文件确实已经变坏：
+
+python3 scripts/validate_recipes.py tests/fixtures/hook-recipes
+
+
+Windows 用 py。命令应以非零状态结束并输出 FAIL。
+
+这里要停一下：PostToolUse 的失败发生在 Edit 之后，所以它不能撤销刚才的修改。 即使 Hook 退出码是 2，对这个事件也只是把 stderr 反馈给 Claude，让它有机会修复。若某条规则必须在写入前阻断，应使用权限 Deny 或经过谨慎测试的 PreToolUse Hook，而不是把 PostToolUse 当成防火墙。
+
+回到 Claude Code，发送：
+
+只用 Edit 工具把 tests/fixtures/hook-recipes/hook-sample.json 中的 "servings": 0 恢复为 "servings": 2，然后停下。不要改其他文件。
+
+
+这次 Hook 应通过，不必在会话中显示大段成功输出。退出 Claude Code，完成最终验收：
+
+python3 scripts/validate_recipes.py tests/fixtures/hook-recipes
+python3 scripts/verify_workflow_kit.py --phase evidence
+git diff -- tests/fixtures/hook-recipes/hook-sample.json
+git status --short
+
+
+Windows：
+
+py scripts/validate_recipes.py tests/fixtures/hook-recipes
+py scripts/verify_workflow_kit.py --phase evidence
+git diff -- tests/fixtures/hook-recipes/hook-sample.json
+git status --short
+
+
+预期：
+
+夹具重新通过结构校验；
+evidence 检查器在 output/hook-events.log 中找到至少一条 FAIL 和一条 PASS；
+夹具 Diff 为空；
+Hook 日志和周菜单位于被忽略的 output/，工作区仍为空。
+
+你可以打开 output/hook-events.log，每行包含 UTC 时间、状态、被编辑路径和校验摘要。日志是独立证据：它证明 Hook 被触发过，而不是 Claude 口头说“已经配置”。
+
+如果 Claude 没有按要求恢复夹具，使用 Git 的已提交基线恢复：
+
+git restore -- tests/fixtures/hook-recipes/hook-sample.json
+
+
+恢复后手工运行校验器。不要用 git restore .，那会误伤项目中其他未提交工作。
+
+三个边界必须分清
+1. Skill 不是脚本
+
+Skill 会把说明加载进 Claude 的上下文，由 Claude 决定怎样调用工具。因此它适合需要理解参数、检查前置条件、阅读结果和整理汇报的流程；结果仍要用脚本或测试独立验证。
+
+若任务只是“把一个 JSON 转成另一个 JSON”，优先写普通程序，不要为了使用 Skill 而绕一层模型。
+
+2. Hook 触发确定，不代表结果永远成功
+
+匹配到 Edit|Write 后，Claude Code 会运行 Handler；但脚本路径错误、Python 不在 PATH、超时或校验失败仍会产生错误。自动化只消除了“忘记执行”，没有消除脚本本身的失败可能。
+
+本篇把校验逻辑做成可手工运行的 validate_recipes.py，就是为了能把“Hook 没触发”和“校验器自己坏了”分开排查。
+
+3. Hook 不会监控所有磁盘变化
+
+这个 PostToolUse Hook 只匹配 Claude Code 的 Edit 和 Write。你在外部编辑器修改文件，或让 Bash/PowerShell 命令重写 JSON，它不会因为磁盘发生变化就自动触发。真正需要监控任意写入来源时，应评估 FileChanged 等事件；本课程不把个人项目扩展成常驻文件监控系统。
+
+本篇验收清单
+原始 MealCraft 2.0 检查和 23 项测试通过；
+workflow-kit 已复制并单独提交，原教程文件未被覆盖；
+/skills 能看到 weekly-menu，必要时用 /reload-skills 重新发现；
+/weekly-menu 用固定参数生成了 5 天报告；
+独立检查器验证了报告内容，源菜谱和原安全设置没有被 Skill 修改；
+能解释 disable-model-invocation、$ARGUMENTS 和 allowed-tools 的作用与边界；
+配置脚本保留了 permissions、sandbox 和其他 Hook；
+/hooks 显示正确的 PostToolUse 配置；
+在专用夹具上观察到一次 Hook 失败和一次成功；
+能解释为什么 PostToolUse 不能撤销已经完成的编辑；
+夹具已恢复，Git 工作区为空。
+关键排错
+
+/weekly-menu 没出现在列表中：确认文件路径精确为 .claude/skills/weekly-menu/SKILL.md，而且 opening --- 是第一行。若顶层 Skill 目录在当前会话启动后才出现，运行 /reload-skills；再不行就退出并从项目根目录重开。
+
+Skill 总是要求权限：先看具体工具是否真的写在 allowed-tools，再看命令文本是否匹配。即使未匹配，也不表示 Skill 失效，只是回到正常权限流程。不要为了消除提示而使用 bypassPermissions。
+
+配置后 /hooks 看不到项目 Hook：先运行 verify_workflow_kit.py --phase configured。若脚本检查通过，退出所有该项目会话后重开；同时确认你编辑的是项目内 .claude/settings.json，不是另一个目录的同名文件。
+
+Hook 报找不到 Python：macOS、Linux、WSL2 应以 --runtime python3 重新配置，Windows 应使用 --runtime py。分别在普通终端运行 python3 --version 或 py --version，先解决 PATH，再测试 Hook。
+
+编辑夹具后没有日志：确认 Claude 真正使用的是 Edit 或 Write，而不是 Bash/PowerShell。检查 /hooks 中的 matcher，再从项目根目录新开会话重试。手工运行校验器只能证明脚本正常，不能证明事件触发。
+
+失败后夹具一直是坏的：这是 PostToolUse 的预期边界。让 Claude 用 Edit 恢复为 2，或只对该文件执行 git restore -- tests/fixtures/hook-recipes/hook-sample.json，然后重跑独立校验。
+
+本篇小结
+
+现在 MealCraft 有了两种互补的复用方式：/weekly-menu 把需要理解和判断的生成流程交给 Claude，PostToolUse Hook 把“编辑后校验”接到确定事件上。前者必须接受独立结果验收，后者也不能替代权限和写前保护。
+
+下一篇会继续使用这个稳定项目，连接一个本地只读 MCP，并把可复用能力打包成可验证、可临时加载的本地插件。
+
+官方参考：
+
+Extend Claude with skills
+Automate actions with hooks
+Hooks reference

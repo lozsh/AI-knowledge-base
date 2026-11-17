@@ -1,0 +1,189 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与练习时间：55～75 分钟<br>本篇目标：把“产生候选改动”和“裁决是否完成”拆成两个边界，用一项过度自信但没有改代码的结果证明 Agent 自述不能通关，再让真实候选改动通过独立验证。</p>
+</blockquote>
+<p>前两篇的 Runner 已经会检查 Git Diff 和测试，但生成逻辑、验证逻辑和调度仍挤在同一模块里。代码能工作，不代表职责已经清楚：如果任务自己带来一条验证命令，或生成者能够在验证前改写验收文件，那么“测试通过”可能只是规则也被一起改了。</p>
+<p>这一篇把流程拆成三部分：</p>
+<pre><code class="hljs language-text">Orchestrator：领取任务、推进状态、根据验证报告移动队列
+Generator：只负责产生候选改动和一份不受信任的说明
+Verifier：提前锁定验证策略，观察真实工作区并独立裁决
+</code></pre><p>核心原则很简单：生成者可以提出“我完成了”，但只有验证者可以把任务判定为 <code>completed</code>。</p>
+<h2 id="wiki-h-0">保存第 4 篇留下的结果</h2>
+<p>起点是完成 <code>issue-002</code> 后的 <code>issue-garden-lab/</code>。先确认全角空格、标点归一化和基础检查仍然通过：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/fullwidth-space.test.mjs
+node --<span class="hljs-built_in">test</span> acceptance/punctuation-search.test.mjs
+npm <span class="hljs-built_in">test</span>
+npm run check
+</code></pre><p>全部通过后，把第 4 篇的候选结果保存为新基线：</p>
+<pre><code class="hljs language-bash">git add src/search.mjs tasks
+git commit -m <span class="hljs-string">"fix: ignore punctuation in search"</span>
+git status --short
+</code></pre><p>最后一条命令应没有输出。新版 Orchestrator 会在领取任务前拒绝 <code>tasks/</code> 之外的未提交改动，避免把上一轮残留误算成这一轮候选。</p>
+<h2 id="wiki-h-1">加入独立验证器和两项对照任务</h2>
+<p>从课程根目录复制本篇增量素材。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R assets/lesson-05-verifier/. issue-garden-lab/
+<span class="hljs-built_in">cd</span> issue-garden-lab
+<span class="hljs-built_in">source</span> .venv/bin/activate
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> assets/lesson<span class="hljs-literal">-05-verifier</span>/* issue<span class="hljs-literal">-garden-lab</span>
+<span class="hljs-built_in">Set-Location</span> issue<span class="hljs-literal">-garden-lab</span>
+.\.venv\Scripts\Activate.ps1
+</code></pre><p>新增结构如下：</p>
+<pre><code class="hljs language-text">issue_garden/generator.py       候选改动生成器
+issue_garden/verifier.py        工作区观察和验证策略执行器
+issue_garden/orchestrator.py    只编排，不替任何一方声称成功
+verification/registry.json      受保护的验证配置注册表
+tasks/inbox/issue-003.json      自称成功但不改代码的对照任务
+tasks/inbox/issue-004.json      真正加入 ISBN 搜索的任务
+acceptance/isbn-search.test.mjs 受保护的任务验收
+</code></pre><p><code>loop.yaml</code> 也有两处变化：<code>verification/</code> 被加入保护路径，<code>allow_task_verification_command</code> 改为 <code>false</code>。任务不再直接决定运行哪个程序，只能引用预先登记的验证配置。</p>
+<p>先运行控制面测试：</p>
+<pre><code class="hljs language-bash">python -m unittest discover -s loop_tests -p <span class="hljs-string">"test_*.py"</span> -v
+</code></pre><p>预期十三项通过。本篇新增的三项测试检查 Git 状态解析：修改、新文件、删除和重命名都能被识别；领取任务造成的既有队列移动不会被误算成 Generator 的候选代码。</p>
+<p>保存课程代码和任务定义：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"feat: separate generator and verifier"</span>
+git status --short
+</code></pre><p>应得到干净工作区。这样，后面每个任务的候选 Diff 都从同一个可说明的 Git HEAD 开始。</p>
+<h2 id="wiki-h-2">任务只选择验证配置，不提供任意命令</h2>
+<p>打开 <code>tasks/inbox/issue-004.json</code>，你会看到：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-004"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"title"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"允许按 ISBN 搜索藏书"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"scenario"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"add_isbn_search"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"instructions"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"把可选 ISBN 字段加入搜索文本，只允许修改 src/ 下的实现。"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"verification_profile"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"isbn-search"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>任务只声明 <code>verification_profile</code>。真正的命令保存在已提交的 <code>verification/registry.json</code>：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"isbn-search"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"commands"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+      <span class="hljs-punctuation">[</span><span class="hljs-string">"npm"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"test"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-punctuation">[</span><span class="hljs-string">"npm"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"run"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"check"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-punctuation">[</span><span class="hljs-string">"node"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"--test"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"acceptance/isbn-search.test.mjs"</span><span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>这么做有三个直接好处：</p>
+<ol>
+<li>任务输入不能把 <code>curl</code>、重定向或 Shell 拼接偷偷塞进验证阶段；</li>
+<li>验收命令可以经过代码审查并跟项目一起版本化；</li>
+<li>多个同类任务可以复用同一验证配置，而不是复制一段容易漂移的命令。</li>
+</ol>
+<p>这不是说所有项目都必须使用 JSON 注册表。你也可以把验证入口放在固定脚本、CI Job 或构建系统中。关键是验证规则由控制面拥有，任务只能选择受信任入口，不能临时发明执行权限。</p>
+<p>先确认 ISBN 行为尚未实现：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/isbn-search.test.mjs
+</code></pre><p>测试应失败。书目里虽然有 <code>978-7-111-54493-7</code>，当前搜索文本只包含标题和作者，查询 <code>9787111544937</code> 得不到结果。</p>
+<h2 id="wiki-h-3">验证器必须在生成之前锁定规则</h2>
+<p>Orchestrator 在启动 Generator 之前会完成三件事：</p>
+<ol>
+<li>从注册表读取 <code>isbn-search</code> 的命令，并复制到内存；</li>
+<li>记录当前 Git 状态，区分领取任务造成的队列变化与后续候选变化；</li>
+<li>计算 <code>test/</code>、<code>acceptance/</code>、<code>verification/</code> 和 <code>loop.yaml</code> 的文件摘要。</li>
+</ol>
+<p>Generator 返回以后，Verifier 不会重新相信任务或生成者提供的命令，而是使用事先锁定的参数数组。它还会比较验证资产摘要，并读取 <code>git status --porcelain -z</code>，识别：</p>
+<ul>
+<li>已修改和已删除的跟踪文件；</li>
+<li>新建但尚未加入 Git 的文件；</li>
+<li>重命名前后的两个路径；</li>
+<li>修改文件数和 Diff 行数；</li>
+<li>白名单外路径与受保护路径。</li>
+</ul>
+<p>这比只运行 <code>git diff --name-only</code> 多走一步，因为普通 Diff 不包含未跟踪文件。一个生成者即使没有修改现有测试，也可能新建脚本或生成物；验证者必须观察完整候选表面。</p>
+<h2 id="wiki-h-4">先拒绝一份“只有口头成功”的结果</h2>
+<p>文件名排序最前的是 <code>issue-003.json</code>。它使用一个故意过度自信的模拟 Generator：不修改任何文件，却返回“已经完成，所有测试都应该通过”。运行：</p>
+<pre><code class="hljs language-bash">python tools/run_once.py
+</code></pre><p>预期退出码为 <code>2</code>，关键报告如下。命令输出会比示例更长：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"blocked"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"independent_verification_rejected"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-003"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"generation"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"claimed_success"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"summary"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"我已经完成 ISBN 搜索支持，所有测试都应该通过。"</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"verification"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"accepted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"changed_files"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"changed_lines"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"boundary_errors"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+      <span class="hljs-string">"生成者没有产生候选文件改动"</span>
+    <span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>验证报告中，基础测试和语法检查仍会通过，但 ISBN 验收退出码是 <code>1</code>。Generator 的语气再肯定，也不能覆盖两项外部事实：没有候选 Diff，新增验收仍失败。</p>
+<p>检查队列。macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">ls</span> tasks/blocked
+<span class="hljs-built_in">ls</span> tasks/processing
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span> tasks/blocked
+<span class="hljs-built_in">Get-ChildItem</span> tasks/processing
+</code></pre><p><code>issue-003.json</code> 应进入 <code>blocked</code>，<code>processing</code> 应为空。再检查：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+node --<span class="hljs-built_in">test</span> acceptance/isbn-search.test.mjs
+python -m json.tool .loop/results/issue-003.json
+</code></pre><p>源文件没有变化，验收仍失败，结果文件记录 <code>decision: blocked</code>。失败在这里不是坏事：系统拒绝把没有证据的自述伪装成完成。</p>
+<h2 id="wiki-h-5">再接受一份有证据的候选改动</h2>
+<p>现在待办箱中只剩 <code>issue-004</code>。再次运行同一个入口：</p>
+<pre><code class="hljs language-bash">python tools/run_once.py
+</code></pre><p>这次 Generator 会把可选 <code>isbn</code> 字段加入搜索文本。Verifier 从自己锁定的注册表运行三条命令，并根据真实工作区产生类似报告：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"completed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"independent_verification_passed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-004"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"generation"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"candidate_ready"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"summary"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"已把可选 ISBN 字段加入搜索文本；只修改 src/search.mjs"</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"verification"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"accepted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"changed_files"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"src/search.mjs"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"changed_lines"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"boundary_errors"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>这里，Generator 的 <code>candidate_ready</code> 仍然不是终态。真正让 Orchestrator 输出 <code>completed</code> 的，是 <code>verification.accepted: true</code>：一项白名单内的小改动，三条验证命令全部以 <code>0</code> 退出，验证资产没有变化。</p>
+<h2 id="wiki-h-6">从行为、Diff 和持久记录三处复核</h2>
+<p>先运行用户可见行为：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/isbn-search.test.mjs
+node --<span class="hljs-built_in">test</span> acceptance/fullwidth-space.test.mjs
+node --<span class="hljs-built_in">test</span> acceptance/punctuation-search.test.mjs
+npm <span class="hljs-built_in">test</span>
+npm run check
+</code></pre><p>所有检查都应通过。ISBN 查询支持新增能力，前两篇完成的空格与标点行为仍保留。</p>
+<p>查看真实改动：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+git status --short
+</code></pre><p><code>src/search.mjs</code> 只应把 <code>book.isbn ?? ""</code> 加入待归一化的搜索文本。状态列表还会显示 <code>issue-003</code> 从 <code>inbox</code> 移到 <code>blocked</code>、<code>issue-004</code> 从 <code>inbox</code> 移到 <code>done</code>；<code>.loop/</code> 仍不会出现在 Git 状态中。</p>
+<p>查看两份最终裁决：</p>
+<pre><code class="hljs language-bash">python -m json.tool .loop/results/issue-003.json
+python -m json.tool .loop/results/issue-004.json
+</code></pre><p>第一份应是 <code>blocked</code>，包含失败验收和“没有候选改动”的边界错误；第二份应是 <code>completed</code>，包含实际 Diff 与成功验证。它们使用同一个 Orchestrator，差别来自证据，不来自 Generator 的自我评价。</p>
+<p>确认结果无误后，保存这一阶段的项目基线，为第 6 篇的多轮重试做准备：</p>
+<pre><code class="hljs language-bash">git add src/search.mjs tasks
+git commit -m <span class="hljs-string">"feat: search books by ISBN"</span>
+git status --short
+</code></pre><p>应再次得到干净工作区。</p>
+<h2 id="wiki-h-7">模块分开不等于权限已经隔离</h2>
+<p>目前 Generator 和 Verifier 是不同 Python 模块，但仍运行在同一个用户权限和同一个项目目录中。这种拆分已经改善了设计：策略归属清楚、报告可单测、生成者说明不参与裁决；但它还不是强安全边界。</p>
+<p>如果把任意不受信任程序当作 Generator，它理论上仍可能尝试修改验证器代码、Git 元数据或进程能访问的其他文件。当前 Verifier 会检测工作区里持续存在的验证资产变化，却无法防止所有“修改后又恢复”的进程内攻击。</p>
+<p>因此，真实系统通常还需要至少一层执行隔离：独立用户、容器、受限沙箱、只读挂载或一次性工作区。第 7 篇会先加入 Git 工作区隔离；高风险场景仍应使用操作系统或基础设施提供的权限边界。</p>
+<p>同样，使用另一个模型充当“验证 Agent”可以补充主观审查，但它仍可能和生成 Agent 犯相关错误。能由测试、类型检查、规则、Diff 和资源上限判定的条件，优先交给确定性工具；模型评审适合处理这些工具覆盖不了的语义问题，而不应替代它们。</p>
+<h2 id="wiki-h-8">常见阻塞</h2>
+<h3 id="wiki-h-9">输出 <code>dirty_worktree</code></h3>
+<p>新版 Orchestrator 不接受 <code>tasks/</code> 之外的未提交改动。先运行：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff
+</code></pre><p>确认这些变化属于上一轮、你自己的工作，还是意外残留。需要保留就提交或换新实验副本；不要为了继续而把干净检查关掉。</p>
+<h3 id="wiki-h-10">输出 <code>invalid_verification_profile</code></h3>
+<p>任务引用了注册表中不存在的名字，或注册表命令不是非空字符串数组。先核对 <code>verification/registry.json</code>，不要把任务里的任意命令重新开放。新增验证配置应和测试一起评审、提交，再让任务引用它。</p>
+<h3 id="wiki-h-11">为什么 <code>issue-003</code> 直接进入 <code>blocked</code>，没有重试</h3>
+<p>本篇只负责建立独立裁决。没有代码改动、验收仍失败时，原样再调用一次生成器没有新信息，只会重复消耗。第 6 篇会区分可重试失败、需要重新规划的失败和应该立即升级给人的失败。</p>
+<h3 id="wiki-h-12">验证命令通过，但仍被拒绝</h3>
+<p>查看 <code>boundary_errors</code>。测试通过只证明行为检查满足，不代表改动范围合规。修改了 <code>acceptance/</code>、<code>verification/</code>、测试、契约或白名单外文件，即使所有命令为绿色，也应拒绝候选结果。</p>
+<h2 id="wiki-h-13">本篇留下了什么</h2>
+<p>Issue Garden 现在有了清楚的信任分工：Generator 只能产生候选改动和不受信任的说明；Verifier 在生成前锁定注册策略与验证资产，生成后观察包括新建、删除和重命名在内的工作区变化，并运行独立命令；Orchestrator 只根据验证报告决定 <code>completed</code> 或 <code>blocked</code>。</p>
+<p>下一篇，我们会让失败不再只有“拒绝并结束”。循环将根据失败签名判断：这次是否值得带着新证据重试，是否必须生成新计划，还是已经连续撞上同一个问题、应该停止并升级给人。</p>
+<h2 id="wiki-h-14">修订后的边界验收</h2>
+<p>验证资产现在包含 package.json、锁文件、scripts、tools 和 issue_garden。边界检查失败立即返回，不执行候选修改后的验证命令；先试改 package.json 并放入哨兵副作用，确认该命令完全未执行。</p>
+</article>

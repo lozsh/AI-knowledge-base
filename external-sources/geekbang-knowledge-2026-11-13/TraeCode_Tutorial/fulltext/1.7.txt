@@ -1,0 +1,26 @@
+6.1 接着固定契约增加边界测试
+
+从第 5 章已通过的版本创建 test/ledger-boundaries 分支。当前接口是 src.ledger.cents、validate、summarize 与 storage.load/save；没有要求额外生成 stats.py。让助手用标准库 unittest 在 tests/test_ledger.py 补边界，每项断言具体数值或错误类型，不只是“结果不为空”。
+
+先手算：0.10 元＋0.20 元是 30 分；一个月只有收入时 expense_cents 为 0、categories_cents 为空；九月样例支出 4700 分，不能混入八月记录。
+
+6.2 三层测试各有职责
+
+纯函数测金额换算、空月份与分类汇总；SQLite 测试每项用 TemporaryDirectory 创建独立数据库并检查保存／重读；CLI 测试用 subprocess 运行实际入口，检查退出码、JSON 和数据库记录数。不要读取个人 data/ledger.db。
+
+python -m unittest discover -s tests -v
+
+
+所有系统都使用当前已激活虚拟环境的 python。只增加 unittest 测试，后续 Git hook 与 CI 才能使用同一发现命令；若自行改用 pytest，必须一起修改全部验收入口。
+
+6.3 先确认缺陷，再修实现
+
+在独立 precision-lab.py 演示 assert 0.1 + 0.2 == 0.3 会失败，再对比 Decimal 字符串运算。主项目已经存整数分，不能假定它仍有浮点缺陷。
+
+新增 CLI 回归：0.001、NaN、负金额和无效日期应非零退出，已有记录数和金额不变。测试先失败时，核对是否读了正确的临时数据库、预期是否符合契约，再修对应实现；已经通过则只提交覆盖补充。
+
+旧 amount 元字段如需迁移，另开任务：备份、检查 schema、事务内转整数分、核对总额和记录数、失败回滚。重复迁移不得再次乘 100，不把改列名当单位迁移。
+
+6.4 完成本章
+
+先运行测试，再 git status 和 git diff；提交仅包含边界测试及必要修复。确认通过后合并回 main。记录一个确实被测试抓住的反例，以及一个没有改动产品代码的覆盖补充。

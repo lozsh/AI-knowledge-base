@@ -1,0 +1,210 @@
+核对日期：2026-09-30
+核对环境：Claude Code 2.1.281
+用法：先按目的找入口，再运行本机帮助确认。此表服务于本课程，不替代完整参数手册。
+
+Claude Code 更新很快。遇到本附录与本机不同，以以下命令和当前官方文档为准：
+
+以下为参数模板，执行前先将尖括号占位符替换为实际值：
+
+claude --version
+claude --help
+claude <子命令> --help
+
+
+尖括号表示必须替换的占位符，例如 <session-id>；方括号只在命令说明中表示可选项，不要原样输入。
+
+安装、健康与认证
+目的	命令	结果或注意点
+查看版本	claude --version	先记录版本再排查参数差异
+查看顶层帮助	claude --help	当前机器可用项的第一证据
+只读健康检查	claude doctor	不启动会话；读取当前目录设置，可信目录内运行
+原生安装版更新	claude update	包管理器安装要用对应包管理器更新
+登录 Anthropic	claude auth login	按终端提示选择支持的认证方式
+查看认证状态	claude auth status --text	不输出密钥；适合排查凭据来源
+JSON 认证状态	claude auth status --json	适合脚本读取
+退出登录	claude auth logout	只在确实要切换身份时使用
+
+claude doctor 是只读诊断；交互会话中的 /doctor 能提出修复，并在你确认后应用。安装与认证的完整流程分别见第 2 篇和第 3 篇。
+
+启动与恢复会话
+目的	命令	结果或注意点
+在当前目录启动	claude	进入交互会话
+带初始任务启动	claude "解释这个项目的入口和测试命令"	第一条消息直接发送
+继续当前目录最近会话	claude --continue 或 claude -c	继续最近可恢复会话
+打开会话选择器	claude --resume	交互选择历史会话
+恢复指定会话	claude --resume <session-id>	ID 可从历史或后台列表获得
+恢复时另建会话 ID	claude --resume <session-id> --fork-session	保留原会话分支
+指定模型	claude --model sonnet	可用模型以 /model 和账号权限为准
+指定推理强度	claude --effort high	可用级别取决于模型
+增加可访问目录	claude --add-dir ../shared	不等于自动加载该目录所有配置
+指定权限模式	claude --permission-mode plan	可用值见下一节
+在隔离 worktree 启动	claude --worktree mealcraft-fix	仅适用于 Git 仓库；先理解分支与未提交改动
+
+会话恢复不会证明磁盘状态正确。接手长任务后先运行 git status --short、测试和项目验收脚本。完整流程见第 10 篇。
+
+权限模式与工具边界
+1. 权限模式
+
+以下为参数模板，执行前先将尖括号占位符替换为实际值：
+
+claude --permission-mode <mode>
+
+mode	适合场景	关键边界
+manual	日常学习和逐项批准	是 default 的别名；UI 显示 Manual
+acceptEdits	信任当前编辑范围，仍审查其他风险动作	不是无条件批准 Bash
+plan	只调查和规划	不应修改项目源文件
+auto	让自动模式分类器判断动作	仍受设置、策略和 Sandbox 约束
+dontAsk	无人值守时自动拒绝本来需要询问的动作	原本允许的读取或预批准动作仍可执行
+bypassPermissions	仅限外部强隔离环境	跳过权限提示；不是 Sandbox
+
+不要把 --dangerously-skip-permissions 写进 Shell 别名、课程默认命令或普通自动化。它等价于 --permission-mode bypassPermissions。
+
+2. 三个容易混淆的工具参数
+参数	实际作用	不会做什么
+--tools "Read,Grep,Glob"	限制 Claude 可见的内置工具	不限制 MCP 工具
+--allowedTools "Read" "Bash(git diff *)"	让匹配调用免审批	不是工具白名单，不会移除其他工具
+--disallowedTools "Edit" "mcp__*"	裸工具名可移除工具；带范围的规则拒绝匹配调用	不能替代操作系统级隔离
+
+常用组合：
+
+# 纯文本推理：移除全部内置工具，并拒绝 MCP 工具
+claude -p \
+  --tools "" \
+  --disallowedTools "mcp__*" \
+  --permission-mode dontAsk \
+  --permission-prompts none \
+  "把输入归类为 bug、feature 或 question"
+
+# 只暴露读取类内置工具；MCP 仍单独拒绝
+claude -p \
+  --tools "Read,Grep,Glob" \
+  --disallowedTools "mcp__*" \
+  --permission-mode dontAsk \
+  --permission-prompts none \
+  "只读检查当前项目入口"
+
+
+--tools "" 是否实现真正的“无工具”还取决于 MCP 是否存在，因此课程示例同时拒绝 mcp__*。权限规则、OS Sandbox 和恢复策略见第 8 篇。
+
+Safe、Restricted 与 Bare
+模式	主要用途	配置与认证	工具与安全边界
+claude --safe-mode	排查自定义配置	关闭 CLAUDE.md、Skills、普通插件、Hooks、MCP、Agents 等；正常认证仍可用；托管策略仍可生效	内置工具和正常权限仍在，不是只读模式
+claude --restricted	共享机器上的评测或受控运行	忽略用户、项目、本地 settings，只保留托管策略和显式 --settings	移除执行代码/命令的工具和 WebFetch，限制文件工具范围，拒绝 bypass；若也不要 MCP，加 --strict-mcp-config
+claude --bare	追求最小启动面和脚本性能	跳过常规自定义项、钥匙串和订阅 OAuth；官方 Anthropic API 需 ANTHROPIC_API_KEY 或显式 apiKeyHelper	Bash、读写文件工具仍在；不是只读、安全或 Sandbox 模式
+
+关键判断：
+
+自定义配置疑似损坏：先用 --safe-mode；
+受控评测：考虑 --restricted，再显式收紧工具和 MCP；
+极简 API 脚本：才考虑 --bare，并自行设计权限与工具边界。
+
+Bare Mode 的完整更正和自动化样例见第 14 篇。
+
+后台会话
+目的	命令	结果或注意点
+后台启动 Claude 会话	claude --background "运行测试并修复失败"	立即返回短 ID；不能与 -p 同用
+查看 Agent 视图	claude agents	需要交互终端
+JSON 列出活跃会话	claude agents --json	适合脚本和排障
+连已完成会话也列出	claude agents --json --all	包含已完成后台会话
+查看最近输出	claude logs <session-id>	只读查看终端输出
+接管会话	claude attach <session-id>	附着后可交互；离开不等于停止
+停止会话	claude stop <session-id>	保留对话，之后仍可 attach
+
+claude rm <session-id> 会移除后台项，并在安全时清理其 worktree，属于可能丢失工作区状态的清理命令；本速查表不把它列为常规步骤。先检查提交、未推送提交和未跟踪文件，再按命令给出的明确提示处理。
+
+claude -p 非交互模式
+1. 输入与输出
+目的	命令或参数
+一次性执行	claude -p "<任务>"
+从 stdin 读取	printf '%s\n' '<输入>' | claude -p "<任务>"
+纯文本输出	--output-format text
+单个 JSON 结果	--output-format json
+流式事件	--output-format stream-json --verbose
+约束业务结构	--json-schema '<JSON-Schema>'
+限制 Agentic turns	--max-turns <正整数>
+限制估算 API 花费	--max-budget-usd <金额>
+不保存会话	--no-session-persistence
+
+--output-format json 只固定 Claude Code 的外壳；要固定业务字段，必须配合 --json-schema，并读取 structured_output。Schema 只验证形状，不验证内容是否符合真实项目。
+
+2. 一个完整的结构化样例
+
+macOS、Linux 或 WSL2：
+
+claude -p \
+  --tools "" \
+  --disallowedTools "mcp__*" \
+  --permission-mode dontAsk \
+  --permission-prompts none \
+  --output-format json \
+  --json-schema '{"type":"object","properties":{"category":{"enum":["bug","feature","question"]}},"required":["category"],"additionalProperties":false}' \
+  --max-turns 1 \
+  --max-budget-usd 0.20 \
+  "只输出分类：搜索结果会显示旧请求。"
+
+
+Windows PowerShell 需改用适合 PowerShell 的换行与引号；可直接复制第 14 篇的跨平台脚本，不要把 Bash 续行符照搬过去。
+
+自动化至少同时检查 stdout、stderr 和退出码。参数、Schema 或认证失败都可能非零退出；不要只搜索输出中的“成功”。
+
+MCP
+
+先看当前子命令：
+
+claude mcp --help
+
+目的	命令
+列出并健康检查	claude mcp list
+查看单个服务与审批状态	claude mcp get <name>
+添加 HTTP 服务	claude mcp add --transport http --scope local <name> <url>
+添加本地 stdio 服务	claude mcp add --transport stdio --scope local <name> -- <command> [args...]
+登录远程服务	claude mcp login <name>
+清除该服务 OAuth	claude mcp logout <name>
+移除配置	claude mcp remove --scope local <name>
+
+local 是当前项目的个人配置；要把服务器写入可共享的项目 .mcp.json，明确改用 --scope project 并先审查命令、URL、环境变量和凭据。项目服务器还需要一次信任审批。可运行的只读 MCP 练习见第 12 篇。
+
+插件与自定义 Agent
+插件
+目的	命令
+查看帮助	claude plugin --help
+列出已安装插件	claude plugin list
+查看组件和上下文成本	claude plugin details <name>
+严格验证本地插件	claude plugin validate <plugin-path> --strict
+仅当前会话加载	claude --plugin-dir <plugin-path>
+暂停已安装插件	claude plugin disable <name>
+重新启用	claude plugin enable <name>
+
+validate 只证明结构符合规范，不证明插件安全。插件可携带 Hooks、MCP、Skills 和 Agents，只加载已审查的代码。
+
+自定义 Agent
+目的	命令或位置
+项目 Agent	.claude/agents/<name>.md
+用户 Agent	~/.claude/agents/<name>.md
+当前会话选择 Agent	claude --agent <name>
+临时传入 Agent 定义	claude --agents '<JSON>'
+严格校验 Agent 目录	claude plugin validate .claude/agents --strict
+检查重复定义等问题	claude doctor
+
+当前 plugin validate 也能检查目录中的 Skills、Agents 和 Commands，但结构通过不代表工具范围合理。当前 /agents 不再是旧版创建向导。完整实操见第 13 篇。
+
+快速选择
+你现在要做什么	先用哪个入口
+正常交互开发	claude，默认保持 Manual
+只调查、不改代码	claude --permission-mode plan
+配置疑似导致异常	claude --safe-mode
+恢复最近任务	claude --continue，随后检查磁盘证据
+让长任务在后台继续	claude --background "<任务>"
+无人值守结构化任务	claude -p + 工具限制 + dontAsk + --permission-prompts none + Schema
+共享机器上的受控评测	claude --restricted，再显式处理 MCP 和允许工具
+最小 API 启动面	claude --bare，但不要把它当安全模式
+
+若命令报 unknown option，不要寻找“差不多”的危险替代项。先运行 claude --version 和相应 --help，再对照第 18 篇排查手册。
+
+官方入口：
+
+CLI reference
+Authentication
+Agent view 与后台会话
+MCP
+Plugin commands reference

@@ -1,0 +1,316 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：45～60 分钟<br>本篇目标：完成 Decision Inbox 第一版。程序从本地文件读取留言，用 Jev 判断类别、紧急程度和行动请求，再把结构化结果写回文件。</p>
+</blockquote>
+<p>前面三篇解决了“Jev 是什么”和“怎样提出一个可判断的问题”。从这一篇开始，我们把零散代码变成一个真正可运行的小项目。</p>
+<p>Decision Inbox 的场景很简单：你的备忘录、个人网站或活动报名页里积累了一批留言，人工逐条浏览很慢。我们希望先判断每条留言的主题、紧急程度，以及对方是否明确要求采取行动，然后生成一份待处理清单。</p>
+<p>它不会自动回复、删消息或替你做决定。第一版只生成建议结果。这样既能看清 Jev 在系统中的位置，也不会因为一次错误判断产生外部后果。</p>
+<h2 id="wiki-h-0">先划清 Jev 与普通代码的边界</h2>
+<p>一个常见误区是：既然用了 AI，就把整个流程都交给 AI。实际工程中，下面这些事情更适合普通代码：</p>
+<ul>
+<li>读取和校验 JSON；</li>
+<li>检查消息 ID 是否重复；</li>
+<li>决定输入、输出文件路径；</li>
+<li>保存判断结果；</li>
+<li>记录错误；</li>
+<li>根据明确规则排序或路由。</li>
+</ul>
+<p>Jev 只负责普通 <code>if/else</code> 很难稳定处理的语义判断：</p>
+<ul>
+<li>这条自然语言留言主要属于哪一类？</li>
+<li>它表达的情况有多紧急？</li>
+<li>它是否明确要求收件人采取行动？</li>
+</ul>
+<p>可以把整个项目理解成下面这条数据流：</p>
+<pre><code class="hljs language-text">messages.json
+      ↓ 普通代码读取并校验
+单条留言的结构化 state
+      ↓ Jev 完成三项语义判断
+带概率和置信度的结构化结果
+      ↓ 普通代码整理并保存
+output/decisions.json
+</code></pre><p>模型不是应用本身，而是应用中的一个判断部件。文件路径、失败策略和实际动作仍掌握在代码手中。</p>
+<h2 id="wiki-h-1">准备输入数据</h2>
+<p>进入上一篇使用的项目目录：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/jev-course/decision-inbox
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\jev-course\decision-inbox"</span>
+</code></pre><p>新建 <code>messages.json</code>，写入下面四条虚构留言：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"msg-001"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"personal_site"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"我订阅了两次同一个服务，今天还能帮我核对一下扣款吗？"</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"msg-002"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"notes"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"刚才上传照片时应用连续闪退三次，我用的是最新版。"</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"msg-003"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"event_form"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"周六的分享很有意思，谢谢整理这些资料，不用回复。"</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"msg-004"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"personal_site"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"明天中午前需要确认场地，否则预约会自动取消，请尽快告诉我结果。"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span>
+</code></pre><p>这里使用中文，是因为教程面向中国用户；但要记住，官方 <a href="https://docs.typesafe.ai/models">Models 文档</a> 提示英语目前表现最好，其他语言需要用自己的内容验证。我们的练习目标不是证明它一定判断正确，而是搭好一个可以用真实中文数据评估的流程。第 7 篇会补上系统化评估。</p>
+<p>示例数据不要换成真实身份证号、合同、病历或公司机密。判断服务需要接收 <code>state</code> 才能工作，练习阶段没有必要上传敏感信息。</p>
+<h2 id="wiki-h-2">设计输入 state</h2>
+<p>Jev 的 <code>state</code> 可以是一段字符串，也可以是结构化 JSON。这个项目选择对象形式：</p>
+<pre><code class="hljs language-python">state = {
+    <span class="hljs-string">"message"</span>: {
+        <span class="hljs-string">"id"</span>: <span class="hljs-string">"msg-001"</span>,
+        <span class="hljs-string">"source"</span>: <span class="hljs-string">"personal_site"</span>,
+        <span class="hljs-string">"text"</span>: <span class="hljs-string">"……"</span>,
+    }
+}
+</code></pre><p>对象形式的优点是字段关系明确。以后即使增加 <code>received_at</code> 或 <code>sender_type</code>，问题说明仍可准确引用 <code>message.text</code>，不用要求模型从一大段拼接文本中猜测各部分含义。</p>
+<p>不过，不要把“结构化”误解成“把数据库整行原样发送”。只传本次判断真正需要的信息。比如消息分类并不需要用户手机号，就不应把手机号放进 <code>state</code>。</p>
+<h2 id="wiki-h-3">产物一致性前置模块</h2>
+<p>先把配套 <a href="revision-assets/artifact_io.py">artifact_io.py</a> 复制到项目根目录。新运行开始会使旧的三类生成产物失效；网络失败后不要继续路由。模块以临时文件原子替换，保存 run_id、输入摘要和成功状态；下游必须验证元数据链，不能只检查文件存在。</p>
+<h2 id="wiki-h-4">写出 Decision Inbox 第一版</h2>
+<p>在同一目录中新建 <code>decision_inbox.py</code>：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">import</span> json
+<span class="hljs-keyword">from</span> artifact_io <span class="hljs-keyword">import</span> begin_run, save_artifact
+<span class="hljs-keyword">from</span> pathlib <span class="hljs-keyword">import</span> Path
+
+<span class="hljs-keyword">from</span> typesafe_sdk <span class="hljs-keyword">import</span> Choice, Noul, NoulCriteria, Score, TypeSafeClient
+
+
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_FILE = BASE_DIR / <span class="hljs-string">"messages.json"</span>
+OUTPUT_DIR = BASE_DIR / <span class="hljs-string">"output"</span>
+OUTPUT_FILE = OUTPUT_DIR / <span class="hljs-string">"decisions.json"</span>
+
+CATEGORIES = {
+    <span class="hljs-string">"billing"</span>: <span class="hljs-string">"Charges, invoices, payments, refunds, or subscriptions."</span>,
+    <span class="hljs-string">"technical"</span>: <span class="hljs-string">"Software or hardware is broken or unavailable."</span>,
+    <span class="hljs-string">"scheduling"</span>: <span class="hljs-string">"Dates, times, appointments, reservations, or travel plans."</span>,
+    <span class="hljs-string">"feedback"</span>: <span class="hljs-string">"An opinion, compliment, or experience without another main request."</span>,
+    <span class="hljs-string">"other"</span>: <span class="hljs-string">"None of the other options clearly fits."</span>,
+}
+
+QUESTIONS = {
+    <span class="hljs-string">"category"</span>: Choice(
+        instructions=<span class="hljs-string">"What is the main topic of `message.text`?"</span>,
+        criteria=CATEGORIES,
+    ),
+    <span class="hljs-string">"urgency"</span>: Score(
+        instructions=<span class="hljs-string">"How urgent is the situation described in `message.text`?"</span>,
+        criteria=[
+            <span class="hljs-string">"No time pressure or active harm is expressed."</span>,
+            <span class="hljs-string">"A prompt response would help, but there is no strict deadline or active harm."</span>,
+            <span class="hljs-string">"A strict deadline, ongoing loss, or immediate harm is described."</span>,
+        ],
+    ),
+    <span class="hljs-string">"action_requested"</span>: Noul(
+        instructions=(
+            <span class="hljs-string">"Does `message.text` explicitly ask the recipient to take an action?"</span>
+        ),
+        criteria=NoulCriteria(
+            true=<span class="hljs-string">"The sender asks the recipient to reply, check, send, change, schedule, or complete something."</span>,
+            false=<span class="hljs-string">"The sender only shares information, emotion, or status and requests no action."</span>,
+        ),
+    ),
+}
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">load_messages</span>(<span class="hljs-params">path: Path</span>) -&gt; <span class="hljs-built_in">list</span>[<span class="hljs-built_in">dict</span>]:
+    <span class="hljs-keyword">with</span> path.<span class="hljs-built_in">open</span>(<span class="hljs-string">"r"</span>, encoding=<span class="hljs-string">"utf-8"</span>) <span class="hljs-keyword">as</span> file:
+        data = json.load(file)
+
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-built_in">isinstance</span>(data, <span class="hljs-built_in">list</span>):
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">"messages.json 顶层必须是数组"</span>)
+
+    seen_ids = <span class="hljs-built_in">set</span>()
+    <span class="hljs-keyword">for</span> index, item <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(data, start=<span class="hljs-number">1</span>):
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-built_in">isinstance</span>(item, <span class="hljs-built_in">dict</span>):
+            <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"第 <span class="hljs-subst">{index}</span> 条消息必须是对象"</span>)
+
+        missing = {<span class="hljs-string">"id"</span>, <span class="hljs-string">"source"</span>, <span class="hljs-string">"text"</span>} - item.keys()
+        <span class="hljs-keyword">if</span> missing:
+            <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"第 <span class="hljs-subst">{index}</span> 条消息缺少字段：<span class="hljs-subst">{<span class="hljs-built_in">sorted</span>(missing)}</span>"</span>)
+
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-built_in">all</span>(<span class="hljs-built_in">isinstance</span>(item[key], <span class="hljs-built_in">str</span>) <span class="hljs-keyword">for</span> key <span class="hljs-keyword">in</span> (<span class="hljs-string">"id"</span>, <span class="hljs-string">"source"</span>, <span class="hljs-string">"text"</span>)):
+            <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"第 <span class="hljs-subst">{index}</span> 条消息的 id、source、text 必须是字符串"</span>)
+
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> item[<span class="hljs-string">"text"</span>].strip():
+            <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"第 <span class="hljs-subst">{index}</span> 条消息正文为空"</span>)
+
+        <span class="hljs-keyword">if</span> item[<span class="hljs-string">"id"</span>] <span class="hljs-keyword">in</span> seen_ids:
+            <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"消息 ID 重复：<span class="hljs-subst">{item[<span class="hljs-string">'id'</span>]}</span>"</span>)
+        seen_ids.add(item[<span class="hljs-string">"id"</span>])
+
+    <span class="hljs-keyword">return</span> data
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">evaluate_message</span>(<span class="hljs-params">client: TypeSafeClient, message: <span class="hljs-built_in">dict</span></span>) -&gt; <span class="hljs-built_in">dict</span>:
+    response = client.system_one(
+        state={<span class="hljs-string">"message"</span>: message},
+        questions=QUESTIONS,
+    )
+
+    category = response.answers[<span class="hljs-string">"category"</span>]
+    urgency = response.answers[<span class="hljs-string">"urgency"</span>]
+    action_requested = response.answers[<span class="hljs-string">"action_requested"</span>]
+
+    <span class="hljs-keyword">if</span> category.choice <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> CATEGORIES:
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"未知分类：<span class="hljs-subst">{category.choice}</span>"</span>)
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-number">0</span> &lt;= urgency.score &lt;= <span class="hljs-number">2</span>:
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"紧急分数越界：<span class="hljs-subst">{urgency.score}</span>"</span>)
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-number">0</span> &lt;= action_requested.noul &lt;= <span class="hljs-number">1</span>:
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"行动请求概率越界：<span class="hljs-subst">{action_requested.noul}</span>"</span>)
+
+    <span class="hljs-keyword">return</span> {
+        <span class="hljs-string">"id"</span>: message[<span class="hljs-string">"id"</span>],
+        <span class="hljs-string">"source"</span>: message[<span class="hljs-string">"source"</span>],
+        <span class="hljs-string">"text"</span>: message[<span class="hljs-string">"text"</span>],
+        <span class="hljs-string">"judgment"</span>: {
+            <span class="hljs-string">"category"</span>: category.choice,
+            <span class="hljs-string">"category_probabilities"</span>: <span class="hljs-built_in">dict</span>(category.probabilities),
+            <span class="hljs-string">"category_confidence"</span>: category.confidence,
+            <span class="hljs-string">"urgency_score"</span>: urgency.score,
+            <span class="hljs-string">"urgency_confidence"</span>: urgency.confidence,
+            <span class="hljs-string">"action_requested_probability"</span>: action_requested.noul,
+        },
+    }
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>() -&gt; <span class="hljs-literal">None</span>:
+    input_hash = begin_run(BASE_DIR)
+    messages = load_messages(INPUT_FILE)
+    decisions = []
+
+    <span class="hljs-keyword">with</span> TypeSafeClient() <span class="hljs-keyword">as</span> client:
+        <span class="hljs-keyword">for</span> position, message <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(messages, start=<span class="hljs-number">1</span>):
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f"[<span class="hljs-subst">{position}</span>/<span class="hljs-subst">{<span class="hljs-built_in">len</span>(messages)}</span>] 正在判断 <span class="hljs-subst">{message[<span class="hljs-string">'id'</span>]}</span>..."</span>)
+            decisions.append(evaluate_message(client, message))
+
+    OUTPUT_DIR.mkdir(parents=<span class="hljs-literal">True</span>, exist_ok=<span class="hljs-literal">True</span>)
+    save_artifact(OUTPUT_FILE, decisions, BASE_DIR / <span class="hljs-string">"messages.json"</span>, input_hash)
+
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f"已生成 <span class="hljs-subst">{<span class="hljs-built_in">len</span>(decisions)}</span> 条结果：<span class="hljs-subst">{OUTPUT_FILE}</span>"</span>)
+
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">"__main__"</span>:
+    main()
+</code></pre><p>这段代码看起来比上一篇长，但职责其实很清楚：</p>
+<ul>
+<li><code>load_messages()</code> 负责检查输入，不调用模型；</li>
+<li><code>evaluate_message()</code> 只处理一条消息，并保留判断依据相关的数值；</li>
+<li><code>main()</code> 负责串起读取、循环调用和文件写入。</li>
+</ul>
+<p>我们没有只保存 <code>category.choice</code>。如果丢掉概率和置信度，下一步就无法判断某个标签是“明显胜出”，还是仅仅比第二名高一点点。</p>
+<h2 id="wiki-h-5">先检查语法和输入，再调用 API</h2>
+<p>真实 API 调用可能计费，也可能受速率限制。先做不联网的检查。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -m py_compile decision_inbox.py
+python -m json.tool messages.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> py_compile decision_inbox.py
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> json.tool messages.json
+</code></pre><p>第一条命令没有输出，通常表示 Python 语法正确；第二条会重新格式化打印 JSON。如果它指出具体行列，先检查漏掉的逗号、引号或方括号。</p>
+<p>然后确认当前终端仍然有 API Key：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -c <span class="hljs-string">"import os; print('key loaded:', bool(os.getenv('TYPESAFE_API_KEY')))"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-c</span> <span class="hljs-string">"import os; print('key loaded:', bool(os.getenv('TYPESAFE_API_KEY')))"</span>
+</code></pre><p>如果显示 <code>False</code>，按照第 2 篇重新设置环境变量。关闭终端以后，临时环境变量不会自动保留。</p>
+<h2 id="wiki-h-6">运行项目并检查产物</h2>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python decision_inbox.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe decision_inbox.py
+</code></pre><p>终端应该依次显示四条消息的进度，最后给出 <code>decisions.json</code> 的绝对路径：</p>
+<pre><code class="hljs language-text">[1/4] 正在判断 msg-001...
+[2/4] 正在判断 msg-002...
+[3/4] 正在判断 msg-003...
+[4/4] 正在判断 msg-004...
+已生成 4 条结果：.../output/decisions.json
+</code></pre><p>文件中的具体小数会变化，结构应当类似：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"msg-001"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"personal_site"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"我订阅了两次同一个服务，今天还能帮我核对一下扣款吗？"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"judgment"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"billing"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"category_probabilities"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">"billing"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">"technical"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">"scheduling"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">"feedback"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">"other"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"category_confidence"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"urgency_score"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"urgency_confidence"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"action_requested_probability"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span>
+</code></pre><p>这里的 <code>0.0</code> 只是结构占位，不是预期答案。不要手工修改自己的实际结果去匹配示例。</p>
+<p>用一条独立命令验证输出文件，而不是只凭肉眼看终端。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -c <span class="hljs-string">"import json; d=json.load(open('output/decisions.json', encoding='utf-8')); assert len(d)==4; assert all('judgment' in x for x in d); print('output verified')"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-c</span> <span class="hljs-string">"import json; d=json.load(open('output/decisions.json', encoding='utf-8')); assert len(d)==4; assert all('judgment' in x for x in d); print('output verified')"</span>
+</code></pre><p>看到下面这行，说明四条结果都已落盘，而且每条都包含判断对象：</p>
+<pre><code class="hljs language-text">output verified
+</code></pre><p>这项验证只证明程序产出了结构正确的数据，不证明语义判断正确。后者需要人工标注样例和评估集，两者不能混为一谈。</p>
+<h2 id="wiki-h-7">给项目补一份 .gitignore</h2>
+<p>即使现在还没使用 Git，也建议在项目目录创建 <code>.gitignore</code>：</p>
+<pre><code class="hljs language-gitignore"><span class="hljs-title">.venv/</span>
+<span class="hljs-emphasis">__pycache__</span>/
+*.pyc
+<span class="hljs-title">.env</span>
+output/
+</code></pre><p>这能避免虚拟环境、临时产物和可能保存密钥的 <code>.env</code> 文件进入仓库。不过要注意，<code>.gitignore</code> 不是保险箱：一旦 Key 已经提交过，再把文件加入忽略列表也不会清除历史记录，应立即撤销旧 Key 并重新创建。</p>
+<p>本教程暂时不要求安装 <code>python-dotenv</code>。使用终端环境变量，能少引入一个“到底从哪里读取密钥”的排查点。</p>
+<h2 id="wiki-h-8">第一版故意没有做什么</h2>
+<p>现在的程序已经能工作，但离“无人值守的自动系统”还有距离：</p>
+<ul>
+<li>任意一条 API 调用失败，整个程序就会停止；</li>
+<li>多条判断虽然放在同一次请求中，却还没有组合成最终处理建议；</li>
+<li>没有定义何时相信模型、何时交给人工；</li>
+<li>没有用自己的标注数据衡量中文效果；</li>
+<li>没有日志、重试、缓存和成本控制。</li>
+</ul>
+<p>这些不是遗漏，而是接下来几篇的学习路径。先保留一份简单、能运行、容易看懂的基线，再逐步完善，比一开始堆满异常处理和框架更容易定位问题。</p>
+<p>目前尤其不要根据 <code>urgency_score</code> 自动发消息，也不要根据 <code>category</code> 自动删除或移动真实文件。判断结果只写到本地 JSON，错误的代价很低。</p>
+<h2 id="wiki-h-9">常见问题</h2>
+<h3 id="wiki-h-10">1. 提示找不到 messages.json</h3>
+<p>脚本使用 <code>__file__</code> 定位同目录文件，正常情况下从其他目录运行也能找到。如果仍然报错，确认文件名是完整的 <code>messages.json</code>，而不是系统隐藏扩展名后的 <code>messages.json.txt</code>。</p>
+<h3 id="wiki-h-11">2. 中文结果和文章预期不同</h3>
+<p>先确认输出结构正确，再观察概率与置信度。不要为了让四条示例“看起来全对”而不断微调描述。当前样例太少，无法证明一次改动真的改善了系统。把有争议的消息记下来，留到第 7 篇放进评估集。</p>
+<h3 id="wiki-h-12">3. dict(category.probabilities) 报错</h3>
+<p>SDK 版本更新后，概率字段的具体容器可能变化。先直接打印 <code>category.probabilities</code>，再参考当前 <a href="https://docs.typesafe.ai/sdk/python">Python SDK 文档</a> 的序列化方式。不要用字符串截取模型输出。</p>
+<h3 id="wiki-h-13">4. 运行到一半遇到网络或速率错误</h3>
+<p>第一版是故意设计成失败即停止，避免悄悄生成不完整结果。记住失败的消息 ID，确认网络、配额和 Key 后重新运行。后面接入真实应用时，再加入逐条保存、有限重试和幂等处理。</p>
+<h2 id="wiki-h-14">完成本篇的验收</h2>
+<p>现在检查项目目录，至少应有：</p>
+<pre><code class="hljs language-text">decision-inbox/
+├── .gitignore
+├── .venv/
+├── decision_inbox.py
+├── first_call.py
+├── messages.json
+├── output/
+│   └── decisions.json
+└── primitives_lab.py
+</code></pre><p>并确认：</p>
+<ul>
+<li><code>messages.json</code> 能通过 JSON 格式检查；</li>
+<li><code>decision_inbox.py</code> 能通过语法检查并完成四条调用；</li>
+<li><code>output/decisions.json</code> 包含四条结果；</li>
+<li>每条结果都保留分类概率、分类置信度、紧急分数与行动请求概率；</li>
+<li>你能说明哪些工作属于普通代码，哪些判断交给 Jev；</li>
+<li>程序没有根据判断结果执行不可逆动作。</li>
+</ul>
+<p>下一篇会继续完善这个项目：不再只是并排保存三个答案，而是把多个判断组合成真正的处理建议，并让代码清楚表达“先判断什么、再根据结果做什么”。</p>
+</article>

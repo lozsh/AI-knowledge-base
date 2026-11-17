@@ -1,0 +1,39 @@
+原文：《How Anthropic teams use Claude Code》部门版 PDF，共 23 页，本页面对应原文 P3-P4
+版本：PDF 由 Anthropic 于 2025-06-03 生成
+译本：v1.0，2026-11
+时效：内容为 2025 年 6 月版本，功能名与命令以官方文档为准
+版权：原文 © Anthropic。非官方中文译本，仅供学习交流。
+
+数据基础设施团队（Data Infrastructure team）为全公司各团队整理所有业务数据。他们用 Claude Code 自动化日常数据工程任务、排查复杂的基础设施问题，并创建有成文文档的工作流（workflow），让技术与非技术岗位的团队成员都能独立访问和操作数据。
+
+Claude Code 的主要用例
+
+用截图调试 Kubernetes（Kubernetes debugging with screenshots） —— Kubernetes 集群宕机、无法调度新 Pod 时，团队用 Claude Code 诊断问题。他们把仪表盘截图喂给 Claude Code，后者带着他们在 Google Cloud 的用户界面里逐个菜单排查，直到发现一条警告，表明 Pod IP 地址已耗尽。随后，Claude Code 给出了创建新 IP 地址池并将其加入集群的确切命令，无需再请网络专家介入。
+
+为财务团队打造纯文本工作流（Plain text workflows for finance team） —— 团队向财务团队成员演示了如何编写纯文本文件来描述自己的数据工作流，再将其加载到 Claude Code 中，获得全自动执行。没有编码经验的员工可以描述诸如「查询这个仪表盘、获取信息、运行这些查询、产出 Excel 结果」这样的步骤，Claude Code 就会执行整个工作流，包括询问日期等必需输入。
+
+帮助新人导航代码库（Codebase navigation for new hires） —— 当新数据科学家加入团队时，团队会指示他们用 Claude Code 来导航庞大的代码库。Claude Code 会读取他们的 Claude.md 文件（文档），找出与特定任务相关的文件，解释数据管道的依赖关系，并帮助新人了解哪些上游数据源会流入哪些仪表盘。这取代了传统的数据目录和可发现性工具。
+
+会话结束时的文档更新（End-of-session documentation updates） —— 团队让 Claude Code 在每项任务结束时总结已完成的工作会话，并提出改进建议。这形成了一个持续改进循环：Claude Code 基于实际使用情况帮助完善 Claude.md 文档和工作流说明，让后续迭代更有效。
+
+跨多个实例的并行任务管理（Parallel task management across multiple instances） —— 在处理长时间运行的数据任务时，他们会针对不同项目在不同仓库中打开多个 Claude Code 实例。每个实例都保留完整上下文（context），因此当他们几小时或几天后切回来时，Claude Code 仍准确记得他们当时在做什么、进行到哪一步，从而实现真正的并行工作流管理，且不会丢失上下文。
+
+团队影响
+
+无需专业知识即可解决基础设施问题（Resolved infrastructure problems without specialized expertise） —— 解决了通常需要拉上系统或网络团队成员才能处理的 Kubernetes 集群问题，用 Claude Code 诊断问题并提供确切的修复方案。
+
+加速新人上手（Accelerated onboarding） —— 新数据分析师和团队成员能够快速理解复杂系统，无需大量指导就能做出有意义的贡献。
+
+增强的支持工作流（Enhanced support workflow） —— 能够处理大得多的数据量，并识别出人工不可能逐一查看的异常（例如监控 200 个仪表盘）。
+
+实现跨团队自助服务（Enabled cross-team self-service） —— 没有编码经验的财务团队现在可以独立执行复杂的数据工作流。
+
+数据基础设施团队的首要建议
+
+编写详细的 Claude.md 文件（Write detailed Claude.md files） —— 你在 Claude.md 文件中把工作流、工具和期望记录得越详细，Claude Code 的表现就越好。这让 Claude Code 在已有现成模式时，特别擅长搭建新数据管道这类常规任务。
+
+处理敏感数据时用 MCP 服务器而非 CLI（Use MCP servers instead of CLI for sensitive data） —— 他们建议使用模型上下文协议（MCP）服务器，而不是 BigQuery CLI，以便对 Claude Code 能访问的内容保持更好的安全控制，尤其是在处理需要记录日志或存在潜在隐私顾虑的敏感数据时。
+
+分享团队的使用经验（Share team usage sessions） —— 团队举办过成员互相演示各自 Claude Code 工作流的分享会。这有助于传播最佳实践，并展示出他们自己可能不会发现的不同使用方式。
+
+原文备注：P4「monitoring 200 dashboards」原文未说明是团队整体还是单人的监控范围，按字面译。

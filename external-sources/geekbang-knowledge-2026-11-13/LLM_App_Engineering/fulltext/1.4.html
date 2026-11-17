@@ -1,0 +1,193 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你让AI给笔记助手加一个搜索框。十分钟后，它说完成了，却改了十几个文件。页面打不开，你又让它修；第二轮能打开了，但原来显示的证据统计不见了。此时你最想知道的通常不是“再写一遍行不行”，而是：第一轮到底改了什么？哪一次还能用？能不能只撤掉错误的部分？</p>
+<p>上一篇把目标写进了搜索规格。本篇给项目建立可比较的起点，再亲手完成一次有选择的提交、一次未提交修改的撤回，以及一次已经提交错误的撤销。练习只改变教学笔记，应用源码与搜索规格都保持原样，历史搜索仍待第04篇实现。</p>
+<p>下载练习包 · 材料说明 · 上一篇：需求与规格</p>
+<blockquote>
+<p>核实日期：2026年10月4日。作者用Git 2.49.0在macOS临时仓库实际验证本文流程；Windows命令按通用Git语法提供，未做Windows实机验证。Kimi Code 2.0.2仅核对help/version，没有真实Agent生成或DeepSeek调用。本课不需要模型账户、付费额度或运行网页。</p>
+</blockquote>
+<h2 id="wiki-h-0">先明白：检查点到底保存了什么</h2>
+<p>Git是版本管理工具。你可以把一次commit理解成给选定内容建立一个可命名、可比较的项目版本。以后即使文件变了，已提交版本仍可供查看。它不是必须连接GitHub才能使用的服务：本篇所有操作都发生在本地。</p>
+<p>需要先认识三个位置：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th>在练习里是什么意思</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>工作区</td>
+<td>编辑器里正在修改的文件</td>
+</tr>
+<tr>
+<td>暂存区，也叫index</td>
+<td>已经选定、准备放进下一次提交的内容</td>
+</tr>
+<tr>
+<td>当前提交，通常用HEAD指代</td>
+<td>当前所在的已记录版本</td>
+</tr>
+</tbody></table></div>
+<p>流程是：在工作区修改，使用<code>git add</code>选择内容，再使用<code>git commit</code>记录暂存区。<code>add</code>保存的是执行当时的内容，之后继续编辑不会自动更新暂存区。<a href="https://git-scm.com/docs/git-add">git-add文档</a></p>
+<p>所以“文件已保存”和“版本已提交”不是一回事。前者让磁盘上有最新文件，后者让你保留一个能够与未来修改比较的版本。提交也不代表测试通过；它只记录内容，质量证据需要另外给出。<a href="https://git-scm.com/docs/git-commit">git-commit文档</a></p>
+<p>对AI开发，检查点最直接的价值是减少混淆：任务开始前是什么，Agent本轮改了什么，哪些是你自己的未完成工作，都有了明确参照。</p>
+<h2 id="wiki-h-1">准备一个独立练习目录</h2>
+<p>把练习包解压到新的学习文件夹，例如“文档”下的<code>ai-git-lab</code>。不要覆盖前两篇材料，也不要直接在自己的旧项目或包含私人资料的文件夹里演练撤销。</p>
+<p>包内结构如下：</p>
+<pre><code class="hljs language-text">lesson-03/
+  README.md
+  TASK.md
+  verify_checkpoints.py
+  starter/
+    .gitignore
+    CHECKPOINT_NOTES.md
+    PERSONAL_NOTES.md
+    SEARCH_SPEC.md
+    search-cases.json
+    audit_cases.py
+    project/                 第02篇的38文件应用原样快照
+</code></pre><p><code>PERSONAL_NOTES.md</code>只是公开的教学文件，名字用于模拟“与任务无关的个人改动”，不要填入真正私密内容。练习包不带<code>.git</code>历史，下面由你亲手创建；也不带运行数据库和密钥。</p>
+<p>先在终端进入解压后的<code>lesson-03</code>。macOS/Linux可用<code>pwd</code>查看所在目录，Windows PowerShell可用<code>Get-Location</code>。然后执行以下命令；除特别标注的Python启动方式外，本篇Git命令在两种终端相同：</p>
+<pre><code class="hljs language-bash">git --version
+<span class="hljs-built_in">cd</span> starter
+git init -b main
+git rev-parse --show-toplevel
+</code></pre><p>最后一条必须指向刚解压的<code>lesson-03/starter</code>。它用于确认你操作的是本课仓库。如果显示其他项目路径，先停下并核对目录，不要继续暂存或恢复文件。本文使用支持<code>init -b</code>、<code>switch</code>和<code>restore</code>的Git；若旧版本不认识参数，可从<a href="https://git-scm.com/install/">Git安装页面</a>选择对应系统安装方式，重新打开终端后检查。<code>init -b main</code>在新仓库设置初始分支名。<a href="https://git-scm.com/docs/git-init">git-init文档</a></p>
+<p>给这个新仓库设置提交身份：</p>
+<pre><code class="hljs language-bash">git config --<span class="hljs-built_in">local</span> user.name <span class="hljs-string">"Course Learner"</span>
+git config --<span class="hljs-built_in">local</span> user.email <span class="hljs-string">"learner@example.invalid"</span>
+</code></pre><p>这只是演示用的提交署名，不是Kimi、DeepSeek或GitHub登录。<code>--local</code>把设置限制在当前仓库，避免为了练习改变其他项目的全局身份。<a href="https://git-scm.com/docs/git-config">git-config文档</a></p>
+<h2 id="wiki-h-2">在第一次提交前，先看清楚要保存的范围</h2>
+<p>打开<code>starter/.gitignore</code>，你会看到<code>.venv/</code>、<code>config.json</code>、<code>.env</code>、<code>data/</code>以及生成记录等排除项。源码和<code>config.example.json</code>模板适合纳入版本；自己的真实配置、会话密钥与数据库不应混进去。</p>
+<p><code>.gitignore</code>主要影响尚未跟踪的文件。已经被跟踪的文件不会因为补上一行忽略规则就从历史消失，它也不是自动识别密钥的扫描器。<a href="https://git-scm.com/docs/gitignore">gitignore文档</a></p>
+<p>在这个尚未运行、没有私人文件的练习仓库里执行：</p>
+<pre><code class="hljs language-bash">git status --short --untracked-files=all
+git check-ignore -v project/config.json project/data/demo.sqlite3 .venv/example.txt
+git add .gitignore CHECKPOINT_NOTES.md PERSONAL_NOTES.md SEARCH_SPEC.md search-cases.json audit_cases.py project
+git diff --staged --<span class="hljs-built_in">stat</span>
+git diff --staged --name-only
+</code></pre><p><code>check-ignore</code>只是拿几个路径检查规则，即使文件尚不存在也可以检查，不会生成配置或数据库。它应列出相应忽略规则。随后暂存清单应包含44个教学文件，不包含密钥、数据、虚拟环境或外层的验证脚本。仔细检查文件名；不确定的文件先打开确认再提交。</p>
+<pre><code class="hljs language-bash">git commit -m <span class="hljs-string">"chore: record lesson 03 baseline"</span>
+git status --short
+git <span class="hljs-built_in">log</span> -1 --oneline
+</code></pre><p>预期<code>status --short</code>没有输出，<code>log</code>显示一条基线提交。输出的短哈希由你的提交内容和元数据决定，不必与任何示例相同。</p>
+<p>这份基线包含第01篇证据统计和第02篇搜索规格，没有新增搜索功能。你现在可以明确地说：“后面的差异是相对于这个起点产生的。”本地提交仍在这台电脑上，不能代替另存备份；本课不要求注册托管服务或推送代码。</p>
+<h2 id="wiki-h-3">开一个分支，做一次有选择的提交</h2>
+<p>在干净的基线上执行：</p>
+<pre><code class="hljs language-bash">git switch -c checkpoint-lab
+git branch --show-current
+</code></pre><p>预期当前分支是<code>checkpoint-lab</code>。分支可以先理解成一条有名字的版本路线：<code>main</code>保留基线，练习提交沿新路线前进。切分支使用的仍是这个文件夹，不会自动获得另一个独立工作目录；未提交修改也可能被带到其他分支，因此先确认状态干净再切换。<a href="https://git-scm.com/docs/git-switch">git-switch文档</a></p>
+<p>用编辑器打开<code>CHECKPOINT_NOTES.md</code>，将全文改为：</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># 开发检查点</span>
+
+状态：规格已确认，搜索尚未实现。
+</code></pre><p>编辑器按UTF-8保存，并保留文件末尾换行；配套检查会核对这些完整文字。再在<code>PERSONAL_NOTES.md</code>末尾添加一行：</p>
+<pre><code class="hljs language-text">临时想法：以后研究界面配色。
+</code></pre><p>保存两个文件，运行：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --<span class="hljs-built_in">stat</span>
+git diff -- CHECKPOINT_NOTES.md PERSONAL_NOTES.md
+</code></pre><p>如果终端进入分页查看界面，按<code>q</code>退出后再输入下一条命令。应只有两个文件改变。差异中<code>-</code>标出删除的旧行，<code>+</code>标出新增的行；它们不是需要复制到文件中的字符。检查点结论属于本次任务，配色想法暂时不属于。</p>
+<p>只选择检查点文件：</p>
+<pre><code class="hljs language-bash">git add CHECKPOINT_NOTES.md
+git diff --staged -- CHECKPOINT_NOTES.md
+git diff -- PERSONAL_NOTES.md
+</code></pre><p>第一条diff看准备提交的内容，第二条看尚未暂存的内容。一般地，<code>git diff</code>比较工作区与暂存区，<code>git diff --staged</code>比较暂存区与当前提交；<code>git diff HEAD</code>可查看已跟踪文件相对当前提交的整体变化，但不会展示新建且未跟踪文件的正文。先看status，再看diff，才能不漏文件。<a href="https://git-scm.com/docs/git-diff">git-diff文档</a></p>
+<p>先练习取消选择，再重新选择：</p>
+<pre><code class="hljs language-bash">git restore --staged -- CHECKPOINT_NOTES.md
+git diff --staged --name-only
+git diff -- CHECKPOINT_NOTES.md
+git add CHECKPOINT_NOTES.md
+git commit -m <span class="hljs-string">"docs: record confirmed search scope"</span>
+git status --short
+</code></pre><p>取消暂存后，暂存文件清单应为空，但正确的新句子仍在工作区；重新暂存并提交后，只剩<code>PERSONAL_NOTES.md</code>未提交。没有把所有改动捆成一包，才方便独立审阅和撤销。</p>
+<p>现实中，同一文件也可能混着多个任务的修改。先拆成小步最容易理解；需要时可使用<code>git add -p</code>按差异块选择，但仍要检查暂存diff，不能把“选了一部分”当作天然正确。本篇只练习按文件选择。</p>
+<h2 id="wiki-h-4">撤回未提交改动：先明确放弃的是哪一份内容</h2>
+<p>现在配色想法是本课故意制造的可丢弃文字。先看一遍，再恢复它：</p>
+<pre><code class="hljs language-bash">git diff -- PERSONAL_NOTES.md
+git restore --<span class="hljs-built_in">source</span>=HEAD --worktree -- PERSONAL_NOTES.md
+git status --short
+</code></pre><p>预期文件恢复到基线文字，工作区干净。这里明确指定从HEAD恢复工作区的这个文件，真正丢弃了尚未提交的那一行。对真实的未完成工作，应该先保留副本或整理成提交，而不是照搬这个练习。</p>
+<p>再做一个容易混淆的实验：把<code>CHECKPOINT_NOTES.md</code>中的状态改为“状态：搜索已经上线并通过验收。”，保存后检查：</p>
+<pre><code class="hljs language-bash">git diff -- CHECKPOINT_NOTES.md
+git restore --<span class="hljs-built_in">source</span>=HEAD --worktree -- CHECKPOINT_NOTES.md
+</code></pre><p>重新打开文件，应恢复为“规格已确认，搜索尚未实现”。这次错误从未提交，所以恢复文件即可。</p>
+<p>对照两种操作：<code>restore --staged</code>只是取消暂存，本篇指定<code>--source=HEAD --worktree</code>则用已提交版本覆盖工作区文件。默认不带<code>--source</code>的工作区恢复来源是暂存区；为了不让初学者混淆“从哪恢复”，这里始终写明来源。若同时有暂存和未暂存修改，先分别看两个diff再决定，不能凭命令名字猜作用。<a href="https://git-scm.com/docs/git-restore">git-restore文档</a></p>
+<h2 id="wiki-h-5">撤销已提交错误：留下修正记录</h2>
+<p>假设那个错误结论已经被提交，处理方式就不同了。再次用编辑器把状态改为：</p>
+<pre><code class="hljs language-text">状态：搜索已经上线并通过验收。
+</code></pre><p>这是教学反例，不是功能真的上线。只在当前练习仓库执行：</p>
+<pre><code class="hljs language-bash">git add CHECKPOINT_NOTES.md
+git commit -m <span class="hljs-string">"demo: record an intentionally wrong completion claim"</span>
+git status --short
+git <span class="hljs-built_in">log</span> -1 --oneline
+git show --<span class="hljs-built_in">stat</span> HEAD
+</code></pre><p>确认工作区干净、最新提交正是故意造出的错误，然后执行：</p>
+<pre><code class="hljs language-bash">git revert --no-edit HEAD
+git <span class="hljs-built_in">log</span> --oneline --max-count=4
+</code></pre><p><code>revert</code>创建一个新提交，用相反的改动抵消所选提交；原错误仍在历史里，可以看清它如何被修正。本实验里目标就是刚刚核对过的HEAD。真实项目如果错误在更早的提交，要先定位正确提交，不能机械地撤销最新版本。较复杂改动可能发生冲突，应停下来理解差异；尚未完成的revert可用<code>git revert --abort</code>退出。<a href="https://git-scm.com/docs/git-revert">git-revert文档</a></p>
+<p>预期现在总共有四条提交：基线、正确结论、故意错误、撤销错误。文件最终又写着“搜索尚未实现”。Git帮你恢复的是已记录的代码或文档状态；它不能退还已经调用模型的费用，也不能自动恢复被程序改过、但没有纳入版本的数据库。</p>
+<h2 id="wiki-h-6">用独立检查证明自己没有撤错</h2>
+<p>不要仅因为命令没有报错就认为练习完成。仍在<code>starter</code>目录，执行：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff main HEAD --name-only
+git diff main HEAD -- project SEARCH_SPEC.md search-cases.json audit_cases.py PERSONAL_NOTES.md
+git <span class="hljs-built_in">log</span> --oneline --max-count=4
+</code></pre><p>四个结果应分别是：无未提交文件；只有<code>CHECKPOINT_NOTES.md</code>与main不同；应用、规格、案例和临时想法文件无差异；历史保留四条记录。即使最终文件正确，错误提交与撤销提交依然可以在历史中看到。</p>
+<p>再运行包外层提供的只读检查脚本：</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 ../verify_checkpoints.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> ../verify_checkpoints.py
+</code></pre><p>预期显示“检查点练习通过：4次提交，工作区干净，应用与规格未变。”脚本检查固定练习目录、分支、提交父子关系、最终文件和各阶段差异，不运行应用、不修复仓库，也不创建提交。若你的文件或提交顺序与教程不同，它会给出未通过原因；不要为了凑结果在真实仓库里删除历史。</p>
+<p>作者在临时副本实际演练了这些命令，并检查：取消暂存仍保留工作区文字，文件恢复没有碰无关文件，错误提交被新提交抵消，忽略路径未进入基线。随后分别故意留下未跟踪文件、改动应用、破坏最终结论，确认独立脚本能拒绝这些错误状态。应用源码没有改变，本篇没有重新声称搜索或模型调用通过了测试。</p>
+<h2 id="wiki-h-7">把这套流程交给Kimi Code时，责任怎样分</h2>
+<p>完成练习后，可以把同样的检查习惯用于真实Agent任务。安装与登录已完成的读者可在自己的练习仓库运行<code>kimi --plan</code>，发送下面的审阅请求；它可能消耗Kimi额度，手工执行本篇不需要这一步。</p>
+<pre><code class="hljs language-text">先确认仓库根目录、当前分支、git status和本轮diff。
+只解释修改范围，不修改文件、不暂存、不提交、不撤销。
+区分本轮任务修改与原有未提交工作；无法确定归属就明确说明。
+核对CHECKPOINT_NOTES与SEARCH_SPEC的状态是否一致。
+不要读取运行data、个人配置或密钥，也不调用应用模型。
+最后给出建议的提交范围和仍需验证的事项，由我执行提交。
+</code></pre><p>当前文档与本机help均提供<code>--plan</code>，但规划模式不等于操作系统只读隔离；仍应核对实际动作。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html">Kimi Code命令文档</a></p>
+<p>下一次让Agent正式改代码时，先记录已存在的未提交工作；在干净或归属明确的起点开始，每次完成一个可验证的小目标，再审阅diff与检查结果，提交这个目标。提交说明写清结果，例如“限制历史搜索为当前会话问题字段”，比“AI修改”更方便日后定位。</p>
+<h2 id="wiki-h-8">遇到这些情况，先查原因</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>先检查什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>git</code>找不到，或不认识<code>switch</code>、<code>init -b</code></td>
+<td>Git是否安装、终端是否重开、版本是否过旧</td>
+</tr>
+<tr>
+<td>提交要求设置身份</td>
+<td>是否在starter里配置了本仓库的user.name和user.email</td>
+</tr>
+<tr>
+<td><code>git diff</code>为空，却知道改了文件</td>
+<td>是否已暂存，或文件仍是<code>??</code>未跟踪状态；分别看status和暂存diff</td>
+</tr>
+<tr>
+<td>取消暂存后新文字还在</td>
+<td>这是正确结果，取消选择不等于删除工作区修改</td>
+</tr>
+<tr>
+<td>切分支被拒绝</td>
+<td>本地修改可能被覆盖；先看状态并保存，不加强制参数硬切</td>
+</tr>
+<tr>
+<td>提交要求签名或触发自己配置的钩子</td>
+<td>这是本机配置影响，先看错误；不要为练习关闭其他真实项目的规则</td>
+</tr>
+<tr>
+<td>检查脚本不通过</td>
+<td>对照目录、分支、四次提交及文件内容，先定位第一项差异</td>
+</tr>
+</tbody></table></div>
+<p><code>git status --short</code>的两列分别描述暂存区与工作区状态：本篇常见<code> M</code>是未暂存修改，<code>M </code>是已暂存修改，<code>??</code>是未跟踪文件。终端会保留这些空格，阅读时别把它们混成同一种M。<a href="https://git-scm.com/docs/git-status">git-status文档</a></p>
+<p>最后想一想：Agent说“已经帮你回退了”，你应该看什么？至少看当前文件、工作区差异和提交历史，再运行对应验证。它如果只恢复了源码，却已经写过数据库，任务就不能仅凭Git状态干净宣布恢复完成。</p>
+<p>本篇完成后，你拥有一个可检查的起点和一段能解释的修改历史。下一篇根据已经确认的搜索规格拆分页面、业务与存储任务，开始把功能做出来；届时每个小步都有自己的差异和验证证据。</p>
+</article>

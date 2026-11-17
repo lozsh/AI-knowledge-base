@@ -1,0 +1,187 @@
+Introducing ChatGPT and Whisper APIs - Announcements - OpenAI Developer Community
+OpenAI Developer Community
+Introducing ChatGPT and Whisper APIs
+Announcements
+whisper
+logankilpatrick
+March 1, 2023,  6:18pm
+1
+Hey all, we are thrilled to share that the ChatGPT API and Whisper API are now available. We also shipped a new data usage guide and focus on stability to make our commitment to developers and customers clear.
+Read all the details in our latest blog post:
+Introducing ChatGPT and Whisper APIs
+anon10827405
+March 1, 2023,  6:33pm
+3
+Incredible! The price points are great, and I love the direction of structured conversations & metadata. Great work OpenAI!
+momchrysti
+March 1, 2023,  6:34pm
+4
+This is great! Any ideas on how we would use embeddings with the new 3.5 version? or Uploading text files to train it on?  the docs seem to indicate that it’s not possible on this model?
+raymonddavey
+March 1, 2023,  6:46pm
+5
+This is huge and suddenly make saas offerings cost effective. Can’t wait to try it.
+stochmal
+March 1, 2023,  6:53pm
+6
+changed model from “text-davinci-003” to “gpt-3.5-turbo” and getting error
+InvalidRequestError: Invalid URL (POST /v1/completions)
+using Python openai module
+“text-davinci-003” works fine?
+kaviraj008
+March 1, 2023,  7:05pm
+7
+Used python code from here:
+OpenAI API
+But getting Error: “AttributeError: module ‘openai’ has no attribute ‘ChatCompletion’”
+sps
+March 1, 2023,  7:09pm
+8
+Are you using the latest version of the module?
+sergeliatko
+March 1, 2023,  7:12pm
+9
+Probably the most exciting news of the Year up to date.
+PaulBellow
+March 1, 2023,  7:14pm
+10
+stochmal:
+InvalidRequestError: Invalid URL (POST /v1/completions)
+‘
+https://api.openai.com/v1/chat/completions
+’
+Got it working here…
+Screenshot 2023-03-01 at 14-19-53 Character Backstories LitRPG Adventures Workshop
+1903×966 80 KB
+$messages = array(
+(object) [
+‘role’ => ‘system’,
+‘content’ => “description of the chatbot / instructions”
+],
+(object) [
+‘role’ => ‘user’,
+‘content’ => “user input”
+]
+);
+$payload = array( “messages”=> $messages, “max_tokens”=> 100,“temperature”=> $temp, “top_p”=> $tp, “model”=> $model, “presence_penalty” => $qq,“frequency_penalty”=> $fp, “n”=> 1, “stream”=> false,  “stop”=> “<|endoftext|>”);
+$payload = json_encode($payload);
+curl_setopt($chx, CURLOPT_URL, “
+https://api.openai.com/v1/chat/completions
+”);
+curl_setopt($chx, CURLOPT_CUSTOMREQUEST, “POST”);
+etc etc etc…
+curt.kennedy
+March 1, 2023,  7:20pm
+11
+Love it!  My HuggingFace implementation of Whisper went kaput about a week ago, so fell back to AWS Transcribe (which sucks!).  Looking forward to using the API!
+raymonddavey
+March 1, 2023,  7:21pm
+12
+I wonder if it is premoderated like Chatgpt. I assume so.
+PaulBellow
+March 1, 2023,  7:26pm
+13
+I don’t think so? I’ve got my pre-moderation stuff hooked in, and I think docs say to still use it?
+I’m gonna test it with some old TD3 prompts soon… the chat is working great tho…
+And I’ve got 10,000 stored characters in a database !
+anon10827405
+March 1, 2023,  7:27pm
+14
+It’s not pre-moderated. I just closed all my tabs but one of the docs specifically mentions at the end that we still need to run it through the moderations endpoint first
+info.deckly
+March 1, 2023,  7:47pm
+15
+@logankilpatrick
+{
+"model": "gpt-3.5-turbo",
+"messages": [{"role": "user", "content": "Hello!"}]
+}
+I am using this body (the example they have on the documentation) to call ChatGPT API from my web application (
+bubble.io
+) but it’s returning
+{
+    "error": {
+        "message": "you must provide a model parameter",
+        "type": "invalid_request_error",
+        "param": null,
+        "code": null
+    }
+}
+Can you confirm that the endpoint might not be updated yet?
+logankilpatrick
+March 1, 2023,  7:56pm
+16
+Please share the full code snippet. The client library you are using might be out of date.
+info.deckly
+March 1, 2023,  7:59pm
+17
+Now it seems to work. It fixed automatically
+evoknow
+March 1, 2023,  8:23pm
+18
+info.deckly:
+gpt-3.5-turbo",
+This is excellent news. One question, we are using “code-davinci-002” for code generation prompts. Will gpt-3.5-turbo have code capabilities, or do we still need to use “code-davinci-002” for code?
+Thanks,
+AgusPG
+March 1, 2023,  8:25pm
+19
+This is truly awesome. Congrats to all the team
+@logankilpatrick
+. I have been trying it and we’re definitely switching to turbo 3.5, even for non-chat use cases. There are two things I’m particularly amazed by:
+A cost reduction of 90% in just three months, with an increasing number of users. Truly fascinating. Suddenly, all our bills are reduced by a factor of 10 while maintaining the same generation quality.
+The new ChatML language. It’s very clever to defend against prompt injection. And it makes way more sense from a conversational point of view. We still need to manage state and sessions on our end, but I was expecting that.
+You guys rock. No wonder why everybody is so thrilled with you.
+anon10827405
+March 1, 2023,  8:31pm
+20
+I’m curious regarding the metadata and roles. I’m assuming the ChatML documentation isn’t exactly useable yet as I cannot change roles or add metadata.
+Will there be a possibility for dynamic roles? For example, if GPT notices a question, it can set the role as QUERY for the back-end server to pick up and process. As of now it seems that we can set one of 3 roles, and that’s it.
+Or is this all part of a future update regarding metadata? It does seem like ChatML is for preventing third-party prompt injection, however I’m a bit sad that I can’t “prime” an answer using partial completion.
+To add, as of now I am making GPT prefix the response with a keyword and unique separator for my server to grab and perform logic on as such:
+{“role”: “user”, “content”: “Hi. My question is: When was the ChatGPT API released?”},
+{“role”: “assistant”, “content”: “QUERY|Can you provide information about the release date of ChatGPT API?”},
+Which QUERY| is caught by my server, and outputs the results as a system message
+{“role”: “system”, “content”: “ChatGPT API was released March 1, 2023”}
+Obviously this still opens me up for injection methods.
+I’m assuming this will be applicable in the future with metadata?
+next page →
+Related topics
+Topic
+Replies
+Views
+Activity
+GPT-3.5-turbo how to remember previous messages like Chat-GPT website
+API
+33
+101836
+November 17, 2023
+AMA on the 17th of December with OpenAI's API Team: Post Your Questions Here
+Community
+api
+,
+ama
+,
+shipmas
+191
+11171
+December 17, 2024
+New models and developer products announced at DevDay
+Announcements
+announcement
+68
+19443
+January 10, 2024
+OpenAI Why Are The API Calls So Slow? When will it be fixed?
+API
+102
+58873
+January 20, 2024
+Introducing gpt-realtime and Realtime API updates for production voice agents
+Announcements
+realtime
+,
+gpt-realtime
+34
+6498
+August 25, 2026

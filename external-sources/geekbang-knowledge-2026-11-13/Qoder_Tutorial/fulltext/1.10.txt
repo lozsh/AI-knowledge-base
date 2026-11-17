@@ -1,0 +1,103 @@
+这张表把本教程涉及的、以及日常最常用的命令汇总到一起，方便你日后随手翻查。不用背——忘了就回来查，或者在 Qoder 里敲 /help 和 /（看弹出的命令列表），效果一样。
+
+在终端里启动 / 恢复 Qoder
+
+这些是你在系统终端（不是对话框里）敲的命令：
+
+命令	作用
+qoder	在当前目录启动 Qoder
+qoder --version	查看版本
+qoder update	升级到最新版
+qoder -r	列出历史会话，选一个恢复（继续以前的对话）
+qoder -r <会话id>	直接恢复指定 id 的会话
+qoder mcp add <名字> -- <命令>	添加一个 MCP 服务，例：qoder mcp add playwright -- npx -y @playwright/mcp@latest
+qoder mcp list	查看已安装的 MCP 服务
+qoder mcp remove <名字>	删除某个 MCP 服务
+在对话框里敲的斜杠命令
+
+进入 Qoder 后，在对话输入框里敲下面这些 / 命令。
+
+会话管理
+命令	作用
+/new	开一段全新对话
+/clear	清空当前上下文（人还留在本会话）
+/compact	把冗长历史压缩成摘要，给上下文瘦身
+/continue	接着上一次的对话继续
+/resume	从历史会话列表里挑一个恢复
+/rename	给当前对话改名
+/branch	从当前对话分叉出一条新对话
+/export	导出/保存整段对话
+/rewind	打开检查点列表，撤销回到某个节点（可只恢复对话 / 只恢复文件 / 两者都恢复）
+/quit	退出 Qoder
+模式与任务
+命令	作用
+/plan	进入计划模式：只读、只出方案、不改代码，等你批准
+/tasks	查看当前任务清单
+/kanban	以看板形式查看任务进度
+/goal	设定一个目标
+/loop	循环执行某类任务
+模型与思考强度
+命令	作用
+/model	切换使用的模型
+/effort	调整思考强度（难题调高、简单活调低）
+/fast	偏向快速响应的挡位
+/context-window	查看/管理上下文窗口
+代码
+命令	作用
+/diff	查看本轮改了哪些地方
+/review	对代码做一次审查
+/init	扫描项目并生成/更新 AGENTS.md 项目约定
+/setup-github	引导配置 GitHub 关联
+工具与扩展
+命令	作用
+/skills	查看可用的 skills（技能）
+/agents	查看/管理子代理
+/mcp	查看 MCP 服务状态；/mcp reload 重新加载
+/memory	查看记忆文件；/memory manage 编辑/删除记忆
+/tools	查看可用工具
+/hooks	查看/管理钩子（进阶）
+/plugins	查看/管理插件（进阶）
+/marketplace	逛技能/插件市场
+/commands	查看自定义命令
+常用内置 Skills（技能）
+命令	作用
+/debug	系统化排查 bug
+/verify	验证改动是否真的成立、跑测试把关
+/simplify	在不改变行为的前提下简化、整理代码
+/security-scan	对代码做安全扫描
+/run	把项目跑起来
+/remember	把某条信息存进记忆
+/batch	批量处理任务
+/mcp-config	引导式配置 MCP 服务
+账号与设置
+命令	作用
+/permissions	管理权限规则；标准权限名见第 3 章 3.8
+/settings	打开设置
+/login /logout	登录 / 登出
+/status	查看当前状态
+/usage	查看用量
+/help	帮助（忘了能敲啥就敲它）
+/docs	查看文档
+/shortcuts	查看快捷键
+权限模式速记
+模式	行为	建议
+default	每次改文件、跑命令前都问你	新手期首选
+auto	自动评估部分工具请求，具体受规则约束	先查清本机授权
+accept_edits	文件改动自动放行	建立信任后提速
+dont_ask	不交互询问；未获允许的请求可能被拒绝	自动化前先验证规则
+bypass_permissions	跳过权限审批	本课程不需要
+关键文件位置速记
+文件 / 目录	作用
+<项目>/AGENTS.md	项目级约定（团队共享）
+~/.qoder/AGENTS.md	用户级约定（对你所有项目生效）
+<项目>/.qoder/rules/	更细粒度的规则文件
+<项目>/.qoder/agents/ 、~/.qoder/agents/	自定义子代理
+~/.qoder/skills/	自定义 skills
+~/.qoder/settings.json	用户级设置
+<项目>/.qoder/settings.json	项目级设置（可共享）
+<项目>/.qoder/settings.local.json	本地设置（优先级最高，不提交）
+<项目>/.mcp.json	项目级 MCP 配置（可共享）
+
+设置优先级（从高到低）：本地 > 项目 > 用户 > 内置默认。
+
+说明：命令与路径以官方文档为准，新版本可能有增减。拿不准时，敲 /help 或查阅 https://docs.qoder.com 最靠谱。

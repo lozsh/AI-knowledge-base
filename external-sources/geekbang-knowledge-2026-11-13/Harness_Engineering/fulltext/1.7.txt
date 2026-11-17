@@ -1,0 +1,327 @@
+预计阅读与操作时间：50～65 分钟
+本篇目标：让 ShelfCare 暴露健康状态、结构化请求日志、浏览器事件和可定位的 DOM 状态，并用一个可控搜索故障完成从用户现象到代码位置的诊断。
+
+配套代码说明
+
+本篇加入 assets/lesson-06-observability/，为“运行中的应用”补齐四类证据。它改动最多，但每一处都对应一个可诊断的问题：
+
+lesson-06-observability/
+├── server.js                  # 结构化 JSON 日志 + /health 端点 + 请求 ID
+├── scripts/
+│   ├── doctor.js              # 终端健康检查：/health + /api/books
+│   ├── setup.js               # 必需文件清单加入 OBSERVABILITY.md、doctor.js
+│   └── check.js               # 新增 diagnostic syntax 阶段
+├── public/
+│   ├── index.html             # 加入 #runtime-status 状态节点
+│   └── app.js                 # 浏览器事件日志 + 显式故障注入
+├── docs/OBSERVABILITY.md      # 运行证据地图
+└── package.json               # 新增 npm run doctor
+
+
+各文件实现的功能：
+
+server.js 把日志改成稳定的 JSON 事件：server_started（含 url、pid）、request_completed（含 requestId、method、path、statusCode、durationMs）、request_failed（含同一个 requestId，可与 500 响应关联）。新增 GET /health 返回 {"status":"ok","books":8}。日志只记请求元数据，不记搜索词、图书内容、Cookie 或文件路径。
+scripts/doctor.js 是终端侧诊断入口：读取 APP_URL（默认 127.0.0.1:3000），依次请求 /health 和 /api/books，校验两者图书数一致后输出“Server-side diagnostics passed.”。它明确只覆盖服务端，不假装验证了浏览器。
+public/index.html 加入一个视觉上隐藏、但语义可读的 #runtime-status 节点：data-state（loading/ready/error）、data-visible-count、data-filters，且是 aria-live 区域，对辅助技术同样有意义。
+public/app.js 在浏览器侧补上过程证据：books_loaded、books_rendered（含 totalCount、visibleCount、filters）等 JSON 事件；currentBooks() 里实现了一个显式故障注入——仅当 URL 带 ?fault=search-empty 且搜索词非空时，把关键词替换成不可能命中的值，并发出 client_fault_active 警告。这个故障是 opt-in 的，正常地址不受影响，专用于练习“从现象追到代码”的诊断闭环。
+docs/OBSERVABILITY.md 是一张“证据地图”：把每个问题（服务是否启动、请求是否到达、能否读数据、浏览器加载了什么、用了什么筛选条件）对应到具体的日志事件或 DOM 属性。
+
+整套设计的核心是“证据相互印证、互不替代”：/health 返回 200 不代表搜索正确，一张截图也看不出控制台错误；只有把服务端日志、DOM 状态、浏览器事件串起来，才能从“页面显示 0 本书”一路定位到 public/app.js 的 currentBooks()。
+
+第五篇给标签任务加了机器验收，但验收脚本仍然只看文件和纯逻辑。真实页面出问题时，Agent 还可能面对一句非常模糊的报告：“我一搜索，书全没了。”
+
+仅有源码时，它只能猜：是数据没读到，API 返回空数组，还是浏览器筛选错了？如果每次都要人替它打开页面、复制日志、解释当前状态，Agent 就没有真正接手运行中的应用。
+
+OpenAI 的 Harness Engineering 案例中，团队不仅让 Codex 读代码，还让每个工作区的应用、DOM、截图、日志和指标对 Agent 可用。这样 Agent 才能复现用户现象并验证修复。官方案例
+
+ShelfCare 不需要搭一套监控平台。我们只增加足够完成本地诊断的四类证据。
+
+不同证据回答不同问题
+
+先别急着“多打日志”。诊断时最有用的是知道每类证据能证明什么。
+
+证据	最适合回答	不能单独证明
+截图	用户看到了什么、布局是否异常	元素语义、请求原因、内部状态
+DOM 与可访问性状态	控件、文本、属性和当前页面状态	服务端为何返回这些数据
+浏览器控制台	前端加载、事件、异常和筛选过程	服务是否整体健康
+服务端日志	请求是否到达、状态码、耗时和错误	用户最终看到什么
+健康与诊断命令	关键依赖能否工作、数据是否可读	每一条用户路径都正确
+
+它们应该相互印证，而不是互相替代。/health 返回 200，不代表搜索正确；一张看起来正常的截图，也不能证明浏览器控制台没有错误。
+
+加入可观测性资产
+
+确认 shelfcare-lab 位于干净的 main，第五篇验收契约已经提交：
+
+git status --short --branch
+git log -1 --oneline
+
+
+复制本篇资产。
+
+macOS 或 Linux：
+
+cp -R ../assets/lesson-06-observability/. .
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force ..\assets\lesson-06-observability\* .
+
+
+主要变化包括：
+
+server.js                 结构化启动、请求与错误日志；/health
+scripts/doctor.js         从终端检查健康与图书 API
+public/index.html         #runtime-status 状态节点
+public/app.js             浏览器事件与可控故障
+docs/OBSERVABILITY.md     运行证据地图
+
+
+package.json 新增 npm run doctor，setup 与 check 也同步知道这些新文件。产品规则没有改变，标签筛选依然尚未实现。
+
+先看服务端是否“活着”
+
+在第一个终端运行：
+
+npm run dev
+
+
+启动信息现在是一行 JSON，示例：
+
+{"timestamp":"2026-09-23T12:00:00.000Z","level":"info","event":"server_started","url":"http://127.0.0.1:3000","pid":12345}
+
+
+时间和进程号会不同。结构化日志的价值不是看起来高级，而是字段稳定：Agent 可以直接找 event=server_started 和 url，不用从不同措辞里猜地址。
+
+保持服务运行，在第二个终端进入同一仓库，运行：
+
+npm run doctor
+
+
+预期输出：
+
+[doctor] Target: http://127.0.0.1:3000
+[doctor] Health: ok; books=8
+[doctor] API: ok; returned 8 books
+[doctor] Server-side diagnostics passed.
+
+
+第一个终端同时会多出两条 request_completed 日志，分别对应 /health 和 /api/books，包含状态码、耗时与请求 ID。
+
+这条证据链说明：进程已启动，服务能读取 data/books.json，图书 API 返回 8 本书。它仍没有证明浏览器渲染或搜索逻辑正确，doctor 也明确把自己称为 server-side diagnostics。
+
+使用自定义端口
+
+如果服务运行在 3100，诊断命令也要指向同一地址。
+
+macOS、Linux 或 Git Bash：
+
+APP_URL=http://127.0.0.1:3100 npm run doctor
+
+
+Windows PowerShell：
+
+$env:APP_URL="http://127.0.0.1:3100"
+npm run doctor
+
+
+若忘记同步，doctor 会明确报告连接失败，而不是笼统地说项目坏了。
+
+读懂结构化请求日志
+
+浏览器打开 http://127.0.0.1:3000。服务端终端会出现若干日志，例如：
+
+{"level":"info","event":"request_completed","requestId":"8a2f91c0","method":"GET","path":"/api/books","statusCode":200,"durationMs":1.2}
+
+
+日志没有记录搜索词、图书内容、Cookie 或文件绝对路径，只保留本地诊断所需的请求元数据。即便是个人项目，也不要养成把完整请求、凭据和用户输入全部打印出来的习惯。
+
+如果 /api/books 读取数据时抛出异常，服务端会先产生 request_failed，返回的 500 响应中也包含同一个 requestId。这样 Agent 可以把一次失败响应与对应日志连起来。
+
+当前应用很小，日志直接写终端就够了。更大项目可以把同样的 JSON 行交给日志系统，但核心仍然是稳定事件名、可关联 ID 和必要字段，不是具体平台。
+
+让页面状态进入 DOM
+
+打开浏览器开发者工具的 Elements 面板，搜索 runtime-status。你会看到一个视觉上隐藏的节点，加载完成后类似：
+
+<p
+  id="runtime-status"
+  data-state="ready"
+  data-visible-count="8"
+  data-filters='{"keyword":"","status":"all"}'
+>
+  应用就绪，显示 8 本书
+</p>
+
+
+它没有为了自动化污染可见界面，同时也不是毫无语义的隐藏标记：节点使用 aria-live，加载和错误状态可以被辅助技术感知。
+
+浏览器工具或 DOM 快照现在可以直接回答：
+
+应用仍在 loading、已经 ready，还是进入 error；
+当前渲染多少本书；
+搜索和状态筛选的当前值是什么。
+
+这比让 Agent 根据截图数卡片可靠得多，也比从内部变量猜页面状态更接近用户实际看到的结果。
+
+浏览器事件补上过程证据
+
+切到开发者工具的 Console，刷新页面。应看到 JSON 格式的事件：
+
+{"source":"browser","level":"info","event":"books_loaded","count":8}
+{"source":"browser","level":"info","event":"books_rendered","totalCount":8,"visibleCount":8,"filters":{"keyword":"","status":"all"}}
+
+
+输入“Martin”，第二条事件的 visibleCount 应变成 2，filters.keyword 应是 martin。
+
+DOM 状态告诉你“现在是什么”，事件日志告诉你“怎样走到这里”。两者结合，Agent 可以判断数据已经加载，但某次筛选之后可见数量异常。
+
+如果你的编码 Agent 没有浏览器或 DOM 工具，不要假装它已经拥有这些证据。你可以由人打开页面并把相关 DOM、控制台事件或截图交给它；也可以为工具接入受控浏览器。npm run doctor 只能覆盖服务端，不能替代这一层。
+
+注入一个可重复的搜索故障
+
+现在做本篇的核心练习。不要修改代码，直接打开：
+
+http://127.0.0.1:3000/?fault=search-empty
+
+
+页面初始仍显示 8 本书。输入“Martin”后，页面会错误地显示 0 本，并出现空状态。
+
+这个故障通过查询参数显式开启，只影响当前 URL；正常地址不受影响。这样每个人都能复现同一种现象，也能随时移除参数恢复。
+
+按下面的顺序收集证据，不要一看到零结果就直接搜索代码。
+
+第一步：确认用户现象
+
+页面结果摘要应为“共找到 0 本书”。截图可以证明视觉结果，但继续检查 #runtime-status：
+
+data-state="ready"
+data-visible-count="0"
+data-filters 包含 keyword=martin、status=all
+
+
+这说明应用不是加载失败，而是在 ready 状态下得出了零结果。
+
+第二步：排除服务端数据问题
+
+在第二个终端运行：
+
+npm run doctor
+
+
+它仍应报告 API 返回 8 本书。服务端日志中的 /api/books 也是 200。问题范围因此缩小到浏览器加载数据之后。
+
+第三步：检查浏览器事件
+
+Console 中应出现：
+
+{"source":"browser","level":"warn","event":"client_fault_active","mode":"search-empty"}
+
+
+紧接着的 books_rendered 会显示 totalCount: 8、visibleCount: 0。这已经给出很强的判断：数据存在，筛选阶段将结果归零，而且有一个名为 search-empty 的故障模式。
+
+第四步：从稳定事件名回到代码
+
+在仓库根目录搜索：
+
+rg "client_fault_active|search-empty" public
+
+
+如果没有安装 rg，使用编辑器的全局搜索。结果会定位到 public/app.js 的 currentBooks()。你会看到只有在 URL 显式携带该故障参数且搜索词非空时，匹配关键词才被替换成一个不可能命中的值。
+
+第五步：移除故障并复验
+
+回到正常地址：
+
+http://127.0.0.1:3000/
+
+
+再次搜索“Martin”，应恢复为 2 本。client_fault_active 不再出现，DOM 的 data-visible-count 为 2。
+
+到这里才形成闭环：复现现象、排除服务端、找到前端事件、定位代码、移除触发条件、验证恢复。
+
+让 Agent 独立走一次诊断链
+
+如果 Agent 有浏览器工具，让它直接处理下面的任务：
+
+不要修改代码。请诊断这个现象：
+打开 http://127.0.0.1:3000/?fault=search-empty 后搜索 Martin，页面显示 0 本书。
+请依次给出用户界面证据、DOM 状态、浏览器事件、服务端诊断和代码定位；说明故障在哪一层，以及移除故障参数后如何确认恢复。
+
+
+如果 Agent 没有浏览器工具，就向它提供截图、#runtime-status 节点和两条浏览器事件，再让它运行 npm run doctor 与代码搜索。不要只发一句“页面不工作”。
+
+合格诊断应包含：
+
+UI 确实为 0 本；
+DOM 处于 ready 而不是 error；
+API 仍有 8 本书；
+浏览器事件显示故障模式在客户端生效；
+代码位置是 public/app.js；
+正常 URL 搜索 Martin 恢复 2 本；
+全程不需要修改数据或重启到另一个不明状态。
+验证改造没有破坏主线
+
+先停止开发服务器，再运行：
+
+npm run setup
+npm run check
+
+
+两条命令都应通过。标签任务验收仍然应该失败，因为本篇没有实现标签筛选：
+
+npm run accept:tag-filter
+
+
+确认失败仍指向缺少标签控件和筛选接口，而不是本篇新增日志或状态节点。
+
+然后审查改动：
+
+git status --short
+git diff --check
+git diff --stat
+git diff -- server.js public scripts docs AGENTS.md package.json
+
+
+重点确认：没有把 ?fault=search-empty 设成默认状态，没有在日志中加入敏感数据，也没有修改受保护的标签验收和产品规则。
+
+提交：
+
+git add server.js public scripts package.json AGENTS.md docs
+git commit -m "feat: expose local runtime diagnostics"
+git status --short --branch
+
+常见阻塞
+doctor 报 fetch failed
+
+先确认另一个终端里的 npm run dev 仍在运行，再核对端口。若服务使用 3100，APP_URL 也必须是 3100。不要把连接失败误判成 API 返回错误。
+
+服务端终端没有 request_completed
+
+确认访问的是 127.0.0.1 上当前进程打印的 URL，而不是另一个旧服务。可以对照 server_started 中的 pid，停止所有旧 ShelfCare 进程后重新启动。
+
+Console 里看不到 JSON 事件
+
+先刷新页面，确认 Console 没有按级别隐藏 Info 或 Warnings。若页面缓存了旧 app.js，执行一次强制刷新。不要先改日志代码。
+
+DOM 有 runtime-status，但仍是 loading
+
+打开 /api/books 并查看 Console。如果 API 失败，状态最终应变为 error；如果一直 loading 且无错误，检查脚本是否实际加载以及 defer 是否仍在 index.html 中。
+
+用截图能不能代替所有检查
+
+不能。截图适合证明视觉现象，却看不到隐藏状态、请求 ID和异常堆栈。对当前故障，至少还需要 DOM、浏览器事件与服务端诊断中的两类证据来缩小范围。
+
+本篇留下了什么
+
+ShelfCare 现在有了一条可重复的运行诊断链：
+
+用户现象
+  -> DOM 状态与浏览器事件
+  -> /health、/api/books 与请求日志
+  -> 稳定事件名定位代码
+  -> 移除故障后重新验证
+
+
+Agent 不再只能从源码推测页面发生了什么，也能明确说出每条证据证明到哪一层。下一篇会处理另一类问题：即使 Agent 看得见一切，它仍可能走捷径、跨过架构层或扩大权限。我们会把这些关键不变量从文字升级成可执行约束。

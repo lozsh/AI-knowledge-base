@@ -1,0 +1,338 @@
+预计阅读时间：40～50 分钟
+本篇目标：把 Jev 返回的三个独立判断交给普通代码组合，生成明确、可测试的处理建议。
+
+上一篇完成了 Decision Inbox 的第一版。decisions.json 中已经有分类、紧急程度和行动请求概率，但它仍然只是一组原始判断。真正的应用还要回答一个更实际的问题：这条留言下一步该进入哪个队列？
+
+这一步不应该再交给模型“自由发挥”。Jev 负责理解语言，代码负责组合规则。我们会保留已有的 decision_inbox.py，再增加一个纯本地的策略层。这样修改处理规则时不必重复调用 API，也能用单元测试验证边界情况。
+
+官方把这种模式概括为：一次提出多个独立问题，再用确定性代码组合答案并路由。可参考 System One 文档 中的工作流说明。
+
+多个问题不是一条隐藏的思维链
+
+上一篇在一次请求中提交了三项问题：
+
+category          主要属于哪一类？
+urgency           有多紧急？
+action_requested  是否明确要求采取行动？
+
+
+它们共享同一份 state，但彼此独立。urgency 不会先读取 category 的答案，action_requested 也不会自动参考前两个结果。
+
+这正适合我们的项目。三个问题负责描述留言的不同侧面，组合关系留在代码中：
+
+Jev：从自然语言中提取三个带不确定性的判断
+代码：根据明确规则生成 queue、priority 和 suggested_action
+
+
+如果让模型直接回答“请综合所有信息决定怎么处理”，虽然写起来更短，后续却很难回答：
+
+为什么它进入了今天处理队列？
+改变紧急阈值时要修改哪里？
+怎样只测试路由规则而不再次调用 API？
+某次判断错误，究竟错在语言判断还是业务规则？
+
+拆开以后，这些问题都有明确答案。
+
+先把处理政策写成人能检查的规则
+
+第一版路由只做三件事：
+
+条件	队列	含义
+明确要求行动，而且紧急	today	今天优先查看
+明确要求行动，但不紧急	follow_up	安排后续处理
+没有明确行动请求	read_only	只阅读或归档
+
+我们暂时采用两条演示阈值：
+
+urgency_score >= 1.5 视为紧急；
+action_requested_probability >= 0.5 视为有行动请求。
+
+这两个数不是 Jev 官方推荐的通用阈值，也不是经过评估后的生产配置，只是为了先跑通组合流程。第 6 篇会把 0.5 附近的不确定结果拦下来，第 7 篇再用自己的数据调整阈值。
+
+另外，分类只决定把消息标记为哪个主题，不直接决定是否执行动作。账单消息不一定紧急，反馈消息也可能明确要求回复。不要让一个字段承担它没有表达的含义。
+
+建立独立的策略模块
+
+在 ~/jev-course/decision-inbox 中新建 decision_policy.py：
+
+URGENCY_THRESHOLD = 1.5
+ACTION_REQUEST_THRESHOLD = 0.5
+
+
+def build_recommendation(record: dict) -> dict:
+    judgment = record["judgment"]
+
+    category = judgment["category"]
+    urgency_score = judgment["urgency_score"]
+    action_probability = judgment["action_requested_probability"]
+
+    is_urgent = urgency_score >= URGENCY_THRESHOLD
+    action_requested = action_probability >= ACTION_REQUEST_THRESHOLD
+
+    if is_urgent and action_requested:
+        queue = "today"
+        priority = "high"
+        suggested_action = "review_and_reply"
+    elif action_requested:
+        queue = "follow_up"
+        priority = "normal"
+        suggested_action = "review_and_reply"
+    else:
+        queue = "read_only"
+        priority = "low"
+        suggested_action = "read_or_archive"
+
+    reasons = [
+        f"category={category}",
+        f"urgency_score={urgency_score:.3f}",
+        f"action_requested_probability={action_probability:.3f}",
+    ]
+
+    return {
+        **record,
+        "recommendation": {
+            "topic": category,
+            "queue": queue,
+            "priority": priority,
+            "suggested_action": suggested_action,
+            "reasons": reasons,
+        },
+    }
+
+
+这个文件没有导入 TypeSafe SDK，也没有读写文件。它只是一个“输入字典，返回字典”的普通 Python 函数。
+
+这里故意没有把 reasons 写成自然语言解释。Jev 本身不会生成推理说明，而我们的理由只是代码实际使用的字段和值。它们足以帮助排查路由规则，又不会把模型没有提供的“思考过程”编造出来。
+
+把策略应用到全部判断结果
+
+再新建 route_inbox.py：
+
+import json
+from artifact_io import load_artifact, save_artifact
+from pathlib import Path
+
+from decision_policy import build_recommendation
+
+
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_FILE = BASE_DIR / "output" / "decisions.json"
+OUTPUT_FILE = BASE_DIR / "output" / "routed_inbox.json"
+
+
+def load_decisions(path: Path) -> list[dict]:
+    if not path.exists():
+        raise FileNotFoundError(
+            "找不到 output/decisions.json，请先运行 decision_inbox.py"
+        )
+
+    data = load_artifact(path)
+
+    if not isinstance(data, list):
+        raise ValueError("decisions.json 顶层必须是数组")
+
+    for index, item in enumerate(data, start=1):
+        if not isinstance(item, dict) or "judgment" not in item:
+            raise ValueError(f"第 {index} 条结果缺少 judgment")
+
+    return data
+
+
+def main() -> None:
+    decisions = load_decisions(INPUT_FILE)
+    routed = [build_recommendation(item) for item in decisions]
+
+    queue_order = {"today": 0, "follow_up": 1, "read_only": 2}
+    routed.sort(
+        key=lambda item: (
+            queue_order[item["recommendation"]["queue"]],
+            -item["judgment"]["urgency_score"],
+        )
+    )
+
+    save_artifact(OUTPUT_FILE, routed, INPUT_FILE)
+
+    counts = {"today": 0, "follow_up": 0, "read_only": 0}
+    for item in routed:
+        counts[item["recommendation"]["queue"]] += 1
+
+    print(f"已生成：{OUTPUT_FILE}")
+    print("队列统计：", counts)
+
+
+if __name__ == "__main__":
+    main()
+
+
+这个脚本不访问网络，也不需要 API Key。它读取上一篇已经保存的判断结果，应用策略，排序后写入新文件。
+
+这里使用两个排序条件：先按队列排列，再让同一队列中紧急分数较高的消息靠前。排序本身属于确定性工作，用普通代码完成比再询问一次模型更合适。
+
+先用单元测试验证规则
+
+不要急着对真实输出运行。策略函数的好处是，可以先用完全由我们控制的数据测试它。
+
+新建 test_decision_policy.py：
+
+import unittest
+
+from decision_policy import build_recommendation
+
+
+def make_record(urgency: float, action_probability: float) -> dict:
+    return {
+        "id": "test-message",
+        "source": "test",
+        "text": "test content",
+        "judgment": {
+            "category": "other",
+            "category_probabilities": {"other": 1.0},
+            "category_confidence": 1.0,
+            "urgency_score": urgency,
+            "urgency_confidence": 1.0,
+            "action_requested_probability": action_probability,
+        },
+    }
+
+
+class DecisionPolicyTests(unittest.TestCase):
+    def test_urgent_action_goes_to_today(self) -> None:
+        result = build_recommendation(make_record(1.8, 0.9))
+        self.assertEqual(result["recommendation"]["queue"], "today")
+        self.assertEqual(result["recommendation"]["priority"], "high")
+
+    def test_nonurgent_action_goes_to_follow_up(self) -> None:
+        result = build_recommendation(make_record(0.6, 0.9))
+        self.assertEqual(result["recommendation"]["queue"], "follow_up")
+
+    def test_message_without_action_is_read_only(self) -> None:
+        result = build_recommendation(make_record(1.8, 0.2))
+        self.assertEqual(result["recommendation"]["queue"], "read_only")
+
+    def test_threshold_boundary_is_inclusive(self) -> None:
+        result = build_recommendation(make_record(1.5, 0.5))
+        self.assertEqual(result["recommendation"]["queue"], "today")
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+运行测试。
+
+macOS 或 Linux：
+
+python -m unittest -v test_decision_policy.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe -m unittest -v test_decision_policy.py
+
+
+期望看到四个测试均为 ok，结尾类似：
+
+Ran 4 tests in ...
+
+OK
+
+
+这里测试的是“当输入数值已知时，代码是否按规则路由”，不是测试 Jev 能否正确理解自然语言。模型质量与策略正确性需要分开验证。
+
+最后一项边界测试尤其有用。代码中的 >= 意味着恰好等于阈值时也会进入对应分支；如果你的政策不是这个意思，测试能迫使你把边界说清楚。
+
+生成路由后的收件箱
+
+测试通过后运行：
+
+macOS 或 Linux：
+
+python route_inbox.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe route_inbox.py
+
+
+终端会显示三个队列各有多少条消息。数量由你上一次的真实判断结果决定，不要求与教程作者完全相同。
+
+打开 output/routed_inbox.json，每条消息应该在原有 judgment 之外多出一个 recommendation：
+
+{
+  "recommendation": {
+    "topic": "scheduling",
+    "queue": "today",
+    "priority": "high",
+    "suggested_action": "review_and_reply",
+    "reasons": [
+      "category=scheduling",
+      "urgency_score=1.862",
+      "action_requested_probability=0.941"
+    ]
+  }
+}
+
+
+具体分类和小数只是示意。检查结构时，用下面的独立命令：
+
+macOS 或 Linux：
+
+python -c "import json; d=json.load(open('output/routed_inbox.json', encoding='utf-8')); assert d; assert all('recommendation' in x for x in d); assert all(x['recommendation']['queue'] in {'today','follow_up','read_only'} for x in d); print('routing verified')"
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe -c "import json; d=json.load(open('output/routed_inbox.json', encoding='utf-8')); assert d; assert all('recommendation' in x for x in d); assert all(x['recommendation']['queue'] in {'today','follow_up','read_only'} for x in d); print('routing verified')"
+
+
+看到 routing verified，说明每条消息都已获得合法队列。再人工查看四条结果，问自己：即使某个标签判断错了，我能否从 judgment 和 reasons 中定位错在模型还是策略？
+
+为什么不直接把结果写回原文件
+
+我们保留了三层产物：
+
+messages.json                原始输入
+output/decisions.json        Jev 的原始判断
+output/routed_inbox.json     普通代码组合后的建议
+
+
+看起来多了一个文件，却带来三个实际好处：
+
+修改阈值时，只需重新运行 route_inbox.py，不会重复消耗 API 调用；
+路由异常时，可以对照原始判断，知道问题出现在哪一层；
+第 7 篇评估模型时，可以直接使用未被业务规则加工过的结果。
+
+真实系统未必用 JSON 文件，可能换成数据库表或消息队列，但“保存原始判断”和“保存业务决策”仍值得分开。
+
+当前策略还有一个明显漏洞
+
+假设 action_requested_probability 是 0.501。按照当前规则，它会被当成“有行动请求”；如果是 0.499，就会被当成“没有”。两个几乎一样、不确定性很高的结果，却走向完全不同的队列。
+
+category 和 urgency 也有同样的问题：我们虽然保存了 confidence，策略却还没有使用它。现在的代码只会“做决定”，不会说“我不确定”。
+
+这正是下一篇要修复的地方。我们会增加第四个队列 manual_review，把低置信度和落在模糊区间的 Noul 挡在自动路径之外，并明确高风险动作不能只凭模型判断直接执行。
+
+完成本篇的验收
+
+项目目录现在应增加三个文件：
+
+decision-inbox/
+├── decision_policy.py
+├── route_inbox.py
+├── test_decision_policy.py
+└── output/
+    ├── decisions.json
+    └── routed_inbox.json
+
+
+确认你已经做到：
+
+能说明多个 Jev 问题彼此独立，而组合逻辑在普通代码中完成；
+decision_policy.py 不访问网络，也不依赖 SDK；
+四个策略测试全部通过；
+route_inbox.py 能基于已有判断重复运行，不产生新的 API 调用；
+每条结果保留原始判断和明确的路由理由；
+当前程序只生成建议，不会自动回复、付款、删文件或执行其他外部动作。
+
+下一篇完成后，这条工作流才会拥有真正重要的第四种结果：暂不自动决定。

@@ -1,0 +1,66 @@
+<!DOCTYPE html><meta charset="utf-8"><article><div class="wiki-callout"><strong>一句话成果</strong>：借助 Codex 搭建“即刻成文”，将自己日常图文笔记的排版制作，从过去约 20 分钟的格式调整，缩短到约 2 分钟完成生成、检查、修改和下载。</div><hr>
+<p><img class="wiki-lazy-img" alt="“即刻成文”产品封面：粘贴内容、自动排版、一键导出" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-product-cover.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1" src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-product-cover.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c&amp;x-oss-process=image/quality,q_85/format,webp"></p>
+<p>我是极客时间的李嫚嫚，日常会围绕热点和文章观点制作小红书图文笔记。过去，内容整理好后，我还需要使用稿定设计或小红书自动排版工具调整格式，大约花 20 分钟。2026 年 8 月 20 日，我开始借助 Codex 搭建“即刻成文”，到 9 月初，已经可以提供给同事使用。现在，我自己的文章观点类笔记都在通过这个网站制作，排版生成、预览检查、修改和下载合计约需 2 分钟。这是个人日常使用中的估计，前期资料整理、观点写作和最终发布仍由我完成。</p>
+<h2 id="wiki-h-0">内容已经准备好了，排版还要再花一轮时间</h2>
+<p>我经常遇到的一项任务，是热点出现后整理相关内容、提炼观点，再制作成适合小红书发布的图文笔记。</p>
+<p>这类任务需要尽快完成，但文字写好以后，还要把它变成一组可以阅读的图片。内容长了，需要分成多页；加入插图后，还要考虑文字与图片怎样安排，以及整组图片的尺寸和样式是否统一。</p>
+<p>以前，我主要使用稿定设计和小红书自动排版工具。在自己的任务中，我遇到的情况是：稿定设计调整格式比较耗时，小红书自动排版则经常出现格式问题，需要继续修改。内容整理完成后，排版大约还要花 20 分钟。</p>
+<p>当时，我经常看到同事们尝试用 AI 提效，也开始想：这项反复出现的工作，能不能做成一个可以重复使用的工具？</p>
+<p>我的需求很具体：使用者放入已经准备好的文字和插图，网站自动分页、排版，再导出统一尺寸的图文卡片。这样，下次遇到同类任务，就可以直接沿用这套制作方式。</p>
+<h2 id="wiki-h-1">我具体怎样把 AI 用进去</h2>
+<h3 id="wiki-h-2">第一步，把工作需求整理成网站要完成的流程</h3>
+<p>2026 年 8 月 20 日，我开始使用 Codex 搭建网站。</p>
+<p>这次实践中，Codex 帮助我开发工具。“即刻成文”承担的工作，则是把已有文字和插图排版成图片。因此，我需要向 AI 说明的，是使用者从输入内容到拿到成品，要经过哪些步骤。</p>
+<p>围绕这个目标，网站逐渐形成了一条基本流程：粘贴内容，查看自动分页结果，调整样式，再下载图片。</p>
+<p>在这个过程中，我负责提出实际使用要求：长文字需要完整呈现，图片能够参与排版，多张卡片保持统一尺寸，下载前可以查看效果。Codex 辅助完成网站的实现，再根据后续反馈继续调整。</p>
+<h3 id="wiki-h-3">第二步，做出第一版，再放回实际工作中看问题</h3>
+<p>网站最初的生成过程比较顺利，但第一版只能勉强运行，距离真正好用还有差距。后续需要处理的问题，主要集中在功能和排版细节上。</p>
+<p>这让我开始关注完整的制作结果。一段内容能显示出来，还需要看分页后是否适合阅读；功能可以操作，还需要看它能否帮助我顺畅完成一次图文制作。</p>
+<p>到了 9 月初，网站已经达到可以提供给同事使用的程度。此后，我继续在自己的笔记制作中使用它，也继续发现需要优化的地方。</p>
+<p><img class="wiki-lazy-img" alt="即刻成文操作界面：左侧输入与排版、中间预览与下载、右侧上传标识与一键下载" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-ui-preview.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><em>图注：输入文章后，网站自动分页，使用者可调整样式、查看预览并批量下载。</em></p>
+<h3 id="wiki-h-4">第三步，遇到插图换行问题，补充需求和参考图</h3>
+<p>后期优化中，令我印象最深的是插入图片后的换行问题。</p>
+<p>文字和图片需要共同组成一张可阅读的卡片。插图后换行表现异常，就会直接影响使用。这时，仅仅继续增加功能，并不能解决眼前的排版问题。</p>
+<p>我重新向 Codex 说明了自己的需求，又提供了几张优秀案例图，让它继续优化排版。经过后续调整，这个换行问题最终得到了解决。</p>
+<p>这次优化中，我补充的材料是自己的使用需求和参考图，Codex 辅助完成网站修改。参考图把期望效果呈现出来，帮助我更清楚地表达对页面安排的要求，也给后续调整提供了可以对照的方向。</p>
+<p>当时没有保留原始提示词，因此这里按回忆概述沟通过程。对我来说，这次经历中可以复用的方法，是把实际问题说清楚，并提供能帮助理解预期结果的材料。</p>
+<p>下面几张是当时提供给 AI 的参考图，围绕 Agent Harness 的公开讨论整理：</p>
+<p><img class="wiki-lazy-img" alt="参考图：极客时间关于 Agent Harness 与 dsh 路线的微博讨论" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-ref-harness-1.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="参考图：DeepSeek Harness 的三层运行结构" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-ref-harness-2.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="参考图：dsh 组装层开放的三个理解角度" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-ref-harness-3.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="参考图：一次 Turn 怎样由多个 Step 组成的流程" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-ref-turn-step.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="参考图：Agent 运行过程中的 Session 日志与界面投影" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-ref-session-log.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="参考图：Session Log 与“Model-visible means logged”运行约束" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-ref-article-log.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="参考图：Agent 从 Demo 走向工程的核心难题" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-ref-agent-eng.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<h3 id="wiki-h-5">第四步，让第一次使用的人也能完成制作</h3>
+<p>随着网站逐渐完善，我也开始考虑同事第一次打开它时的体验。</p>
+<p>作为搭建者，我知道功能在哪里、应该怎样操作，但第一次使用的人需要说明。因此，我加入了可以自由拖动的“极客喵”小客服，用来介绍功能、解答常见操作问题。</p>
+<p>这也是我对工具可用性的一个判断：使用者遇到疑问时，能够找到帮助，继续完成手里的任务。</p>
+<h2 id="wiki-h-6">有没有效果，我怎样判断</h2>
+<p>目前，“即刻成文”已经进入我自己的日常工作流程。文章观点类笔记，我都会通过这个网站制作。</p>
+<p>一篇讨论 AI 与软件使用门槛的观点文章，可以作为实际输出的例子。整篇内容最终导出了 5 张 PNG 图片，每张尺寸均为 1728×2304 像素，比例为 3∶4。</p>
+<p>从成品中可以看到，第一张包含极客时间的品牌信息和文章标题，后续卡片延续正文，重点观点通过加粗区分。一篇连续的文章，被整理成了一组可以按顺序阅读的图片。</p>
+<p><img class="wiki-lazy-img" alt="实际导出的图文卡片 1/5" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-output-card-1.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="实际导出的图文卡片 2/5" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-output-card-2.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="实际导出的图文卡片 3/5" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-output-card-3.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="实际导出的图文卡片 4/5" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-output-card-4.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><img class="wiki-lazy-img" alt="实际导出的图文卡片 5/5" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/3.1-output-card-5.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p><em>图注：一篇观点文章实际导出的 5 张卡片，每张尺寸为 1728×2304 像素。</em></p>
+<p>这些时间来自个人日常使用估计，具体耗时会受到内容长度和配图情况影响。2 分钟不包含前期资料整理和观点写作。</p>
+<p>这组 5 张成品展示的是实际输出结果，耗时描述依据的是我的日常使用经历。目前，我还不了解同事的实际使用情况，因此，案例中的效果主要依据我自己的持续使用体验。</p>
+<h2 id="wiki-h-7">哪里不好用，哪些判断仍需要人工完成</h2>
+<p>插图换行的问题，是这次开发中一个有代表性的难点。第一版能够运行后，仍然需要处理这些会影响最终使用的细节。</p>
+<p>通过这次优化，我更重视向 AI 提供具体材料。排版要求很容易停留在感受上，而参考图可以呈现期望效果。把问题和参考材料放在一起，更有助于推进调整。</p>
+<p>同时，自动生成图片之后，人工检查仍然必要。文字是否准确、图片是否完整、分页是否影响阅读，以及预览与下载结果是否符合需要，都需要使用者判断。</p>
+<p>目前，网站预览和最终下载结果已经基本保持一致，但具体内容仍可能需要继续调整。遇到插图安排不合适、文字层次不清楚或分页影响阅读的情况，也需要人工介入。</p>
+<p>这次经历让我意识到，自己对运营工作的理解能够帮助 AI 开发：我知道图文最终用在哪里，也能判断哪些问题会影响使用，再把这些判断转化为下一轮调整要求。</p>
+<h2 id="wiki-h-8">如果你也想做类似的事情，可以从哪里开始？</h2>
+<p>如果你的工作中，也经常需要把文章观点整理成成套图片，可以先拿一篇内容已经确认、配图不多的短文，到<a href="https://jike-chengwen.jike-chengwen-edy.workers.dev/">“即刻成文”</a>中完成一次制作。</p>
+<p>先粘贴内容，查看分页，再调整样式、下载图片，最后逐页检查。第一次尝试，重点是走完完整流程，判断它是否适合自己的工作。</p>
+<p>如果希望借助 AI 搭建自己的工具，可以先选择一项熟悉、反复出现的小任务，准备真实输入，明确希望得到的结果，再让 AI 帮助实现第一版。使用中遇到问题时，把问题、预期效果和参考材料一起补充给它，继续修改。</p>
+<p>作为一名文科背景的运营人员，我此前没有想过自己能够独自搭建网站。Codex 帮助我把想法推进到了可以使用的阶段，也让我开始尝试把工作经验沉淀成能够复用的工具。</p>
+<p>我还在探索实况照片、音频、可播放视频、多人编辑和多平台适配等方向。现阶段，最重要的是继续根据真实使用反馈，完善排版和图片处理。</p>
+<p>想开始尝试的同事，可以先选一篇短文，完成第一次制作。一次具体任务，就能帮助自己判断工具是否适用，也能为下一次优化提供清楚的反馈。</p>
+<p>体验入口：<a href="https://jike-chengwen.jike-chengwen-edy.workers.dev/">即刻成文</a></p>
+</article>

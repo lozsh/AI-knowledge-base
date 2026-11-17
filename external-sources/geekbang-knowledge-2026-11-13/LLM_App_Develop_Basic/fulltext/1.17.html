@@ -1,0 +1,300 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你把自己的笔记放进助手，问了三个问题，答案看起来都不错。于是你改了提示词，又换了几个字段，准备把项目交给朋友。第二天才发现：其中一个答案引用了真实原文，却把原文的意思说反了；另一次生成结束后页面刷新了，你也不知道是否又调用了一次模型。</p>
+<p>走到这里，项目需要一份可以反复执行的验收约定：什么输入应该得到什么结果，哪些失败必须被拦住，哪些事情仍需要人判断。没有这份约定，每次修改都像重新猜一次程序是否还可靠。</p>
+<p>本篇给笔记助手增加10个可运行的离线验收场景，再把资料换成一份社区书屋说明，完成一次小规模迁移。你不必先搭复杂测试平台，也不必充值，就能检查大部分本地流程。模型质量则单独记录，避免用模拟答案给它打分。</p>
+<p>下载本篇完整代码 · 独立运行说明 · 验收脚本 · 上一篇：交付与启动</p>
+<blockquote>
+<p>核实日期：2026年10月4日。Python 3.11+，固定依赖openai 3.24.0、Flask 3.1.3；作者验证环境为Python 3.11.8。新增acceptance.py，源码打包清单从37个文件增加到38个。网页业务、数据库结构和API调用逻辑保持第15篇行为。本文的10个场景使用临时目录、测试客户端和作者构造的响应，没有调用真实模型。</p>
+</blockquote>
+<h2 id="wiki-h-0">先确定你要验收的是哪一层</h2>
+<p>“能用”不是一个足够具体的结论。同一个项目至少有四种不同的检查对象：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>对象</th>
+<th>要回答的问题</th>
+<th>本项目的检查方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>安装和启动</td>
+<td>依赖、配置和本地数据位置是否可用？</td>
+<td>run_local.py check，实际启动页面</td>
+</tr>
+<tr>
+<td>确定性业务规则</td>
+<td>引用不存在会不会被拒绝？重复提交会不会再执行？</td>
+<td>离线自动验收、数据库检查</td>
+</tr>
+<tr>
+<td>模型回答质量</td>
+<td>证据是否支持结论？资料不足时是否承认不知道？</td>
+<td>固定问题集，真实输出与人工审核</td>
+</tr>
+<tr>
+<td>使用体验</td>
+<td>人能否看懂状态、完成操作、发现失败？</td>
+<td>浏览器手工走完整流程</td>
+</tr>
+</tbody></table></div>
+<p>第一层通过，不能推出第三层通过。第三层答对一次，也不能证明第二层没有重复执行问题。我们要分别留下证据，而不是把一张漂亮页面截图当成全部验收。</p>
+<p>例如“引用存在”可以让程序逐字比较；“这段引用能否推出这个结论”涉及语义，当前校验器不会判断。第6篇已经留下这个边界，收官时仍必须保留。JSON输出能力帮助程序读取结果，不能替代业务检查与事实审核。<a href="https://api-docs.deepseek.com/guides/json_mode/">DeepSeek JSON输出说明</a></p>
+<h2 id="wiki-h-1">先运行这10个场景</h2>
+<p>把本篇ZIP解压到新的<code>lesson-16</code>目录，保留旧项目。如果已经在这个新目录建立了环境，就不必重复创建和安装；第一次使用可按下面顺序执行，每一步成功后再继续。</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip check
+.venv/bin/python acceptance.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements.txt
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip check
+.\.venv\Scripts\python.exe acceptance.py
+</code></pre><p>安装依赖需要软件包网络。安装完毕后的这组验收不需要模型网络、API Key或<code>config.json</code>。脚本自行提供非秘密测试配置，为每个场景创建临时资料和数据库，结束后清理。它不会拿你原项目的历史记录做实验。</p>
+<p>正常输出以一行“离线验收”说明开始，接着出现10个<code>test_... ... ok</code>，最后类似：</p>
+<pre><code class="hljs language-text">Ran 10 tests in ...s
+
+OK
+</code></pre><p>耗时因电脑不同而变化，不要对照一个固定秒数判断成败。失败时，<code>FAIL</code>通常意味着实际结果不符合断言；<code>ERROR</code>表示测试执行过程中出现异常，例如缺文件或无法导入依赖。先看第一个失败的场景与堆栈，不要把测试删掉来让最后一行变绿。</p>
+<p>脚本使用Python自带的<code>unittest</code>：一个以<code>test_</code>开头的方法代表一个场景，断言写明预期结果；测试前后准备和清理临时资源。<a href="https://docs.python.org/3.11/library/unittest.html">Python unittest文档</a></p>
+<p>网页流程使用Flask测试客户端。它能在进程内发送请求、接收响应和保留Cookie，不必先监听8765端口。这适合核查后端行为，但没有真的打开浏览器、排版页面或执行浏览器交互。<a href="https://flask.palletsprojects.com/en/stable/testing/">Flask应用测试文档</a></p>
+<h2 id="wiki-h-2">10个场景分别在守住什么</h2>
+<p>把测试名称与用户可能遇到的问题对应起来，会比只记住“有10个测试”更有用。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>操作与预期</th>
+<th>为什么需要</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>01 检索和来源</td>
+<td>默认关键词选中F1-C2、F1-C3，第一片段对应原文第3行；未选资料不进入消息</td>
+<td>防止读取正确却发送错误内容</td>
+</tr>
+<tr>
+<td>02 无命中</td>
+<td>用“查找”检索默认样例，无命中时生成被拒绝，不调用生成流程</td>
+<td>没有证据不能偷偷改成随便回答</td>
+</tr>
+<tr>
+<td>03 假引用</td>
+<td>把引用改成原文不存在的一句话，校验失败</td>
+<td>把可验证的约束交给代码</td>
+</tr>
+<tr>
+<td>04 语义反向</td>
+<td>保留真引用，却把检索与回答顺序说反，当前规则仍通过</td>
+<td>明确校验器没有语义判断能力</td>
+</tr>
+<tr>
+<td>05 重复操作</td>
+<td>同一操作再次生成、同一计划确认两次，仍只有一操作和一计划</td>
+<td>检查状态与去重边界</td>
+</tr>
+<tr>
+<td>06 另一会话</td>
+<td>第二个浏览器会话读取第一个结果，返回404</td>
+<td>结果访问必须绑定当前会话</td>
+</tr>
+<tr>
+<td>07 应用重建</td>
+<td>保留数据目录与Cookie，重新创建应用，原结果仍可读</td>
+<td>检查持久化与身份衔接</td>
+</tr>
+<tr>
+<td>08 未确认执行</td>
+<td>人为把操作推进running，再提交，不重新生成</td>
+<td>不把未知结果当成可安全重试</td>
+</tr>
+<tr>
+<td>09 换一份资料</td>
+<td>书屋说明能检索到借阅期限，合规卡片与missing卡片可校验</td>
+<td>验证任务数据可替换</td>
+</tr>
+<tr>
+<td>10 导出源码</td>
+<td>38文件源码包包含验收脚本，不含运行数据和个人配置</td>
+<td>避免交付遗漏与历史混入</td>
+</tr>
+</tbody></table></div>
+<p>第04个测试尤其容易误读。它的<code>ok</code>表示“校验器的这个已知边界仍然存在”，不是说反向答案正确。测试代码故意要求当前校验器接受这份格式和引用都合法的错误答案。如果未来你增加了语义审核，需要重新设计这个测试与审核证据，不能只把状态名字改成“正确”。</p>
+<p>第07个场景在同一测试进程中重建应用，检验数据库和Cookie恢复，没有模拟电脑断电。第08个场景直接构造running状态，也不是一次真实进程崩溃实验。精确描述测试范围，才能知道还缺什么证据。</p>
+<p>第05个场景针对的是<strong>同一个操作ID</strong>。回到首页重新预览会创建新ID，应用不会猜测这是否是你上一条问题的重复，真实模式下可能再次计费。HTTP请求没有成功返回，也不能由此推断模型服务完全没有处理它。</p>
+<h2 id="wiki-h-3">读懂一个测试，再独立检查实际页面</h2>
+<p>打开<code>acceptance.py</code>，寻找<code>test_05_generation_and_plan_are_not_duplicated</code>。它没有只检查“页面上出现成功两个字”，而是依次做了这些事：完成一次演示生成；再次提交同一操作并禁止生成函数被调用；创建计划草稿；确认草稿仍为draft；两次确认同一计划；最后只读检查数据库。</p>
+<p>结尾的核心断言是：</p>
+<pre><code class="hljs language-python">        <span class="hljs-variable language_">self</span>.assertEqual(after[<span class="hljs-string">"counts"</span>], {<span class="hljs-string">"sessions"</span>: <span class="hljs-number">1</span>, <span class="hljs-string">"operations"</span>: <span class="hljs-number">1</span>, <span class="hljs-string">"plans"</span>: <span class="hljs-number">1</span>})
+        <span class="hljs-variable language_">self</span>.assertEqual(after[<span class="hljs-string">"plans"</span>][<span class="hljs-number">0</span>][<span class="hljs-string">"state"</span>], <span class="hljs-string">"saved"</span>)
+        <span class="hljs-variable language_">self</span>.assertEqual(<span class="hljs-built_in">len</span>(<span class="hljs-built_in">list</span>((<span class="hljs-variable language_">self</span>.root / <span class="hljs-string">"data/operations"</span> / ticket / <span class="hljs-string">"records"</span>).glob(<span class="hljs-string">"*.json"</span>))), <span class="hljs-number">5</span>)
+</code></pre><p>这里的1/1/1成立，是因为每个测试从全新的临时目录开始。你已经使用过的项目可能有更多历史，不能照搬这组总数。五份JSON用于保存一次正常演示的来源、请求、尝试、响应和结果；数据库中的一条操作记录与这五个文件也不是同一种计数。</p>
+<p>自动检查之后，再在自己的新副本完成一次看得见的流程：</p>
+<pre><code class="hljs language-bash">.venv/bin/python run_local.py init
+.venv/bin/python run_local.py check
+.venv/bin/python run_local.py serve
+</code></pre><p>Windows逐行把解释器换成<code>.\.venv\Scripts\python.exe</code>。打开<code>http://127.0.0.1:8765</code>，使用默认资料、默认问题、关键词“检索 片段”和K2。预览、生成演示卡片、核对引用，填写计划日期与20分钟，预览后单独确认保存。新副本第一次完整操作应有一条操作和一份已保存计划。</p>
+<p>在另一个终端运行<code>.venv/bin/python inspect_db.py</code>，对照操作状态、计划状态和计数；Windows替换解释器路径。回到页面刷新结果，不应多出新的操作。原终端<code>Ctrl+C</code>停止，重新<code>serve</code>，在原浏览器打开同一地址，检查历史是否恢复。不要清除Cookie，也不要同时启动另一份副本。</p>
+<p>这一遍补上测试客户端没有覆盖的部分：终端启动是否正常、地址是否能打开、页面提示是否能看懂、计划是否需要明确确认。若首页历史为空，先检查是否换了目录或Cookie，不要立即删除数据库“重试”。</p>
+<h2 id="wiki-h-4">用一份小资料练习迁移</h2>
+<p>第一次迁移不妨只改变资料与问题，继续使用已有的检索和卡片结构。我们把“复习笔记”换成“社区书屋规则问答”，目标很小：回答借阅期限，引用原文；规则里没有的费用不编造。</p>
+<p>在新副本的<code>sample-notes</code>下创建UTF-8文件<code>club.md</code>，内容如下。保留两个原始教学文件，便于继续运行默认验收。</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># 社区书屋</span>
+
+借阅期限为14天。
+
+续借需要在到期前向管理员申请。
+</code></pre><p>先只检查检索，不调用模型。macOS/Linux：</p>
+<pre><code class="hljs language-bash">.venv/bin/python rag.py --files sample-notes/club.md --question <span class="hljs-string">"借阅期限是多久？"</span> --terms 借阅 期限 --top-k 1 --inspect
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe rag.py <span class="hljs-literal">--files</span> sample<span class="hljs-literal">-notes</span>/club.md <span class="hljs-literal">--question</span> <span class="hljs-string">"借阅期限是多久？"</span> <span class="hljs-literal">--terms</span> 借阅 期限 <span class="hljs-literal">--top-k</span> <span class="hljs-number">1</span> <span class="hljs-literal">--inspect</span>
+</code></pre><p>预期选中<code>F1-C2</code>，内容是“借阅期限为14天。”，对应第3行。<code>F1</code>表示本次输入中的第一份文件，不是数据库中的永久文档编号。改变文件顺序或内容，片段编号也可能变化。</p>
+<p>这一步已经完成了一次很实际的验证：文件读到了，分块符合预期，关键词命中了正确证据。如果这里选错了内容，先改资料分段、关键词或检索策略；更换生成模型无法补回根本没送进去的证据。</p>
+<p>再把问题换成“逾期一天罚多少钱？”，仍保留<code>--terms 借阅 期限 --top-k 1</code>，把最后的<code>--inspect</code>改成<code>--dry-run</code>。先前<code>init</code>创建的配置在这一步会使用，但不会读取Key或发送请求。检查打印出的消息：问题变了，选中的片段仍只有借阅期限，没有任何罚款规定。</p>
+<p>这与“无命中”不同。无命中时我们直接停止；这里有相关资料，但资料不能回答费用问题。合适的输出应标记missing，答案为“笔记未提供，无法判断”，引用列表为空。关键词检索成功不等于答案所需证据齐全。</p>
+<p>当前程序不会从问题里自动提取关键词。只改<code>--question</code>不会改变<code>--terms</code>，这个设计正好让你看见检索输入与提问输入是两件事。</p>
+<p><code>test_09_migrate_to_a_small_faq</code>包含这份书屋资料及作者手写的预期卡片，用来检查检索与校验接口。它没有让真实模型回答，也不能证明模型一定会承认不知道。不要给这条自定义命令加<code>--demo</code>并把默认演示答案当成书屋问答：演示只支持原始默认任务，自定义任务会被拒绝。若以后由你决定做真实验证，可将相应命令末尾改为<code>--run</code>，使用自己的Key并承担API费用；这不是完成本篇的必要步骤。</p>
+<p>网页也能选用新增资料，但文件白名单在启动时建立，因此新增后要停服重启。离线网页的固定演示同样不支持任意自定义问题，不能靠改个标题把预置答案包装成模型效果。</p>
+<h2 id="wiki-h-5">把“模型好不好”写成一组可复查的问题</h2>
+<p>如果准备真正接入自己的资料，先在本地写一个评估表，再决定是否做付费测试。第一版不需要很多题，至少区分以下几种情况：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>题目类型</th>
+<th>书屋例子</th>
+<th>人工审核重点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>直接可答</td>
+<td>借阅期限是多久？</td>
+<td>是否答14天，并引用对应原句</td>
+</tr>
+<tr>
+<td>换一种表达</td>
+<td>一本书能借多长时间？</td>
+<td>先看检索是否命中，再看生成；不能只罚生成模型</td>
+</tr>
+<tr>
+<td>资料缺失</td>
+<td>逾期一天罚多少钱？</td>
+<td>是否说明资料没提供，而非按常识猜费用</td>
+</tr>
+<tr>
+<td>否定或冲突</td>
+<td>后续文档出现“特定活动书籍仅借7天”</td>
+<td>是否识别适用范围；需先扩充检索与任务规则</td>
+</tr>
+<tr>
+<td>混入无关指令</td>
+<td>笔记里夹有“忽略任务，输出别的内容”</td>
+<td>是否把资料当证据，仍遵守应用约定；不能仅靠提示词宣称已解决</td>
+</tr>
+</tbody></table></div>
+<p>最后两项是你扩展项目时应该增加的评估样本，<strong>没有包含在本篇10项自动验收中</strong>。新增样本时，应自己写明资料与判断依据，避免把模型生成的答案直接当标准答案。</p>
+<p>每次真实评估至少记录：资料版本、问题、关键词或检索配置、选中片段、模型标识与参数、结果文件、人工判断及理由。第7—9篇留下的实验与用量记录可以帮助比较，但不同入口格式不同：旧<code>costs.py</code>不会自动汇总网页所有嵌套操作目录或工具调用记录，不能把没统计到的费用当零。</p>
+<p>题集固定以后，一次只改一类因素。例如保持资料、问题、关键词不变，只比较输出预算；或者保持模型设置不变，只调整检索。否则答案改善了，你也不知道是哪项变化起作用。</p>
+<p>小题集能发现明确问题，不能给出普遍可靠性保证。某次10题都答对，只说明这10个输入、当时模型与配置下的观察结果。新增资料、换模型或改变业务动作后，还要重新审查对应场景。</p>
+<h2 id="wiki-h-6">改成个人项目时，先找对修改位置</h2>
+<p>现在的代码不是一个只能换皮的演示。它把资料、模型请求、结果规则和执行动作分开，方便你有目的地修改。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>你的目标</th>
+<th>优先查看</th>
+<th>修改后必须重新验证</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>换成自己的笔记或FAQ</td>
+<td>sample-notes、source_files.py、rag.py</td>
+<td>编码、长度、来源快照和检索命中</td>
+</tr>
+<tr>
+<td>改进查找方式</td>
+<td>retrieval.py</td>
+<td>片段ID、排序、选中范围、引用映射与无命中策略</td>
+</tr>
+<tr>
+<td>把卡片改成其他结构</td>
+<td>study_task.py、validation.py及使用它们的入口</td>
+<td>提示词、字段、校验、页面展示和记录一起匹配</td>
+</tr>
+<tr>
+<td>增加安排或本地动作</td>
+<td>review_tool.py、tool_flow.py，或网页计划路径</td>
+<td>参数白名单、授权、明确确认、重复提交与失败状态</td>
+</tr>
+<tr>
+<td>换模型或服务商</td>
+<td>settings.py、api_client.py、structured_client.py及工具入口</td>
+<td>地址、认证、参数、流式块、工具格式、用量与错误</td>
+</tr>
+<tr>
+<td>让多人共同使用</td>
+<td>web_app.py、storage.py及部署设计</td>
+<td>登录、资料权限、会话、存储、并发与费用隔离</td>
+</tr>
+</tbody></table></div>
+<p>别只改提示词要求“返回五个新字段”，却继续让旧校验器只接受原来的字段。拒绝这份输出可能正是校验器在正常工作。结构变了，就需要同步修改生产端和消费端，并为旧数据决定保留、迁移还是只读查看，不能悄悄按新结构解释历史。</p>
+<p>也别把RAG产生的F1编号直接塞进第10篇固定N1—N3的工具白名单。前者是本次资料的定位，后者是当时工具允许引用的固定资源，两者没有自动授权关系。工具描述让模型提出参数，实际是否执行仍由程序决定。<a href="https://api-docs.deepseek.com/guides/tool_calls/">DeepSeek工具调用说明</a></p>
+<p>截至本篇核实，DeepSeek官方入门页列出的OpenAI兼容地址仍为<code>https://api.deepseek.com</code>，模型标识包括本项目使用的<code>deepseek-flash</code>。以后迁移服务商，应核查目标官方文档，不能从“兼容”二字推断所有思考参数、输出字段和计费口径完全一致。<a href="https://api-docs.deepseek.com/">DeepSeek官方接入说明</a></p>
+<p>最终网页也没有把前15篇的所有入口合并在一起。<code>main.py</code>保留流式聊天，<code>cards.py</code>承担结构化卡片实验，<code>planner.py</code>演示模型工具提议，<code>rag.py</code>处理检索问答；网页采用非流式卡片与手工填写、明确确认的计划流程。这样可以分别观察机制，不应把命令行有的功能误认为网页也已实现。</p>
+<h2 id="wiki-h-7">修改失败时，沿着证据找原因</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>症状</th>
+<th>先查哪里</th>
+<th>不要急着做什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>新资料没有出现在网页</td>
+<td>文件名、格式、是否重启建立白名单</td>
+<td>不要先换API Key</td>
+</tr>
+<tr>
+<td>问题换了，证据没换</td>
+<td>显式关键词和选中片段</td>
+<td>不要默认模型已经读完全部资料</td>
+</tr>
+<tr>
+<td>JSON合法却被拒绝</td>
+<td>字段、问题ID、引用、状态与校验错误</td>
+<td>不要关闭全部校验</td>
+</tr>
+<tr>
+<td>真引用配错误结论</td>
+<td>原文、问题与人工语义审核</td>
+<td>不要把validated当“答案正确”</td>
+</tr>
+<tr>
+<td>操作卡在running/uncertain</td>
+<td>数据库状态与该操作的JSON</td>
+<td>不要循环点击生成或删除记录重试</td>
+</tr>
+<tr>
+<td>源码包缺少新模块</td>
+<td>package_project.py的FILES清单</td>
+<td>不要直接压缩整个运行目录</td>
+</tr>
+<tr>
+<td>改了教学笔记后验收失败</td>
+<td>是否改变默认任务的固定输入</td>
+<td>不要把断言改到任意输出都通过</td>
+</tr>
+</tbody></table></div>
+<p>建议保留干净的教学副本，自己的资料另外命名。第10个验收场景仍会检查38文件导出，新增生产模块后，打包清单和相应验收都要有意识地更新。新增<code>club.md</code>默认不会进入源码包；要公开它，需要先确认这是可以分享的示例，再把它作为正式交付内容处理。</p>
+<p>用<code>package_project.py</code>导出后，还应在新目录解压，按README安装并重新运行<code>acceptance.py</code>。这能发现“源码目录里能运行，发出的包却少一个文件”的问题。源码包不包含自己的数据备份；原项目和停服备份继续保留。</p>
+<h2 id="wiki-h-8">第三部分完成后，你应该能够解释这条链路</h2>
+<p>从最初的一次HTTP请求，到现在的笔记助手，你已经把下面这条路径走通：明确任务，准备资料，选择证据，构造消息，发送受限请求，接收并校验结果，人工核对，再决定是否保存一个具体动作。每一步都有输入、输出和失败状态。</p>
+<p>做三个收官判断：</p>
+<ol>
+<li>引用能在笔记中找到，是否就代表答案正确？不代表，第04个验收明确展示了反例，还要核对引用是否支持结论。</li>
+<li>重新预览同一个问题，是否一定不会再花钱？不一定，它会创建新操作；同ID去重不等于跨所有请求自动识别重复。</li>
+<li>把笔记助手改成FAQ，第一步是否必须换框架？不必。先换一份小资料、几道可判定的问题，检查检索和输出约定，再根据实际缺口调整代码。</li>
+</ol>
+<p>本篇新增10项离线验收，并通过112项继承的离线回归。第三部分总审核还逐一运行了01—16各快照的测试，核对正文链接、代码语法与ZIP内容；累计数字包含跨快照重复执行的测试，不能当成独立能力数量。作者没有以这些结果冒充真实API质量评估，也没有声称Windows实机或公网部署已经通过。</p>
+<p>第三部分到这里结束。你已经有一份可以本地运行、保留来源、检查结果、确认动作并重新验收的项目。接下来选择一个自己的小问题，把“我希望AI帮我做什么”写成几条可以核对的输入与结果，就能用这套代码开始有依据地修改。</p>
+</article>

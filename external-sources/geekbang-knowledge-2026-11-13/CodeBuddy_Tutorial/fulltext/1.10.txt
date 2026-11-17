@@ -1,0 +1,37 @@
+9.1 先有可重复的检查
+
+沿用测试已通过的 billkit。统一 python -m pytest -v 为门禁，测试失败必须返回非零。AI 审查只提供建议；成功解释错误不代表测试通过。
+
+9.2 暂存审查和分支审查是两个输入
+
+提交前捕获 git diff --cached --binary，它包含本次暂存修改；PR 审查使用 git diff main...HEAD，它只比较已提交的分支差异。没有 main 时先确认实际基准，不盲目运行。把差异保存到项目外临时文件，再明确提供给 CodeBuddy；保留工具退出码和原始输出，输出“OK”不是验收协议。
+
+普通 pytest 检查的是当前工作树。若有部分暂存修改，先整理提交范围或在临时 worktree 重建暂存快照后测试，不能宣称普通 pre-commit 自动验证了索引中的精确版本。
+
+9.3 配置提交检查
+
+使用 pre-commit 时先在虚拟环境安装工具，添加本地 hook：
+
+repos:
+  - repo: local
+    hooks:
+      - id: tests
+        name: Python tests
+        entry: python -m pytest -v
+        language: system
+        pass_filenames: false
+        always_run: true
+fail_fast: false
+
+
+执行 pre-commit install，再 pre-commit run --all-files。fail_fast:false 只表示某项失败后继续运行其他 hook，失败仍会阻止提交。想要建议性质的 AI 审查，应在单独命令或 CI 报告步骤中执行，不靠这个选项忽略失败。
+
+9.4 每周依赖检查
+
+配套 weekly_dep_check.py 使用当前 Python 执行 pip list --outdated --format=json，失败非零，成功写入依赖报告。先手工运行并检查报告，再交给系统调度。不会自动安装升级。
+
+POSIX cron 使用解释器与脚本的绝对路径；Windows 任务计划程序同样把虚拟环境 python.exe 填入“程序”，脚本绝对路径与报告路径作为参数，设置工作目录。不调用不存在的 .ps1，也不要求未安装的 pwsh。调度账号、网络和虚拟环境必须与手动验收一致。
+
+9.5 验收自动化本身
+
+临时制造一个测试失败，pre-commit 应拒绝提交；恢复后通过。只暂存一个文件，确认 cached diff 不含未暂存文件。模拟依赖命令失败，不应留下看似本次成功的新报告。记录三个结果后才启用定时任务。

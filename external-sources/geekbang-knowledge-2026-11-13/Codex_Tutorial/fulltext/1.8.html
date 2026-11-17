@@ -1,0 +1,178 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：40 分钟<br>本篇目标：用一次真实故障修复，走完“复现问题——定位原因——补回归测试——最小修复——完整验证”的全流程。</p>
+</blockquote>
+<p>TaskFlow 1.0 已经可以添加、查看和完成任务。接下来我们先不增加新功能，而是处理一个更接近真实开发的问题：数据文件一旦损坏，程序就会把整段 Python Traceback 扔给用户。</p>
+<p>你当然可以直接对 Codex 说“把这个报错修了”，但这样做的风险很大：Codex 可能猜对原因，也可能只是把异常藏起来。可靠的调试不是从“改代码”开始，而是从“拿到证据”开始。</p>
+<p>OpenAI 的 Codex 最佳实践也建议，修改代码时要给出明确目标、相关上下文、约束和完成标准，并通过测试、实际行为和 Diff 验证结果。官方参考：<a href="https://learn.chatgpt.com/guides/best-practices">Best practices</a>。</p>
+<h2 id="wiki-h-0">先确认起点是干净的</h2>
+<p>进入 TaskFlow 项目。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/codex-course/taskflow
+git status
+python3 -m unittest 
+或 
+python3 -m unittest discover -s tests -v
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\codex-course\taskflow"</span>
+git status
+py <span class="hljs-literal">-m</span> unittest 
+或 
+py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+</code></pre><p>这里要确认两件事：</p>
+<ul>
+<li>上一篇完成的测试仍然全部通过；</li>
+<li>Git 工作区里没有一批来路不明的改动。</li>
+</ul>
+<p>如果基线测试本来就失败，先不要把新故障混进去。否则修复之后，你很难判断某个失败究竟是旧问题，还是新改动引起的。</p>
+<p>本篇要刻意制造一份损坏的 <code>tasks.json</code>，但不要直接破坏自己的 <code>data/tasks.json</code>。我们会让测试在临时目录中生成故障数据，测试结束后自动清理。</p>
+<h2 id="wiki-h-1">把“程序报错了”改成可验收的问题</h2>
+<p>启动 Codex：</p>
+<pre><code class="hljs language-bash">codex --sandbox workspace-write --ask-for-approval on-request
+</code></pre><p>输入：</p>
+<pre><code class="hljs language-text">先探测你的 TaskFlow 读取损坏 JSON 时的行为：若显示 Traceback，按本篇修复；若已输出友好提示并非零退出，则作为补覆盖练习，无需故意破坏当前主线。
+
+请先不要修改代码。请：
+1. 找到数据文件的读取入口和现有测试；
+2. 在测试临时目录中创建一份不合法的 tasks.json；
+3. 运行最小复现，记录完整命令、退出码和关键输出；
+4. 说明异常从哪里产生，又在哪一层没有被转换成用户错误；
+5. 给出最小修复方案，等我确认后再改。
+
+预期行为：显示简短、可理解的错误信息，不显示 Traceback，并以非 0 状态结束。
+不要读写真实的 data/tasks.json。
+</code></pre><p>这段任务把一句模糊的“修好报错”拆成了四个可检查的事实：</p>
+<ol>
+<li>什么输入能够触发问题；</li>
+<li>当前实际输出是什么；</li>
+<li>期望输出是什么；</li>
+<li>怎样才算修复完成。</li>
+</ol>
+<h2 id="wiki-h-2">判断 Codex 是否真的复现了问题</h2>
+<p>在当前版本中，Codex 的实际输出可能会因代码结构不同而略有差异，但证据至少应该包含下面几项：</p>
+<pre><code class="hljs language-text">复现文件：&lt;临时目录&gt;/data/tasks.json
+文件内容：{not valid json
+运行目录：TaskFlow 项目根目录
+运行命令：python3 taskflow.py --data "&lt;临时文件绝对路径&gt;" list（先替换路径占位符）
+实际结果：输出 Traceback，末尾为 JSONDecodeError
+退出码：非 0
+真实数据：未读写
+</code></pre><p>只说“我看代码后认为这里有问题”，不算复现。复现必须有实际输入、运行命令和可观察的结果。</p>
+<p>如果 Codex 说无法复现，先核对三个路径：</p>
+<ul>
+<li>损坏文件写在哪里；</li>
+<li>程序实际从哪里读数据；</li>
+<li>运行命令时的当前目录是哪里。</li>
+</ul>
+<p>这三者不一致，往往就会出现“测试写了损坏文件，程序却读了另一份文件”的情况。</p>
+<h2 id="wiki-h-3">把根因写成一条因果链</h2>
+<p>一份合格的调查结果，不应只说“JSON 解析失败”，而应该把事情说完整：</p>
+<pre><code class="hljs language-text">tasks.json 包含不合法 JSON
+  ↓
+数据加载函数调用 json.load
+  ↓
+json.load 抛出 JSONDecodeError
+  ↓
+命令入口没有把该异常转换成面向用户的错误
+  ↓
+Python 默认向终端输出完整 Traceback
+</code></pre><p>这条因果链会直接决定修复位置。如果错误只应该在 CLI 中转换成用户提示，就不必为了这一个问题重写整个数据层。</p>
+<h2 id="wiki-h-4">先补一个会失败的回归测试</h2>
+<p>确认根因后输入：</p>
+<pre><code class="hljs language-text">请先补一个回归测试，暂时不修改业务代码。
+
+测试必须：
+- 在临时目录中创建不合法 tasks.json；
+- 走用户真正会走的 CLI 入口，而不是只直接调用一个内部辅助函数；
+- 断言退出码为非 0；
+- 断言输出中有“数据文件损坏”或同等明确的提示；
+- 断言输出中没有 Traceback；
+- 确认真实 data/tasks.json 没有被读写。
+
+写完后只运行这个测试，向我展示它在当前代码上失败的关键输出。
+</code></pre><p>修复前的理想证据应类似：</p>
+<pre><code class="hljs language-text">FAIL: test_list_reports_corrupted_data
+AssertionError: 'Traceback' unexpectedly found in output
+
+Ran 1 test
+FAILED (failures=1)
+</code></pre><p>测试名和输出不必与示例完全相同，但失败原因必须正好指向我们要修的问题。</p>
+<p>如果新测试立即通过，先核对临时文件、CLI 路径和断言；若实现原本已正确，这就是有效的覆盖补充。要练习先红后绿，可在独立副本暂时移除对应异常转换，再证明测试失败并恢复，不修改个人数据或强行要求主线报错。</p>
+<h2 id="wiki-h-5">只允许最小修复</h2>
+<p>看到稳定的失败后，再输入：</p>
+<pre><code class="hljs language-text">现在实施最小修复。
+
+约束：
+1. 只处理可以明确识别的 JSON 解析错误；
+2. 不改变正常数据的读取和保存格式；
+3. 不要用 except Exception 吞掉其他异常；
+4. 用户看到简短错误，程序返回非 0 状态；
+5. 先运行新增回归测试，再运行完整测试；
+6. 展示 Diff，说明为什么修改位置和范围已经足够。
+</code></pre><p>要特别小心下面这种写法：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">try</span>:
+    data = load_tasks()
+<span class="hljs-keyword">except</span> Exception:
+    data = []
+</code></pre><p>它看似没有再报错，实际上却可能把权限错误、磁盘错误和程序缺陷全部伪装成“任务列表为空”。如果之后再保存数据，还可能覆盖原文件。</p>
+<p>更合理的方向是只捕获 <code>json.JSONDecodeError</code>，然后在贴近 CLI 的边界把它转换成用户可理解的提示。具体放在数据层还是命令入口，要根据 TaskFlow 的实际结构决定，不必为了套示例强行重构。</p>
+<h2 id="wiki-h-6">验收修复</h2>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-text">!python3 -m unittest 
+或 
+!python3 -m unittest discover -s tests -v
+</code></pre><p>Windows：</p>
+<pre><code class="hljs language-text">!py -m unittest 
+或 
+!py -m unittest discover -s tests -v
+</code></pre><h2 id="wiki-h-7">最后看 Diff，不要只看结论</h2>
+<p>输入：</p>
+<pre><code class="hljs language-text">/diff
+</code></pre><p>重点检查：</p>
+<ul>
+<li>是否只改了数据加载、命令错误处理和相关测试；</li>
+<li>是否误改了 JSON 结构或正常保存流程；</li>
+<li>是否在仓库中留下临时损坏文件；</li>
+<li>是否将真实任务数据加入 Git；</li>
+<li>测试是否真的检查了用户行为。</li>
+</ul>
+<p>还可以让 Codex 从风险角度自审一次：</p>
+<pre><code class="hljs language-text">请审查当前 Diff，只报告可能导致行为错误、数据丢失、异常被过度吞掉或测试失真的问题。不要为了代码风格扩大修改范围。
+</code></pre><p>确认后再提交：</p>
+<pre><code class="hljs language-bash">!git add .
+!git commit -m <span class="hljs-string">"handle corrupted task data"</span>
+</code></pre><h2 id="wiki-h-8">三种常见偏差</h2>
+<h3 id="wiki-h-9">Codex 一上来就改代码</h3>
+<p>让它暂停写入，回到“复现命令、实际输出、根因链”。没有证据时，不要用修改幅度来伪装调试进展。</p>
+<h3 id="wiki-h-10">Codex 顺手做了大范围重构</h3>
+<p>让它说明每个文件与当前缺陷的关系。无法直接对应的变更，原则上都应从本次修复中移出。</p>
+<h3 id="wiki-h-11">测试通过，用户体验却没改变</h3>
+<p>这通常说明测试绕过了真实 CLI，只验证了内部函数。保留单元测试，再增加一个从用户入口出发的测试或临时目录实跑。</p>
+<h2 id="wiki-h-12">一份可复用的调试提示词</h2>
+<pre><code class="hljs language-text">请先复现问题，不要立即改代码。
+
+实际现象：&lt;用户看到了什么&gt;
+最小复现：&lt;已知操作或输入&gt;
+期望结果：&lt;应该发生什么&gt;
+安全边界：&lt;不能触碰的数据或系统&gt;
+
+请依次完成：
+1. 确认环境和当前版本；
+2. 构造最小复现并记录证据；
+3. 用代码路径解释根因；
+4. 补一个在当前版本上会失败的回归测试；
+5. 给出最小修复方案。
+
+得到我确认后再实施。实施后运行局部测试、完整测试和真实入口验证，最后审查 Diff。
+</code></pre><h2 id="wiki-h-13">本篇小结</h2>
+<p>修复缺陷时，证据的顺序比代码生成的速度更重要：</p>
+<ol>
+<li>确认干净基线，保护真实数据；</li>
+<li>用最小输入复现问题；</li>
+<li>把根因写成可检查的因果链；</li>
+<li>让回归测试在缺陷版本上先失败；</li>
+<li>只修已经证实的问题；</li>
+<li>用局部测试、完整测试和真实行为共同验收；</li>
+<li>最后用 Diff 检查修改范围。</li>
+</ol>
+<p>下一篇，我们会给 TaskFlow 加上 CSV 导入功能，并借这次开发看清沙箱和审批各自在保护什么。</p>
+</article>

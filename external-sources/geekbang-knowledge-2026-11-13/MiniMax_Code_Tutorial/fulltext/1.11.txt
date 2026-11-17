@@ -1,0 +1,183 @@
+这一章讲 CLI 的 Session 机制：怎么"今天做不完明天接着做"，怎么在多个会话之间跳转，怎么分叉、压缩、导出。
+学完这一章，你会把 Session 当成"工作记忆"，再也不怕被打断。
+
+10.1 这一章要达成什么
+启动并命名一个 Session
+退出会话，第二天恢复
+在 TUI 里用 /sessions 搜索历史会话
+用 /fork / /rewind / /edit / /retry / /rename / /compact / /export 这些命令
+
+完成后 10 个会话操作都能熟练使用。
+
+10.2 Session 是什么
+
+Session（会话）是 CLI 里"一次连续的工作"。它的特点是：
+
+跨退出保存：你今天退出 TUI，明天 mcode --continue 能接着干
+跨目录保存：每个工作目录有自己的 Session 列表
+可以搜索：TUI 内 /sessions [query] 按关键词找历史 Session
+可以分叉：在某个 Session 的某轮分叉出一个新 Session，互不干扰
+可以回退：把 Session 倒回之前的某一轮
+
+记忆口诀：Session 是你的"工作记忆"，比 git 更细（每一轮对话都在）。
+
+10.3 启动并命名一个 Session
+
+进 TUI：
+
+mcode
+
+
+跑一次：
+
+/rename habitlog 收尾
+
+
+/rename 给当前 Session 改个名字。习惯做法：每次进 TUI 第一件事就是改名，方便以后找回。
+
+命名建议：
+
+用项目名 + 阶段：habitlog: refactor amount
+用任务类型：habitlog: bug fix
+不要起空泛的名字（"新会话"、"工作"），根本想不起来是啥
+
+跑 /status 看 Session 信息：
+
+/status
+
+
+预期看到 Session ID、名称、当前目录。
+
+10.4 退出，第二天恢复
+
+退出 TUI：
+
+/exit
+
+
+第二天打开终端，进项目目录：
+
+cd ~/projects/habitlog   # macOS / Linux / WSL2
+# 或
+Set-Location "$env:USERPROFILE\projects\habitlog"   # PowerShell
+
+mcode --continue
+
+
+mcode --continue 续上当前工作目录最近的 Session。Agent 会把上次离开时的上下文（包括你之前的对话、Agent 的修改）都恢复过来。
+
+与 --continue 等效的旧名字：--resume。CLI 兼容两种写法。
+
+续上之后能干吗
+直接接着对话（"上次我们改到哪了？继续"）
+跑 /transcript 看完整对话历史
+跑 /sessions 看当前工作目录的所有 Session
+想续的不是最近的呢？
+mcode --session
+
+
+打开 Session 管理器（图形化的 TUI 内部列表），选一个恢复：
+
+以下为参数模板，执行前先将尖括号占位符替换为实际值：
+
+mcode --session <session-id>
+
+
+直接打开指定 Session。
+
+启动参数 --session / --continue / --resume 不能同时使用。
+
+10.5 会话回退与代码恢复分开
+
+/rewind 操作会话；选择界面会提示当前发行版支持的回退范围。不要据此推断所有工作区文件已恢复。先查看 git status --short、git diff、git diff --cached。
+
+明确只想撤销某个已跟踪文件的未暂存改动时，用 git restore -- habitlog/cli.py。已暂存内容需先决定保留还是撤销；未跟踪文件不受这条命令影响。不要复制带 <file> 占位符或不存在的 add 子命令。
+
+10.6 分叉不隔离代码
+
+/fork 建立对话分支，但共享目录的文件仍可能互相影响。先提交干净基线，运行 git worktree add -b experiment/session ../habitlog-session HEAD，进入副本再启动会话。完成后查看副本差异；要保留就提交合并，不保留也先核对文件再清理。
+
+10.7 验证恢复结果
+
+分别制造已跟踪未暂存、已暂存、新文件三种状态，观察上述命令实际影响的范围。不要对个人数据目录做恢复实验，Git 没有跟踪的数据不能靠恢复代码取回。
+
+10.8 实战：压缩 + 导出
+
+Session 跑了几轮后：
+
+/compact 保留所有与金额相关的内容
+
+
+压缩完成。然后：
+
+/export ~/projects/habitlog/docs/session-amount-design.md
+
+
+把 Session 导出到项目目录下的 docs/ 子目录。
+
+新建 docs/ 目录（如果还没）：
+
+macOS / Linux / WSL2：
+
+mkdir -p docs
+
+
+Windows PowerShell：
+
+New-Item -ItemType Directory -Force -Path docs
+
+
+再跑一次 /export。
+
+提交导出的文档：
+
+git add docs/
+git commit -m "docs: export amount design session for future reference"
+
+
+docs: 前缀，纯文档。
+
+10.9 这一章做了什么、留下了什么
+命名了至少一个 Session
+体验了 --continue 续接
+体验了 /fork / /rewind / /edit / /retry / /rename / /compact / /export
+导出过一次对话到 docs/
+
+仓库结构（增量）：
+
+habitlog/
+└── docs/
+    └── session-amount-design.md
+
+10.10 Session 命名规范建议
+任务类型	命名样例
+新功能	habitlog: add amount tracking
+修 bug	habitlog: fix streak edge case
+重构	habitlog: refactor storage layer
+探索	habitlog: explore MCP integration
+文档	habitlog: write README
+
+每次进 TUI 都先 /rename，慢慢你就有一套能搜索的"工作日志"。
+
+10.11 Session 的边界
+场景	用 Session 还是别的方式
+今天做不完明天接着做	Session + --continue
+想试一个激进方案	/fork 一个新 Session
+上一轮 Agent 走歪了	/rewind + /retry
+上下文太长	/compact
+想把对话分享给别人	/export
+想把项目从零开始重做	开新工作目录（habitlog/），不用 Session 复用
+10.12 这一章的常见问题
+--continue 续错了 Session
+mcode --session 打开列表挑对的
+或 mcode --session <id> 直接打开指定
+/fork 后找不到原 Session
+/sessions 搜原名字
+注意 /new / /fork / /clear 这几个命令的区别
+/compact 后上下文丢了重要细节
+下次 /compact 时带 instructions：/compact 保留所有与金额相关的对话、git commit、bug 复现步骤
+Session 太多了怎么管理
+TUI 内 /sessions 一次性看，按名字搜索
+不需要的 Session 按当前版本会话管理入口处理；数据目录依 profile 可变化，见第 13 章。不要按旧 ~/.mcode/sessions 路径手动删除。
+
+下一章讲 Headless：用 mcode exec 把"跑测试 + 总结"包成 CI 命令。

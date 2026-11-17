@@ -1,0 +1,91 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>到目前为止，你和 Kimi 的合作模式都是"你一句、它一步"：你提需求，它执行，做完了等你下一句。这是最好的学习方式，但还差最后一层进阶——<strong>让它自己盯着目标往前跑，到点自动干活，甚至嵌进你的脚本里</strong>。</p>
+<p>这一章拿下三个进阶能力：<code>/goal</code> 目标模式、定时任务、<code>kimi -p</code> 非交互模式。学完后，体重管理这件"贵在坚持"的事，Kimi 会帮你一起坚持。</p>
+<h2 id="wiki-h-0">8.1 /goal 目标模式：说清终点，让它自己跑</h2>
+<p>先体会两种派活方式的区别：</p>
+<ul>
+<li>普通对话是"说下一步"："把这条失败的测试修好。"——它修完就停，等你下一句；</li>
+<li>目标是"说终点"："修好所有失败的测试，并保持测试页全绿。"——它修完一条会自己找下一条，遇到障碍自己想办法，直到终点达成，或者实在走不下去向你报告。</li>
+</ul>
+<p>这个能力叫 <strong>Goal 模式</strong>，用 <code>/goal</code> 开启，后面跟目标描述（最长 4000 字符）。写好目标的关键是<strong>终点必须可验证</strong>。对比：</p>
+<ul>
+<li>坏目标："把应用做好。"——没有客观标准，它要么立刻卡住，要么无限期瞎忙；</li>
+<li>好目标："修好 checkout 流程的所有回归 bug，每个修复都补上测试，最后跑通整个测试套件。"——"测试全绿"就是明明白白的终点线。</li>
+</ul>
+<p>现在实战。先造一个需要持续追踪的场景：</p>
+<pre><code>使用配套 revision-assets/goal-<span class="hljs-keyword">lab</span> 的独立副本。
+先运行 node --<span class="hljs-keyword">test</span> goal-<span class="hljs-keyword">lab</span>.<span class="hljs-keyword">test</span>.cjs，记录三个失败；不要改测试。
+只允许修改 goal-<span class="hljs-keyword">lab</span>.cjs，修复 BMI 平方分母、净摄入减法、空数组求和。
+</code></pre><p>此选修需要 Node.js 22+。在独立副本运行 <code>node --test goal-lab.test.cjs</code>，确认三项失败后再启动目标；与主应用 tests.html 分开：</p>
+<pre><code>/goal 只修改 goal-<span class="hljs-keyword">lab</span>.cjs，把 node --<span class="hljs-keyword">test</span> goal-<span class="hljs-keyword">lab</span>.<span class="hljs-keyword">test</span>.cjs 的三个固定失败修好；测试通过后停止，不修改主应用或测试。
+不许为了通过测试而改测试代码本身。
+</code></pre><p>然后你就可以放松看着了：它会自己读代码、定位错误、修复、请你刷新测试页确认（或者自己想办法验证），一条接一条，直到全绿。中途它会停在一些需要你确认的地方（默认权限模式下审批照常进行），但<strong>它不会再问"接下来做什么"</strong>——这是和日常对话最本质的区别。</p>
+<p>目标运行期间，常用这些管理命令：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/goal status</code></td>
+<td>查看当前目标和进度</td>
+</tr>
+<tr>
+<td><code>/goal pause</code> / <code>/goal resume</code></td>
+<td>暂停 / 恢复</td>
+</tr>
+<tr>
+<td><code>/goal cancel</code></td>
+<td>取消目标（取消后不可恢复）</td>
+</tr>
+<tr>
+<td><code>/goal next &lt;新目标&gt;</code></td>
+<td>排队下一个目标，当前完成后自动开始</td>
+</tr>
+</tbody></table></div>
+<p>一个目标以三种方式结束：<strong>complete</strong>（达成，它会给你一份总结）、<strong>paused</strong>（你暂停了它，或出了错）、<strong>blocked</strong>（它判断照现状走不下去，会写一段话解释原因——看到 blocked 别慌，读它的说明，往往是你需要补充信息或调整目标表述）。</p>
+<p>什么时候用 Goal？记住一个判断标准：<strong>有明确终点线、且达成与否可验证</strong>的任务。修一批失败测试、追一个构建错误、完成一组边界清楚的改动，都很合适。反过来，"帮我看看这个项目"这种开放式探索、一次性的问答，用普通对话就好。</p>
+<h2 id="wiki-h-1">8.2 定时任务：让它到点提醒你</h2>
+<p>体重管理最大的敌人是"忘了记"。Kimi Code 可以在会话里设置定时任务：你只需用自然语言说出来，它会换算成调度规则，到点自动提醒你。</p>
+<p>在会话中直接说：</p>
+<pre><code>每天早上<span class="hljs-number"> 8 </span>点提醒我在应用里记录体重；
+每周五下午<span class="hljs-number"> 5 </span>点提醒我导出一次数据备份；
+每周日晚上<span class="hljs-number"> 8 </span>点根据本周的记录，给我写一段饮食和体重的周回顾。
+</code></pre><p>它就会为你创建这些定时任务。想确认当前有哪些任务在排队，问一句"我设了哪些定时任务"就行；想取消，直接说"取消每天早上 8 点的提醒"。</p>
+<p><strong>几个必须知道的规则</strong>，免得产生误解：</p>
+<ul>
+<li>定时任务<strong>绑定在它所属的会话上</strong>。关掉终端没问题，下次用 <code>kimi --session</code> 恢复同一会话，任务会重新加载、继续触发；但新开的会话不会继承这些任务。</li>
+<li>周期性任务（比如"每天早上"）<strong>7 天后会过期</strong>：第 7 天它最后一次触发时，会根据你当初的意图决定是否续期。所以长期任务到期时留意一下它的提示。</li>
+<li>它会在会话空闲时触发提醒——如果你正在跟它聊别的，提醒会等这一回合结束再插入。</li>
+</ul>
+<p>有了这三个提醒，你的"坚持记录"就有了外挂：早上称完体重有提醒，周五自动想起备份，周日晚上收到一份本周回顾。</p>
+<h2 id="wiki-h-2">8.3 kimi -p：把 Kimi 装进脚本里</h2>
+<p>前面所有用法都是"交互式"的——打开界面，你来我往。但还有一大类场景根本不需要对话：你已经明确知道要干什么，只想让 Kimi 干完就走。这时用 <strong><code>-p</code> 参数</strong>：</p>
+<pre><code class="hljs language-bash">kimi -p <span class="hljs-string">"看一下这个项目的目录结构，简要说明每个目录是干什么的"</span>
+</code></pre><p>它在终端里直接输出结果，然后退出，不进入交互界面。这一下就打开了新世界的大门：<strong>Kimi 可以被别的脚本调用了</strong>。</p>
+<p>举两个贴近生活的例子。</p>
+<p><strong>例一：每周生成项目进展小结。</strong>在第 6 章的功能分支上我们做过周报功能，现在用另一种方式——让 Kimi 直接读 git 历史生成总结：</p>
+<pre><code class="hljs language-bash">kimi -p <span class="hljs-string">"读取本仓库最近 7 天的 git 提交记录，按 feat / fix / refactor 分类，生成一份中文进展小结，保存为 weekly-report.md"</span>
+</code></pre><p>把它写进一个脚本文件（比如 <code>weekly.sh</code>，Windows 用户写成 <code>weekly.ps1</code>），每周日跑一下，或者交给系统定时器（macOS/Linux 的 cron、Windows 的任务计划程序），你就有了一个自动化的项目周报。</p>
+<p><strong>例二：快速分析一堆文件。</strong>假设你下载了一个月的健身 App 导出数据，堆在一个文件夹里：</p>
+<pre><code class="hljs language-bash">kimi -p <span class="hljs-string">"分析 data 文件夹里所有的 CSV 文件，统计每周的平均体重和总运动消耗，输出成一个 Markdown 表格，保存为 summary.md"</span>
+</code></pre><p>一条命令，代替你打开每个文件手动汇总。</p>
+<p>非交互模式的几个要点：</p>
+<ul>
+<li><strong>审批</strong>：交互模式下的审批面板在 <code>-p</code> 里照样生效，只不过变成了终端里的文字提示。生产环境的脚本里，权限模式要慎重选择（回顾第 4 章的建议）。</li>
+<li><strong>退出码</strong>：脚本里可以靠退出码判断结果——目标模式下的退出码是 0（完成）/ 3（blocked）/ 6（paused），方便脚本做分支处理。</li>
+<li><strong>组合技</strong>：<code>-p</code> 和定时任务可以配合——比如让定时任务"每天跑一次某条 <code>-p</code> 命令"，就是一套完整的无人值守自动化。</li>
+</ul>
+<p>学完这一章你会发现，Kimi Code 的三层用法正好对应三种协作深度：<strong>交互模式</strong>是面对面讨论，<strong>目标模式</strong>是交代任务让它独立执行，<strong>脚本化</strong>是把它变成你工具链里的一个零件。什么时候用哪层，取决于任务的开放程度和你的信任程度。</p>
+<h2 id="wiki-h-3">本章小结</h2>
+<p>这一章我们完成了从"你催它做"到"它自己做"的进阶：</p>
+<ul>
+<li><strong><code>/goal</code> 目标模式</strong>：说清可验证的终点线，它自己规划、自己执行、遇到障碍自己想办法；用 <code>/goal status/pause/resume/cancel/next</code> 管理；适合有明确终点的任务；</li>
+<li><strong>定时任务</strong>：自然语言设置提醒，绑定会话、周期性任务 7 天过期需留意续期；我们用它们守住了"每天记录、每周备份、每周回顾"的节奏；</li>
+<li><strong><code>kimi -p</code> 非交互模式</strong>：干完就走，可以嵌进脚本、交给系统定时器，把 Kimi 变成自动化工具链里的零件；退出码可判断执行结果。</li>
+</ul>
+<p>到这里，Kimi Code 的核心功能你已经全部拿下了。剩下的四章讲"怎么让它更顺手"（定制配置、写技能、扩展生态）和"换个地方用它"（编辑器、第三方工具、桌面客户端），属于进阶篇，学起来会轻松很多。</p>
+<h2 id="wiki-h-4">定时任务的数据前提</h2>
+<p>先按第 7 章导出 private-data/records-export.json。定时任务读取该文件并检查导出时间；缺失或过期时报告数据不可用，不声称读取了浏览器实时记录。</p>
+</article>

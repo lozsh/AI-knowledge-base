@@ -1,0 +1,127 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>应用岗只需「会选会配」级别：量化概念、KV Cache、vLLM 基础。不深挖 kernel 实现。</p>
+</blockquote>
+<h3 id="wiki-h-0">101. 量化为什么能加速推理？精度损伤集中在哪？如何按场景选量化方案？</h3>
+<p><strong>直接答案</strong>：量化把模型权重从高精度（FP16/BF16）压到低精度（INT8/INT4），减少内存占用和带宽压力，降低成本、加速推理。7B 模型：FP16 约 14GB，INT8 约 7GB，INT4 约 4GB。</p>
+<p><strong>为什么加速</strong>：解码阶段是<strong>内存带宽受限</strong>的，每生成一个 token 都要搬运一遍权重。量化减小权重字节，搬运变少，速度提升。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>方案选型</strong>：<ul>
+<li>GPTQ/AWQ（GPU + vLLM）：AWQ 通过保护"重要权重通道"降低精度损失。</li>
+<li>GGUF（CPU/本地 + llama.cpp/Ollama）：本地/边缘设备的通用格式。</li>
+<li>FP8：精度敏感 + 新硬件（H100/H200）支持。</li>
+</ul>
+</li>
+<li><strong>精度损伤的分布</strong>：量化均值几乎不掉精度，但损伤集中在<strong>长尾</strong>（罕见 token、长上下文、复杂推理）——所以必须<strong>用自己的数据验证</strong>，不能只看公开 benchmark。</li>
+<li><strong>按场景选</strong>：内存受限选 INT4；精度敏感选 INT8/FP8；要平衡选 4-bit 但用 AWQ 这类保精度方案。</li>
+<li><strong>量化不是免费的</strong>：激活量化（不仅是权重量化）会影响更多，且量化方案和推理引擎要匹配（GPTQ 不一定被所有引擎支持）。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-1">102. KV Cache 节省了哪些计算？长文本下又有哪些瓶颈？</h3>
+<p><strong>直接答案</strong>：KV cache 保存历史 token 的 K/V，避免自回归生成时反复计算旧位置表示，但当前 query 仍需读取历史 K/V。</p>
+<p><strong>量化计算</strong>：令提示长度为 n、新生成 token 数为 g，忽略层数和维度常数：缓存后单步注意力约与当前历史长度成正比，整个解码阶段注意力累计约为 <strong>O(gn + g²)</strong>，并非整个生成过程变成 O(g)。预填充、投影和 MLP 的成本应另计。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>KV Cache 省的是什么</strong>：省的是"重复计算历史 token 的 K/V 投影"，不是"省掉注意力的计算"——每次解码仍要对所有历史 K/V 做注意力。</li>
+<li><strong>长文本的瓶颈</strong>：KV 内存随序列长度、并发、层数及 KV heads 增长，长上下文时可能<strong>内存带宽受限</strong>，且显存可能爆。</li>
+<li><strong>容量估算不能只算权重</strong>：KV Cache 在长上下文 + 高并发下可能比权重还占显存。</li>
+<li><strong>优化方向</strong>：KV 量化、KV 淘汰（如 PagedAttention、滑动窗口注意力、GQA/MQA 减少 KV heads）。</li>
+</ul>
+<p>参考：<a href="https://huggingface.co/docs/transformers/cache_explanation">HuggingFace KV Cache 文档</a>。</p>
+<hr>
+<h3 id="wiki-h-2">103. vLLM 是什么？它为什么快？</h3>
+<p><strong>直接答案</strong>：vLLM 是高吞吐 LLM 推理引擎。核心优化两个：</p>
+<ol>
+<li><strong>PagedAttention</strong>：把 KV Cache 按"页"管理（像操作系统虚拟内存），减少显存碎片、提高显存利用率——这是 vLLM 的原创贡献。</li>
+<li><strong>Continuous Batching（连续批处理）</strong>：动态批处理——一个请求完成就立刻接新请求，而非等整批完成，显著提升吞吐。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>PagedAttention 的类比</strong>：传统 KV Cache 是连续分配（易碎片化、预留浪费），PagedAttention 是分页分配（按需、无碎片），显存利用率大幅提升，能服务更多并发。</li>
+<li><strong>Continuous Batching 的价值</strong>：静态批处理受"短板请求"拖累，连续批处理让完成的请求即时让位，GPU 利用率更高。</li>
+<li><strong>应用岗的定位</strong>：自部署开源模型时，vLLM 是 GPU 服务的首选，能大幅提升并发吞吐。</li>
+<li><strong>对比</strong>：Ollama（本地/CPU 友好、简单）、vLLM（高吞吐生产服务）。</li>
+<li>面试加分点：能说出"PagedAttention + Continuous Batching 是 vLLM 两大杀手锏"。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-3">104. 自部署开源模型，Ollama、vLLM、llama.cpp 三者的定位和适用场景怎么区分？</h3>
+<p><strong>直接答案</strong>：三者都是跑开源模型的工具，但定位完全不同，是<strong>层级关系</strong>而非并列三选一：</p>
+<ul>
+<li><strong>llama.cpp</strong>：底层 C++ 推理引擎，擅长 CPU/边缘设备、量化模型（GGUF），是"本地跑模型"的技术底座。</li>
+<li><strong>Ollama</strong>：在 llama.cpp 之上的<strong>易用封装</strong>，一条命令拉模型、跑服务、提供 API，面向"本地开发/原型/小规模"，图省事。</li>
+<li><strong>vLLM</strong>：面向<strong>生产级 GPU 高并发服务</strong>，PagedAttention + Continuous Batching 提升吞吐，图性能和并发。</li>
+</ul>
+<p><strong>选型</strong>：</p>
+<ul>
+<li>本地调试、小规模、CPU 场景 → Ollama。</li>
+<li>生产高并发、GPU 服务 → vLLM。</li>
+<li>边缘设备、极致资源受限 → 直接用 llama.cpp。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>层级关系</strong>：Ollama 底层就是 llama.cpp，所以"Ollama 图省事"背后是 llama.cpp 的能力；vLLM 是独立的 GPU 优化引擎。</li>
+<li><strong>关键判断维度</strong>：并发吞吐 vs 易用性——vLLM 吞吐高但运维门槛高（需 GPU、要调参），Ollama 简单但并发吞吐有限。</li>
+<li><strong>还有 TensorRT-LLM</strong>：NVIDIA 自家的推理引擎，在特定 GPU 上性能极致，但绑定 NVIDIA 生态、优化门槛高。</li>
+<li>加分点：能说清三者的层级关系，而非当成并列的三选一。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-4">105. 冷启动为什么是弹性伸缩的痛点？一张显卡能跑多大模型怎么估算？</h3>
+<p><strong>直接答案</strong>：冷启动包含<strong>权重下载/读取、加载、分配显存、编译和预热</strong>。弹性扩容必须把这段不可服务时间计入容量规划——否则扩容的实例迟迟不能提供服务。</p>
+<p><strong>显存估算</strong>：显存预算由权重、量化元数据、KV cache、激活和运行时工作区组成。例如 14B 参数用理想 INT4 存储，原始权重约 7GB；<strong>这只是下限估算，不是整机占用</strong>。组大小、量化格式、上下文、并发、架构和后端都会改变实际需求。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>不能背死结论</strong>："24GB 卡最多跑 13B~14B"不是结论，因为 KV Cache、激活、并发都会吃掉显存。</li>
+<li><strong>正确做法</strong>：针对选定模型与量化文件，在固定输入长度、输出长度和并发下<strong>实测</strong>峰值显存、首字延迟与吞吐，再留余量。</li>
+<li><strong>冷启动的组成</strong>：权重加载（大模型几十 GB，从磁盘/网络读很慢）+ 显存分配 + kernel 编译预热（首次推理慢）。</li>
+<li><strong>预热的重要性</strong>：不预热的话，首个请求会触发编译和缓存 miss，延迟极高。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-5">106. 为什么"解码（decode）阶段是内存带宽受限"？这对优化有什么指导意义？</h3>
+<p><strong>直接答案</strong>：LLM 推理分两个阶段，计算特征完全不同：</p>
+<ul>
+<li><strong>预填充（Prefill）</strong>：一次性处理所有输入 token，是<strong>计算密集</strong>（compute-bound）——大量矩阵乘法，GPU 算力吃满。</li>
+<li><strong>解码（Decode）</strong>：逐 token 生成，每生成一个 token 都要<strong>从显存搬运一遍全部权重</strong>，但每次只算很小的矩阵——此时 GPU 算力用不满，瓶颈在<strong>内存带宽</strong>（把权重从显存搬到计算单元的速度）。</li>
+</ul>
+<p><strong>对优化的指导意义</strong>：</p>
+<ul>
+<li>既然 decode 瓶颈在"搬权重"，那<strong>减小权重体积</strong>就能直接提速——这就是<strong>量化</strong>能加速推理的根本原因（FP16→INT4，搬运量降到 1/4）。</li>
+<li>也解释了为什么 decode 阶段对显存带宽、量化方案特别敏感，而对算力强的卡收益有限。</li>
+</ul>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>两个指标的归属</strong>：TTFT 主要由 prefill 决定（输入长、计算多），吞吐主要由 decode 决定（逐 token 搬权重）。</li>
+<li><strong>优化方向分离</strong>：优化 prefill 靠算力（更多/更强的 GPU）；优化 decode 靠降内存带宽压力（量化、KV Cache 优化、更小权重）。</li>
+<li><strong>算术强度（arithmetic intensity）</strong>：prefill 算术强度高（算力瓶颈），decode 算术强度低（带宽瓶颈），这是判断"该加算力还是减带宽"的标尺。</li>
+<li>加分点：能把"内存带宽受限"和"量化加速"的因果关系讲清楚，而非孤立背两个概念。</li>
+</ul>
+<hr>
+<h3 id="wiki-h-6">107. Continuous Batching 解决了静态批处理的什么问题？为什么能显著提吞吐？</h3>
+<p><strong>直接答案</strong>：静态批次的请求一起参与计算，短请求完成后即使可以流式返回结果，其空出来的计算位置也未必及时补入新请求——<strong>短板效应</strong>拖累整批。</p>
+<p>连续批处理在迭代边界根据队列和容量<strong>移除完成请求、加入新请求</strong>，减少位置闲置，从而可能提高吞吐。</p>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>静态批处理的短板效应</strong>：一批里最长的请求决定整批的完成时间，短请求完成后 GPU 位置闲置。</li>
+<li><strong>连续批处理不是万能</strong>：它不保证所有请求一到达就运行，也不保证 GPU 始终满载；显存、KV cache、预填充开销和到达分布仍会限制利用率。</li>
+<li><strong>正确衡量</strong>：比较时同时报告吞吐、首字延迟与每 token 延迟，<strong>不能只看总 QPS</strong>（连续批处理可能牺牲单请求延迟换吞吐）。</li>
+<li><strong>本质</strong>：连续批处理是在"吞吐"和"延迟"之间做更细粒度的调度权衡，而非无代价的提吞吐。</li>
+</ul>
+<p>参考：<a href="https://www.usenix.org/conference/osdi22/presentation/yu">OSDI'22 vLLM 论文</a>。</p>
+<hr>
+<h3 id="wiki-h-7">108. 应用岗需要了解哪些"模型服务化"的基础设施？</h3>
+<p><strong>直接答案</strong>：应用岗要了解的服务化组件：</p>
+<ol>
+<li><strong>推理引擎</strong>：vLLM、TensorRT-LLM、Ollama、llama.cpp。</li>
+<li><strong>网关/路由</strong>：统一接入、模型路由、限流、降级（LiteLLM、自研网关）。</li>
+<li><strong>监控</strong>：延迟、吞吐、成本、token 用量（Langfuse、LangSmith、Prometheus）。</li>
+<li><strong>模型版本管理</strong>：模型灰度、回滚、A/B。</li>
+</ol>
+<p><strong>知识点讲解</strong>：</p>
+<ul>
+<li><strong>应用岗的核心判断</strong>：什么用托管 API、什么自部署、怎么路由降级——而非亲手写推理优化。</li>
+<li><strong>网关的价值</strong>：屏蔽多模型差异、统一限流、成本追踪、降级切换、多模型 A/B。</li>
+<li><strong>拓扑认知</strong>：客户端 → 网关（鉴权/路由/限流）→ 推理引擎（vLLM 等）→ 模型；监控和可观测贯穿全链路。</li>
+<li><strong>降级策略</strong>：主力模型故障时自动切换到备用模型或小模型，保证可用性。</li>
+<li>面试加分点：能画出"网关 + 推理引擎 + 监控"的部署拓扑，并说清每层职责。</li>
+</ul>
+<hr>
+</article>

@@ -1,0 +1,308 @@
+核对日期：2026-09-30
+适用对象：已完成第 8、9、11 篇，希望快速复用配置骨架的 Claude Code CLI 初学者。
+原则：先复制到练习副本，验证后再放进真实项目；示例不是通用安全策略。
+
+先选对文件和作用域
+位置	作用域	适合放什么	是否提交
+~/.claude/settings.json	当前用户的所有本地项目	个人偏好、个人权限规则	否
+.claude/settings.json	当前项目的所有使用者	共享权限、Hooks、项目环境变量	通常是
+.claude/settings.local.json	当前用户在当前项目	个人覆盖、试运行设置、长期批准	否；手工创建时加入 .gitignore
+~/.claude.json	Claude Code 自己维护的状态	登录、信任和部分应用状态	不手工编辑
+
+Windows 中 ~/.claude 通常对应 %USERPROFILE%\.claude。如果设置了 CLAUDE_CONFIG_DIR，用户配置根目录会改变；用 claude auth status --json 的 configDirectory 和 /status 确认。
+
+常见优先级可以先记成：托管策略最高；单次 CLI flag 或环境变量可覆盖对应普通设置；普通文件中 local 高于 project，高于 user。权限列表等部分数组会合并，不是简单整块替换，所以最终结果必须到 /permissions、/hooks 或 /status 看。
+
+基础检查：
+
+claude doctor
+
+
+JSON 无法解析时，先修好文件再开会话。不要通过删除整个 .claude/ 目录“恢复默认”；只撤回你刚加入的键，并保留项目原有配置。
+
+示例 1：最小共享权限配置
+
+路径：.claude/settings.json
+作用域：项目共享
+性质：权限强制规则，但只覆盖匹配到的工具调用；不是 OS Sandbox。
+
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git diff *)"
+    ],
+    "ask": [
+      "Bash(python3 -m unittest *)",
+      "Bash(py -m unittest *)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(**/*.pem)"
+    ]
+  }
+}
+
+
+这份配置的实际含义：
+
+git status 和 git diff 前缀的匹配调用无需再问；allow 不是工具白名单；
+两种 Python 单测命令强制询问，便于初学阶段看清将执行什么；
+内置文件工具与 Claude Code 能识别的部分 Shell 文件访问会尽力阻止读取 .env 和 .pem；
+任意 Python/Node 子进程仍可能自己打开文件，硬隔离需要 Sandbox 或外部容器。
+
+验证：
+
+在可信的课程副本启动 claude；
+运行 /permissions，确认三组规则的来源是项目设置；
+请 Claude 执行 git status --short，预期不出现权限确认；
+请它读取 .env，预期被拒绝；不要为了探针创建真实密钥。
+
+若规则没生效，运行 claude doctor，再检查启动目录、JSON、工作区信任和是否有更高优先级设置。Bash 规则匹配命令文字，Bash(git diff *) 不能阻止换一种写法执行类似动作。
+
+示例 2：非敏感项目环境变量
+
+路径：.claude/settings.json
+作用域：项目共享
+性质：运行环境配置，不是密钥存储。
+
+如果同一文件已含其他键，把 env 合并进去，不要覆盖整个文件：
+
+{
+  "env": {
+    "PYTHONUTF8": "1"
+  }
+}
+
+
+不要把 ANTHROPIC_API_KEY、网关 Token、数据库密码或个人路径写进会提交的文件。验证时让 Claude 运行只显示该非敏感值的命令；不要使用 env 或 set 打印全部环境变量。
+
+恢复：删除 PYTHONUTF8 这一项并保持 JSON 有效；新开会话或按设置页说明确认运行中是否已重新加载。
+
+示例 3：MealCraft 的最小 CLAUDE.md
+
+路径：项目根目录 CLAUDE.md
+作用域：项目指导
+性质：给模型的持久说明，不是强制安全边界。
+
+# MealCraft project guide
+
+## Purpose
+
+MealCraft 是个人菜谱与每周菜单应用。保持项目简单、可本地运行，不引入企业级架构。
+
+## Important paths
+
+- `mealcraft/`：应用代码
+- `data/recipes/`：课程固定菜谱数据
+- `tests/`：单元测试
+- `scripts/`：独立验收脚本
+
+## Commands
+
+- Focused test: `python3 -m unittest tests.test_scaling -v`
+- Full test: `python3 -m unittest discover -s tests -v`
+- Acceptance: `python3 scripts/verify_2_0.py --stage complete`
+
+Windows PowerShell 把 `python3` 换成 `py`。
+
+## Constraints
+
+- 不安装新依赖，除非任务明确要求并获得确认。
+- 不修改课程固定菜谱的 schema。
+- 测试只使用临时目录，不读写真实个人数据。
+- 不提交密钥、缓存、个人绝对路径或运行生成物。
+
+## Done means
+
+- 目标测试和完整测试通过。
+- 独立验收脚本通过。
+- 用户可见行为经过真实运行检查。
+- 最终报告列出改动、证据和未验证项。
+
+
+把命令改成项目真实存在的入口；不要保留占位符或编造路径。运行 /context 确认文件已加载，再让 Claude 在 Plan Mode 复述“完成标准”和将运行的命令。即使复述正确，权限规则、测试和验收仍需独立存在。
+
+恢复：若指导互相冲突，先保留一份副本，再删掉重复或可从代码推导的内容；不要在多个 CLAUDE.md 中反复粘贴同一规则。
+
+示例 4：只在测试路径加载的 Rule
+
+路径：.claude/rules/tests.md
+作用域：Claude 处理匹配路径时加载
+性质：条件指导，不是强制策略。
+
+---
+paths:
+  - "tests/**/*.py"
+---
+
+# Test rules
+
+- 文件系统测试必须使用临时目录。
+- 时间相关测试必须固定时区或显式传入时间。
+- 先运行目标测试，再运行完整测试套件。
+- 不通过重复运行来掩盖偶发失败。
+
+
+验证：
+
+新开会话并运行 /context；
+先讨论 README.md，Rule 不应作为全局说明出现；
+再让 Claude 读取 tests/ 中一个 Python 文件，检查 /context 和计划是否出现测试规则；
+最终仍由测试或静态检查证明行为，不接受“我已遵守”。
+
+若 Rule 未加载，检查 frontmatter 是否从文件第一行开始、glob 是否匹配真实相对路径，以及 Claude 是否真的读取了匹配文件。完整练习见第 9 篇。
+
+示例 5：手动触发的只读 release-check Skill
+
+路径：.claude/skills/release-check/SKILL.md
+作用域：当前项目
+性质：可复用工作流；allowed-tools 是调用当轮的免审批权限，不是工具白名单。
+
+---
+name: release-check
+description: Check whether the current MealCraft exercise state is ready to hand off.
+disable-model-invocation: true
+allowed-tools: Read Grep Glob Bash(git status *) Bash(git diff *)
+---
+
+检查范围：$ARGUMENTS
+
+1. 读取 CLAUDE.md 中的真实命令和完成标准。
+2. 运行 `git status --short` 和 `git diff --check`。
+3. 只读检查 Diff 中是否出现密钥、个人绝对路径或运行生成物。
+4. 不要 commit、tag、push、publish，也不要修改文件。
+5. 输出 `Passed`、`Blockers`、`Warnings` 和 `Not verified`。
+
+
+验证：
+
+/reload-skills
+/skills
+/release-check current diff only
+
+
+预期 /skills 显示项目来源和 user-only；调用报告必须包含四个固定栏目。因为 disable-model-invocation: true，Claude 不应自行触发它。未在 allowed-tools 中列出的工具仍可能被调用，但继续走正常权限流程；若必须移除工具，要用 Skill 的 disallowed-tools 或会话/项目 deny。
+
+静态检查可运行：
+
+claude plugin validate .claude/skills --strict
+
+
+若修改后仍看到旧内容，运行 /reload-skills；如果 Skill 目录是会话启动后第一次创建而仍未发现，新开会话。完整参数与 Hook 练习见第 11 篇。
+
+示例 6：阻止内置文件工具写入敏感文件的 Hook
+
+这个示例包含脚本与配置两部分。先在课程副本创建目录 .claude/hooks/。
+
+1. Hook 脚本
+
+路径：.claude/hooks/guard_sensitive_write.py
+
+import json
+import sys
+from pathlib import Path
+
+
+def main() -> int:
+    event = json.load(sys.stdin)
+    raw_path = event.get("tool_input", {}).get("file_path", "")
+    target = Path(raw_path)
+
+    if target.name == ".env" or target.suffix.lower() == ".pem":
+        print(f"Blocked sensitive write: {raw_path}", file=sys.stderr)
+        return 2
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+退出码 2 对 PreToolUse 表示阻止调用；退出码 1 对多数 Hook 只是非阻塞错误，不能用于强制策略。
+
+2. 项目设置
+
+macOS、Linux、WSL2 的 .claude/settings.json 片段：
+
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/guard_sensitive_write.py"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+
+原生 Windows 把 command 值改成：
+
+"py -3 .claude/hooks/guard_sensitive_write.py"
+
+
+如果 .claude/settings.json 已有 permissions、env 或其他 Hooks，只合并对应键，不要用整段示例覆盖。
+
+3. 先独立测试脚本
+
+macOS、Linux 或 WSL2：
+
+printf '%s\n' '{"tool_input":{"file_path":"/tmp/.env"}}' \
+  | python3 .claude/hooks/guard_sensitive_write.py
+echo $?
+
+
+PowerShell：
+
+'{"tool_input":{"file_path":"C:\\tmp\\.env"}}' |
+  py -3 .claude/hooks/guard_sensitive_write.py
+$LASTEXITCODE
+
+
+预期 stderr 出现 Blocked sensitive write，退出码是 2。再把路径改为 notes.txt，预期无输出且退出码是 0。
+
+4. 在 Claude Code 中验证
+运行 claude doctor，确认 settings 可解析；
+启动可信课程副本，运行 /hooks，确认 PreToolUse 下有 Edit|Write；
+请 Claude 用文件编辑工具写 .env，预期 Hook 阻止；不要放真实密钥；
+请它写 notes.txt，预期进入正常权限流程；
+查看 git status --short，确认没有意外文件。
+
+这个 Hook 只匹配内置 Edit 和 Write。Bash、PowerShell、MCP 或外部进程可能换一条路径写文件，因此它不是完整文件系统隔离。硬边界仍要结合 deny、Sandbox、隔离副本和人工审批。
+
+若 Hook 未出现或未触发：直接运行脚本、检查解释器路径、运行 /hooks、确认 matcher 大小写，再用 claude --debug='hooks' 启动最小探针。恢复时只移除刚加入的 Hook 条目；保留项目原有 Hooks。
+
+如何判断该用哪一种
+需求	使用	是否强制
+每次都要知道的项目事实	CLAUDE.md	否，属于指导
+只对某类路径生效的约定	.claude/rules/*.md	否，属于条件指导
+偶尔调用的领域知识或步骤	Skill	否；可控制谁触发
+不需要模型判断的自动检查	Hook	视事件和退出方式而定
+工具调用的批准、询问或拒绝	permissions	对匹配调用强制，但有匹配边界
+子进程文件/网络硬隔离	OS Sandbox 或外部隔离	是，边界取决于平台与配置
+
+配置是否“写进文件”不代表是否“生效”，生效也不代表覆盖所有通道。最终一定要查看解析后的状态，并用无敏感数据的正向与反向探针验证。
+
+完成检查
+配置写进了正确作用域，没有覆盖原有键；
+claude doctor 没有 JSON、frontmatter 或重复定义错误；
+/status、/context、/permissions、/skills 或 /hooks 显示正确来源；
+指导类配置没有被当作安全强制；
+权限与 Hook 已做允许和拒绝两类探针；
+共享文件中没有密钥、Token、Cookie 或个人绝对路径；
+知道怎样只撤回本次新增配置。
+
+官方入口：
+
+Settings
+Permissions
+Memory and CLAUDE.md
+Skills
+Hooks reference

@@ -1,0 +1,270 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计用时：65～85 分钟<br>本篇目标：从三份脱敏 CI 日志中提出两个互斥假设，用两个只读 Subagent 分别找证据，再由主 Agent 运行固定实验和确定性边界测试裁决；最后只改一个文件，完成回归、重复验证和有边界的事故报告。</p>
+</blockquote>
+<p>“Windows 偶尔失败，macOS 和 Linux 通过”只是现象，不是根因。路径分隔符、大小写、换行、编码、时区都听起来合理；如果看到平台名就直接改路径，往往只是把猜测写进代码。</p>
+<p>本篇使用一个个人开源小工具 TrailSnap。它把当天的徒步笔记导出成 JSON，文件名日期和 JSON 中的 <code>export_date</code> 都应使用用户本地日历日。素材包含真实可运行代码、5 项测试、三份脱敏平台日志、两个项目 Agent 和固定实验，不需要读者自己编造 CI 输出。</p>
+<h2 id="wiki-h-0">开始状态</h2>
+<p>本练习独立于 MealCraft、博客和旅行笔记仓库。需要：</p>
+<ul>
+<li>Claude Code、Git 和 Python 3.11+ 可用；</li>
+<li><code>~/claude-code-course/flaky-test-lab</code> 尚不存在；</li>
+<li>知道修订版教程目录的实际位置；</li>
+<li>接受调用两个 Subagent 会产生额外模型请求并计入用量。</li>
+</ul>
+<p>练习不会连接真实 CI，不会声称已经在三种真实操作系统上运行修复版。Windows、macOS 和 Linux 日志是固定的脱敏历史证据；本机验证通过显式时区输入模拟关键环境差异。</p>
+<h2 id="wiki-h-1">创建固定故障仓库</h2>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> COURSE_SOURCE=<span class="hljs-string">"/替换为实际路径/claude-code-tutorial-v0.2"</span>
+<span class="hljs-built_in">export</span> FLAKY_SOURCE=<span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/flaky-test-lab"</span>
+<span class="hljs-built_in">test</span> -f <span class="hljs-string">"<span class="hljs-variable">$FLAKY_SOURCE</span>/scripts/verify_flaky_lab.py"</span>
+<span class="hljs-built_in">cd</span> ~/claude-code-course
+<span class="hljs-built_in">test</span> ! -e flaky-test-lab
+<span class="hljs-built_in">mkdir</span> flaky-test-lab
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$FLAKY_SOURCE</span>/."</span> flaky-test-lab/
+<span class="hljs-built_in">cd</span> flaky-test-lab
+git init
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$CourseSource</span> = <span class="hljs-string">"C:\替换为实际路径\claude-code-tutorial-v0.2"</span>
+<span class="hljs-variable">$FlakySource</span> = <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\flaky-test-lab"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">"<span class="hljs-variable">$FlakySource</span>\scripts\verify_flaky_lab.py"</span>)) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"偶发测试素材路径错误"</span> }
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> flaky<span class="hljs-literal">-test-lab</span>) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"flaky-test-lab 已存在，请先检查旧目录"</span> }
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory flaky<span class="hljs-literal">-test-lab</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$FlakySource</span>\*"</span> <span class="hljs-literal">-Destination</span> flaky<span class="hljs-literal">-test-lab</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$FlakySource</span>\.claude"</span> <span class="hljs-literal">-Destination</span> flaky<span class="hljs-literal">-test-lab</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$FlakySource</span>\.gitignore"</span> <span class="hljs-literal">-Destination</span> flaky<span class="hljs-literal">-test-lab</span> <span class="hljs-literal">-Force</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$FlakySource</span>\.gitattributes"</span> <span class="hljs-literal">-Destination</span> flaky<span class="hljs-literal">-test-lab</span> <span class="hljs-literal">-Force</span>
+<span class="hljs-built_in">Set-Location</span> flaky<span class="hljs-literal">-test-lab</span>
+git init
+</code></pre><p>先验证固定证据与项目 Agent：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_flaky_lab.py --expect-bug
+claude plugin validate .claude/agents --strict
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\verify_flaky_lab.py <span class="hljs-literal">--expect-bug</span>
+claude plugin validate .claude\agents <span class="hljs-literal">--strict</span>
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS fixed evidence: logs, tests, agents, and experiments
+PASS bug state: 5 tests, 1 deterministic boundary failure
+✔ Validation passed
+</code></pre><p>检查器会锁住日志、测试、事故简报、Agent 和实验脚本的 SHA-256，并真实运行 5 项测试。只有 <code>trailsnap/exporter.py</code> 是后续允许修改的业务文件。</p>
+<p>提交缺陷基线：</p>
+<pre><code class="hljs language-bash">git add .
+git diff --cached --check
+git commit -m <span class="hljs-string">"create deterministic TrailSnap boundary failure lab"</span>
+git status --short
+</code></pre><p>预期工作区为空。项目结构如下：</p>
+<pre><code class="hljs language-text">flaky-test-lab/
+├── .claude/agents/
+│   ├── path-hypothesis.md
+│   └── time-hypothesis.md
+├── logs/
+│   ├── macos-pass.txt
+│   ├── linux-pass.txt
+│   └── windows-fail.txt
+├── trailsnap/exporter.py          # 唯一允许修复的文件
+├── tests/
+│   ├── test_exporter.py
+│   └── test_boundary.py
+├── scripts/
+│   ├── evaluate_hypotheses.py
+│   ├── repeat_boundary_test.py
+│   └── verify_*.py
+├── baseline/exporter.py
+└── INCIDENT_BRIEF.md
+</code></pre><h2 id="wiki-h-2">先读三份日志，不把平台相关性当因果</h2>
+<p>打开或让 Claude 读取 <code>logs/</code> 后，应能提取：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>样本</th>
+<th>本地时间</th>
+<th>同一时刻的 UTC</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>macOS</td>
+<td>2026-03-15 12:00 +00:00</td>
+<td>2026-03-15 12:00</td>
+<td>通过</td>
+</tr>
+<tr>
+<td>Linux</td>
+<td>2026-03-15 09:00 +01:00</td>
+<td>2026-03-15 08:00</td>
+<td>通过</td>
+</tr>
+<tr>
+<td>Windows</td>
+<td>2026-03-14 23:30 -07:00</td>
+<td>2026-03-15 06:30</td>
+<td>失败</td>
+</tr>
+</tbody></table></div>
+<p>Windows 日志已经成功创建：</p>
+<pre><code class="hljs language-text">C:\Temp\trailsnap\export\trail-night-walk-2026-03-14.json
+</code></pre><p>失败断言比较的是文件名中的 <code>2026-03-14</code> 与 JSON 的 <code>export_date=2026-03-15</code>。这给出两个可被证伪的候选：</p>
+<ul>
+<li><strong>路径假设</strong>：路径拼接或分隔符让 Windows 生成了错误目标；</li>
+<li><strong>时间假设</strong>：文件名使用本地日期，JSON 却使用同一时刻的 UTC 日期，跨日界线时两者不同。</li>
+</ul>
+<p>它们不能同时是这个断言的直接根因。用两个窄 Agent 分开调查，能减少“一个 Agent 一开始偏向某个答案，随后只找支持材料”的风险。</p>
+<h2 id="wiki-h-3">确认确定性失败，而不是反复等偶发</h2>
+<p>先在普通终端运行完整测试：</p>
+<pre><code class="hljs language-bash">python3 -B -m unittest discover -s tests -v
+</code></pre><p>Windows 使用 <code>py</code>。稳定结果是 5 项中恰好一个失败：</p>
+<pre><code class="hljs language-text">FAIL: test_local_day_remains_consistent_across_utc_boundary
+AssertionError: '2026-03-15' != '2026-03-14'
+Ran 5 tests
+FAILED (failures=1)
+</code></pre><p>测试直接构造有时区的 <code>2026-03-14T23:30:00-07:00</code>，不依赖当前电脑的操作系统、真实时钟或等待午夜。它把“偶发时间窗口”变成每次都相同的输入。</p>
+<p>此时不需要再跑 100 次随机 CI 来证明问题存在：一个与日志完全对应的确定性失败，信息量更高。</p>
+<h2 id="wiki-h-4">显式调用两个只读 Subagent</h2>
+<p>项目 Agent 已在启动前写入 <code>.claude/agents/</code>。从仓库根目录启动新会话：</p>
+<pre><code class="hljs language-bash">claude
+</code></pre><p>先发送路径假设：</p>
+<pre><code class="hljs language-text">@agent-path-hypothesis 调查固定 TrailSnap case 的路径假设。严格遵守 Agent 的范围和 JSON 输出契约；不要修改文件。
+</code></pre><p>紧接着发送时间假设：</p>
+<pre><code class="hljs language-text">@agent-time-hypothesis 调查固定 TrailSnap case 的本地日期与 UTC 日期假设。严格遵守 Agent 的范围和 JSON 输出契约；不要修改文件。
+</code></pre><p>两个 Agent 的 <code>background: true</code>，可以重叠运行。输入 <code>/tasks</code> 查看它们是否真的启动、使用了什么模型以及是否完成。展开工具记录时，只应看到 Read、Grep 或 Glob；它们没有 Bash、PowerShell、Write、Edit、MCP、Skill 或 Agent 工具。</p>
+<p>每个 Agent 都是一次独立模型调用。并行不会自动减少总用量，也不保证更快；这里使用两个，是因为两个假设边界清楚且互斥，不是为了展示“越多 Agent 越好”。</p>
+<h2 id="wiki-h-5">保存并校验 Agent 报告</h2>
+<p>两个 Agent 应分别返回一个无 Markdown 围栏的 JSON 对象。让主会话保存，注意写入动作来自主 Agent：</p>
+<pre><code class="hljs language-text">不要再委派。把 path-hypothesis 返回的原始 JSON 保存为 reports/path.json，把 time-hypothesis 返回的原始 JSON 保存为 reports/time.json。不要修改其他文件，保存后只报告两个路径。
+</code></pre><p>退出 Claude Code，在普通终端验证：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_hypothesis_reports.py \
+  --path-report reports/path.json \
+  --time-report reports/time.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\verify_hypothesis_reports.py `
+  <span class="hljs-literal">--path-report</span> reports\path.json `
+  <span class="hljs-literal">--time-report</span> reports\time.json
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS hypothesis reports: path=REFUTED time=SUPPORTED evidence=4
+</code></pre><p>校验器要求路径报告给出 <code>PATH-01</code>、<code>PATH-02</code> 两条证据并判定 <code>REFUTED</code>；时间报告给出 <code>TIME-01</code>、<code>TIME-02</code> 并判定 <code>SUPPORTED</code>。两个报告都必须声明没有改文件，并给出下一步固定实验命令。</p>
+<p>如果 Agent 输出不符合 JSON 契约，不要手工改出一个“正确答案”。在同一主会话要求对应 Agent 基于已有证据重返合法 JSON，再保存并重验。</p>
+<h2 id="wiki-h-6">主 Agent 必须亲自复核，而不是投票</h2>
+<p>Subagent 的结论只是待验证材料。由主会话或你自己运行两个实验：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/evaluate_hypotheses.py --hypothesis path
+python3 -B scripts/evaluate_hypotheses.py --hypothesis <span class="hljs-keyword">time</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\evaluate_hypotheses.py <span class="hljs-literal">--hypothesis</span> path
+py <span class="hljs-literal">-B</span> scripts\evaluate_hypotheses.py <span class="hljs-literal">--hypothesis</span> time
+</code></pre><p>稳定输出：</p>
+<pre><code class="hljs language-text">PATH result=REFUTED windows_name=trail-night-walk-2026-03-14.json posix_name=trail-night-walk-2026-03-14.json pathlib_join=true
+TIME result=SUPPORTED ... local_day=2026-03-14 utc_day=2026-03-15
+</code></pre><p>再对照代码：<code>pathlib</code> 已正确构造目标，Windows 日志也证明文件创建成功；差异发生在 JSON 字段。<code>exporter.py</code> 一边计算 <code>local_now.date()</code>，另一边把同一时刻转换到 UTC 再取日期。跨 UTC 日界线时，两者自然可能相差一天。</p>
+<p>因此准确结论是：<strong>根因是混用了本地日历日与 UTC 日历日，Windows 只是这次日志中恰好处于负时区且接近午夜的运行环境。</strong> 同样的输入在任何操作系统上都会失败。</p>
+<h2 id="wiki-h-7">只修复日期语义，不特殊判断 Windows</h2>
+<p>回到 Claude Code 主会话，先让它给出两三行计划：负责编码的函数、需要统一的语义、不可修改范围和验证命令。确认后发送：</p>
+<pre><code class="hljs language-text">实施最小修复，只修改 trailsnap/exporter.py。
+
+要求：
+- 文件名与 JSON export_date 都使用传入 aware local_now 的本地日历日；
+- 不增加 Windows/macOS/Linux 分支；
+- 不修改日志、测试、Agent、baseline、检查器或事故简报；
+- 不增加重试或读取真实系统时钟；
+- 删除修复后不再需要的 import。
+
+修改后先运行边界测试，再运行完整 5 项测试；不要提交 Git。
+</code></pre><p>权限提示必须只涉及 <code>trailsnap/exporter.py</code>。一个合格的最小修复会让 <code>export_date</code> 复用已经算出的 <code>local_day</code>，并移除不再需要的 <code>timezone</code> import；它不需要识别操作系统。</p>
+<h2 id="wiki-h-8">独立验收与重复验证</h2>
+<p>退出 Claude Code，先检查范围：</p>
+<pre><code class="hljs language-bash">git diff --name-only
+git diff --check
+git diff -- trailsnap/exporter.py
+</code></pre><p><code>git diff --name-only</code> 必须只列出：</p>
+<pre><code class="hljs language-text">trailsnap/exporter.py
+</code></pre><p>运行固定验收：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_flaky_lab.py --expect-fixed
+python3 -B scripts/repeat_boundary_test.py --runs 20
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-B</span> scripts\verify_flaky_lab.py <span class="hljs-literal">--expect-fixed</span>
+py <span class="hljs-literal">-B</span> scripts\repeat_boundary_test.py <span class="hljs-literal">--runs</span> <span class="hljs-number">20</span>
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS fixed evidence: logs, tests, agents, and experiments
+PASS fixed state: 5 tests, local-day contract holds
+PASS repeated boundary test runs=20
+</code></pre><p>这里证据的强弱顺序很重要：</p>
+<ol>
+<li>固定边界测试直接覆盖已知根因；</li>
+<li>完整 5 项测试证明非目标行为没有回归；</li>
+<li>20 次重复运行补充检查状态泄漏或残留不稳定性。</li>
+</ol>
+<p>20 次通过不能数学上证明“永不失败”，也不能替代三平台真实 CI。反过来，如果只重复原来大多数时间都会通过的普通测试，即使跑 1000 次，也可能一次都没经过问题时间窗。</p>
+<p>提交修复：</p>
+<pre><code class="hljs language-bash">git add trailsnap/exporter.py
+git commit -m <span class="hljs-string">"use local calendar day for TrailSnap exports"</span>
+git status --short
+</code></pre><p><code>reports/</code> 被忽略，所以 Agent 中间结果不会污染提交；固定日志仍保留为事故证据。</p>
+<h2 id="wiki-h-9">生成不夸大的事故报告</h2>
+<p>让 Claude 只创建 <code>INCIDENT_REPORT.md</code>：</p>
+<pre><code class="hljs language-text">只创建 INCIDENT_REPORT.md，不修改其他文件。报告必须包含：
+
+## 现象
+描述三份脱敏日志和 Windows 样本的失败，不把平台相关性写成因果。
+
+## 日志差异
+逐字包含：
+- path hypothesis: REFUTED
+- time hypothesis: SUPPORTED
+
+## 根因
+逐字包含 local calendar day、UTC calendar day 和 not Windows itself，并用代码与日志证据解释。
+
+## 稳定复现
+包含 test_local_day_remains_consistent_across_utc_boundary 与确定输入。
+
+## 修复
+说明只修改 trailsnap/exporter.py，统一使用本地日历日。
+
+## 验证
+逐字包含 5 tests 和 20 repeated runs，并说明重复通过不是数学证明。
+
+## 未验证
+明确本课没有触发真实 macOS、Linux 或 Windows CI，不能写“已在三平台验证”。
+</code></pre><p>退出后检查：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 -B scripts/verify_incident_report.py --report INCIDENT_REPORT.md
+git diff --check
+git add INCIDENT_REPORT.md
+git commit -m <span class="hljs-string">"document TrailSnap boundary incident"</span>
+git status --short
+</code></pre><p>Windows 把 <code>python3</code> 换成 <code>py</code>。预期报告检查通过，最终工作区为空。</p>
+<h2 id="wiki-h-10">关键排错</h2>
+<h3 id="wiki-h-11">Agent 没有被发现</h3>
+<p>确认会话启动前文件已经位于 <code>.claude/agents/</code>，并运行：</p>
+<pre><code class="hljs language-bash">claude plugin validate .claude/agents --strict
+</code></pre><p>若会话在复制素材前已经启动，退出后从项目根目录新开会话。当前 <code>/agents</code> 不再是创建向导；不要依赖旧教程里的交互界面。</p>
+<h3 id="wiki-h-12">Agent 报告支持了两个假设</h3>
+<p>回到原始断言：Windows 输出路径已经生成，文件名日期正确，失败值在 JSON 中。让路径 Agent 明确区分“平台差异存在”和“它直接解释了这个断言”。最终裁决仍以两个固定实验和代码数据流为准，不按 Agent 票数决定。</p>
+<h3 id="wiki-h-13">基线不是恰好一个失败</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash">git status --short
+python3 -B scripts/reset_flaky_lab.py
+python3 -B scripts/verify_flaky_lab.py --expect-bug
+</code></pre><p>Windows 使用 <code>py</code>。重置脚本只覆盖练习中的 <code>trailsnap/exporter.py</code>。若固定哈希失败，日志、测试或 Agent 被改过，应查看 Diff 并重新复制素材，而不是修改检查器。</p>
+<h3 id="wiki-h-14">修复后边界测试仍失败</h3>
+<p>检查是否仍对 <code>local_now</code> 调用了 <code>astimezone(timezone.utc)</code> 后再取日期。需求是用户本地日历日，不是统一成 UTC。不要通过改期望值为 15 日让测试“通过”。</p>
+<h3 id="wiki-h-15">本地全绿，但真实 CI 仍偶发</h3>
+<p>保留新测试与修复，收集新的脱敏失败日志，比较是否仍是同一断言、时间点和代码版本。新日志可能揭示第二个独立问题；不能把一次已修根因扩展成“所有跨平台问题都解决”。</p>
+<h2 id="wiki-h-16">文章级验收</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">固定证据检查与两个 Agent strict validation 通过；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">缺陷态固定为 5 项测试、1 个指定边界失败；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能从日志区分平台相关性与根因证据；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">路径与时间两个只读 Agent 均被真实调用，并在 <code>/tasks</code> 可见；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">两份 JSON 报告通过结构和证据 ID 校验；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">主 Agent 亲自运行 PATH refuted、TIME supported 两个实验；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">最终只修改 <code>trailsnap/exporter.py</code>，没有平台特判或重试；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">修复态 5 项全绿，确定边界测试重复 20 次通过；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能解释重复通过为什么不是数学证明；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">报告明确没有真实三平台验证，最终 Git 工作区为空。</li>
+</ul>
+<p>本篇完成了三个迁移实战中的最后一个：固定输入、先证伪假设、把偶发窗口变成确定测试、再做最小修复。第 18 篇不会再引入新项目，而会把全课程常见阻塞整理成按症状查找的最短诊断链。</p>
+<p>官方参考：<a href="https://code.claude.com/docs/en/sub-agents">Subagents</a>、<a href="https://code.claude.com/docs/en/commands">Commands</a>、<a href="https://code.claude.com/docs/en/common-workflows">Common workflows</a>。</p>
+</article>

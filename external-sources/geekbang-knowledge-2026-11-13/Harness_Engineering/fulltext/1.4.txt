@@ -1,0 +1,290 @@
+预计阅读与操作时间：40～50 分钟
+本篇目标：为 ShelfCare 建立一套精简、可导航、能随代码一起维护的仓库知识结构，让 Agent 找得到产品规则、架构和当前开发入口。
+
+配套代码说明
+
+本篇加入仓库的是 assets/lesson-03-knowledge/ 下的四个 Markdown 文件，也是整个教程第一次为项目“写知识”。它们不是代码，但结构本身承载了第 03 篇的核心主张——知识分层、渐进式披露：
+
+lesson-03-knowledge/
+├── AGENTS.md                # 入口地图：导航 + 当前命令 + 仓库边界
+└── docs/
+    ├── PRODUCT_RULES.md     # 产品事实：状态取值、筛选 AND 组合、验收示例
+    ├── ARCHITECTURE.md      # 架构地图：数据流、目录职责、依赖方向
+    └── DEVELOPMENT.md       # 开发事实：启动、测试、端口覆盖、故障入口
+
+
+各文件实现的功能：
+
+AGENTS.md 是唯一入口，用 “Start here” 三个相对链接指向三份专题文档，并明确写着 “Read only the document relevant to the task. Do not load every document by default.”（按任务读取，不默认全载）。它还声明了几条仓库边界（不擅自加依赖、不改数据伪造功能、不访问仓库外文件），但此刻这些只是文字。
+PRODUCT_RULES.md 把标签筛选写成可判断的行为：标签选项来自数据、搜索/状态/标签用 AND 组合、清除一个条件不影响其他、空结果显示固定文案，并保留“科幻 → 两本书”“技术+在读 → 两本书”两个验收示例。
+ARCHITECTURE.md 先用一张 ASCII 数据流图画出 Browser → server.js → src/library.js → data/books.json 的请求走向，再说明目录职责和三条依赖边界（浏览器不能直读 data/、src/library.js 不依赖浏览器、CSS 不承载行为）。
+DEVELOPMENT.md 记录“现在怎样做”：Node 版本要求、node server.js、node --test tests/library.test.js、端口覆盖，以及 EADDRINUSE 等三个高频故障入口。
+
+一个关键细节：这四份文件的内容与本篇之前 starter 的真实代码、数据、命令逐项一致——例如 PRODUCT_RULES.md 里“科幻”对应 data/books.json 的 book-001 和 book-006。本篇第七节会专门要求你验证这一点，因为“文档说一套、代码做一套”正是知识层最危险的失败。
+
+第二篇结束时，shelfcare-lab 的 main 分支仍是干净的起始项目。你已经知道怎样启动和测试它，也在基线记录里写下了 Agent 不知道什么。
+
+现在要做的不是把这些答案重新告诉下一次 Agent，而是把值得重复使用的知识放回仓库。以后换一个任务、开一个新会话，Agent 仍然能自己找到。
+
+OpenAI 在 Harness Engineering 实践总结 中把这件事称为让仓库成为知识的记录系统。他们也试过把全部规则堆进一个巨大的 AGENTS.md，最后改为用短入口指向结构化文档。原因很实际：上下文有限，长手册会挤占任务和代码，所有规则都强调等于没有重点，而且一大块文字很难检查是否过期。
+
+ShelfCare 规模很小，不需要照搬大型仓库的文档树。我们只建立四个文件：一张入口地图、产品规则、架构地图和本地开发说明。
+
+先分清四种知识
+
+在开始写文件前，先决定不同信息应该放在哪里。
+
+知识	适合放在哪里	例子
+长期工作规则与导航	AGENTS.md	从哪里读产品规则、修改后怎样验证
+产品事实	docs/PRODUCT_RULES.md	标签与状态怎样组合
+代码结构和依赖方向	docs/ARCHITECTURE.md	浏览器不能直接读取 data/
+当前开发入口	docs/DEVELOPMENT.md	怎样启动、测试和处理端口冲突
+
+还有两类内容不应该混进来：
+
+“本次增加标签筛选”属于一次任务，不是永久仓库规则；
+“先读第 38 行再修改第 72 行”属于临时实现计划，代码变化后很快失效。
+
+入口文件越短，越容易稳定。细节进入专题文档，Agent 需要时再读，这就是渐进式披露：先看到地图，再按当前任务进入相关区域。
+
+把知识文件加入主线
+
+确认终端位于 shelfcare-lab，并且已经切回 main：
+
+git status --short --branch
+
+
+预期第一行是 ## main，下面没有未提交文件。如果你跳过了第二篇，可重新从 assets/shelfcare-starter 复制项目并建立初始提交；不要在带有基线功能修改的分支上继续。
+
+课程已经在 assets/lesson-03-knowledge 中准备好四个知识文件。把它们复制到实验仓库。
+
+macOS 或 Linux：
+
+cp -R ../assets/lesson-03-knowledge/. .
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force ..\assets\lesson-03-knowledge\* .
+
+
+复制完成后，项目根目录应多出：
+
+AGENTS.md
+docs/
+├── ARCHITECTURE.md
+├── DEVELOPMENT.md
+└── PRODUCT_RULES.md
+
+
+在 Windows PowerShell 中，* 不会复制以点开头的文件，但本次四个文件都不以点开头，因此结果相同。
+
+把 AGENTS.md 写成地图，不是百科全书
+
+打开根目录的 AGENTS.md。它只做四件事：
+
+一句话说明 ShelfCare 是什么；
+指向三个专题文档；
+写出当前启动、测试和完成前检查；
+说明仓库范围与高风险边界。
+
+其中最重要的部分是导航：
+
+## Start here
+
+- Product behavior and acceptance examples: [docs/PRODUCT_RULES.md](docs/PRODUCT_RULES.md)
+- Code layout and dependency direction: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Current local commands and troubleshooting: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+
+Read only the document relevant to the task. Do not load every document by default.
+
+
+这里没有要求 Agent 每次先读完三篇文档。修一个 CSS 间距，不需要加载产品筛选规则；修改标签行为时，才需要阅读 PRODUCT_RULES.md。OpenAI 近期针对 Agent 指令的建议也强调按任务读取所需文档，避免让长期指令不断膨胀。官方说明
+
+AGENTS.md 还写了几条仓库边界，例如不为简单功能擅自引入依赖、不修改数据来伪造功能效果、不访问仓库之外的文件。它们能让边界对 Agent 可见，但目前仍只是文字。第七篇会把能机械执行的部分升级成真正的检查。
+
+不同 Agent 会不会自动读取它
+
+AGENTS.md 是本教程选择的中立仓库入口，但不同编码 Agent 的自动发现规则并不完全相同。Codex 会读取作用域内的 AGENTS.md；其他工具可能使用自己的项目指令文件，或需要你在开场时说“先阅读 AGENTS.md”。
+
+不要靠猜。查一下你所用 Agent 的项目指令文档，再做后面的检索测试。如果它不会自动加载，本教程后续任务统一在开头加一句：
+
+请先阅读仓库根目录的 AGENTS.md，再开始处理任务。
+
+
+这不会改变知识结构，只是告诉工具入口在哪里。
+
+产品规则要写成可判断的行为
+
+打开 docs/PRODUCT_RULES.md。它没有写“标签筛选要好用”这种无法验收的话，而是把规则写成 Agent 可以实现、人和测试可以判断的行为：
+
+标签选项来自图书数据，不维护第二份硬编码列表；
+搜索、阅读状态和标签条件使用 AND 组合；
+清除一个条件时，其他条件继续生效；
+没有结果时显示固定空状态；
+修改筛选功能不能靠改 data/books.json 伪造结果。
+
+文档还保留了两个具体例子。例如，“技术 + 在读”应该只剩《设计数据密集型应用》和《程序员修炼之道》。例子不是多余解释，它把抽象规则变成了可复查的样本。
+
+注意，我们没有把按钮颜色、控件必须放在第几列之类的实现偏好也写成产品规则。文档应该保护真正影响用户行为的事实，不是替 Agent 做完全部设计选择。
+
+架构文档写边界，不逐文件复述代码
+
+docs/ARCHITECTURE.md 先画出当前数据流：
+
+Browser
+  ├─ GET /, /app.js, /styles.css ──> server.js ──> public/
+  └─ GET /api/books ──────────────> server.js ──> src/library.js ──> data/books.json
+
+
+接下来才说明目录职责和依赖方向。对于标签筛选任务，最关键的判断是：当前数据量很小，浏览器已经一次加载全部图书，所以 UI 筛选可以继续留在 public/app.js，不必为了一个下拉框新增服务端 API。
+
+一份有用的架构文档应该回答“代码为什么在这里”和“哪些方向不允许”，而不是把每个函数名重新抄一遍。函数名改动频繁，边界相对稳定；前者更容易腐烂，后者更适合作为长期地图。
+
+文档里目前写了三条边界：
+
+浏览器代码不能直接读取 data/；
+src/library.js 不能依赖浏览器代码；
+CSS 不承载产品行为。
+
+这些也暂时是说明，不是机器约束。先让 Agent 看得见，之后再根据真实风险决定哪些值得自动检查。
+
+开发文档记录“现在怎样做”
+
+docs/DEVELOPMENT.md 记录的是当前事实：Node.js 版本、启动命令、测试命令、端口覆盖和三个高频故障入口。
+
+它与 AGENTS.md 中的命令看起来有一点重复，但职责不同：入口文件只给最短路径，开发文档负责解释预期结果和故障恢复。等第四篇建立统一脚本后，两处都要在同一次提交里更新。
+
+这条约定已经写进 AGENTS.md：行为或结构变化时，同步更新对应文档。与其给所有文档加一个容易过期的“最后更新日期”，不如明确什么代码变化会触发它更新：
+
+筛选行为变化，更新 PRODUCT_RULES.md；
+目录或依赖方向变化，更新 ARCHITECTURE.md；
+命令、环境变量或故障入口变化，更新 DEVELOPMENT.md。
+
+日期只能说明有人动过文件，触发条件才能告诉维护者什么时候必须动它。
+
+先检查文档是不是在说真话
+
+知识进入仓库不代表它自动正确。先做三个层次的检查。
+
+1. 检查链接目标存在
+
+macOS 或 Linux：
+
+for file in AGENTS.md docs/ARCHITECTURE.md docs/PRODUCT_RULES.md docs/DEVELOPMENT.md; do
+  test -f "$file" || exit 1
+done
+
+
+Windows PowerShell：
+
+$files = @(
+  "AGENTS.md",
+  "docs/ARCHITECTURE.md",
+  "docs/PRODUCT_RULES.md",
+  "docs/DEVELOPMENT.md"
+)
+$files | ForEach-Object {
+  if (-not (Test-Path $_)) { throw "Missing file: $_" }
+}
+
+
+没有输出、退出码为 0，表示四个文件都存在。这只是最低限度，还不能证明内容正确。
+
+2. 用真实代码核对关键陈述
+
+逐项打开对应文件检查：
+
+文档陈述	代码证据
+/api/books 返回藏书	server.js 的路由
+数据由 src/library.js 读取	server.js 顶部的 require
+数据文件是 data/books.json	src/library.js 的 dataFile
+筛选发生在浏览器	public/app.js 的 currentBooks()
+起始项目有两项测试	tests/library.test.js
+
+不要因为课程给了现成文档就跳过这一步。真正迁移到自己的项目时，文档初稿常常来自旧 README、聊天记录或 Agent 总结，最容易在这里带入错误。
+
+3. 运行文档声称可用的命令
+node --test tests/library.test.js
+
+
+应继续显示 2 个测试通过、0 个失败。再运行：
+
+node server.js
+
+
+打开 http://127.0.0.1:3000，确认仍显示 8 本书，然后按 Ctrl+C 停止。文档变更不应改变应用行为。
+
+最后检查 Markdown 和空白错误：
+
+git diff --check
+git status --short --untracked-files=all
+git diff --stat
+
+
+git diff --check 应没有输出；git diff --stat 应只列出 AGENTS.md 和三个 docs/ 文件。如果出现应用代码，说明你没有从干净 main 开始，先用 git status 查清来源，不要直接删除。
+
+做一次“知识检索测试”
+
+现在启动你的编码 Agent，但明确要求它不要修改文件。使用下面这段任务：
+
+不要修改任何文件。请根据仓库中的项目知识回答：
+1. ShelfCare 当前怎样启动和运行测试？
+2. 标签、状态和搜索条件怎样组合？
+3. 标签筛选应该放在哪一层，为什么？
+4. 哪些操作超出这个仓库的默认工作边界？
+请为每个答案标出依据的文件路径；找不到时直接说明找不到，不要猜。
+
+
+如果你的 Agent 不会自动读取 AGENTS.md，在最前面加上前文那句入口提示。
+
+一个合格结果应该引用：
+
+docs/DEVELOPMENT.md 回答命令；
+docs/PRODUCT_RULES.md 回答 AND 组合与动态标签；
+docs/ARCHITECTURE.md 回答浏览器层；
+AGENTS.md 回答仓库访问、依赖和危险操作边界。
+
+回答内容还要与真实代码一致。只会复述文档却引用错路径，说明导航仍不清楚；不读文档、只凭代码猜产品规则，也不能算通过。
+
+这项测试没有让 Agent 实现功能，却验证了一件更基础的事：换一个全新会话，它能否自行找到此前只存在于人脑和教程里的知识。
+
+提交知识基线
+
+确认检索测试通过后，提交这四个文件：
+
+git add AGENTS.md docs
+git commit -m "docs: add repository knowledge map"
+git status --short --branch
+
+
+预期仍在 main，工作区干净。此时不要重新执行标签筛选任务；我们还没解决开发入口、机器验证和页面反馈，过早复测会混淆每一层改造的作用。
+
+常见阻塞
+Agent 完全忽略 AGENTS.md
+
+先确认它是否支持自动发现这个文件，以及终端的当前目录是否真在 shelfcare-lab。如果工具使用另一种项目指令文件，不必复制两套完整规则；保留 AGENTS.md 作为仓库地图，在工具专用入口中只写一行指向它。
+
+文档链接存在，但 Agent 总是读错文件
+
+检查入口说明是否写成“所有任务都先读全部文档”。如果是，改成按任务路由，例如“涉及用户行为时读 PRODUCT_RULES.md”。文件名也要表达用途，避免 notes.md、misc.md 这类无法判断内容的名称。
+
+文档与代码发生冲突
+
+不要默认代码或文档哪一个必然正确。运行现有行为，查看 Git 历史和测试，再决定真实产品契约。如果仍无法判断，应把冲突交给维护者，而不是让 Agent自行挑一个喜欢的答案。
+
+想把所有基线观察都写进仓库
+
+shelfcare-baseline.md 是这次课程实验记录，不是产品长期知识，继续留在仓库外即可。只有会影响后续任务的稳定事实，才进入仓库文档。
+
+本篇留下了什么
+
+ShelfCare 的代码还没有增加标签筛选，但项目已经多了一条清楚的知识路径：
+
+AGENTS.md
+  ├─ 用户行为 -> docs/PRODUCT_RULES.md
+  ├─ 代码位置 -> docs/ARCHITECTURE.md
+  └─ 本地操作 -> docs/DEVELOPMENT.md
+
+
+Agent 不再需要从文件名和零散代码中猜测全部事实。不过，它仍然要记住原始命令，而且这些命令没有统一的错误提示。下一篇我们会把 setup、dev、test 和 check 做成稳定入口，让人和 Agent 都能用同一种方式启动与验证项目。

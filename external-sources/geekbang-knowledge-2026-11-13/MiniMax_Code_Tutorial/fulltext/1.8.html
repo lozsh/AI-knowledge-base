@@ -1,0 +1,14 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">7.1 起点</h2>
+<p>第 6 章代码和测试已经提交且工作区干净。将本课 <a href="revision-assets/bug-lab/">bug-lab</a> 复制到独立练习目录，使用第 5 章虚拟环境；不要替换个人 data.json。实验是数据加载缺少字段校验，与今天日期无关。</p>
+<h2 id="wiki-h-1">7.2 先得到失败证据</h2>
+<p>在副本运行 <code>python -m pytest -q</code>，预期 1 个测试通过、1 个失败：缺 habit 时实际 KeyError，期望有明确字段提示的 ValueError。保存失败日志。如果没有这个结果，先确认运行目录和复制的两份文件，不开始修复。</p>
+<h2 id="wiki-h-2">7.3 把复现交给 Agent</h2>
+<pre><code class="hljs language-text">阅读 storage.py 和 test_storage.py，先说明 KeyError 的触发路径。
+只修改 storage.py：验证顶层对象、entries 数组、每项对象和非空 habit；非法数据抛 ValueError 并说明字段。
+不跳过测试、不改失败断言，不读写真实用户数据。
+</code></pre><p>计划确认后退出计划状态开始实现。自己运行测试，补充空白 habit、非字典条目和缺 entries 的边界用例，再查看 diff；报告必须写出命令及真实退出码。</p>
+<h2 id="wiki-h-3">7.4 把修复迁回主项目</h2>
+<p>找到 habitlog 对应的加载函数，在其测试中使用 tmp_path 构造同类坏数据。迁移校验逻辑并运行完整测试，确认正常历史记录仍能读取。不能因为实验副本绿了就宣称主项目已修好。</p>
+<h2 id="wiki-h-4">7.5 清理与提交</h2>
+<p>实验从未覆盖个人数据，无需删除备份恢复。检查 git status、暂存的 diff 后，只提交业务修复和测试。重构另开一个小提交：抽取校验函数但保持接口与测试结果不变。</p>
+</article>

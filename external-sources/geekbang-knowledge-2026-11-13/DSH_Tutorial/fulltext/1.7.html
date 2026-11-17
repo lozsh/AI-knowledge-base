@@ -1,0 +1,188 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本文属于《DeepSeek Harness 入门教程（实战版）》· 第二部分 · 安装并完成第一次启动</p>
+</blockquote>
+<h1>第 6 章　Windows 安装</h1>
+<p>Windows 用户现在不必先装 WSL，也不必为了打开 DeepSeek Harness 配置一整套 Node.js 环境。最省事的路线是直接安装官方桌面端：它自带运行 DSH 所需的环境，装好就能进入图形界面。</p>
+<p>不过，本教程后面要做一个 Node.js 版“日报助手”。桌面端能启动，不代表 Agent 所在的系统 Shell 已经能执行 <code>node</code>。因此本章会完成两件事：</p>
+<ol>
+<li>安装并验证 DeepSeek Harness 桌面端；</li>
+<li>为练习项目准备系统级 Node.js。</li>
+</ol>
+<p>如果你明确需要命令行、自动化或 WSL，本章后半部分也保留对应路线。三条路线不需要同时安装。</p>
+<h2 id="wiki-h-0">6.1 先确认 Windows 架构</h2>
+<p>打开“设置 → 系统 → 系统信息”，在“系统类型”一项查看处理器架构：</p>
+<ul>
+<li>显示“基于 x64 的处理器”，可以安装当前官方 Windows x64 桌面端；</li>
+<li>显示“基于 ARM 的处理器”，不要直接假设 x64 安装包一定兼容，优先使用后面的 CLI/Web 路线，或查看最新发布是否已经提供 Windows ARM64 包。</li>
+</ul>
+<p>当前官方构建目标是 <code>win-x64</code>。版本仍在快速迭代，下载前应以 <a href="https://github.com/deepseek-ai/deepseek-harness/releases">DeepSeek Harness 官方 Releases 页面</a> 中实际列出的安装包为准。</p>
+<h2 id="wiki-h-1">6.2 推荐路线：安装桌面端</h2>
+<h3 id="wiki-h-2">第一步：从官方发布页下载安装包</h3>
+<p>打开官方 Releases 页面，进入本教程基线版本 <code>v0.1.7-rc.2</code> 或更新版本，在 Assets 中下载文件名带有 <code>win-x64</code>、扩展名为 <code>.exe</code> 的安装程序。</p>
+<p>下载前确认两件事：</p>
+<ul>
+<li>仓库所有者是 <code>deepseek-ai</code>，仓库名是 <code>deepseek-harness</code>；</li>
+<li>下载地址来自官方发布页或 <code>download.deepseek.com</code>，而不是搜索结果中的第三方网盘或社区重新打包版本。</li>
+</ul>
+<p>网上已经出现过多个同名的非官方桌面客户端。它们未必恶意，但版本、更新机制和签名都不属于 DeepSeek 官方教程的验证范围，不要与本章的桌面端混用。</p>
+<h3 id="wiki-h-3">第二步：完成安装</h3>
+<p>双击下载的 <code>.exe</code> 文件。当前 Windows 安装程序只为当前用户安装，一般不需要以管理员身份运行。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/desktop/README.zh.md">桌面端官方说明</a>记录了安装、更新和数据保留边界。按安装向导完成下面几步：</p>
+<ol>
+<li>确认安装目标目录；没有特殊要求时保留默认位置；</li>
+<li>点击“安装”；</li>
+<li>等待进度完成；</li>
+<li>保留完成页上的“立即启动”选项，再点击“完成”。</li>
+</ol>
+<p>如果你手动选择新目录，请使用空目录。安装程序会拒绝把新安装写入一个已有其他文件的普通目录，这是为了避免覆盖个人文件。</p>
+<h3 id="wiki-h-4">第三步：正确处理 Windows 安全提示</h3>
+<p>安装包可能经过 Microsoft Defender、SmartScreen 或公司终端安全软件检查。遇到拦截时，不要先关闭 Defender，也不要把整个下载目录加入白名单。按这个顺序处理：</p>
+<ol>
+<li>再次核对文件是否来自官方发布页；</li>
+<li>右键安装包，打开“属性 → 数字签名”，检查签名状态；</li>
+<li>在“Windows 安全中心 → 病毒和威胁防护 → 保护历史记录”查看具体原因；</li>
+<li>公司电脑被策略阻止时，把官方发布链接和告警信息交给管理员确认。</li>
+</ol>
+<p>如果签名缺失、无效，或者发布者与官方来源对不上，应停止安装并重新下载。不要因为教程需要继续，就绕过来源不明的安全警告。</p>
+<h3 id="wiki-h-5">第四步：完成首次启动</h3>
+<p>桌面端第一次打开时，会先准备本地运行环境，然后进入欢迎引导。当前版本会介绍可用额度，并让你选择主要用途和工作过程的展示方式；中途关闭后可以继续。<a href="https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.7-rc.2">v0.1.7-rc.2 更新说明</a></p>
+<p>这一章只做最小配置：</p>
+<ol>
+<li>按欢迎页提示继续；</li>
+<li>出现账号登录或 API Key 入口时，可以先登录，也可以稍后再配；</li>
+<li>进入主界面后，确认左侧能看到工作区区域，中间能看到新任务或空白会话入口；</li>
+<li>暂时不要安装第三方插件，也不要随意选择包含私人资料的大目录。</li>
+</ol>
+<p>账号、Provider 和模型会在第8章统一解释。现在能进入主界面，就说明桌面端的安装和 Host 启动已经成功。</p>
+<h3 id="wiki-h-6">第五步：核对版本和更新</h3>
+<p>Windows 版顶部有“应用”菜单。打开“应用 → 检查更新”：</p>
+<ul>
+<li>没有更新时，更新窗口会显示当前安装版本；</li>
+<li>有更新时，先结束重要任务并保存工作，再按提示安装和重启。</li>
+</ul>
+<p>桌面壳、内置 DSH 运行时和包管理器是同一个更新单元，不需要再单独升级桌面端内部的 <code>@deepseek-ai/dsh</code>。官方的 Desktop 和 CLI/Web 可以装在同一台电脑上，但它们使用各自的 Profile 和插件依赖，不要把“CLI 已更新”当成“Desktop 已更新”。</p>
+<h2 id="wiki-h-7">6.3 关闭窗口，不等于退出应用</h2>
+<p>Windows 版会常驻系统托盘。点击右上角的“×”时，第一次会提示窗口将被隐藏；确认后，窗口消失，但正在运行的任务不会因此中断。这个行为属于 Desktop 的后台生命周期设计，而不是程序没有成功关闭窗口。</p>
+<p>可以这样判断应用是否还在运行：</p>
+<ul>
+<li>查看任务栏右侧的系统托盘，必要时点击“显示隐藏的图标”；</li>
+<li>单击 DeepSeek Harness 托盘图标，原窗口会重新显示；</li>
+<li>右键托盘图标，选择“退出 DeepSeek Harness”，才会真正停止应用；</li>
+<li>也可以在窗口顶部使用“应用 → 退出”。</li>
+</ul>
+<p>真正退出前，如果存在运行中的任务或已经启用的定时任务，桌面端会提示退出造成的影响。以后执行长任务时，不要因为关窗后没看到界面，就重复提交同一个请求；先从托盘恢复窗口检查状态。</p>
+<h2 id="wiki-h-8">6.4 为日报助手安装 Node.js</h2>
+<p>桌面端自带一套私有运行时，但这套 Node.js 不会自动加入 Windows 的 <code>PATH</code>，也不会替你配置项目 Shell。后面要让 Agent 执行 <code>node</code> 和 <code>npm</code>，仍需安装系统级 Node.js。</p>
+<p>DSH 当前支持的 Node.js 范围是 <code>^22.19.0</code> 或 <code>&gt;=24.0.0</code>。为了让桌面端项目和 CLI/Web 都能使用同一套环境，建议安装符合该范围的 LTS 版本。</p>
+<h3 id="wiki-h-9">方式 A：Node.js 官方安装包</h3>
+<p>对初学者来说，这条路线最直接：</p>
+<ol>
+<li>打开 <a href="https://nodejs.org/en/download">Node.js 官方下载页</a>；</li>
+<li>选择 Windows Installer（<code>.msi</code>），并选择与你电脑匹配的 x64 或 ARM64 架构；</li>
+<li>确认版本满足前面的范围；</li>
+<li>双击安装包，保留“Add to PATH”等默认选项完成安装；</li>
+<li>关闭已经打开的 PowerShell，再新开一个窗口。</li>
+</ol>
+<h3 id="wiki-h-10">方式 B：winget</h3>
+<p>如果系统已有 <code>winget</code>，也可以在普通 PowerShell 中执行：</p>
+<pre><code class="hljs language-powershell">winget install OpenJS.NodeJS.LTS
+</code></pre><p>安装结束后关闭 PowerShell，再重新打开。<code>winget</code> 找不到命令时，无需先修复它，直接使用方式 A 即可。</p>
+<h3 id="wiki-h-11">验证系统 Node.js</h3>
+<p>在新开的 PowerShell 中执行：</p>
+<pre><code class="hljs language-powershell">node <span class="hljs-literal">-v</span>
+npm <span class="hljs-literal">-v</span>
+<span class="hljs-built_in">Get-Command</span> node
+</code></pre><p>你应看到不低于 <code>v22.19.0</code> 的 22.x，或 <code>v24.0.0</code> 以上版本。<code>Get-Command node</code> 还应显示一个 Windows 文件路径，这能证明当前 Shell 找到的是系统 Node，而不是“桌面应用能打开”带来的错觉。</p>
+<p>接着创建练习目录：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$coursePath</span> = <span class="hljs-built_in">Join-Path</span> ([<span class="hljs-type">Environment</span>]::GetFolderPath(<span class="hljs-string">'MyDocuments'</span>)) <span class="hljs-string">'dsh-learning\daily-report'</span>
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-literal">-Path</span> <span class="hljs-variable">$coursePath</span>
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-variable">$coursePath</span>
+<span class="hljs-built_in">Get-Location</span>
+</code></pre><p>最后一条命令应显示位于“文档”目录下的 <code>dsh-learning\daily-report</code>。先保持这个目录为空，第7章会把它选为工作区并创建第一批文件。</p>
+<h2 id="wiki-h-12">6.5 可选路线：在 PowerShell 中运行 CLI/Web</h2>
+<p>需要 Headless、脚本化启动或自定义 CLI Profile 时，可以直接复用刚安装的系统 Node.js。先在普通 PowerShell 中执行：</p>
+<pre><code class="hljs language-powershell">npx @deepseek<span class="hljs-literal">-ai</span>/dsh@<span class="hljs-number">0.1</span>.<span class="hljs-number">7</span><span class="hljs-literal">-rc</span>.<span class="hljs-number">2</span> <span class="hljs-literal">--version</span>
+</code></pre><p>第一次运行可能询问是否下载 <code>@deepseek-ai/dsh</code>，输入 <code>y</code> 并回车。随后启动 Web UI：</p>
+<pre><code class="hljs language-powershell">npx @deepseek<span class="hljs-literal">-ai</span>/dsh@<span class="hljs-number">0.1</span>.<span class="hljs-number">7</span><span class="hljs-literal">-rc</span>.<span class="hljs-number">2</span> web
+</code></pre><p>正常情况下，终端会打印本地地址并打开默认浏览器，默认地址通常是：</p>
+<pre><code class="hljs language-text">http://127.0.0.1:3080
+</code></pre><p>运行命令的 PowerShell 需要保持打开。按 <code>Ctrl+C</code> 后，服务停止，页面也会断开。</p>
+<h3 id="wiki-h-13">PowerShell 提示“禁止运行脚本”怎么办</h3>
+<p>部分电脑的执行策略会阻止 <code>npx.ps1</code>，常见报错包含 <code>running scripts is disabled</code>。不必为了运行 DSH 永久放宽全系统策略，直接调用 Node 安装附带的 <code>.cmd</code> 入口：</p>
+<pre><code class="hljs language-powershell">npx.cmd @deepseek<span class="hljs-literal">-ai</span>/dsh <span class="hljs-literal">--version</span>
+npx.cmd @deepseek<span class="hljs-literal">-ai</span>/dsh web
+</code></pre><p>如果这样能运行，说明 Node 和 DSH 本身没有问题，只是 PowerShell 拦截了 <code>.ps1</code> 命令包装器。公司电脑是否允许调整执行策略，应遵循组织要求。</p>
+<h3 id="wiki-h-14">可选：安装全局命令</h3>
+<p>确定长期使用 CLI 时，可以执行：</p>
+<pre><code class="hljs language-powershell">npm install <span class="hljs-literal">-g</span> @deepseek<span class="hljs-literal">-ai</span>/dsh
+dsh <span class="hljs-literal">--version</span>
+dsh web
+</code></pre><p>如果 <code>npm</code> 或 <code>dsh</code> 同样被 PowerShell 的脚本策略拦截，可以改用 <code>npm.cmd</code>、<code>dsh.cmd</code>。全局安装不是本教程的前提，拿不准时继续使用 <code>npx</code> 即可。</p>
+<h2 id="wiki-h-15">6.6 可选路线：在 WSL2 中运行</h2>
+<p>WSL2 适合已经在 Linux 环境里开发，或者明确需要 Linux 命令、依赖和自动化脚本的用户；它不再是普通 Windows 用户运行 DSH 的默认前提。</p>
+<p>如果你选择 WSL2：</p>
+<ol>
+<li>以管理员身份打开 PowerShell，执行 <code>wsl --install</code>；</li>
+<li>按系统提示重启并创建 Linux 用户；</li>
+<li>在 WSL 终端中执行 <code>wsl</code> 版本对应的 Linux 命令，而不是 PowerShell 命令；</li>
+<li>完整按照第5章在 WSL 内安装 nvm、Node.js 和 DSH；</li>
+<li>在 WSL 中执行 <code>npx @deepseek-ai/dsh@0.1.7-rc.2 web</code>，再用 Windows 浏览器打开终端打印的 localhost 地址。</li>
+</ol>
+<p>用下面的命令确认发行版运行在 WSL2：</p>
+<pre><code class="hljs language-powershell">wsl <span class="hljs-literal">--list</span> <span class="hljs-literal">--verbose</span>
+</code></pre><p>输出表格的 <code>VERSION</code> 一列应为 <code>2</code>。若 WSL 安装失败或要求启用虚拟化，请以 <a href="https://learn.microsoft.com/windows/wsl/install">Microsoft 官方 WSL 安装文档</a> 为准，不要从不明脚本修改系统组件。</p>
+<p>还有两个容易混淆的边界：</p>
+<ul>
+<li>PowerShell 和 WSL 是两套环境。Windows 里装过 Node，不代表 WSL 里也有；反过来也一样；</li>
+<li>Desktop、PowerShell CLI 和 WSL CLI 的运行配置与插件可能彼此独立。课程主线只选一条路线，不要求三边重复配置。</li>
+</ul>
+<p>如果主项目放在 WSL 中，建议放在 Linux 用户目录下，例如 <code>~/dsh-learning/daily-report</code>，而不是在 Windows 与 Linux 两边来回改同一份依赖目录。</p>
+<h2 id="wiki-h-16">6.7 更新、卸载与数据边界</h2>
+<p>桌面端更新优先使用应用内的“应用 → 检查更新”。安装更新前先结束运行中的任务；更新需要重启时，界面会给出提示。</p>
+<p>需要卸载时，打开“设置 → 应用 → 已安装的应用”，搜索 DeepSeek Harness，点击右侧菜单并选择“卸载”。如果安装程序提示应用仍在运行，先从系统托盘真正退出，而不只是关闭窗口。</p>
+<p>当前官方卸载程序会删除桌面壳的浏览器数据、缓存和更新下载缓存，但保留 Harness 主目录中的会话、设置、凭据和插件。默认主目录通常是：</p>
+<pre><code class="hljs language-text">%USERPROFILE%\.dsh
+</code></pre><p>保留它便于以后重装恢复，但也意味着“卸载应用”不等于“删除所有账号与凭据”。如果你准备转让电脑或确实要清空数据，应先备份需要的会话，再打开该目录核对内容；不要在没确认路径时整目录删除。</p>
+<h2 id="wiki-h-17">6.8 常见问题：按现象处理</h2>
+<h3 id="wiki-h-18">双击安装包没有反应，或被 Defender 拦截</h3>
+<p>先核对来源和数字签名，再到“Windows 安全中心 → 保护历史记录”查看原因。不要关闭实时保护。如果是公司策略，应交给管理员确认；如果文件来源或签名异常，删除该安装包并从官方 Releases 重新下载。</p>
+<h3 id="wiki-h-19">点击“×”后找不到应用</h3>
+<p>它通常只是隐藏到了系统托盘。点击任务栏右侧的上箭头，找到 DeepSeek Harness 图标并单击。如果托盘中也没有，再从开始菜单重新打开。</p>
+<h3 id="wiki-h-20">安装更新时提示应用仍在运行</h3>
+<p>右键系统托盘中的 DeepSeek Harness，选择“退出 DeepSeek Harness”，确认任务中断提示后再继续安装。只关闭主窗口不能结束后台 Host。</p>
+<h3 id="wiki-h-21"><code>node</code> 或 <code>npm</code> 无法识别</h3>
+<p>关闭所有旧 PowerShell 窗口，再开一个新窗口执行：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Command</span> node
+<span class="hljs-built_in">Get-Command</span> npm
+</code></pre><p>仍找不到时，重新运行 Node.js 官方安装包并确认启用 PATH 选项。桌面端自带 Node 不能替代这一步。</p>
+<h3 id="wiki-h-22"><code>dsh</code> 无法识别</h3>
+<p>如果你只使用 <code>npx</code>，系统本来就不会有全局 <code>dsh</code> 命令，继续执行 <code>npx @deepseek-ai/dsh@0.1.7-rc.2 web</code> 即可。如果已经全局安装，关闭并重开 PowerShell，再检查：</p>
+<pre><code class="hljs language-powershell">npm config get prefix
+<span class="hljs-built_in">Get-Command</span> dsh <span class="hljs-literal">-ErrorAction</span> SilentlyContinue
+</code></pre><p>不要为了修复 PATH，随意把不明目录加入系统环境变量。</p>
+<h3 id="wiki-h-23">Web 页面打不开</h3>
+<p>确认启动 DSH 的 PowerShell 仍在运行，并以终端实际打印的地址为准。若提示端口占用，先查看当前版本的帮助：</p>
+<pre><code class="hljs language-powershell">npx @deepseek<span class="hljs-literal">-ai</span>/dsh@<span class="hljs-number">0.1</span>.<span class="hljs-number">7</span><span class="hljs-literal">-rc</span>.<span class="hljs-number">2</span> web <span class="hljs-literal">--help</span>
+</code></pre><p>使用帮助中列出的端口选项换一个端口，不要凭旧教程猜参数名。也不要因为本机回环地址打不开，就直接把 3080 端口开放到公网。</p>
+<h3 id="wiki-h-24">Agent 不能在“文档”目录创建文件</h3>
+<p>先确认工作区确实选中了 <code>daily-report</code>，再查看 Windows 安全中心中的“勒索软件防护/受控文件夹访问”是否拦截。只为可信的官方应用和明确的项目目录授予必要权限，不要直接关闭整项保护。</p>
+<h2 id="wiki-h-25">6.9 本章验收</h2>
+<p>选择桌面端时，请确认：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">DeepSeek Harness 能从开始菜单打开；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">主界面能显示工作区和新任务区域；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">“应用 → 检查更新”能显示当前版本或更新结果；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">关闭窗口后能从系统托盘恢复，真正退出时知道使用托盘菜单；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">新开的 PowerShell 中，<code>node -v</code> 和 <code>npm -v</code> 可用；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">“文档”目录下已经有空的 <code>dsh-learning\daily-report</code> 文件夹。</li>
+</ul>
+<p>选择 CLI/Web 时，请确认：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">Node.js 版本满足当前要求；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>npx @deepseek-ai/dsh@0.1.7-rc.2 --version</code> 能输出版本；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>npx @deepseek-ai/dsh@0.1.7-rc.2 web</code> 能启动本地页面；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">按 <code>Ctrl+C</code> 后，Web 页面停止连接。</li>
+</ul>
+<p>完成这些检查，安装阶段就结束了。下一章不再讲配置表，而是直接把 <code>daily-report</code> 设为工作区，让 DSH 完成第一次真实任务。</p>
+<hr>
+<p>← 上一章：Linux 安装　|　回目录　|　下一章：第一次对话：让 DSH 接手日报助手 →</p>
+</article>

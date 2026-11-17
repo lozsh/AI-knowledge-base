@@ -1,0 +1,307 @@
+预计用时：25～40 分钟
+本篇目标：完成一次 Claude Code 登录，能说清请求使用了哪种凭据、由谁计费、当前模型是什么；如果你已经有兼容网关，再安全地完成一次可逆配置。
+
+安装成功只说明 claude 命令能运行，不代表账号、额度和模型已经配置正确。本篇先走 Anthropic 官方支持的登录路径，再把第三方兼容网关作为可选内容处理。
+
+开始前确认
+
+你应当已经完成第 2 篇，并能运行：
+
+claude --version
+claude doctor
+
+
+进入课程目录：
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course"
+
+
+你还需要准备以下一种官方支持的账号或凭据：
+
+Claude Pro、Max、Team 或 Enterprise 账号；
+Anthropic Console 账号或 API Key；
+组织已经配置好的 Amazon Bedrock、Google Cloud Agent Platform 或 Microsoft Foundry 访问方式。
+
+免费的 claude.ai 方案不包含 Claude Code。账号能否注册、购买和使用还受官方支持地区与组织策略限制；本教程不提供绕过地区、支付或组织限制的方法。
+
+云平台认证通常由团队统一配置，不适合作为初学者的第一条路径。本篇重点练习订阅账号和 Console/API，最后再讲兼容网关。
+
+先理解四种路径的边界
+路径	凭据由谁签发	通常由谁计费	是否为本篇主路径
+Claude 订阅登录	Anthropic	订阅账号	是
+Anthropic Console / API Key	Anthropic	Console 组织按 API 用量	是
+Bedrock、Google Cloud、Foundry	云平台或组织	云平台或组织	否，按团队文档配置
+第三方兼容网关	网关服务商	网关凭据所有者	仅选学
+
+“能回答问题”不能证明你走的是预期路径。环境变量可能覆盖已保存的订阅登录，因此每次切换后都要检查认证状态和会话状态。
+
+路径 A：使用 Claude 订阅账号登录
+1. 发起登录
+
+运行：
+
+claude auth login
+
+
+也可以直接运行 claude，首次启动时按引导登录。正常情况下浏览器会打开授权页面。
+
+如果浏览器没有自动打开，按终端提示按 c 复制登录 URL，再手动粘贴到浏览器。WSL2、SSH 和容器环境有时还会要求你把浏览器显示的一次性代码粘贴回终端。
+
+预期结果：终端提示登录成功，随后能够进入 Claude Code。
+
+2. 在终端外检查认证
+
+退出交互界面后运行：
+
+claude auth status --text
+
+
+预期结果：命令显示当前已认证，而不是要求重新登录。不同版本的文字可能不同，不要依赖教程中的固定截图。
+
+如果你要让脚本读取结果，claude auth status 默认会给出机器可读信息；初学阶段使用 --text 更容易检查。
+
+3. 在会话内检查
+
+启动 Claude Code：
+
+claude
+
+
+输入：
+
+/status
+
+
+检查当前账号、模型和工作目录是否符合预期。完成后用 /exit 退出。
+
+如果登录了错误账号，可在会话中执行 /logout，或者在终端执行：
+
+claude auth logout
+claude auth login
+
+路径 B：使用 Anthropic Console 或 API Key
+
+Claude 订阅和 Anthropic API 是两套计费体系。不要因为邮箱相同，就假设 API 请求会从订阅额度中扣除。
+
+方案 1：使用交互式 Console 登录
+
+运行：
+
+claude
+
+
+进入后输入：
+
+/login
+
+
+在当前版本提供的登录选项中选择 Anthropic Console，并按浏览器引导完成授权。较新的 Claude Code 可以通过 Console 登录保存认证配置，不一定要求你手动复制 API Key。
+
+完成后使用 /status 核对账号和模型。
+
+方案 2：仅在当前终端设置 API Key
+
+只有在你明确需要使用 API Key 时，才设置下面的变量。不要把占位符原样执行，也不要在共享屏幕时输入真实密钥。
+
+macOS、Linux 或 WSL2：
+
+export ANTHROPIC_API_KEY="替换为真实的Anthropic-API-Key"
+claude
+
+
+Windows PowerShell：
+
+$env:ANTHROPIC_API_KEY = "替换为真实的Anthropic-API-Key"
+claude
+
+
+首次使用时，Claude Code 可能要求你确认改用 API Key 计费。进入后执行 /status。
+
+重要规则：
+
+ANTHROPIC_API_KEY 会优先于已保存的订阅登录；
+当前终端关闭后，以上临时变量通常失效；
+不要把 Key 写入 CLAUDE.md、项目设置、Git 仓库、提示词、截图或教程练习文件；
+不要同时设置多个认证变量，然后靠猜测判断哪个生效。
+恢复订阅登录
+
+macOS、Linux 或 WSL2：
+
+unset ANTHROPIC_API_KEY
+claude auth status --text
+
+
+Windows PowerShell：
+
+Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
+claude auth status --text
+
+
+再启动 claude 并运行 /status。如果仍然不是预期账号，再执行 claude auth logout 和 claude auth login，不要反复覆盖更多环境变量。
+
+选择模型，但不要背模型清单
+
+模型名称、别名映射和账号可用范围会变化。最可靠的方法是查看当前环境实际提供的选择器。
+
+启动 Claude Code 后输入：
+
+/model
+
+
+选择一个当前账号可用的模型，然后再次执行：
+
+/status
+
+
+你也可以在启动时只为本次会话指定模型：
+
+claude --model sonnet
+
+
+如果要通过命令在 Claude Code 内切换并保存用户默认值，可以输入：
+
+/model sonnet
+
+
+不要把 sonnet、opus、haiku 等别名对应到某个永远不变的版本，也不要只按教程中的“快、平衡、强”口号选择。实际可用模型、价格和能力以 /model、你的账号或服务商页面为准。
+
+排错：如果指定的模型不可用，先运行 /model 选择当前列表中的项目；如果你使用网关，再核对服务商要求的模型名。
+
+选学：配置兼容网关或中转服务
+
+只有当你已经从可信服务商拿到配置，并理解费用与数据边界时，才做这一节。Anthropic 不为第三方网关背书、维护或审计其产品；兼容性和故障恢复由服务商负责。
+
+网关可能看到或记录你的提示词、代码、工具调用和返回内容。第一次测试只使用课程目录里的无敏感示例，不要使用公司代码、私人文档或真实密钥文件。
+
+1. 向服务商确认三个问题
+
+在输入任何命令前，确认：
+
+完整 Base URL 是什么，是否需要额外路径；
+认证使用 Bearer Token 还是 X-Api-Key；
+模型名使用 Claude Code 别名还是服务商自定义 ID。
+
+ANTHROPIC_BASE_URL 只改变请求发往哪里，不会自动改变认证方式、计费主体或模型。Claude Code 也不支持通过网关路由到非 Claude 模型。
+
+2. 在当前终端临时配置
+
+下面是模板，不要原样运行。Bearer Token 类型的网关通常使用 ANTHROPIC_AUTH_TOKEN：
+
+macOS、Linux 或 WSL2：
+
+export ANTHROPIC_BASE_URL="替换为服务商给出的完整Base-URL"
+export ANTHROPIC_AUTH_TOKEN="替换为网关Token"
+export ANTHROPIC_MODEL="仅在服务商要求时填写模型名"
+claude
+
+
+Windows PowerShell：
+
+$env:ANTHROPIC_BASE_URL = "替换为服务商给出的完整Base-URL"
+$env:ANTHROPIC_AUTH_TOKEN = "替换为网关Token"
+$env:ANTHROPIC_MODEL = "仅在服务商要求时填写模型名"
+claude
+
+
+如果服务商明确要求 X-Api-Key，按其文档改用 ANTHROPIC_API_KEY，不要同时盲目设置 ANTHROPIC_AUTH_TOKEN 和 ANTHROPIC_API_KEY。
+
+3. 验证，不要只看“能聊天”
+
+先在交互界面运行：
+
+/status
+
+
+确认模型与工作目录，再发送一个不读取敏感文件的小任务：
+
+只回复当前工作目录的最后一级目录名，不要读取或修改文件。
+
+
+退出后运行：
+
+claude auth status --text
+
+
+有些网关不会让认证状态文字直接显示服务商名称，因此你还应在服务商控制台检查是否出现一条对应的测试请求或用量记录。若服务商没有可审计记录，至少保留 /status 结果和测试时间，不能仅凭回答内容判断路由正确。
+
+4. 常见错误
+401：Token 缺失、失效，或认证头类型不匹配；
+403：凭据没有使用该模型或项目的权限；
+404：Base URL、路径或模型名不符合服务商要求；
+429：频率、并发、Token 配额或余额达到限制；
+5xx：网关或上游服务异常，先查看服务商状态页再重试。
+
+排错时只分享脱敏后的域名、模型名、错误码和响应摘要，绝不粘贴完整 Token。
+
+5. 完整清除网关变量
+
+macOS、Linux 或 WSL2：
+
+unset ANTHROPIC_BASE_URL
+unset ANTHROPIC_AUTH_TOKEN
+unset ANTHROPIC_API_KEY
+unset ANTHROPIC_MODEL
+
+
+Windows PowerShell：
+
+Remove-Item Env:ANTHROPIC_BASE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:ANTHROPIC_AUTH_TOKEN -ErrorAction SilentlyContinue
+Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:ANTHROPIC_MODEL -ErrorAction SilentlyContinue
+
+
+关闭原来的 Claude Code 会话，重新启动并依次检查：
+
+claude auth status --text
+claude
+
+
+进入后再运行 /status。只有账号、模型和计费路径都符合预期，才算切换完成。
+
+本篇验收
+
+在不展示密钥的前提下，你应当能够回答：
+
+当前使用订阅登录、Console/API、云平台还是第三方网关？
+这次请求由谁计费？
+哪个环境变量可能覆盖已保存的登录？
+当前模型如何用 /status 或 /model 确认？
+怎样清除临时 API 或网关配置并回到订阅登录？
+
+再完成一次实际检查：
+
+claude auth status --text
+
+
+然后进入 Claude Code 执行 /status。不要把终端中的账号信息、组织名或 Token 截图公开。
+
+关键排错
+
+浏览器没有打开：按终端提示按 c 复制 URL；远程环境按提示完成代码粘贴流程。
+
+明明登录订阅却仍按 API 计费：检查并清除 ANTHROPIC_API_KEY、ANTHROPIC_AUTH_TOKEN 和云平台认证变量，再运行 claude auth status --text。
+
+登录页拒绝账号或地区：核对官方支持地区、账号方案和组织策略。本教程不建议通过不受支持的网络或身份方式绕过限制。
+
+模型命令报错：用 /model 查看当前账号或网关真正提供的选项，不要照抄过期模型编号。
+
+本篇小结
+
+Claude Code 的认证、计费和模型是三件相关但不同的事。安全的做法是优先使用官方交互式登录，临时凭据只放在当前终端；每次切换后同时检查认证状态、/status 和计费方记录。第三方网关是额外的信任边界，不是官方登录的等价替代品。
+
+下一篇会在一个可丢弃的小目录中完成第一次完整任务，练习工作区信任、权限确认、纠偏和独立验证。
+
+官方参考：
+
+Authentication
+Model configuration
+LLM gateways
+Supported countries and regions

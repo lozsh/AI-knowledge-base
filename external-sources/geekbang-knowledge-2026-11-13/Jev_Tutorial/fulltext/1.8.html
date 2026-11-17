@@ -1,0 +1,446 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：50～65 分钟<br>本篇目标：建立一份小型中文评估集，计算准确率、自动覆盖率与人工复核率，并用错误样例指导下一轮改进。</p>
+</blockquote>
+<p>到目前为止，Decision Inbox 的问题定义和阈值都来自合理猜测。四条演示消息能证明程序跑得通，却不能证明它对你的真实留言好用。</p>
+<p>尤其是在中文场景里，我们不能把英文文档中的示例表现直接当成自己的效果。官方 <a href="https://docs.typesafe.ai/models">Models 文档</a> 说明英语目前表现最好，其他语言需要用自己的内容验证；即使没有语言差异，留言来源、写作风格和类别边界也会影响结果。真正有用的结论只能来自与你的业务相似、由人标注的数据。</p>
+<p>这一篇不会搭一个复杂的机器学习评估平台。我们用 JSON 和 Python 标准库完成最小闭环：准备样例、保存预测、计算指标、查看错误，再决定改什么。</p>
+<h2 id="wiki-h-0">先明确我们在评估什么</h2>
+<p>当前系统有三项语义判断和一项业务决策：</p>
+<pre><code class="hljs language-text">category                  Choice 的分类结果
+urgency_score             Score 的紧急程度
+action_requested          Noul 的真假判断
+manual_review / auto      由置信度和阈值决定的业务路径
+</code></pre><p>只报一个“总体准确率”会掩盖很多问题。例如，系统可能分类很准，却经常把没有行动请求的消息送进回复队列；也可能自动处理的部分很准，但 80% 的消息都需要人工看。</p>
+<p>本篇至少计算五项指标：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>回答的问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>分类准确率</td>
+<td>主题标签判断得对不对？</td>
+</tr>
+<tr>
+<td>紧急判断准确率</td>
+<td>是否正确识别了高紧急消息？</td>
+</tr>
+<tr>
+<td>行动请求准确率</td>
+<td>是否正确判断对方要求采取行动？</td>
+</tr>
+<tr>
+<td>自动覆盖率</td>
+<td>有多少样例没有进入人工复核？</td>
+</tr>
+<tr>
+<td>自动样例全对率</td>
+<td>自动处理的样例中，三项判断同时正确的比例是多少？</td>
+</tr>
+</tbody></table></div>
+<p>最后一项也叫“选择性准确率”的一种简单形式：系统可以放弃一部分不确定样例，只衡量它愿意自动处理的部分。对应的代价是覆盖率下降。所以准确率与覆盖率必须一起看。</p>
+<p>TypeSafe 的官方 <a href="https://docs.typesafe.ai/cookbooks/consistency_choice_cookbook">Choice 自一致性示例</a> 和 <a href="https://docs.typesafe.ai/cookbooks/consistency_noul_cookbook">Noul 自一致性示例</a> 也会同时保留不确定结果与自动处理比例，而不是把所有输入强行变成自动决策。</p>
+<h2 id="wiki-h-1">制作第一份评估集</h2>
+<p>在 <code>~/jev-course/decision-inbox</code> 中新建 <code>evaluation_cases.json</code>：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-001"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"我订阅了两次同一个服务，请帮我查一下重复扣款。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"billing"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-002"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"退款已经到账了，谢谢你之前的处理，不用回复。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"billing"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-003"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"应用打开后一直白屏，我已经重装过一次。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"technical"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-004"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"今晚直播前必须恢复上传功能，否则活动无法开始，请尽快排查。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"technical"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-005"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"可以把我们周三的碰面改到周四下午吗？"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"scheduling"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-006"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"场地只保留到今天五点，请在那之前确认是否参加。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"scheduling"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-007"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"这次分享的例子很直观，我终于弄懂了，谢谢。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"feedback"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-008"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"这节课有两处代码看不清，希望下次能放大一点。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"feedback"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-009"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"你上次提到的那本书叫什么？有空发我一下。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"other"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"eval-010"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"text"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"我还没想好要不要改时间，先和你说一声。"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_category"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"scheduling"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_urgent"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"expected_action_requested"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span>
+</code></pre><p>这十条数据只够学习评估流程，不足以证明系统可以上线。它们刻意包含：</p>
+<ul>
+<li>同一类别中有请求和无请求两种情况；</li>
+<li>带明确截止时间的紧急样例；</li>
+<li>可能落入 <code>other</code> 的开放问题；</li>
+<li>“有空”“先说一声”这类语气边界。</li>
+</ul>
+<p>标注时不要先运行模型再顺着结果改答案。应该先由人根据业务定义写出期望标签；有争议的样例可以让第二个人独立标注。如果两个人都无法达成一致，说明业务标准还不够清楚，它本来就不适合直接作为“模型答错”的证据。</p>
+<p>真实项目中还应覆盖错别字、口语、省略上下文、长消息、罕见类别和真实比例。不要为了让准确率好看，构造一批比真实输入更整齐的句子。</p>
+<h2 id="wiki-h-2">写一个可重复运行的评估脚本</h2>
+<p>新建 <code>evaluate_dataset.py</code>：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">import</span> json
+<span class="hljs-keyword">from</span> datetime <span class="hljs-keyword">import</span> datetime, timezone
+<span class="hljs-keyword">from</span> pathlib <span class="hljs-keyword">import</span> Path
+
+<span class="hljs-keyword">from</span> typesafe_sdk <span class="hljs-keyword">import</span> TypeSafeClient
+
+<span class="hljs-keyword">from</span> decision_inbox <span class="hljs-keyword">import</span> QUESTIONS
+<span class="hljs-keyword">from</span> decision_policy <span class="hljs-keyword">import</span> build_recommendation
+
+
+BASE_DIR = Path(__file__).resolve().parent
+CASES_FILE = BASE_DIR / <span class="hljs-string">"evaluation_cases.json"</span>
+RESULTS_FILE = BASE_DIR / <span class="hljs-string">"output"</span> / <span class="hljs-string">"evaluation_results.json"</span>
+<span class="hljs-keyword">from</span> decision_policy <span class="hljs-keyword">import</span> URGENCY_THRESHOLD <span class="hljs-keyword">as</span> URGENT_THRESHOLD
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">load_cases</span>() -&gt; <span class="hljs-built_in">list</span>[<span class="hljs-built_in">dict</span>]:
+    <span class="hljs-keyword">with</span> CASES_FILE.<span class="hljs-built_in">open</span>(<span class="hljs-string">"r"</span>, encoding=<span class="hljs-string">"utf-8"</span>) <span class="hljs-keyword">as</span> file:
+        cases = json.load(file)
+
+    required = {
+        <span class="hljs-string">"id"</span>,
+        <span class="hljs-string">"text"</span>,
+        <span class="hljs-string">"expected_category"</span>,
+        <span class="hljs-string">"expected_urgent"</span>,
+        <span class="hljs-string">"expected_action_requested"</span>,
+    }
+
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-built_in">isinstance</span>(cases, <span class="hljs-built_in">list</span>) <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> cases:
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">"evaluation_cases.json 必须是非空数组"</span>)
+
+    <span class="hljs-keyword">for</span> index, <span class="hljs-keyword">case</span> <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(cases, start=<span class="hljs-number">1</span>):
+        missing = required - <span class="hljs-keyword">case</span>.keys()
+        <span class="hljs-keyword">if</span> missing:
+            <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f"第 <span class="hljs-subst">{index}</span> 条评估数据缺少：<span class="hljs-subst">{<span class="hljs-built_in">sorted</span>(missing)}</span>"</span>)
+
+    <span class="hljs-keyword">return</span> cases
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">predict</span>(<span class="hljs-params">client: TypeSafeClient, <span class="hljs-keyword">case</span>: <span class="hljs-built_in">dict</span></span>) -&gt; <span class="hljs-built_in">tuple</span>[<span class="hljs-built_in">dict</span>, <span class="hljs-built_in">str</span>]:
+    response = client.system_one(
+        state={
+            <span class="hljs-string">"message"</span>: {
+                <span class="hljs-string">"id"</span>: <span class="hljs-keyword">case</span>[<span class="hljs-string">"id"</span>],
+                <span class="hljs-string">"source"</span>: <span class="hljs-string">"evaluation"</span>,
+                <span class="hljs-string">"text"</span>: <span class="hljs-keyword">case</span>[<span class="hljs-string">"text"</span>],
+            }
+        },
+        questions=QUESTIONS,
+    )
+
+    category = response.answers[<span class="hljs-string">"category"</span>]
+    urgency = response.answers[<span class="hljs-string">"urgency"</span>]
+    action = response.answers[<span class="hljs-string">"action_requested"</span>]
+
+    judgment = {
+        <span class="hljs-string">"category"</span>: category.choice,
+        <span class="hljs-string">"category_probabilities"</span>: <span class="hljs-built_in">dict</span>(category.probabilities),
+        <span class="hljs-string">"category_confidence"</span>: category.confidence,
+        <span class="hljs-string">"urgency_score"</span>: urgency.score,
+        <span class="hljs-string">"urgency_confidence"</span>: urgency.confidence,
+        <span class="hljs-string">"action_requested_probability"</span>: action.noul,
+    }
+
+    record = {
+        <span class="hljs-string">"id"</span>: <span class="hljs-keyword">case</span>[<span class="hljs-string">"id"</span>],
+        <span class="hljs-string">"source"</span>: <span class="hljs-string">"evaluation"</span>,
+        <span class="hljs-string">"text"</span>: <span class="hljs-keyword">case</span>[<span class="hljs-string">"text"</span>],
+        <span class="hljs-string">"judgment"</span>: judgment,
+    }
+    routed = build_recommendation(record)
+
+    predicted_action = action.noul &gt;= <span class="hljs-number">0.5</span>
+    predicted_urgent = urgency.score &gt;= URGENT_THRESHOLD
+    automatic = routed[<span class="hljs-string">"recommendation"</span>][<span class="hljs-string">"queue"</span>] != <span class="hljs-string">"manual_review"</span>
+
+    result = {
+        **<span class="hljs-keyword">case</span>,
+        <span class="hljs-string">"prediction"</span>: {
+            **judgment,
+            <span class="hljs-string">"urgent"</span>: predicted_urgent,
+            <span class="hljs-string">"action_requested"</span>: predicted_action,
+            <span class="hljs-string">"queue"</span>: routed[<span class="hljs-string">"recommendation"</span>][<span class="hljs-string">"queue"</span>],
+            <span class="hljs-string">"automatic"</span>: automatic,
+        },
+        <span class="hljs-string">"correct"</span>: {
+            <span class="hljs-string">"category"</span>: category.choice == <span class="hljs-keyword">case</span>[<span class="hljs-string">"expected_category"</span>],
+            <span class="hljs-string">"urgent"</span>: predicted_urgent == <span class="hljs-keyword">case</span>[<span class="hljs-string">"expected_urgent"</span>],
+            <span class="hljs-string">"action_requested"</span>: (
+                predicted_action == <span class="hljs-keyword">case</span>[<span class="hljs-string">"expected_action_requested"</span>]
+            ),
+        },
+    }
+    result[<span class="hljs-string">"correct"</span>][<span class="hljs-string">"all"</span>] = <span class="hljs-built_in">all</span>(result[<span class="hljs-string">"correct"</span>].values())
+    <span class="hljs-keyword">return</span> result, response.model
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">ratio</span>(<span class="hljs-params">numerator: <span class="hljs-built_in">int</span>, denominator: <span class="hljs-built_in">int</span></span>) -&gt; <span class="hljs-built_in">float</span> | <span class="hljs-literal">None</span>:
+    <span class="hljs-keyword">if</span> denominator == <span class="hljs-number">0</span>:
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">round</span>(numerator / denominator, <span class="hljs-number">4</span>)
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">calculate_metrics</span>(<span class="hljs-params">results: <span class="hljs-built_in">list</span>[<span class="hljs-built_in">dict</span>]</span>) -&gt; <span class="hljs-built_in">dict</span>:
+    total = <span class="hljs-built_in">len</span>(results)
+    automatic = [item <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> results <span class="hljs-keyword">if</span> item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"automatic"</span>]]
+
+    <span class="hljs-keyword">return</span> {
+        <span class="hljs-string">"total_cases"</span>: total,
+        <span class="hljs-string">"category_accuracy"</span>: ratio(
+            <span class="hljs-built_in">sum</span>(item[<span class="hljs-string">"correct"</span>][<span class="hljs-string">"category"</span>] <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> results), total
+        ),
+        <span class="hljs-string">"urgency_accuracy"</span>: ratio(
+            <span class="hljs-built_in">sum</span>(item[<span class="hljs-string">"correct"</span>][<span class="hljs-string">"urgent"</span>] <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> results), total
+        ),
+        <span class="hljs-string">"action_accuracy"</span>: ratio(
+            <span class="hljs-built_in">sum</span>(item[<span class="hljs-string">"correct"</span>][<span class="hljs-string">"action_requested"</span>] <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> results), total
+        ),
+        <span class="hljs-string">"automatic_coverage"</span>: ratio(<span class="hljs-built_in">len</span>(automatic), total),
+        <span class="hljs-string">"manual_review_rate"</span>: ratio(total - <span class="hljs-built_in">len</span>(automatic), total),
+        <span class="hljs-string">"automatic_exact_match_accuracy"</span>: ratio(
+            <span class="hljs-built_in">sum</span>(item[<span class="hljs-string">"correct"</span>][<span class="hljs-string">"all"</span>] <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> automatic),
+            <span class="hljs-built_in">len</span>(automatic),
+        ),
+    }
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">main</span>() -&gt; <span class="hljs-literal">None</span>:
+    cases = load_cases()
+    results = []
+    response_models = <span class="hljs-built_in">set</span>()
+
+    <span class="hljs-keyword">with</span> TypeSafeClient() <span class="hljs-keyword">as</span> client:
+        <span class="hljs-keyword">for</span> position, <span class="hljs-keyword">case</span> <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(cases, start=<span class="hljs-number">1</span>):
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f"[<span class="hljs-subst">{position}</span>/<span class="hljs-subst">{<span class="hljs-built_in">len</span>(cases)}</span>] 正在评估 <span class="hljs-subst">{<span class="hljs-keyword">case</span>[<span class="hljs-string">'id'</span>]}</span>..."</span>)
+            result, response_model = predict(client, <span class="hljs-keyword">case</span>)
+            results.append(result)
+            response_models.add(response_model)
+
+    report = {
+        <span class="hljs-string">"generated_at"</span>: datetime.now(timezone.utc).isoformat(),
+        <span class="hljs-string">"response_models"</span>: <span class="hljs-built_in">sorted</span>(response_models),
+        <span class="hljs-string">"metrics"</span>: calculate_metrics(results),
+        <span class="hljs-string">"results"</span>: results,
+    }
+
+    RESULTS_FILE.parent.mkdir(parents=<span class="hljs-literal">True</span>, exist_ok=<span class="hljs-literal">True</span>)
+    <span class="hljs-keyword">with</span> RESULTS_FILE.<span class="hljs-built_in">open</span>(<span class="hljs-string">"w"</span>, encoding=<span class="hljs-string">"utf-8"</span>) <span class="hljs-keyword">as</span> file:
+        json.dump(report, file, ensure_ascii=<span class="hljs-literal">False</span>, indent=<span class="hljs-number">2</span>)
+
+    <span class="hljs-built_in">print</span>(json.dumps(report[<span class="hljs-string">"metrics"</span>], ensure_ascii=<span class="hljs-literal">False</span>, indent=<span class="hljs-number">2</span>))
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f"完整结果：<span class="hljs-subst">{RESULTS_FILE}</span>"</span>)
+
+
+<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">"__main__"</span>:
+    main()
+</code></pre><p>脚本把本次实际返回的 <code>response.model</code> 和运行时间写进报告。<code>jev-latest</code> 是会随官方更新而变化的别名；以后比较两次结果时，如果模型版本不同，就不能把差异全部归因于你修改了问题描述。</p>
+<p>脚本仍用 0.5 计算 Noul 的原始真假准确率，但自动路径使用第 6 篇的 0.35～0.65 复核区间。两者不冲突：前者用来观察判断方向，后者用来决定系统是否愿意自动处理。</p>
+<h2 id="wiki-h-3">运行评估并验证报告</h2>
+<p>先检查 JSON 和 Python 语法。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -m json.tool evaluation_cases.json
+python -m py_compile evaluate_dataset.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> json.tool evaluation_cases.json
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> py_compile evaluate_dataset.py
+</code></pre><p>确认当前终端已设置 <code>TYPESAFE_API_KEY</code>，再运行：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python evaluate_dataset.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe evaluate_dataset.py
+</code></pre><p>它会产生十次真实 API 调用。实际指标取决于模型版本和返回结果，可能类似下面的形状，但不应照抄这些数字：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"total_cases"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"category_accuracy"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"urgency_accuracy"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"action_accuracy"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"automatic_coverage"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"manual_review_rate"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"automatic_exact_match_accuracy"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>这里的 <code>0.0</code> 只是字段占位。当没有任何自动样例时，<code>automatic_exact_match_accuracy</code> 会是 <code>null</code>，而不是把除以零伪装成 0 分。</p>
+<p>用独立命令检查报告结构：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python -c <span class="hljs-string">"import json; r=json.load(open('output/evaluation_results.json', encoding='utf-8')); assert r['metrics']['total_cases']==10; assert len(r['results'])==10; assert r['response_models']; print('evaluation report verified')"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-c</span> <span class="hljs-string">"import json; r=json.load(open('output/evaluation_results.json', encoding='utf-8')); assert r['metrics']['total_cases']==10; assert len(r['results'])==10; assert r['response_models']; print('evaluation report verified')"</span>
+</code></pre><p>看到 <code>evaluation report verified</code>，只能证明评估报告完整生成。接下来才是最重要的人工分析。</p>
+<h2 id="wiki-h-4">先看错误样例，再看总分</h2>
+<p>新建 <code>inspect_errors.py</code>：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">import</span> json
+<span class="hljs-keyword">from</span> pathlib <span class="hljs-keyword">import</span> Path
+
+
+RESULTS_FILE = Path(__file__).resolve().parent / <span class="hljs-string">"output"</span> / <span class="hljs-string">"evaluation_results.json"</span>
+
+<span class="hljs-keyword">with</span> RESULTS_FILE.<span class="hljs-built_in">open</span>(<span class="hljs-string">"r"</span>, encoding=<span class="hljs-string">"utf-8"</span>) <span class="hljs-keyword">as</span> file:
+    report = json.load(file)
+
+<span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> report[<span class="hljs-string">"results"</span>]:
+    <span class="hljs-keyword">if</span> item[<span class="hljs-string">"correct"</span>][<span class="hljs-string">"all"</span>] <span class="hljs-keyword">and</span> item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"automatic"</span>]:
+        <span class="hljs-keyword">continue</span>
+
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"="</span> * <span class="hljs-number">60</span>)
+    <span class="hljs-built_in">print</span>(item[<span class="hljs-string">"id"</span>], item[<span class="hljs-string">"text"</span>])
+    <span class="hljs-built_in">print</span>(
+        <span class="hljs-string">"expected:"</span>,
+        item[<span class="hljs-string">"expected_category"</span>],
+        item[<span class="hljs-string">"expected_urgent"</span>],
+        item[<span class="hljs-string">"expected_action_requested"</span>],
+    )
+    <span class="hljs-built_in">print</span>(
+        <span class="hljs-string">"predicted:"</span>,
+        item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"category"</span>],
+        item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"urgent"</span>],
+        item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"action_requested"</span>],
+    )
+    <span class="hljs-built_in">print</span>(
+        <span class="hljs-string">"confidence:"</span>,
+        item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"category_confidence"</span>],
+        item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"urgency_confidence"</span>],
+        item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"action_requested_probability"</span>],
+    )
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"queue:"</span>, item[<span class="hljs-string">"prediction"</span>][<span class="hljs-string">"queue"</span>])
+</code></pre><p>运行后，它只显示判断错误或进入人工复核的样例：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python inspect_errors.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe inspect_errors.py
+</code></pre><p>分析时，先给错误分原因，而不是立即改提示：</p>
+<ul>
+<li><strong>标签定义问题</strong>：<code>feedback</code> 与 <code>other</code> 的边界在人看来也不清楚；</li>
+<li><strong>输入信息不足</strong>：单条留言无法判断是否真的紧急；</li>
+<li><strong>问题说明问题</strong>：Score 等级没有覆盖某种常见情形；</li>
+<li><strong>阈值问题</strong>：方向基本正确，但落在人工复核区间；</li>
+<li><strong>模型局限</strong>：问题和上下文已经清楚，仍频繁错判。</li>
+</ul>
+<p>不同原因对应不同改法。缺少上下文时，重写十遍类别描述也不会凭空补出信息。</p>
+<h2 id="wiki-h-5">用开发集改，用测试集验</h2>
+<p>这十条数据太少，本篇只演示流程。如果继续完善项目，至少要把数据分成两部分：</p>
+<ul>
+<li><strong>开发集</strong>：允许反复查看错误，用来修改问题描述和初步选阈值；</li>
+<li><strong>测试集</strong>：在方案确定前不查看结果，只用来检查改动能否推广到新数据。</li>
+</ul>
+<p>如果每次都在同一批十条消息上调到全对，你可能只是记住了练习题。真实留言换一种表达，效果又会下降。</p>
+<p>一次改进循环应该是：</p>
+<pre><code class="hljs language-text">固定一版数据与标注
+        ↓
+运行并保存基线报告
+        ↓
+检查错误类型
+        ↓
+一次只改一个主要因素
+        ↓
+在开发集重新运行
+        ↓
+确认改善后再跑未见过的测试集
+</code></pre><p>“一个主要因素”可以是补充 <code>state</code> 字段、重写某个 Choice 描述、调整一个 Score 等级，或者改变一个阈值。不要同时改问题、数据和阈值，否则分数变化后你无法知道哪项改动真正有效。</p>
+<h2 id="wiki-h-6">怎样看待准确率与复核率的取舍</h2>
+<p>假设两个方案的结果是：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>方案</th>
+<th align="right">自动覆盖率</th>
+<th align="right">自动样例全对率</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td align="right">90%</td>
+<td align="right">82%</td>
+</tr>
+<tr>
+<td>B</td>
+<td align="right">55%</td>
+<td align="right">97%</td>
+</tr>
+</tbody></table></div>
+<p>不能只看 97% 就断言 B 更好。如果人工复核很便宜，而误路由代价很高，B 可能合适；如果每天有几十万条低风险消息，45% 的复核率可能无法接受。</p>
+<p>阈值必须与具体动作绑定。自动加本地标签可以追求较高覆盖率；对外发消息应更保守；付款、删数据或批准权限则不能只靠模型置信度自动完成。</p>
+<p>当数据量增加后，还要分别查看各类别指标。总体分类准确率可能很好，但稀有的 <code>billing</code> 类别全部错了。若该类别风险更高，总体平均值会掩盖真正的问题。</p>
+<h2 id="wiki-h-7">保存每次实验的最小记录</h2>
+<p>至少保留：</p>
+<ul>
+<li>评估数据版本或文件哈希；</li>
+<li>问题定义和阈值；</li>
+<li>请求的模型别名与响应中的实际模型版本；</li>
+<li>运行日期；</li>
+<li>指标与逐条预测；</li>
+<li>本轮只改了什么。</li>
+</ul>
+<p>不要覆盖唯一一份 <code>evaluation_results.json</code> 后才想起比较。最简单的做法是把确认有价值的报告复制到一个带日期和说明的实验目录，例如：</p>
+<pre><code class="hljs language-text">experiments/
+├── 2026-09-23-baseline/
+│   ├── evaluation_cases.json
+│   ├── evaluation_results.json
+│   └── notes.md
+└── 2026-09-24-category-descriptions-v2/
+    ├── evaluation_cases.json
+    ├── evaluation_results.json
+    └── notes.md
+</code></pre><p>这些是可审计的实验记录，不要把真实隐私数据提交到公开仓库。必要时只保存脱敏样例和汇总指标。</p>
+<h2 id="wiki-h-8">完成本篇的验收</h2>
+<p>确认你已经做到：</p>
+<ul>
+<li><code>evaluation_cases.json</code> 在调用模型前就有人工期望标签；</li>
+<li><code>evaluate_dataset.py</code> 能生成十条逐项预测和五项核心指标；</li>
+<li>报告保存了实际响应模型版本与运行时间；</li>
+<li>能区分准确率、自动覆盖率和人工复核率；</li>
+<li>已运行 <code>inspect_errors.py</code>，并按原因分析至少一个错误或复核样例；</li>
+<li>明白开发集用于改进，测试集用于最后验证；</li>
+<li>不会因为十条样例表现不错，就声称系统已经达到生产要求。</li>
+</ul>
+<p>下一篇是整套教程的收尾。我们会把目前的本地判断流水线接到几个明确的处理器上，并说明 Jev 放进 Agent 时究竟负责哪一步、又有哪些事情仍应交给 LLM、普通代码或人。</p>
+<p>评估报告应记录本次 URGENT_THRESHOLD 与其他门控阈值。改变策略后重新生成路由并复评；不要沿用旧结果，也不要把调参用例当独立保留测试集。</p>
+</article>

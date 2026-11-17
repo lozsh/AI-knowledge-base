@@ -1,0 +1,267 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你只想做一个个人复习助手，却发现同一个模型既能改写笔记，也能解释代码，还能根据例子生成新的问题。</p>
+<p>如果它的主要训练任务是“预测下一个 Token”，这些能力从哪里来？它是不是事先背下了无数问答？只要把模型做得更大、让它读更多文字，是不是就会越来越可靠？</p>
+<p>前几篇讲的是模型如何使用已有参数处理输入。本篇回到参数形成的过程：<strong>预训练让模型在大量数据上反复预测、计算损失并更新参数，为后续任务建立可复用的能力。</strong></p>
+<p>我们重点讨论自回归语言模型的下一 Token 预训练。预训练并非只有这一种目标，其他模型也会使用遮蔽预测等方式。本篇不要求训练模型；切分、概率、数据规模和曲线算例均为教学构造，明确标出的论文结果除外。</p>
+<h2 id="wiki-h-0">一句普通文字，就能提供多个训练目标</h2>
+<p>沿用之前的教学句子与切分：</p>
+<pre><code class="hljs language-text">[我] [用] [卡片] [复习] [概念]
+</code></pre><p>暂时忽略开始、结束等特殊标记，我们可以得到四个预测位置：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th>模型允许使用的前缀</th>
+<th>原文中的下一个 Token，也就是训练目标</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>我</td>
+<td>用</td>
+</tr>
+<tr>
+<td>2</td>
+<td>我 用</td>
+<td>卡片</td>
+</tr>
+<tr>
+<td>3</td>
+<td>我 用 卡片</td>
+<td>复习</td>
+</tr>
+<tr>
+<td>4</td>
+<td>我 用 卡片 复习</td>
+<td>概念</td>
+</tr>
+</tbody></table></div>
+<p>不需要有人另写四条“正确答案”，因为目标已经存在于原文中。这是<strong>自监督学习</strong>：监督信号从数据本身构造出来，而不是说训练没有目标或没有误差反馈。<a href="https://huggingface.co/docs/transformers/tasks/language_modeling">Hugging Face：因果语言建模</a></p>
+<p>常见的批量实现会把输入与目标错开一个位置：</p>
+<pre><code class="hljs language-text">输入位置：我    用    卡片    复习
+对应目标：用    卡片  复习    概念
+</code></pre><p>再用因果掩码，保证预测“复习”的位置不能读取后面的目标“复习”。训练程序可以持有整段原文，但网络在某个预测位置可见的内容仍受限制。</p>
+<h3 id="wiki-h-1">训练时，会像聊天一样先抽一个词再继续吗</h3>
+<p>标准的下一 Token 训练通常使用<strong>原文的正确前缀</strong>计算各位置的预测。这种安排常称为 Teacher Forcing，教师强制。</p>
+<p>即使第一处预测最偏向“看”，第二处的训练前缀仍然是原文的“我 用”，而不是把错误的“我 看”塞进去继续这一条训练样本。这样可以在因果限制下并行计算多个位置的损失。</p>
+<p>这与上一篇的生成过程不同：实际生成时没有现成的完整答案，模型已经选出的 Token 会进入后续前缀。别把“生成时采样”误当成普通预训练计算损失的必要步骤。</p>
+<h2 id="wiki-h-2">目标确定后，怎样告诉模型哪里需要改进</h2>
+<p>模型为每个预测位置输出一组词表概率。训练程序关心的一项数值，是<strong>原文目标 Token 获得了多少概率</strong>。</p>
+<p>在常见的单目标、无额外权重的交叉熵计算中，这个位置的损失为：</p>
+<pre><code class="hljs language-text">损失 = -ln(模型赋给目标 Token 的概率)
+</code></pre><p><code>ln</code> 是自然对数。不必自己计算对数，也可以从下表看出规律：给目标的概率越小，损失越大。<a href="https://docs.pytorch.org/docs/2.9/generated/torch.nn.CrossEntropyLoss.html">PyTorch：CrossEntropyLoss 的定义</a></p>
+<p>为刚才四个位置人为设定一组预测：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>目标 Token</th>
+<th align="right">本位置赋给目标的概率</th>
+<th align="right">对应损失，约数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>用</td>
+<td align="right">0.25</td>
+<td align="right">1.386</td>
+</tr>
+<tr>
+<td>卡片</td>
+<td align="right">0.50</td>
+<td align="right">0.693</td>
+</tr>
+<tr>
+<td>复习</td>
+<td align="right">0.20</td>
+<td align="right">1.609</td>
+</tr>
+<tr>
+<td>概念</td>
+<td align="right">0.10</td>
+<td align="right">2.303</td>
+</tr>
+</tbody></table></div>
+<p>这四个概率来自<strong>四个不同位置的分布</strong>，所以不要求四个数加起来等于 1。每个位置还有它自己的其他候选。</p>
+<p>若四处同等计入，平均损失约为：</p>
+<pre><code class="hljs language-text">(1.386 + 0.693 + 1.609 + 2.303) / 4 ≈ 1.498
+</code></pre><p>假设另一个参数状态下，四个目标概率分别为 <code>0.50、0.60、0.40、0.20</code>，平均损失就约为 <code>0.932</code>。这个构造说明：目标获得更高概率，交叉熵会下降。它不表示我们真的训练了一步就实现了这些变化，也不意味着实际每次更新都能同时改善所有位置。</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-4" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1128px;" viewBox="4 4 1128 116" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-4{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-4 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-4 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-4 .error-icon{fill:#552222;}#wiki-mermaid-4 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-4 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-4 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-4 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-4 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-4 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-4 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-4 .marker{fill:#666;stroke:#666;}#wiki-mermaid-4 .marker.cross{stroke:#666;}#wiki-mermaid-4 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-4 p{margin:0;}#wiki-mermaid-4 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-4 .cluster-label text{fill:#333;}#wiki-mermaid-4 .cluster-label span{color:#333;}#wiki-mermaid-4 .cluster-label span p{background-color:transparent;}#wiki-mermaid-4 .label text,#wiki-mermaid-4 span{fill:#000000;color:#000000;}#wiki-mermaid-4 .node rect,#wiki-mermaid-4 .node circle,#wiki-mermaid-4 .node ellipse,#wiki-mermaid-4 .node polygon,#wiki-mermaid-4 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-4 .rough-node .label text,#wiki-mermaid-4 .node .label text,#wiki-mermaid-4 .image-shape .label,#wiki-mermaid-4 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-4 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-4 .rough-node .label,#wiki-mermaid-4 .node .label,#wiki-mermaid-4 .image-shape .label,#wiki-mermaid-4 .icon-shape .label{text-align:center;}#wiki-mermaid-4 .node.clickable{cursor:pointer;}#wiki-mermaid-4 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-4 .arrowheadPath{fill:#333333;}#wiki-mermaid-4 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-4 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-4 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-4 .edgeLabel p{background-color:white;}#wiki-mermaid-4 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-4 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-4 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-4 .cluster text{fill:#333;}#wiki-mermaid-4 .cluster span{color:#333;}#wiki-mermaid-4 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-4 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-4 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-4 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-4 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-4 .icon-shape,#wiki-mermaid-4 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-4 .icon-shape p,#wiki-mermaid-4 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-4 .icon-shape .label rect,#wiki-mermaid-4 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-4 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-4 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-4 .node .neo-node{stroke:#999;}#wiki-mermaid-4 [data-look="neo"].node rect,#wiki-mermaid-4 [data-look="neo"].cluster rect,#wiki-mermaid-4 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-4-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-4 [data-look="neo"].node path{stroke:url(#wiki-mermaid-4-gradient);stroke-width:1px;}#wiki-mermaid-4 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-4 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-4-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-4 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-4-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-4-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-4 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-4_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-4_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-4_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-4_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-4_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-4_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-4_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,76L200,76" id="wiki-mermaid-4-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTY0LCJ5Ijo3Nn0seyJ4IjoyMDQsInkiOjc2fV0=" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M356,67.33333333333333L368.9289321881345,67.33333333333333Q376,67.33333333333333 376,60.26226552146785L376,55.071067811865476Q376,48 383.0710678118655,48L392,48" id="wiki-mermaid-4-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 46.00505828857422 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzU2LCJ5Ijo2Ny4zMzMzMzMzMzMzMzMzM30seyJ4IjozNzYsInkiOjY3LjMzMzMzMzMzMzMzMzMzfSx7IngiOjM3NiwieSI6NDh9LHsieCI6Mzk2LCJ5Ijo0OH1d" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M548,48L584,48" id="wiki-mermaid-4-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ4LCJ5Ijo0OH0seyJ4Ijo1ODgsInkiOjQ4fV0=" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M740,48L776,48" id="wiki-mermaid-4-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6NzQwLCJ5Ijo0OH0seyJ4Ijo3ODAsInkiOjQ4fV0=" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M932,48L944.9289321881345,48Q952,48 952,55.071067811865476L952,64.26226552146785Q952,71.33333333333333 959.0710678118655,71.33333333333333L968,71.33333333333333" id="wiki-mermaid-4-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 50.005069732666016 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6OTMyLCJ5Ijo0OH0seyJ4Ijo5NTIsInkiOjQ4fSx7IngiOjk1MiwieSI6NzEuMzMzMzMzMzMzMzMzMzN9LHsieCI6OTcyLCJ5Ijo3MS4zMzMzMzMzMzMzMzMzM31d" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path><path d="M972,80.66666666666667L959.0710678118655,80.66666666666667Q952,80.66666666666667 952,87.73773447853215L952,96.92893218813452Q952,104 944.9289321881345,104L856,104L664,104L472,104L383.0710678118655,104Q376,104 376,96.92893218813452L376,91.73773447853215Q376,84.66666666666667 368.9289321881345,84.66666666666667L360,84.66666666666667" id="wiki-mermaid-4-L_F_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 640.0101318359375 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_B_0" data-points="W3sieCI6OTcyLCJ5Ijo4MC42NjY2NjY2NjY2NjY2N30seyJ4Ijo5NTIsInkiOjgwLjY2NjY2NjY2NjY2NjY3fSx7IngiOjk1MiwieSI6MTA0fSx7IngiOjg1NiwieSI6MTA0fSx7IngiOjY2NCwieSI6MTA0fSx7IngiOjQ3MiwieSI6MTA0fSx7IngiOjM3NiwieSI6MTA0fSx7IngiOjM3NiwieSI6ODQuNjY2NjY2NjY2NjY2Njd9LHsieCI6MzU2LCJ5Ijo4NC42NjY2NjY2NjY2NjY2N31d" data-look="neo" marker-end="url(#wiki-mermaid-4_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"></g><g class="nodes"><g class="node default" id="wiki-mermaid-4-flowchart-A-0" data-look="neo" transform="translate(88, 76)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>准备一批文本及错位目标</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-B-1" data-look="neo" transform="translate(280, 76)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>模型计算各位置预测</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-C-3" data-look="neo" transform="translate(472, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>对照原文目标计算损失</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-D-5" data-look="neo" transform="translate(664, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>反向传播计算梯度</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-E-7" data-look="neo" transform="translate(856, 48)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>优化器更新参数</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-4-flowchart-F-9" data-look="neo" transform="translate(1048, 76)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>处理后续批次</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-4-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-4-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-4-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>更新可能影响嵌入、注意力、前馈网络等部分的参数。训练并不是程序员逐项写入“这句话属于语法知识”“那句话属于数学知识”。模型通过许多样本共同产生的梯度，调整内部表示和计算。</p>
+<h3 id="wiki-h-3">原文的下一个词，也未必是唯一合理的词</h3>
+<p>在“我用卡片复习”后面，“概念”是这条原文的目标，但“单词”也可能构成合理句子。这个位置的损失仍按原文“概念”计算，并不会自动请一位裁判判断“单词也可以，给同样奖励”。</p>
+<p>当语料中存在大量不同表达时，模型有机会学习这些续写各自在什么上下文出现。训练目标推动它拟合数据中的条件分布；不能把某一条原文的目标，直接当作所有场景下唯一正确的答案。</p>
+<h2 id="wiki-h-4">局部预测任务，为什么需要广泛的规律</h2>
+<p>“预测下一个 Token”描述的是<strong>如何给训练结果评分</strong>，不是限制模型只能利用最后一个字。模型可以使用允许范围内的整段前文，并通过多层网络形成表示。</p>
+<p>看看几类教学前缀：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>前缀或任务片段</th>
+<th>为了更好地预测，哪些信息可能有帮助</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>一段说明文，接下来要解释某个术语</td>
+<td>术语用法、句法、上下文主题</td>
+</tr>
+<tr>
+<td>小周从小林那里借到一本书。借出书的人是……</td>
+<td>人物与动作之间的关系</td>
+</tr>
+<tr>
+<td>Python 表达式 <code>len([2, 5, 8])</code> 的值是……</td>
+<td>列表长度与代码语义</td>
+</tr>
+<tr>
+<td>前面给了两组“笔记→摘要”，后面给第三段笔记</td>
+<td>示例共同的格式与压缩方式</td>
+</tr>
+</tbody></table></div>
+<p>这些只是说明预测任务可能用到哪些规律，不是某个模型已学会这些能力的实验报告。</p>
+<p>如果模型在大量不同的句子、段落、代码和解释中反复遇到类似结构，形成可复用的表示与计算方式，就可能比逐条记住孤立片段更有助于处理新文本。不同任务都可以提供学习信号，因为它们最终都表现为某种可预测的序列。</p>
+<p>这解释了为什么一个统一目标有机会产生广泛用途，但不是对全部能力来源的完整定理。模型会混合利用记忆、统计关联和可泛化的计算；具体学到了什么，需要在未见过的任务样本上，通过控制实验条件来检验，不能只凭一句“它在预测”就断言它什么也不懂，或什么都能懂。</p>
+<p>已有原始研究提供了具体证据。例如 GPT-3 论文考察了模型在没有针对每项任务更新梯度的情况下，仅通过文本说明和少量示例完成多类任务的表现，同时报告了明显局限。它支持“预训练能力可以迁移到不同任务”的观察，不构成所有任务都会成功的保证。<a href="https://arxiv.org/abs/2005.14165">《Language Models are Few-Shot Learners》</a></p>
+<p>这里的“通过示例适应任务”发生在一次输入的上下文中，不自动等于参数又被训练了。上下文学习会在后面的提示词篇进一步解释。</p>
+<h2 id="wiki-h-5">学到了规律，也可能记住原文</h2>
+<p>把模型说成一个逐字查询训练库的搜索引擎，并不准确。普通语言模型调用不会天然返回“这句话来自训练文件第几行”；生成结果由参数和当前输入共同决定。</p>
+<p>但反过来说“模型只学习规律，绝不会记住原文”，也不准确。研究者已经在特定实验中从语言模型输出中提取到训练数据片段，说明逐字记忆确实可能发生。<a href="https://arxiv.org/abs/2012.07805">《Extracting Training Data from Large Language Models》</a></p>
+<p>这两点对复习助手有直接影响：</p>
+<ul>
+<li>模型能解释一个概念，不表示它有一份可以随时精确导出的“概念资料库”；要提供准确引文，仍应让应用保留可核对的原文。</li>
+<li>模型复述出某段文字，也不表示它对该段内容完成了事实核查；被记住或被顺畅生成的内容，都可能过时或错误。</li>
+</ul>
+<p>预训练目标本身没有把网页作者的错误、小说设定、讽刺文字与事实陈述自动变成一份无冲突的知识库。数据选择、上下文判断以及后续训练会影响行为，但不能取消验证需求。</p>
+<p>因此，你今天上传一份新笔记，模型能够依据它回答，通常是输入上下文提供了新信息。不能据此断言这份笔记已经写入模型参数，以后不传也能准确回答。</p>
+<h2 id="wiki-h-6">数据、参数、计算量：三个数字要一起看</h2>
+<p>预训练介绍里经常同时出现参数规模、训练 Token 数和计算预算。它们分别回答不同问题。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>在描述什么</th>
+<th>常见误读</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>参数量</td>
+<td>模型中可学习数值的规模</td>
+<td>每个参数对应一条知识</td>
+</tr>
+<tr>
+<td>训练 Token 数</td>
+<td>训练过程中处理了多少 Token</td>
+<td>等同于独立、不重复的知识量</td>
+</tr>
+<tr>
+<td>训练计算量</td>
+<td>训练执行了多少数值运算</td>
+<td>等同于装了多少张显卡，或训练了几天</td>
+</tr>
+</tbody></table></div>
+<p>假设你有 1 万条笔记，按某分词器统计，每条恰好 200 个 Token。那么这份材料有 200 万个 Token。如果完整处理 3 遍，累计处理约 600 万个 Token；这不意味着凭空增加了 400 万个全新的 Token 内容。</p>
+<p>真实报告中，Token 数可能涉及过滤、重复采样和多阶段数据混合，需要看作者的统计口径。不同分词器下的 Token 数也不能毫无条件地当作同等文本量比较。</p>
+<h3 id="wiki-h-7">为什么不能只扩大一个数字</h3>
+<p>更多参数增加了可以学习的容量，也增加了训练和使用的负担；如果有效数据或训练计算不足，这些参数未必得到充分利用。更多训练 Token 也不必然改善任务表现：如果新增内容大量重复、质量低或偏离需求，数字增长不能代表同等的能力增长。</p>
+<p>去重研究在其测试设置中发现，清理重复数据可以减少逐字记忆，并改善训练效率和评估中的重叠问题。<a href="https://arxiv.org/abs/2107.06499">《Deduplicating Training Data Makes Language Models Better》</a> 这说明要考察数据的内容与组成，而不是把去重写成任何场景下都应删除所有重复的机械规则。</p>
+<p>训练计算量还不同于训练用时。相同运算量，放在不同硬件和不同并行实现上，耗时可能不同；增加显卡也不保证时间按比例缩短。应用开发者看模型介绍时，至少应避免把“训练了几天”直接当作训练充分程度的统一尺度。</p>
+<h2 id="wiki-h-8">Scaling Laws 到底在说什么</h2>
+<p><strong>Scaling Laws，缩放规律</strong>，研究的是模型规模、数据量、计算投入与性能指标之间的经验关系。语言模型研究中的一个重要观察是：在一定实验条件和范围内，增加规模时，交叉熵损失会呈现可拟合的规律性变化。<a href="https://arxiv.org/abs/2001.08361">《Scaling Laws for Neural Language Models》</a></p>
+<p>它的价值是帮助研究者估计投入与收益、规划实验，不只是说一句“越大越好”。</p>
+<h3 id="wiki-h-9">用一条虚构曲线理解“幂律”和收益变化</h3>
+<p>下面不是任何论文拟合结果。我们人为规定：在其他条件足够配合的理想例子中，规模 <code>S</code> 与损失满足：</p>
+<pre><code class="hljs language-text">L(S) = 1 + 2 / √S
+</code></pre><p>这里 <code>S</code> 是相对规模单位，<code>L</code> 是教学损失数值。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th align="right">相对规模 S</th>
+<th align="right">教学损失 L</th>
+<th align="right">超出示意基线 1 的部分</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="right">1</td>
+<td align="right">3.00</td>
+<td align="right">2.00</td>
+</tr>
+<tr>
+<td align="right">4</td>
+<td align="right">2.00</td>
+<td align="right">1.00</td>
+</tr>
+<tr>
+<td align="right">16</td>
+<td align="right">1.50</td>
+<td align="right">0.50</td>
+</tr>
+<tr>
+<td align="right">64</td>
+<td align="right">1.25</td>
+<td align="right">0.25</td>
+</tr>
+</tbody></table></div>
+<p>每把规模乘以 4，剩余差距减半；但损失的绝对下降量从 1 变为 0.5，再变为 0.25。这是一种“投入持续增加，改善仍有规律，但绝对收益变小”的形态。</p>
+<p>数字 1、2 和平方根都只为解释而选。不能据此预测真实模型的损失，更不能把损失 1.25 翻译成“答案正确率 80%”。论文中的拟合还需要区分具体规模变量、数据条件和统计假设。</p>
+<h3 id="wiki-h-10">固定预算下，参数和数据怎样搭配</h3>
+<p>假设在一个粗略比较里，每处理一个 Token 的训练成本与参数量成正比，其他条件相同。于是用“相对参数量 × 相对训练 Token 数”作成本代理：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>方案</th>
+<th align="right">相对参数量</th>
+<th align="right">相对训练 Token 数</th>
+<th align="right">成本代理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td align="right">1</td>
+<td align="right">100</td>
+<td align="right">100</td>
+</tr>
+<tr>
+<td>B</td>
+<td align="right">2</td>
+<td align="right">50</td>
+<td align="right">100</td>
+</tr>
+<tr>
+<td>C</td>
+<td align="right">0.5</td>
+<td align="right">200</td>
+<td align="right">100</td>
+</tr>
+</tbody></table></div>
+<p>三个方案的粗略成本相同，但不能只凭乘积判断谁效果最好。B 把更多预算给了模型规模，C 把更多预算给了训练数据；最佳分配需要实验或可靠的拟合。这个简化没有细算注意力长度成本、不同架构和系统开销。</p>
+<p>2022 年的 Chinchilla 研究就重新考察了固定训练计算预算下的参数与数据分配。在其研究设置中，更合适的搭配让 700 亿参数的 Chinchilla 使用与 2800 亿参数 Gopher 相同量级的训练计算预算，并用更多训练数据取得更好的多项评测表现。<a href="https://arxiv.org/abs/2203.15556">《Training Compute-Optimal Large Language Models》</a></p>
+<p>应带走的是“参数规模与训练量需要配合”。不要把某项实验推导出的比例，当作所有数据、架构和产品目标下永远不变的常数。</p>
+<h3 id="wiki-h-11">训练最省，不一定意味着产品长期最省</h3>
+<p>如果一个模型训练完成后会被调用很多次，使用阶段的成本也要算进去。有时研究者愿意为较小模型投入更长训练，以降低后续服务负担。</p>
+<p>LLaMA 原始论文就在引言中区分了固定训练预算下的最优模型，与满足推理预算时希望得到的模型；这说明“最优”取决于你把哪些成本和目标纳入比较。<a href="https://arxiv.org/html/2302.13971v1">《LLaMA》原始论文</a></p>
+<h2 id="wiki-h-12">损失更低，离“好用的助手”还有多远</h2>
+<p>即使缩放实验显示损失下降，也不能直接推导出以下结论：</p>
+<ol>
+<li>所有下游任务都按相同比例提高。</li>
+<li>中文笔记、代码、数学题与其他领域同样受益。</li>
+<li>任意长度和难度的新输入都能可靠处理。</li>
+<li>模型会自动遵循你的格式、承认不知道，并引用真实来源。</li>
+</ol>
+<p>平均损失会把大量不同位置的表现汇总成一个数。模型可能在常见续写上改善，却仍在你关心的罕见概念或引用任务上出错。比较损失时，也要对齐评估数据、分词方式、计入损失的位置和计算口径。</p>
+<p>对复习助手，可以把基础能力与任务行为分开检查。例如，模型可能知道“间隔复习”的常见解释，却没有按你要求同时返回题目、答案、解析；也可能格式很整齐，却把笔记里的例外条件漏掉。</p>
+<p>这些问题不能只靠继续增加预训练规模来一概解决。后训练、合适的输入材料、检索、程序校验和任务评估，分别处理不同缺口。</p>
+<p>读模型说明时，参数量和训练 Token 数能帮助你理解背景；实际选型仍应回到自己的材料，检查它能否完成你需要的任务。你无需为了做一个个人复习助手，从零复现一次大规模预训练。</p>
+<h2 id="wiki-h-13">理解检查</h2>
+<p><strong>1. 一段文字没有人工标注，为什么仍能训练下一 Token 预测？</strong></p>
+<p>原文中每个位置后面的 Token 可以充当目标。监督信号来自文本本身，这就是自监督；不等于没有标签形式的目标或没有损失。</p>
+<p><strong>2. 训练句子是“我 用 卡片 复习 概念”，第一处模型最偏向预测“看”。标准教师强制训练中，第二处前缀是什么？</strong></p>
+<p>仍是原文的“我 用”。这与实际生成时把自己选出的“看”加入前缀不同。</p>
+<p><strong>3. 同一个训练位置，目标概率从 0.2 提高到 0.4，损失从多少变到多少？能说目标所述事实的正确率翻倍了吗？</strong></p>
+<p>损失约从 <code>-ln(0.2)=1.609</code> 降到 <code>-ln(0.4)=0.916</code>。这说明模型给原文目标分配了更高概率，不表示命题正确率翻倍。</p>
+<p><strong>4. 1 万条、每条 200 Token 的材料，完整处理 3 遍，累计处理多少 Token？有多少原始材料 Token？</strong></p>
+<p>累计约 600 万；原始材料是 200 万。没有因为重复处理就得到 600 万个独立的新内容 Token。</p>
+<p><strong>5. 在本篇虚构缩放曲线中，从 S=4 增加到 S=16，损失下降多少？是否可以据此判断某真实模型翻四倍后的准确率？</strong></p>
+<p>从 2 降到 1.5，下降 0.5。不能预测真实准确率：曲线是教学构造，损失也不是准确率，两种指标没有这里所假定的固定换算关系。</p>
+<p><strong>6. 一个参数更多的模型，在固定预算下训练 Token 更少，就一定比小模型更强吗？</strong></p>
+<p>不一定。参数、数据、训练充分程度及评估任务共同影响结果。需要在可比条件下检验，而不是只选参数量最大的那一项。</p>
+<hr>
+<p>预训练把原文中的后续 Token 变成监督信号，通过大量参数更新积累可复用的表示与能力。它能带来广泛用途，也会受到数据、计算与目标本身的限制。</p>
+<p>下一篇《后训练与对齐：基础模型怎样变成好用的助手》，我们继续看：一个善于预测和续写的基础模型，怎样进一步学会按用户要求完成任务。</p>
+<p>上一篇：逐 Token 生成与采样 · 返回第二部分大纲</p>
+</article>

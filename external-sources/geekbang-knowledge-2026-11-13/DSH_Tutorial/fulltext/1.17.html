@@ -1,0 +1,182 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本文属于《DeepSeek Harness 入门教程（实战版）》· 第四部分 · 沿着项目掌握核心能力</p>
+</blockquote>
+<blockquote>
+<p>Windows 前提：使用 PowerShell 7.4+，先检查 <code>$PSVersionTable.PSVersion</code>；不要在 Windows PowerShell 5.1 直接复制本章重定向。将 <code>$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)</code> 用于中文管道；调用 DSH 后立即保存 <code>$dshExit = $LASTEXITCODE</code>，非零时停止后续解析。对照 macOS/Linux bash 的 <code>$?</code> 含义，不能混用。</p>
+</blockquote>
+<h1>第 16 章　案例七：把经验沉淀到项目、Skill 与 Profile</h1>
+<p>日报助手现在已经可以开发、测试、审查和定时运行。最后一步不是再加一个功能，而是把这些经验放到正确的地方：下次打开项目时仍然有效，换一个项目时又不会带过去无关限制。</p>
+<p>本章会完成两件事：</p>
+<ol>
+<li>把第 14 章新增的 <code>npm run check</code> 写进项目 Skill；</li>
+<li>从官方 Web 模板创建一个隔离的 <code>daily-report-lab</code> Profile，只在其中启用时间上下文，然后用配置 dump 证明日常 <code>web</code> Profile 没有被改动。</li>
+</ol>
+<p>第二个实验故意重用第 10 章已经熟悉的 <code>time-context</code>。这次不是重学插件开关，而是验证 <strong>Profile 隔离</strong>。</p>
+<h2 id="wiki-h-0">16.1 先决定“该放在哪里”</h2>
+<p>“一切皆插件”描述的是 DSH 如何组装能力，不等于每条经验都应做成插件。先用下表判断：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>要沉淀的内容</th>
+<th>放置位置</th>
+<th>日报助手示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>项目事实、命令和可验收规则</td>
+<td>项目文件、README、测试</td>
+<td><code>sources.json</code> 格式、<code>npm run check</code></td>
+</tr>
+<tr>
+<td>处理某类任务时应遵守的方法</td>
+<td>项目级 Skill</td>
+<td>先跑离线检查，再报告未执行的外部操作</td>
+</tr>
+<tr>
+<td>某个 DSH 运行实例的组合和配置</td>
+<td>Profile</td>
+<td>只给实验环境启用时间上下文</td>
+</tr>
+<tr>
+<td>现有 DSH 根本没有的服务、工具或界面</td>
+<td>Plugin / bundle</td>
+<td>新的数据接入能力或界面面板</td>
+</tr>
+</tbody></table></div>
+<p>一个实用的顺序是：<strong>先用项目文档和测试固定事实，再用 Skill 固定方法；只有运行时组合真的需要隔离时才建 Profile，缺少新能力时才写或安装插件。</strong></p>
+<p>Skill 不会增加工具或绕过权限，Profile 也不会自动让一条错误的项目规则变正确。它们解决的是不同问题。</p>
+<h2 id="wiki-h-1">16.2 确认项目起点</h2>
+<p>在系统终端进入 <code>daily-report</code> 目录，先跑基线：</p>
+<pre><code class="hljs language-bash">npm run check
+npm <span class="hljs-built_in">test</span>
+</code></pre><p>两条命令都应以 <code>0</code> 退出。然后查看项目 Skill 的当前内容：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"console.log(require('node:fs').readFileSync('.dsh/skills/daily-report-maintainer/SKILL.md','utf8'))"</span>
+</code></pre><p>如果文件不存在，说明你跳过了第 12 章。先回去建立完整 Skill，不要为了跟本章而临时创建一份空文件。</p>
+<p>此时第 5 条规则应还是“先运行直接相关的聚焦测试，再运行 <code>npm test</code>”。它没有错，但还不知道后来新增的离线健康检查。</p>
+<h2 id="wiki-h-2">16.3 把新约定写回项目 Skill</h2>
+<p>回到 <code>daily-report</code> 工作区的标准模式任务，使用 Workspace Write 权限，发送：</p>
+<pre><code class="hljs language-text">/daily-report-maintainer
+
+请只修改 .dsh/skills/daily-report-maintainer/SKILL.md 的第 5 条规则，
+在“再运行 npm test”之后增加“和 npm run check”。
+
+要求：
+1. 不改 frontmatter、其他规则和项目文件；
+2. 不运行 npm start，不访问网络；
+3. 修改后重新读取整个 Skill，确认仍有完整 frontmatter 和 7 条规则；
+4. 最后只报告实际差异和验证结果。
+</code></pre><p>预期只有一行差异：</p>
+<pre><code class="hljs language-diff"><span class="hljs-deletion">-5. 先运行直接相关的聚焦测试，再运行 npm test。</span>
+<span class="hljs-addition">+5. 先运行直接相关的聚焦测试，再运行 npm test 和 npm run check。</span>
+</code></pre><p>在系统终端独立验收：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"const s=require('node:fs').readFileSync('.dsh/skills/daily-report-maintainer/SKILL.md','utf8'); if(!s.includes('npm test 和 npm run check')||(s.match(/^\d+\./gm)||[]).length!==7) process.exit(1); console.log('SKILL_OK')"</span>
+npm run check
+npm <span class="hljs-built_in">test</span>
+</code></pre><p>看到 <code>SKILL_OK</code>，且两条项目命令均成功，才算沉淀完成。这次没有修改程序行为，因此不需要为了“看起来更完整”再改 README 或测试。</p>
+<h2 id="wiki-h-3">16.4 Profile 实际保存什么</h2>
+<p>一个正在运行的 DSH 是由多层配置组装出来的插件树。Profile 是这份组合在 Harness Home 下的命名记录，包含：</p>
+<ul>
+<li><code>package.json</code>：记录外部依赖和有序的 bundle 列表；</li>
+<li><code>cordis.patch.yml</code>：记录该 Profile 自己的配置覆盖。</li>
+</ul>
+<p>官方的 <code>web</code>、<code>headless</code>、<code>sdk</code>、<code>sdk-minimal</code> 和 <code>acp</code> 是随附模板。<code>desktop</code> 则是 Electron 应用保留的 Profile，公共 CLI 不允许启动、dump 或用 <code>dsh plugin</code> 管理它。所以本章创建的是 CLI/Web Profile，不会替换 Desktop 里已有的模型和插件设置。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.zh.md">CLI 官方说明</a></p>
+<p>更容易误解的是：“从 <code>web</code> 模板创建”只复制官方模板当前的 bundle 列表，<strong>不会复制你本机 <code>web</code> Profile 已安装的依赖和 <code>cordis.patch.yml</code></strong>。这正是我们要的隔离起点。</p>
+<h2 id="wiki-h-4">16.5 创建隔离的 <code>daily-report-lab</code> Profile</h2>
+<p>先确认当前使用的 CLI 版本：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --version
+</code></pre><p>本教程按 <code>v0.1.7-rc.2</code> 核对。如果你的版本不同，先查看对应版本发布说明，不要盲目照抄 patch。</p>
+<p>在 <code>daily-report</code> 目录中建立一个只用于本章比较的目录：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"require('node:fs').mkdirSync('profile-audit',{recursive:true})"</span>
+</code></pre><p>下面的第一条命令会创建新 Profile，但不启动 Web 服务：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --from-default-profile web --dump-default-config &gt; profile-audit/lab-default.yml
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --dump-config &gt; profile-audit/lab-before.yml
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile web --dump-config &gt; profile-audit/web-before.yml
+</code></pre><p>Windows PowerShell 可以使用同样的参数；如果系统找不到 <code>npx</code>，把命令头换成 <code>npx.cmd</code>。</p>
+<p>三个文件各有不同用途：</p>
+<ul>
+<li><code>lab-default.yml</code> 只包含官方 bundle 各层；</li>
+<li><code>lab-before.yml</code> 还包含 Profile patch、Home 级 patch 和本次命令的 overlay；</li>
+<li><code>web-before.yml</code> 是日常 CLI/Web Profile 的对照快照。</li>
+</ul>
+<p>用 Node.js 确认三次 dump 都真的有输出：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"const fs=require('node:fs'); for(const f of ['lab-default.yml','lab-before.yml','web-before.yml']){const n=fs.statSync('profile-audit/'+f).size; if(!n) process.exit(1); console.log(f,n+' bytes')}"</span>
+</code></pre><p>如果创建命令提示 Profile 已存在，不要直接删目录。这通常说明你之前已做过实验；去掉 <code>--from-default-profile web</code> 后重新 dump 即可。如果你不确定里面是什么，换一个新名字比删除旧 Profile 更安全。</p>
+<h2 id="wiki-h-5">16.6 只在实验 Profile 中启用时间上下文</h2>
+<p>启动自定义 Profile，使用 <code>3081</code> 避开可能正在使用的默认端口：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --port 3081 --no-open
+</code></pre><p>启动器应打印本地地址。在浏览器打开 <code>http://127.0.0.1:3081</code>，然后按下列顺序操作：</p>
+<ol>
+<li>打开“设置 → 插件 → 插件列表”，搜索 <code>time-context</code>；</li>
+<li>确认条目 ID 为 <code>time-context</code>、包名为 <code>@deepseek-ai/dsh-time-context</code>；</li>
+<li>打开左侧边栏的“插件”管理页，只启用这一项；</li>
+<li>回到只读插件列表，确认它已启用且没有加载错误。</li>
+</ol>
+<p>如果界面提示需要重启，在终端按 <code>Ctrl+C</code>，再用同一条命令启动。不要转到 Desktop 里操作；那是另一个保留 Profile，不能验证 <code>daily-report-lab</code> 的隔离。</p>
+<p>本次不需要发送模型消息。我们要验证的是配置作用域，不必为此产生一次模型调用。</p>
+<h2 id="wiki-h-6">16.7 用两组快照证明隔离生效</h2>
+<p>在终端按 <code>Ctrl+C</code> 停止实验 Web Host，再生成两份快照：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --dump-config &gt; profile-audit/lab-after.yml
+npx @deepseek-ai/dsh@0.1.7-rc.2 --profile web --dump-config &gt; profile-audit/web-after.yml
+</code></pre><p>现在计算四个文件的 SHA-256，并直接判断两组是否发生变化：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"const fs=require('node:fs'),c=require('node:crypto'); const h=f=&gt;c.createHash('sha256').update(fs.readFileSync('profile-audit/'+f)).digest('hex'); const a=h('lab-before.yml'),b=h('lab-after.yml'),x=h('web-before.yml'),y=h('web-after.yml'); console.log({labChanged:a!==b,webUnchanged:x===y,labBefore:a,labAfter:b,webBefore:x,webAfter:y});"</span>
+</code></pre><p>如果你从第 10 章的停用状态出发，预期看到：</p>
+<pre><code class="hljs language-text">labChanged: true
+webUnchanged: true
+</code></pre><p>这比“界面说已保存”更可靠：第一个值只说明实验 dump 的字节变化，第二个值说明 web dump 的字节未变。还需用文本 diff 定位 time-context 条目，核对 disabled 从 true 变为 false（或该版本对应的明确启用状态）；来源注释或其他元数据变化不能算启用成功。保存这项差异与 web 未变的证据，哈希仅作辅助。</p>
+<p>如果 <code>labChanged</code> 为 <code>false</code>，先确认你在 <code>3081</code> 的界面中点击了实际的启用/保存操作，而不是只打开只读列表。如果 <code>webUnchanged</code> 为 <code>false</code>，不要立刻判定 DSH 串了配置；先检查比较期间是否有另一个 <code>web</code> 实例、页面或脚本正在保存设置。</p>
+<p><code>profile-audit</code> 中的 dump 是诊断文件，可能暴露本机路径、Provider 配置或凭证引用。不要提交到仓库、上传网盘或原样发给别人；验收完成后可用文件管理器删除这个明确的临时目录。删除 dump 不会删除 <code>daily-report-lab</code> Profile。</p>
+<h2 id="wiki-h-7">16.8 配置层的真实优先级</h2>
+<p>当某一行配置在多层都出现时，当前启动器依次应用：</p>
+<pre><code class="hljs language-text">bundle patches
+    ↓
+Profile 的 cordis.patch.yml
+    ↓
+Harness Home 级 cordis.patch.yml
+    ↓
+本次命令的 --patch（可重复，按参数顺序）
+</code></pre><p>后应用的层对同一行优先。但这里有一个很重要的细节：<strong>patch 会替换目标行完整的 <code>config</code>，不是只深度合并你写出来的那个字段。</strong></p>
+<p>所以，不要只看一篇旧教程就手写半行覆盖。安全顺序是：</p>
+<ol>
+<li>用 <code>--dump-config</code> 找到当前完整行和来源；</li>
+<li>用 <code>--dump-config-schema</code> 核对可用字段与类型；</li>
+<li>先用一次性 <code>--patch &lt;path&gt;</code> 试运行；</li>
+<li>验证无误后，再通过界面或 Profile 自己的 patch 持久化；</li>
+<li>保留变更前 dump，方便回退。</li>
+</ol>
+<p><code>--dump-default-config</code> 适合看“官方 bundle 给了什么”，<code>--dump-config</code> 适合看“我这台机器实际会启动什么”。排错时不要把两者混用。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md#profiles-and-bundles">Profile 与 bundle 架构说明</a></p>
+<h2 id="wiki-h-8">16.9 什么时候才用 <code>dsh plugin</code></h2>
+<p>本章启用的 <code>time-context</code> 已经随 DSH 发布，不需要下载陌生包。当你确定需要一个当前 Profile 没有的外部 bundle 时，CLI 语法才是：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile &lt;PROFILE_NAME&gt; add &lt;TRUSTED_BUNDLE&gt;
+npx @deepseek-ai/dsh@0.1.7-rc.2 plugin --profile &lt;PROFILE_NAME&gt; remove &lt;TRUSTED_BUNDLE&gt;
+</code></pre><p>这里的尖括号是占位符，不能原样运行。<code>dsh plugin</code> 会在 Profile 目录中调用 <code>pnpm</code>，所以系统 PATH 里必须有 <code>pnpm</code>；它会改变依赖、锁文件和 bundle 列表。添加、移除或更新 bundle 后，正在运行的 Profile 仍保持启动时的组合，必须重启才能获得新集合。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.zh.md#%E6%8F%92%E4%BB%B6%E7%AE%A1%E7%90%86">CLI 插件管理约定</a></p>
+<p>外部 bundle 可以在 DSH Host 进程中运行代码。安装前要核对来源、完整包名、版本、许可证、源码、依赖、构建脚本和 DSH 兼容范围。“试试看”不是安装一个未审查 Host 插件的充分理由。</p>
+<h2 id="wiki-h-9">16.10 常见问题</h2>
+<h3 id="wiki-h-10"><code>--from-default-profile</code> 报目录已存在</h3>
+<p>这个选项只能创建全新的非随附 Profile。已存在时去掉该选项使用原 Profile，或改用一个新名称；不要为了重试而删除不明目录。</p>
+<h3 id="wiki-h-11">自定义 Profile 里没有日常 <code>web</code> 的模型或插件设置</h3>
+<p>这是预期行为。模板初始化只复制官方 bundle 列表，不复制本机同名 <code>web</code> Profile 的依赖和 patch。只补实验真正需要的配置，不要整份复制包含凭证的文件。</p>
+<h3 id="wiki-h-12">dump 成功，启动却失败</h3>
+<p>dump 只证明 patch 能组合，不代表所有插件在运行时都能激活。检查 stderr 中的模块解析、schema、服务依赖和端口错误；启动前也要确认 <code>3081</code> 没被其他进程占用。</p>
+<h3 id="wiki-h-13">Profile 改了，已打开的任务却没反应</h3>
+<p>普通 Profile/Home patch 在 Web 组合中可以热重载，但 bundle 成员的添加、移除或更新需要重启 Profile。已创建 Agent 还可能保留旧的预设或会话上下文，所以配置验收优先使用新任务。</p>
+<h3 id="wiki-h-14">Desktop 中看不到 <code>daily-report-lab</code></h3>
+<p><code>daily-report-lab</code> 是 CLI/Web Profile，Desktop 使用保留的 <code>desktop</code> Profile。两者共享部分产品数据，但可执行包、锁文件、依赖和启用选择不是同一份。这不是同步失败。</p>
+<h2 id="wiki-h-15">16.11 本章验收</h2>
+<p>进入下一章前，请确认：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">能根据作用域选择项目文档/测试、Skill、Profile 或 Plugin；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>daily-report-maintainer</code> 的第 5 条已包含 <code>npm run check</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">修改 Skill 后已独立运行 <code>npm run check</code> 和 <code>npm test</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已从官方 <code>web</code> 模板创建 <code>daily-report-lab</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能解释“复制模板”为什么不等于“复制本机 web Profile”；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已只在实验 Profile 中启用 <code>time-context</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">快照比较结果为 <code>labChanged: true</code> 且 <code>webUnchanged: true</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">知道 bundle、Profile patch、Home patch 和 <code>--patch</code> 的顺序；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">知道 patch 会替换目标行完整 <code>config</code>，不是深度合并；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有将可能包含本机配置的 dump 文件对外分享。</li>
+</ul>
+<p>到这里，项目内的方法已收进 Skill，DSH 运行时的实验变更也收进独立 Profile。下一章不再引入新机制，而是把安装、模型、工具、会话和项目中最容易阻塞学习的问题收拢成一套排查方法。</p>
+<hr>
+<p>← 上一章：案例六：定时任务与 Headless 自动化　|　回目录　|　下一章：常见问题排查：先定位哪一层坏了 →</p>
+</article>

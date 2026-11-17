@@ -1,0 +1,128 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>终于到动手的时候了。从这一章开始，我们要正式做<strong>「记账小管家」</strong>这个项目。</p>
+<p>不过在写第一行代码之前，我想先带你做一件看起来「不着急」、实则能救你无数次命的事——<strong>给项目装上 git，立好规矩</strong>。</p>
+<p>我先把道理讲明白，你就知道为什么我这么坚持了。</p>
+<h2 id="wiki-h-0">3.1 为什么一上来就要讲 git</h2>
+<p>想象一下这个场景：你跟着教程，让 Qoder 改了一堆代码，本来跑得好好的，结果改完之后程序崩了，怎么都修不好。这时候你最想干什么？——<strong>回到改之前的那个版本，对吧？</strong></p>
+<p>如果没有 git，你只能干瞪眼，或者凭记忆一点点往回改，改到怀疑人生。而有了 git，你只需要一句话，就能「穿越」回任意一个之前保存过的状态。</p>
+<p>git 就是这样一个工具：<strong>它帮你在项目的漫长历史里，打下一个又一个「存档点」。</strong> 每完成一小步，你就存一次档。万一后面搞砸了，随时能退回上一个存档。玩游戏的人一定秒懂——没人会不打存档就去挑战 Boss。</p>
+<p>而且，git 和 Qoder 是天作之合。因为 AI 改代码改得又快又多，有个存档机制在旁边兜底，你才敢放心大胆地让它放手去做。所以这个习惯，我们从第一天就要养成。</p>
+<blockquote>
+<p>放心，git 你只需要会几个最常用的命令就够了，我不会把你带成 git 专家。用到的时候我都会解释。</p>
+</blockquote>
+<h2 id="wiki-h-1">3.2 建一个项目的家</h2>
+<p>先来给项目找个「住处」——也就是一个文件夹。</p>
+<p><strong>macOS / Linux / WSL2</strong>，在终端里执行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> ~/ledger &amp;&amp; <span class="hljs-built_in">cd</span> ~/ledger
+</code></pre><p><strong>Windows PowerShell</strong>，执行：</p>
+<pre><code class="hljs language-powershell">mkdir <span class="hljs-variable">$HOME</span>\ledger; <span class="hljs-built_in">cd</span> <span class="hljs-variable">$HOME</span>\ledger
+</code></pre><p>这两条命令做的事情是一样的，只是写法因系统而异：</p>
+<ul>
+<li><code>mkdir ~/ledger</code>：在你的用户主目录下，新建一个叫 <code>ledger</code>（账本）的文件夹。那个 <code>~</code> 符号代表的就是「你的主目录」，是个通用简写。Windows PowerShell 里主目录写作 <code>$HOME</code>。</li>
+<li><code>cd ~/ledger</code>：进入这个刚建好的文件夹。<code>cd</code> 是「切换目录」的意思。之后我们所有的操作，都在这个文件夹里进行。</li>
+</ul>
+<blockquote>
+<p>小知识：<code>&amp;&amp;</code>（在 macOS/Linux 里）和 <code>;</code>（在 PowerShell 里）都是「把两条命令连着执行」的意思。前者表示「前一条成功了才执行后一条」，后者表示「依次执行」。你现在不用深究，照抄即可。</p>
+</blockquote>
+<p>执行完之后，你人已经站在了 <code>ledger</code> 文件夹里。可以敲 <code>pwd</code>（macOS/Linux/WSL2）或 <code>pwd</code>（PowerShell 也支持）确认一下当前位置，它会打印出你现在所在的文件夹路径。</p>
+<h2 id="wiki-h-2">3.3 用 git 把这里变成一个「有存档」的项目</h2>
+<p>现在，把这个文件夹交给 git 来管理。依次执行下面几条命令。</p>
+<p><strong>第一步：初始化 git 仓库。</strong></p>
+<pre><code class="hljs language-bash">git init -b main
+</code></pre><p>这条命令会在当前文件夹里悄悄建一个隐藏的 <code>.git</code> 目录，从此 git 就开始「盯着」这个项目了。执行后它一般会回一句类似 <code>Initialized empty Git repository in ...</code> 的话，意思是「空仓库已建好」。</p>
+<p><strong>第二步：告诉 git 你是谁。</strong></p>
+<p>git 每次存档都会记录「是谁存的」，所以要先报上名号：</p>
+<pre><code class="hljs language-bash">git config user.name <span class="hljs-string">"你的名字"</span>
+git config user.email <span class="hljs-string">"你的邮箱"</span>
+</code></pre><p>把引号里的内容换成你自己的即可，比如 <code>git config user.name "Zhang San"</code>。这个名字和邮箱只是记录用途，随便填也行，但建议填真实的，将来你会感谢自己。</p>
+<blockquote>
+<p>如果你想让这台电脑上所有项目都用这个身份，可以在两条命令里把 <code>user.name</code> 换成 <code>--global user.name</code>（即 <code>git config --global user.name "..."</code>）。</p>
+</blockquote>
+<p><strong>第三步：创建 <code>.gitignore</code>，告诉 git 哪些东西别管。</strong></p>
+<p>有些文件是不该被 git 记录的，比如程序运行时自动生成的临时文件、包含密码的配置、体积巨大的数据文件等等。我们用一个叫 <code>.gitignore</code> 的清单来把它们排除掉。</p>
+<p>这一步正好可以让 Qoder 帮你做——不过我们还没正式启动它，所以我先带你手动建一个简单的。用你顺手的文本编辑器，在 <code>ledger</code> 文件夹里新建一个文件，文件名就叫 <code>.gitignore</code>（注意开头有个点），内容先写这些：</p>
+<pre><code><span class="hljs-comment"># Python 运行时产生的缓存目录</span>
+__pycache__/
+*<span class="hljs-string">.pyc</span>
+
+<span class="hljs-comment"># 虚拟环境（后面章节可能会用到）</span>
+<span class="hljs-string">.venv/</span>
+venv/
+
+<span class="hljs-comment"># 存放个人数据的文件，避免误传到网上</span>
+*<span class="hljs-string">.local</span>
+
+<span class="hljs-comment"># 操作系统自动生成的杂七杂八的文件</span>
+<span class="hljs-string">.DS_Store</span>
+</code></pre><p>每一行前面带 <code>#</code> 的是注释，是写给人看的说明，git 会忽略。剩下的每一行就是一种「不要记录」的规则。你现在不用完全理解每条规则，知道「这个文件的作用是列出不该被 git 管理的文件」就够了。</p>
+<p><strong>第四步：打下第一个存档点。</strong></p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"chore: 初始化项目"</span>
+</code></pre><p>解释一下：</p>
+<ul>
+<li><code>git add .</code>：把当前文件夹里的东西（那个 <code>.</code> 代表「当前目录的全部内容」）都放进「待存档区」。</li>
+<li><code>git commit -m "..."</code>：正式存档，<code>-m</code> 后面引号里的是这次存档的<strong>说明</strong>，用来提醒未来的你「这一次改了啥」。</li>
+</ul>
+<p>执行完，你就有了项目历史上的第一个存档点。可以敲 <code>git log --oneline</code> 看一眼，它会列出你的存档记录，应该能看到刚提交的那条。</p>
+<h2 id="wiki-h-3">3.4 一个要贯穿始终的好习惯：小步提交</h2>
+<p>这里我要特别郑重地跟你说一件事，它比任何具体命令都重要：</p>
+<blockquote>
+<p><strong>每完成一个小功能、每达到一个「能跑通」的状态，就提交一次。</strong></p>
+</blockquote>
+<p>不要憋大招。很多人喜欢等写了一整天、改了几十个文件才想起来提交一次，这是很危险的——一旦出问题，你只能退回一整天之前，中间的辛苦全白费。</p>
+<p>正确的节奏是：<strong>做完一小步，就 <code>git add . &amp;&amp; git commit -m "说明"</code> 存一次档。</strong> 比如「实现了记账功能」提交一次，「加上了统计功能」再提交一次。这样你的项目历史就像一串清晰的脚印，任何时候出问题，最多只损失一小步。</p>
+<p>至于提交说明（<code>-m</code> 后面的内容）怎么写，有个简单又好用的惯例，用几个常见的前缀开头：</p>
+<ul>
+<li><code>feat:</code> 表示新增了一个功能（feature）</li>
+<li><code>fix:</code> 表示修好了一个 bug</li>
+<li><code>chore:</code> 表示一些杂务、配置类的改动</li>
+<li><code>docs:</code> 表示改了文档</li>
+<li><code>refactor:</code> 表示重构（代码结构调整，但功能没变）</li>
+</ul>
+<p>比如 <code>feat: 支持按月统计消费</code>、<code>fix: 修复金额为负时的崩溃</code>。这样将来回头看历史，一眼就懂每一步在干嘛。我们后面全程都会用这个习惯，你会慢慢形成肌肉记忆。</p>
+<h2 id="wiki-h-4">3.5 第一次和 Qoder 面对面</h2>
+<p>好了，规矩立完了，现在正式唤醒我们的 AI 搭档。</p>
+<p>确保你还在 <code>ledger</code> 文件夹里，然后敲：</p>
+<pre><code class="hljs language-bash">qoder
+</code></pre><p>回车后，终端会切换成 Qoder 的对话界面。你会看到一个可以输入文字的地方，光标在那儿等你说话。</p>
+<p>我们别客气，直接跟它打个招呼、说说我们的打算。你可以输入类似这样一段话（用你自己的话说也行，它懂人话）：</p>
+<blockquote>
+<p>你好！我想做一个叫「记账小管家」的命令行小工具，用 Python 写。它能让我记录每一笔收入和支出，之后还能按分类、按月份统计消费。我们先从最基础的开始，你先别急着写代码，我们先聊聊这个工具大概需要哪些功能、项目结构怎么设计比较好。</p>
+</blockquote>
+<p>发送之后，留意观察它怎么回应。一个好的 AI 工程师不会上来就闷头写代码，而是会先跟你确认需求、理清思路——Qoder 就是这样。它可能会反问你几个问题，或者给你一个初步的功能清单和结构建议。你就顺着跟它聊。</p>
+<p>这一步我们<strong>先不动手写代码</strong>，目的只是让你熟悉「和它对话」这件事，感受它的节奏。等聊清楚了，下一章我们再让它真正开始搭项目。</p>
+<h2 id="wiki-h-5">3.6 先学会两个动作：<code>/help</code> 和「斜杠命令」</h2>
+<p>正式让 Qoder 干活之前，先教你两个会陪你走完整个教程的小动作。</p>
+<p><strong>第一个：随时敲 <code>/help</code>。</strong> 在 Qoder 的对话框里输入 <code>/help</code> 回车，它会列出当前可用的命令和用法。以后任何时候你「不知道能敲什么」，<code>/help</code> 就是你的救生圈。</p>
+<p><strong>第二个：认识「斜杠命令」。</strong> 你会发现，在对话框里输入一个斜杠 <code>/</code>，会弹出一大串可选命令。这些以 <code>/</code> 开头的命令，叫<strong>斜杠命令（slash commands）</strong>，是 Qoder 预置的快捷操作——不用啰嗦描述，敲一个命令它就懂。它们大致分几类，你先混个眼熟，后面用到时我都会细讲：</p>
+<ul>
+<li><strong>会话类</strong>：<code>/new</code>（开新对话）、<code>/clear</code>（清空当前上下文）、<code>/resume</code>（找回以前的对话）等；</li>
+<li><strong>模式类</strong>：<code>/plan</code>（先规划不动手）、<code>/tasks</code>（任务清单）等；</li>
+<li><strong>代码类</strong>：<code>/diff</code>（看改动）、<code>/review</code>（代码审查）、<code>/init</code>（初始化项目约定）等；</li>
+<li><strong>工具类</strong>：<code>/mcp</code>、<code>/skills</code>、<code>/agents</code>、<code>/memory</code>、<code>/permissions</code> 等。</li>
+</ul>
+<p>你完全不用背。记住一句话就行：<strong>想做什么，先敲个 <code>/</code> 看看有没有现成命令。</strong> 这比你每次都打一大段自然语言去描述要高效得多。</p>
+<h2 id="wiki-h-6">3.7 用 <code>/init</code> 给项目立一份「约定」，而不是手写</h2>
+<p>回到第 3.3 节，我带你手写了 <code>.gitignore</code>。那是为了让你理解它的原理。但项目里还有另一份更重要的「规矩文件」——<strong><code>AGENTS.md</code><strong>，这个我强烈建议</strong>让 Qoder 用 <code>/init</code> 命令自动生成</strong>，而不是手写。</p>
+<p><code>AGENTS.md</code> 是什么？它是你给 Qoder 定的<strong>项目说明书</strong>：这个项目用什么语言、遵循什么规范、有什么必须遵守的约定。Qoder 每次进入这个项目，都会先读它，然后照着做。这相当于给 AI 定了一份「入职须知」，让它每次都表现稳定，而不是每次都像新来的实习生。</p>
+<p>怎么生成？在对话框里敲：</p>
+<pre><code>/init
+</code></pre><p>Qoder 会<strong>自动扫描你的项目</strong>，然后生成一份 <code>AGENTS.md</code>，把它观察到的技术栈、目录结构、约定都写进去。生成后你打开看看、按需改改就行。对我们这个还几乎是空的项目，它可能写得比较简单，没关系——随着项目长大，你可以随时再 <code>/init</code> 更新，或手动补充。</p>
+<p>这里顺便把 Qoder 的「记忆」体系给你交个底，它分两层，你现在理解个大概即可，第 6 章会展开：</p>
+<ul>
+<li><strong>静态记忆（你/团队写的规矩）</strong>：主要就是 <code>AGENTS.md</code>。它有两个层级——<ul>
+<li>项目级：放在项目根目录 <code>&lt;项目&gt;/AGENTS.md</code>（只管这个项目）；</li>
+<li>用户级：放在 <code>~/.qoder/AGENTS.md</code>（对你所有项目生效）。</li>
+<li>此外还能在 <code>&lt;项目&gt;/.qoder/rules/</code> 下放更细的规则文件。</li>
+</ul>
+</li>
+<li><strong>自动记忆（Qoder 自己记的）</strong>：它会把一些可复用的信息默默存在本地（路径大致是 <code>~/.qoder/projects/&lt;项目&gt;/memory/</code>）。你可以用 <strong><code>/memory</code></strong> 命令查看，或者直接用大白话跟它说「记住：这个项目金额一律用整数分存储」「忘掉之前关于 XX 的记忆」。</li>
+</ul>
+<p><code>/init</code> 生成好 <code>AGENTS.md</code> 后，别忘了把它也提交进 git：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"chore: 用 /init 生成项目约定 AGENTS.md"</span>
+</code></pre><h2 id="wiki-h-7">3.8 认识「权限模式」：你始终是掌舵的人</h2>
+<p>工作状态与权限模式分别选择。计划状态负责先调查和出方案；权限模式决定工具授权，不能把 plan 与 default 等混成同一层级。</p>
+<p>当前官方标准权限名包含 default、accept_edits、auto、dont_ask、bypass_permissions。教学使用默认逐项确认，写文件前查看实际授权；旧 <code>--permission-mode plan</code> 只是兼容入口。<code>/permissions</code> 管理权限规则，不把它描述成所有工作状态的切换器。</p>
+<p>先保存 <code>qoder --version</code> 和 <code>qoder --help</code>。交互切换依当前界面的 Shift+Tab 提示，启动时用本机帮助支持的 <code>--permission-mode</code> 标准值；遇到界面差异按能力检查，不猜名称。</p>
+<p>参考：<a href="https://docs.qoder.com/cli/using-qoder-cli">Qoder 官方文档</a>。</p>
+</article>

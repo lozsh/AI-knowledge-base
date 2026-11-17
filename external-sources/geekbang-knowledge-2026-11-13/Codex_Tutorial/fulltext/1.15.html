@@ -1,0 +1,244 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本课按能力区分调查 read-only 与实施 workspace-write。若 /permissions 未显示只读，退出后用 <code>codex --sandbox read-only --ask-for-approval on-request</code> 启动；写入前明确切换 workspace-write 并提供计划。以实际权限摘要为准。</p>
+</blockquote>
+<blockquote>
+<p>预计学习时间：60—75 分钟<br>本篇目标：在不知道答案的新会话中，用 Codex 建立项目地图、复现退款计算缺陷、实施最小修复，并用测试、真实命令和 Git Diff 完成交付验收。</p>
+</blockquote>
+<p>前面的练习都发生在熟悉的 TaskFlow 里。真实维护任务往往只有一句话：“退款金额算错了，帮忙修一下。”你不知道入口在哪，也不知道现有测试是否可靠。</p>
+<p>这一篇会临时创建一个独立仓库 <code>legacy-expenses</code>。我们先让一个会话搭好带缺陷的练习环境，再关闭它；随后开启全新会话，把仓库当成第一次见到的项目来处理。这样练到的不是“让 Codex 根据自己刚写的代码回答”，而是接手陌生代码时真正需要的调查顺序。</p>
+<p>最终验收标准很明确：</p>
+<ul>
+<li>修改前，一笔 100 元支出和一笔 20 元退款会错误得到 <code>120.00</code>；</li>
+<li>修改后，同一输入得到 <code>80.00</code>；</li>
+<li>与退款有关的失败测试由红转绿，完整测试全部通过；</li>
+<li>Diff 只包含必要逻辑、回归测试和确有需要的说明更新。</li>
+</ul>
+<h2 id="wiki-h-0">创建一份可重复的陌生仓库</h2>
+<p>这个练习会产生故意失败的测试，请不要在 TaskFlow 仓库里执行。先建立单独目录。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p ~/codex-course/legacy-expenses
+<span class="hljs-built_in">cd</span> ~/codex-course/legacy-expenses
+git init
+codex --sandbox workspace-write --ask-for-approval on-request
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\codex-course\legacy-expenses"</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\codex-course\legacy-expenses"</span>
+git init
+codex <span class="hljs-literal">--sandbox</span> workspace<span class="hljs-literal">-write</span> <span class="hljs-literal">--ask-for-approval</span> on<span class="hljs-literal">-request</span>
+</code></pre><p>在 Codex 中提交下面的任务：</p>
+<pre><code class="hljs language-text">请创建一个名为 Legacy Expenses 的最小 Python 3.11 命令行练习项目，用于汇总 CSV 报销记录。
+
+请严格使用下面的结构：
+- legacy_expenses/__init__.py
+- legacy_expenses/core.py
+- legacy_expenses/cli.py
+- tests/test_core.py
+- tests/test_cli.py
+- samples/mixed.csv
+- README.md
+- AGENTS.md
+- .gitignore
+
+业务约定：
+- CSV 列固定为 description,amount,type；
+- type 只能是 expense 或 refund；
+- expense 增加总额，refund 应减少总额；
+- samples/mixed.csv 只放一笔 100 元 expense 和一笔 20 元 refund；
+- 正确结果应为 80.00，CLI 输出格式固定为 Total: 80.00。
+
+练习要求：
+- 只使用 Python 标准库；
+- 故意在 core.py 留下一个缺陷：refund 被当成正数累加；
+- 测试名 test_refund_reduces_total 必须暴露这个缺陷；
+- 除这一个测试外，其余测试必须通过；
+- README 只描述正确规则和运行方法，不提示缺陷在哪一行；
+- AGENTS.md 写明完整测试命令、只做最小修改、不得增加第三方依赖；
+- .gitignore 忽略 __pycache__、*.pyc 和常见虚拟环境目录；
+- 不要修复故意保留的缺陷。
+
+创建后请运行完整测试和样例命令。最后列出文件，并证明当前恰好只有 test_refund_reduces_total 失败，样例输出为 Total: 120.00。
+</code></pre><p>这里把目录、失败测试名称和 CLI 输出都固定下来，是为了让后面的调查步骤可以复现。等 Codex 完成后，不要只看它的总结，自己验证一次。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">git ls-files --others --exclude-standard
+python3 -m unittest discover -s tests -v
+python3 -m legacy_expenses.cli samples/mixed.csv
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">git <span class="hljs-built_in">ls</span><span class="hljs-literal">-files</span> <span class="hljs-literal">--others</span> <span class="hljs-literal">--exclude-standard</span>
+py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+py <span class="hljs-literal">-m</span> legacy_expenses.cli samples\mixed.csv
+</code></pre><p>此时应该看到：</p>
+<ul>
+<li>项目文件都还是未跟踪文件；</li>
+<li>完整测试只有 <code>test_refund_reduces_total</code> 失败；</li>
+<li>CLI 打印 <code>Total: 120.00</code>；</li>
+<li>测试进程返回非零退出码，这是故意留下的基线状态。</li>
+</ul>
+<p>如果测试全部通过，说明缺陷没有被保留下来；如果有多个测试失败，说明练习环境还不稳定。先让当前会话修正“练习仓库本身”，直到满足上面四项，再继续。</p>
+<p>建立基线提交：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"add legacy expenses exercise"</span>
+git status --short
+git switch -c fix/refund-total
+</code></pre><p><code>git status --short</code> 应该没有输出。若 Git 提示没有配置用户名或邮箱，按照提示设置你自己的 Git 身份，再重新提交；不要在教程或公开仓库中照抄别人的邮箱。</p>
+<p>最后在 Codex 中输入 <code>/exit</code>。这个会话参与了项目创建，已经知道缺陷位置，不适合继续扮演接手者。</p>
+<h2 id="wiki-h-1">以只读方式建立项目地图</h2>
+<p>确认终端仍位于 <code>legacy-expenses</code> 根目录，然后开启一个新会话：</p>
+<pre><code class="hljs language-bash">codex --sandbox read-only --ask-for-approval on-request
+</code></pre><p>Codex CLI 会在开始工作前读取适用范围内的 <code>AGENTS.md</code>。但“自动读取”不代表你可以跳过核对：陌生仓库里的说明也可能过期。先提交调查任务：</p>
+<pre><code class="hljs language-text">我刚接手这个仓库。先只读调查，不要修改文件，也不要提出修复补丁。
+
+请给我一张简洁的项目地图：
+1. 项目解决什么问题；
+2. AGENTS.md 规定了哪些约束和验证命令；
+3. 程序入口、CSV 解析、金额汇总和输出分别在哪；
+4. 一条记录从输入到最终金额经过哪些函数；
+5. 哪些测试覆盖退款规则；
+6. 当前分支和 Git 状态；
+7. 对“退款让总额变大”这个报告，目前已知什么、还缺什么证据。
+
+每项结论都引用文件路径、函数名或实际命令结果。信息不足时明确写“尚未验证”。
+</code></pre><p>一份合格的项目地图应把“入口—解析—汇总—输出—测试”连成一条短路径，而不是逐文件复述代码。你可以在另一个终端做两项交叉检查：</p>
+<pre><code class="hljs language-bash">git status --short
+git ls-files
+</code></pre><p>前一条应为空，后一条应包含准备阶段约定的文件。还可以在 Codex 中输入 <code>/status</code>，确认当前目录正确、权限仍是只读。若 Codex 在调查阶段尝试修改文件，先停止任务并用 <code>/permissions</code> 选择 <code>Read Only</code>，不要用提示词代替权限边界。</p>
+<p>官方文档说明，Codex 会从项目根目录到当前目录逐层加载适用的 <code>AGENTS.md</code>；离当前目录更近的说明拥有更高优先级。详情见 <a href="https://learn.chatgpt.com/docs/agent-configuration/agents-md">AGENTS.md 配置说明</a>。</p>
+<h2 id="wiki-h-2">先把用户报告变成最小复现</h2>
+<p>现在我们只有一句现象描述，还没有可交付证据。继续输入：</p>
+<pre><code class="hljs language-text">请继续保持只读，复现“退款会让总额变大”。
+
+要求：
+- 使用 samples/mixed.csv，不修改样例和测试；
+- 运行真实 CLI，记录命令、退出码、预期值和实际值；
+- 运行完整测试，列出失败测试和通过测试数量；
+- 从 CLI 入口追踪到计算函数，解释实际值为何变成 120.00；
+- 区分“实际运行证据”和“根据代码作出的解释”；
+- 暂时不要给补丁。
+</code></pre><p>这里要拿到两类证据：</p>
+<ol>
+<li><strong>行为证据</strong>：100 元支出减去 20 元退款，本应是 80 元，程序实际输出 120 元；</li>
+<li><strong>代码证据</strong>：退款分支经过哪条调用路径，哪个表达式把它加进总额。</li>
+</ol>
+<p>只有第二类证据，可能只是“发现了可疑代码”；只有第一类证据，又不能说明改哪里风险最小。两者合在一起，才构成可复核的根因判断。</p>
+<p>你再亲自运行一次，避免把 Agent 的转述当成事实。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">python3 -m legacy_expenses.cli samples/mixed.csv
+python3 -m unittest tests.test_core.LegacyExpensesTest.test_refund_reduces_total -v
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> legacy_expenses.cli samples\mixed.csv
+py <span class="hljs-literal">-m</span> unittest tests.test_core.LegacyExpensesTest.test_refund_reduces_total <span class="hljs-literal">-v</span>
+</code></pre><p>生成器可能给测试类用了不同名称。如果第二条命令提示找不到测试，打开 <code>tests/test_core.py</code>，把示例里的类名 <code>LegacyExpensesTest</code> 换成实际类名；测试方法名应仍是我们固定的 <code>test_refund_reduces_total</code>。完整测试命令始终可以作为兜底：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v
+</code></pre><p>Windows 把 <code>python3</code> 换成 <code>py</code>。到这一步，工作区仍应保持干净：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><h2 id="wiki-h-3">先定修复边界，再开放写权限</h2>
+<p>让 Codex先给方案：</p>
+<pre><code class="hljs language-text">基于刚才的复现和调用路径，请给出最小修复方案，暂时不要实施。
+
+请说明：
+- 必须修改的文件和函数；
+- 现有失败测试能证明什么，不能证明什么；
+- 至少还需要哪些回归用例；
+- 普通支出、混合记录、只有退款、非法 type 是否会受影响；
+- 局部验证、完整验证和手工验证分别运行什么；
+- 明确列出本次不做的重构。
+</code></pre><p>这个案例通常只需要修正退款的符号处理，并补一两个能防止回归的测试。重写 CSV 解析器、引入财务库、顺手更换 CLI 框架，都不属于当前缺陷的最小范围。</p>
+<p>确认方案合理后，在 Codex 中输入：</p>
+<pre><code class="hljs language-text">/permissions
+</code></pre><p>在出现的权限选择器中选 <code>Auto</code>。当前官方定义下，Auto 允许 Codex 在工作区内读写和运行命令；越过工作区或访问受限网络仍可能触发审批。权限边界详见 <a href="https://learn.chatgpt.com/docs/agent-approvals-security">Agent approvals &amp; security</a>。</p>
+<p>然后提交实施任务：</p>
+<pre><code class="hljs language-text">请按刚才确认的方案实施最小修复。
+
+要求：
+1. 修改前先再次运行目标失败测试，保留“先失败”的证据；
+2. 只修改退款计算和必要的回归测试；
+3. 不增加依赖，不重构无关代码；
+4. 先运行退款相关测试，再运行完整测试；
+5. 用 samples/mixed.csv 运行真实 CLI；
+6. 最后汇报实际命令、退出码、关键输出和修改文件，不要提交 Git。
+</code></pre><p>如果 Codex 请求安装包或访问网络，先拒绝并检查原因：这个练习明确只用标准库，不需要下载任何依赖。</p>
+<h2 id="wiki-h-4">不要让“测试通过”成为唯一验收</h2>
+<p>Agent 完成后，在你自己的终端里独立验证。以下命令都在 <code>legacy-expenses</code> 根目录执行。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">python3 -m unittest tests.test_core.LegacyExpensesTest.test_refund_reduces_total -v
+python3 -m unittest discover -s tests -v
+python3 -m legacy_expenses.cli samples/mixed.csv
+git diff --check
+git status --short
+git diff --<span class="hljs-built_in">stat</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> unittest tests.test_core.LegacyExpensesTest.test_refund_reduces_total <span class="hljs-literal">-v</span>
+py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+py <span class="hljs-literal">-m</span> legacy_expenses.cli samples\mixed.csv
+git <span class="hljs-built_in">diff</span> <span class="hljs-literal">--check</span>
+git status <span class="hljs-literal">--short</span>
+git <span class="hljs-built_in">diff</span> <span class="hljs-literal">--stat</span>
+</code></pre><p>仍需按实际测试类名替换 <code>LegacyExpensesTest</code>。理想结果是：</p>
+<ul>
+<li>目标测试显示 <code>ok</code>；</li>
+<li>完整测试显示全部通过，退出码为 <code>0</code>；</li>
+<li>样例打印 <code>Total: 80.00</code>；</li>
+<li><code>git diff --check</code> 没有输出；</li>
+<li><code>git status --short</code> 只列出预期修改；</li>
+<li>Diff 规模与“一处计算修复加必要测试”相符。</li>
+</ul>
+<p>这几项验证覆盖了不同风险：局部测试证明缺陷被锁住，完整测试观察回归，真实 CLI 证明用户路径恢复，Git 检查证明交付内容没有跑偏。</p>
+<p>回到 Codex，输入：</p>
+<pre><code class="hljs language-text">/diff
+</code></pre><p><code>/diff</code> 会显示已暂存、未暂存和未跟踪的变化。逐项检查：</p>
+<ul>
+<li>是否修的是退款规则，而不是对 <code>samples/mixed.csv</code> 中的数字硬编码；</li>
+<li>是否保留了原有非法类型处理；</li>
+<li>回归测试是否断言具体金额；</li>
+<li>是否混入缓存、真实报销数据或无关格式化；</li>
+<li>README 若没有行为变化，是否被无故改写。</li>
+</ul>
+<p>还可以输入 <code>/review</code>，选择 <code>Review uncommitted changes</code>，让专用 Reviewer 只读检查当前工作树。官方说明中，Reviewer 会报告按优先级排列的问题，不会自行修改文件；若随后要求它应用修复，才重新受当前沙箱和审批设置约束。这里只需要关注正确性、遗漏测试和范围扩大，深入的审查流程会在第 16 篇完成。</p>
+<h2 id="wiki-h-5">形成别人可以复核的交付记录</h2>
+<p>验证通过后，让 Codex 生成简短的交付说明：</p>
+<pre><code class="hljs language-text">根据已经执行的命令，为代码审查者写一份修复说明，包含：
+- 用户可见影响；
+- 最小复现与修改前结果；
+- 根因和修改范围；
+- 修改后结果；
+- 局部测试、完整测试和真实 CLI 的命令与结果；
+- 尚未验证的内容或残余风险。
+
+不要使用“应该”“大概”“看起来没问题”这类没有证据的表述。
+</code></pre><p>然后再次确认工作树，提交修复：</p>
+<pre><code class="hljs language-bash">git status --short
+git add legacy_expenses tests README.md
+git diff --cached --check
+git diff --cached --<span class="hljs-built_in">stat</span>
+git commit -m <span class="hljs-string">"fix refund total calculation"</span>
+git status --short
+</code></pre><p>如果 README 实际没有修改，就从 <code>git add</code> 中去掉它；只暂存你已经审查过的文件。提交后最后一条命令应无输出。你还可以运行：</p>
+<pre><code class="hljs language-bash">git show --<span class="hljs-built_in">stat</span> --oneline HEAD
+</code></pre><p>确认最新提交就是本次修复，而不是把其他文件一起带了进去。</p>
+<h2 id="wiki-h-6">卡住时先按现象定位</h2>
+<h3 id="wiki-h-7">测试在修改前就全部通过</h3>
+<p>练习基线不成立。回到创建仓库的会话，确认退款分支确实保留缺陷，且目标测试断言正确结果 <code>80.00</code>。不要为了继续教程而把“先失败”的证据省掉。</p>
+<h3 id="wiki-h-8">提示找不到模块或测试</h3>
+<p>先运行 <code>git rev-parse --show-toplevel</code>，确认当前目录是仓库根目录；再用 <code>git ls-files</code> 核对包和测试文件。目标测试命令中的类名需与 <code>tests/test_core.py</code> 一致。</p>
+<h3 id="wiki-h-9">只读阶段无法修改文件</h3>
+<p>这是预期行为。调查完成并确认方案后，用 <code>/permissions</code> 选择 <code>Auto</code>。不要重启成危险的全访问模式，也不要为了一个标准库项目开放网络。</p>
+<h3 id="wiki-h-10">Codex 修改了很多无关文件</h3>
+<p>先不要提交。用 <code>/diff</code> 和 <code>git diff --stat</code> 列出超出范围的文件，让 Codex 说明每一项与根因的关系，并恢复无法证明必要的改动。恢复后重新运行全部验证，不能只看缩小后的 Diff。</p>
+<h3 id="wiki-h-11">修复后测试通过，CLI 仍输出 120.00</h3>
+<p>这通常说明测试没有走真实 CLI 路径，或 CLI 调用了另一套计算逻辑。让 Codex 重新画出入口到汇总函数的调用路径，并比较测试导入的函数与 CLI 实际调用的函数。</p>
+<h2 id="wiki-h-12">把流程带回真实项目</h2>
+<p>接手陌生仓库时，可以稳定地按下面的顺序工作：</p>
+<pre><code class="hljs language-text">核对仓库说明与权限
+  → 建立入口、数据流和测试地图
+  → 检查干净基线
+  → 用最小输入复现
+  → 把行为证据与代码证据对应起来
+  → 明确最小修复边界
+  → 目标测试先红后绿
+  → 完整测试与真实入口验证
+  → 审查 Diff
+  → 只提交已验证文件
+</code></pre><p>这套顺序的核心不是让 Codex“少做事”，而是让每一步都留下下一步可以依赖的证据。陌生项目越复杂，越不应该一上来要求“检查整个仓库并顺手修好所有问题”。</p>
+<h2 id="wiki-h-13">本篇小结</h2>
+<p>我们用两个隔离的会话完成了一次真正的陌生项目维护：第一个会话只负责准备练习仓库，第二个会话先以只读权限建立项目地图和最小复现，再开放工作区写权限实施修复。最终结论同时由目标测试、完整测试、真实 CLI、Git Diff 和独立 Review 支撑。</p>
+<p>下一篇回到 TaskFlow，为它加入优先级和截止日期。那次任务不再是一处缺陷，而是同时跨越数据模型、CLI、排序、统计、报告、兼容性、测试和文档的功能开发。</p>
+</article>

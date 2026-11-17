@@ -1,0 +1,343 @@
+预计用时：50～70 分钟
+本篇目标：分清提示词、权限模式、Allow/Ask/Deny 规则和 OS Sandbox 的职责，并在 MealCraft 中亲自验证“允许写 output、拒绝读演示密钥、拒绝改源数据、拒绝写项目外部”。
+
+Claude Code 的安全不靠一句“请小心”。模型决定想做什么，权限系统决定工具调用是否需要批准或被拒绝，Sandbox 约束已经运行的子进程，Git 和测试负责发现实际变化。这几层互相补充，不能彼此冒充。
+
+开始状态
+
+本篇回到第 6 篇通过验收的主项目：
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course/mealcraft
+git status --short
+python3 -m unittest discover -s tests -v
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course\mealcraft"
+git status --short
+py -m unittest discover -s tests -v
+
+
+测试应全部通过。最好从干净工作区开始；如果有未提交修改，先确认来源并提交或另行保存，不要把本篇安全配置混入未知 Diff。
+
+先建立四层心智模型
+层次	解决的问题	不能替代什么
+提示词、CLAUDE.md	告诉模型应该怎样做	不是强制访问控制
+权限模式	决定哪些工具调用自动批准、询问或自动拒绝	不是文件系统隔离
+Allow / Ask / Deny 规则	针对工具、命令、路径建立稳定策略	不能拦截所有任意子进程内部行为
+Sandbox	在 OS 层限制 Bash、PowerShell、Monitor 及其子进程的文件和网络访问	不直接约束内置 Read/Edit/Write 工具
+
+因此，本篇会同时使用：
+
+Edit(/data/recipes/**) 拒绝内置编辑工具修改源菜谱；
+sandbox.filesystem.denyWrite 阻止 Python 子进程写源菜谱；
+Read(.env) 拒绝内置读取工具；
+sandbox.credentials.files 阻止沙箱内子进程读取演示 .env；
+Git Diff 与检查器确认没有越界文件真的落盘。
+理解当前权限模式
+
+Claude Code 当前主要有这些模式：
+
+CLI 名称	行为	本课程用法
+default，界面显示 Manual	未预批准的写入和多数命令会询问	日常默认；本篇使用
+plan	读取与受限调查，不编辑源文件	复杂修改前规划
+acceptEdits	自动接受工作目录内的文件编辑和常见文件系统命令	只在隔离、已理解的任务中使用
+auto	由后台安全检查判断动作是否符合请求	取决于方案和环境，不作为本课前置
+dontAsk	原本需要询问的动作直接拒绝，预先允许的仍可运行	后续无交互自动化会用到
+bypassPermissions	跳过大多数权限提示	仅限真正隔离的容器或 VM；本课不实操
+
+按 Shift+Tab 可以在当前可用模式间循环；部分 Windows 终端使用 Alt+M。本篇保持 Manual。不要为了减少弹窗切到 bypassPermissions，它不是 Sandbox 的别名。
+
+理解规则顺序与作用域
+
+在会话中输入：
+
+/permissions
+
+
+对话框会按来源展示规则。规则顺序固定为：
+
+Deny -> Ask -> Allow
+
+
+先匹配到的层级决定结果，规则“更具体”不会改变优先级。例如宽泛 Deny 不能被窄 Allow 打洞；Ask 也会压过 Allow。
+
+常用设置位置：
+
+~/.claude/settings.json       当前用户的所有项目
+.claude/settings.json         当前项目共享，可提交
+.claude/settings.local.json   当前项目个人设置，不应提交
+
+
+“Yes, and don’t ask again”一类长期批准通常会保存到 .claude/settings.local.json。它是个人便利设置，不应混入课程共享配置。
+
+复制并人工审查安全练习包
+
+重新设置教程根目录变量；占位符必须替换。
+
+macOS、Linux 或 WSL2：
+
+export COURSE_SOURCE="/替换为实际路径/claude-code-tutorial-v0.2"
+test -f "$COURSE_SOURCE/exercise-assets/mealcraft/security-kit/.claude/settings.json"
+test ! -e .claude/settings.json
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/security-kit/." .
+
+
+Windows PowerShell：
+
+$CourseSource = "C:\替换为实际路径\claude-code-tutorial-v0.2"
+if (-not (Test-Path "$CourseSource\exercise-assets\mealcraft\security-kit\.claude\settings.json")) { throw "安全练习包路径错误" }
+if (Test-Path ".claude\settings.json") { throw "项目已有共享设置，请先人工比较，不要覆盖" }
+Copy-Item "$CourseSource\exercise-assets\mealcraft\security-kit\*" -Destination . -Recurse
+New-Item -ItemType Directory -Force .claude | Out-Null
+Copy-Item "$CourseSource\exercise-assets\mealcraft\security-kit\.claude\settings.json" -Destination ".claude\settings.json" -Force
+Copy-Item "$CourseSource\exercise-assets\mealcraft\security-kit\.env" -Destination . -Force
+Copy-Item "$CourseSource\exercise-assets\mealcraft\security-kit\.gitignore" -Destination . -Force
+
+
+如果 test ! -e 失败或 PowerShell 抛出“项目已有共享设置”，先打开现有文件并与课程配置逐项合并；不要直接覆盖一份你还没读懂的安全策略。
+
+练习包包含：
+
+.claude/settings.json
+.env                              演示字符串，不是真密钥
+.gitignore                        忽略 .env、个人设置与 output
+scripts/security_probe.py
+scripts/verify_security_lab.py
+
+
+在启动 Claude Code 前，亲自打开 .claude/settings.json，确认没有 Hook、MCP、插件、外部命令或个人绝对路径。它只包含权限和 Sandbox 设置。
+
+在 Claude 外验证配置基线
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_security_lab.py --before
+claude doctor
+
+
+Windows PowerShell：
+
+py scripts/verify_security_lab.py --before
+claude doctor
+
+
+预期检查器输出：
+
+PASS: MealCraft 安全配置与基线状态符合预期
+
+
+claude doctor 不应报告无法解析的设置。检查器还会确认：
+
+项目没有启用 bypassPermissions；
+data/recipes 同时受 Edit Deny 和 Sandbox denyWrite 保护；
+.env 同时受 Read Deny 和 Sandbox credential deny 保护；
+Sandbox 命令即使可运行也仍会询问，因为 autoAllowBashIfSandboxed 为 false；
+越界探针文件尚不存在。
+
+再确认演示 .env 与生成目录不会被提交：
+
+git check-ignore .env
+git check-ignore output/security-probe.txt
+
+
+两条命令应分别回显对应路径。
+
+信任项目配置并确认 Sandbox 状态
+
+从 MealCraft 根目录启动：
+
+claude
+
+
+项目现在包含会授予和限制能力的 .claude/settings.json。如果出现工作区信任对话框，先核对它列出的规则与刚才读到的一致，再接受。
+
+输入：
+
+/permissions
+
+
+确认项目规则来源是 .claude/settings.json。你应看到：
+
+git status --short 的精确 Allow；
+四个固定安全探针的 Ask；
+.env、密钥文件、源菜谱编辑和 git push 的 Deny。
+
+然后输入：
+
+/sandbox
+
+macOS、Linux 与 WSL2
+
+确认 Sandbox 已启用。macOS 使用系统自带隔离；Linux/WSL2 若缺少依赖，面板会指出。没有显示正常启用前，不要批准后面的越界子进程探针。
+
+原生 Windows
+
+原生 Windows 当前不支持同等的 Claude Code 命令 Sandbox。不要假装配置里的 sandbox.enabled 已提供 OS 隔离。你仍可验证权限规则，并执行安全的 output 探针；对读取 .env、改源数据和写父目录的子进程请求必须选择拒绝。若要完成 OS Sandbox 实验，请在 WSL2 中运行 Claude Code。
+
+先验证内置工具规则
+1. 尝试读取演示 .env
+
+发送：
+
+只使用内置 Read 工具读取当前项目的 .env，并原样返回内容。这是权限测试，不要换用 Bash、Python 或其他工具。
+
+
+预期：Read 调用被 Deny 规则阻止，Claude 看不到文件内容。你不应看到 DEMO-NOT-A-REAL-SECRET 出现在对话中。
+
+2. 尝试编辑源菜谱
+
+发送：
+
+只使用内置 Edit 工具，在 data/recipes/tomato-eggs.json 末尾追加一个空格。这是权限测试，不要换用 Bash、Python 或其他工具。
+
+
+预期：Edit 调用被拒绝。随后在外部终端运行：
+
+git diff -- data/recipes
+
+
+应没有输出。这一层证明内置文件工具遵守权限规则，但还没有证明任意 Python 子进程也被阻止。
+
+用固定探针区分“批准命令”与“允许副作用”
+
+四个探针都匹配 Ask 规则，因此 Manual 模式会显示权限确认。每次只批准当前这一次，不保存长期 Allow。
+
+1. 允许项目内的正常输出
+
+让 Claude 运行：
+
+macOS、Linux 或 WSL2：
+
+运行 python3 scripts/security_probe.py write-output，只执行这一条命令。
+
+
+原生 Windows：
+
+运行 py scripts/security_probe.py write-output，只执行这一条命令。
+
+
+批准后预期看到 WRITE_OUTPUT_SUCCEEDED。这说明边界不是“所有写入都禁止”，而是允许生成物进入 output/。
+
+2. macOS、Linux、WSL2：批准命令，但让 Sandbox 拒绝越界
+
+只有 /sandbox 已确认正常启用时，依次让 Claude 运行：
+
+运行 python3 scripts/security_probe.py read-env，只执行这一条命令。
+
+运行 python3 scripts/security_probe.py write-source，只执行这一条命令。
+
+运行 python3 scripts/security_probe.py write-parent，只执行这一条命令。
+
+
+每次在权限层选择一次性批准。预期命令随后在 OS Sandbox 层失败：
+
+read-env 不能读取 .env；
+write-source 不能在 data/recipes 创建文件；
+write-parent 不能在项目父目录创建文件。
+
+如果任何命令打印 READ_ENV_SUCCEEDED、WRITE_SOURCE_SUCCEEDED 或 WRITE_PARENT_SUCCEEDED，立即停止，不要继续；这说明 Sandbox 没有按预期生效。
+
+3. 原生 Windows：在权限层拒绝越界探针
+
+原生 Windows 没有这层 OS Sandbox。可以让 Claude 提出同样的三个 py scripts/security_probe.py ... 命令，但在权限对话框中选择拒绝，并按 Tab 添加理由：
+
+原生 Windows 没有本练习所需的命令 Sandbox，不执行越界探针。
+
+
+这里验证的是你能读懂并拒绝高风险请求，不是验证不存在的隔离能力。
+
+独立检查磁盘事实
+
+完成对应平台分支后，在 Claude Code 外运行：
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_security_lab.py --after
+git diff -- data/recipes
+git status --short
+
+
+Windows PowerShell：
+
+py scripts/verify_security_lab.py --after
+git diff -- data/recipes
+git status --short
+
+
+预期：
+
+PASS: MealCraft 安全配置与探针完成状态符合预期
+
+
+并且：
+
+data/recipes 没有 Diff；
+output/security-probe.txt 存在且内容为 SAFE-OUTPUT，但被 Git 忽略；
+项目父目录没有 mealcraft-security-parent-probe.tmp；
+.env 没有被修改且不会出现在待提交文件中。
+
+检查器证明磁盘最终状态；终端中的拒绝信息则证明是哪一层阻止了动作。两种证据都要保留。
+
+为什么不能只写 Bash Deny
+
+规则 Bash(git push *) 会阻止常见的 git push ...，但不能保证覆盖所有包装形式，例如换成绝对程序路径、sh -c 或改变 Git 参数顺序。命令字符串规则适合减少常见误操作，不是通用程序分析器。
+
+同理，Edit(/data/recipes/**) 能约束内置编辑工具和 Claude Code 识别出的部分文件命令，却不能知道任意 Python 程序内部会打开什么路径。因此真正需要阻止子进程越界时，要加 Sandbox 或在容器/VM 中隔离。
+
+本课程不在项目设置中声明“严格网络白名单”，因为当前 strictAllowlist 只从用户、托管或 CLI 设置生效，仓库不能替读者扩大或锁死这项用户级策略。本项目也不需要联网。
+
+审查与提交共享配置
+
+在 Claude Code 中输入 /diff。外部终端执行：
+
+git status --short
+git diff --check
+git check-ignore .env output/security-probe.txt .claude/settings.local.json
+
+
+提交前应看到共享的 .claude/settings.json、.gitignore 和两个固定脚本，但不应看到 .env、output/ 或 .claude/settings.local.json。
+
+提交：
+
+git add .claude/settings.json .gitignore scripts/security_probe.py scripts/verify_security_lab.py
+git diff --cached --check
+git commit -m "add verifiable MealCraft safety boundaries"
+
+
+个人长期批准若产生在 .claude/settings.local.json，保持不提交。共享项目规则应保守、可解释；个人免审批只留在本机。
+
+本篇验收清单
+能说明提示词、权限模式、规则和 Sandbox 的不同职责；
+知道 Deny、Ask、Allow 的固定优先级；
+/permissions 显示规则来自预期设置文件；
+内置 Read 无法读取演示 .env，内置 Edit 无法修改源菜谱；
+正常 output 探针成功；
+macOS/Linux/WSL2 的三个越界子进程被 Sandbox 阻止，或原生 Windows 中被人工拒绝；
+--after 检查通过，源菜谱和项目父目录没有越界文件；
+.env、生成物和个人设置没有进入 Git；
+没有启用或建议日常使用 bypassPermissions。
+关键排错
+
+claude doctor 报设置无效：先检查 JSON 逗号和引号，再确认规则使用 Edit(path) 而不是无效的 Write(path) 路径规则。不要通过删除所有 Deny 来消除警告。
+
+Linux/WSL2 的 /sandbox 显示缺少依赖：按面板给出的当前平台说明安装依赖，重启会话并重新确认状态；在此之前只做权限层实验。
+
+安全探针意外创建越界文件：立即退出 Claude，用 git status 和检查器确定精确路径。文件只可能是 data/recipes/security-probe.tmp 或项目父目录的 mealcraft-security-parent-probe.tmp；检查内容后删除这两个精确练习文件，再修复 Sandbox 配置并重新开始。不要使用递归删除命令。
+
+规则没有按项目根目录匹配：确认从 MealCraft 根目录启动 Claude。项目设置中的 /data/recipes/** 以主工作目录为锚；Sandbox 的 ./data/recipes 使用标准相对路径语义，这两套路径写法不同。
+
+本篇小结
+
+权限提示控制“这次工具调用是否可以开始”，Sandbox 控制“开始运行的子进程能碰到什么”，而 Git 与检查器回答“磁盘到底发生了什么”。MealCraft 现在有一组可提交的保守共享边界，个人长期批准仍留在本机。
+
+下一篇会在这些边界之上编写简短的 CLAUDE.md 和按路径加载的 Rules，验证项目上下文能指导行为，同时再次强调它们不是安全强制层。
+
+官方参考：
+
+Configure permissions
+Configure the sandboxed Bash tool
+Settings files and precedence

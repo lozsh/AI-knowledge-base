@@ -1,0 +1,300 @@
+预计阅读与操作时间：45～60 分钟
+本篇目标：为 ShelfCare 增加一组可运行的仓库护栏，亲眼看到一次越过数据访问层的修改被挡住，并分清自动规则、人工审批和安全沙箱各自负责什么。
+
+配套代码说明
+
+本篇加入 assets/lesson-07-guardrails/，把前几篇“写在文档里的边界”升级成能失败的机器检查：
+
+lesson-07-guardrails/
+├── policy/
+│   └── repository-policy.json  # 机器可读的规则参数
+├── scripts/
+│   ├── guard.js                 # 规则执行器：七类检查
+│   ├── check.js                 # check 中并入 guard 阶段
+│   └── setup.js                 # 必需文件清单加入 policy、guard
+├── docs/GUARDRAILS.md           # 自动操作 / 需审批 / 禁止捷径 三分法
+├── .gitignore                   # 第一层敏感文件保护
+└── package.json                 # 新增 npm run guard，并入 check
+
+
+各文件实现的功能：
+
+policy/repository-policy.json 是“参数与逻辑分离”的关键：它存放 runtimeRoots（生产运行代码范围）、allowedDataReaders（只允许 src/library.js 读数据）、allowedDependencies（空列表=不加依赖）、sensitiveFileNames/Extensions、maxChangedFiles(12)、maxJavaScriptLines(300)、forbiddenPackageScriptFragments（rm -rf、git reset --hard、curl、wget 等）。这些阈值可以改，但应由评审而非执行者为了过关去放宽。
+scripts/guard.js 依次跑七类检查并打印稳定名称：architecture boundary（用正则检查运行时代码是否绕过 src/library.js 直读 data/books.json）、dependency allowlist、sensitive files、package scripts、file size preference、change scope（改动文件数 + 受保护文件与 baseRef 比较）。它刻意不扫描 tests/、acceptance/ 和检查脚本本身，因为测试读固定样本是合理的，误报会让人习惯性忽略护栏。
+scripts/check.js 把 guard 并进通用检查，npm run check 会自动执行它；setup.js 相应把 policy/、guard.js、GUARDRAILS.md 纳入必需文件清单。
+docs/GUARDRAILS.md 用三分法划清边界：可自动做（读仓库、改任务内文件、跑文档命令）、必须审批（加依赖、外网、凭据、部署、破坏性命令）、禁止捷径（改数据/测试/策略来伪造完成）。
+.gitignore 是第一层敏感文件保护，减少误提交 .env、私钥的机会。
+
+本篇最诚实的一处判断体现在代码与文档的配合上：guard.js 能拦住“绕层访问”，但它自己也在这个仓库里、能被拥有写权限的 Agent 修改。因此文档明确写着——“仓库护栏不是安全沙箱”，真正的安全边界要交给可信 CI、主分支保护和工具级权限。逻辑上，guard 是“动作后检查”（改了不合规就失败），而更严格的系统级权限是“动作前拦截”，两者别混为一谈。
+
+前几篇已经让 Agent 知道项目怎么工作，也让它能够启动、观察和验证应用。不过，“知道规则”不等于“必然遵守规则”。
+
+比如 docs/ARCHITECTURE.md 已经写明：服务端应该通过 src/library.js 读取数据。Agent 仍可能为了快速完成任务，直接在 server.js 里读取 data/books.json。功能也许能跑，测试甚至可能通过，但项目里从此出现两条数据访问路径。等缓存、校验或存储方式变化时，其中一条很容易被漏掉。
+
+这不是多写一句“请严格遵守架构”就能稳定解决的。真正重要的边界，需要从文字提醒升级为能失败的检查。
+
+架构文档和架构检查并不重复
+
+同一条规则通常需要两个版本。
+
+文档解释为什么：
+
+server.js -> src/library.js -> data/books.json
+
+
+可执行检查回答有没有违反：
+
+运行时代码中，只有 src/library.js 可以直接读取 data/books.json。
+
+
+只有检查，没有文档，Agent 看到失败后不知道设计意图；只有文档，没有检查，违规修改仍可能混进结果。两者配合才完整。
+
+也不是所有偏好都值得变成硬规则。变量名是否“好看”、两个相近函数是否应该合并，往往需要上下文判断；数据访问层不能被绕过、凭据不能进入仓库、验收契约不能被任务代码偷偷改写，则适合机器执行。
+
+一个实用判断是：如果违反某条规则会造成明确、重复而且代价较高的问题，就值得自动检查；如果它高度依赖情境，保留为评审项更合适。
+
+加入仓库护栏
+
+确认第六篇的改动已经提交，工作区没有遗留文件：
+
+git status --short --branch
+git log -1 --oneline
+
+
+然后复制本篇资产。
+
+macOS 或 Linux：
+
+cp -R ../assets/lesson-07-guardrails/. .
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force ..\assets\lesson-07-guardrails\* .
+Copy-Item -Force ..\assets\lesson-07-guardrails\.gitignore .
+
+
+本次主要增加这些文件：
+
+policy/repository-policy.json   机器可读的规则参数
+scripts/guard.js                规则执行器
+docs/GUARDRAILS.md              自动权限与人工审批边界
+.gitignore                      第一层敏感文件保护
+
+
+package.json 新增 npm run guard，npm run check 也会自动执行它。AGENTS.md、架构和开发文档同步加入了入口与边界，避免出现“脚本已经变了，说明还停在旧版本”的情况。
+
+先运行：
+
+npm run setup
+npm run guard
+
+
+预期最后看到：
+
+[guard] architecture boundary
+[guard] dependency allowlist
+[guard] sensitive files
+[guard] package scripts
+[guard] file size preference
+[guard] change scope
+[guard] All guardrails passed.
+
+
+这些输出刻意使用稳定的检查名称。Agent 不必阅读整段脚本，也能知道失败属于架构、依赖、安全还是修改范围。
+
+策略文件到底约束了什么
+
+打开 policy/repository-policy.json，会看到当前项目最值得保护的几项不变量。
+
+1. 数据访问方向
+
+runtimeRoots 指定生产运行代码范围，allowedDataReaders 只允许 src/library.js 读取 data/books.json。server.js 和浏览器代码必须通过既有边界拿数据。
+
+这里特意没有扫描 tests/、acceptance/ 和环境检查脚本。测试读取固定样本是合理行为，而生产请求绕过访问层不是。规则越精确，误报越少，团队才不会习惯性忽略它。
+
+在真实数据库项目中，同样的思路可以变成：Controller 不能直接依赖数据库客户端，领域模块不能反向导入 Web 层，跨模块访问只能经过公开接口。实现手段可能是 lint 规则、依赖图检查或架构测试，原则没有变化。
+
+2. 依赖和团队偏好
+
+ShelfCare 目前不需要第三方包，所以 allowedDependencies 是空列表。Agent 如果随手安装一个依赖，护栏会要求先评审，而不是默认接受。
+
+JavaScript 文件当前还设置了 300 行上限。它不是宇宙真理，只是一个团队偏好：文件明显膨胀时，先拆分或解释原因。与其在提示词里反复说“保持文件短小”，不如把项目认可的阈值写在同一个策略文件里。
+
+这些参数都可以改，但不应该由执行功能任务的 Agent 为了通过检查而自行放宽。策略变更和产品代码变更是两类决策。
+
+3. 敏感文件与危险脚本
+
+护栏会拒绝 .env、私钥和 credentials.json 一类文件；.gitignore 同时减少误提交的机会。package.json 脚本中出现 rm -rf、git reset --hard 或下载命令时也会失败。
+
+这不是完整的安全扫描。它只挡住项目已知、容易发生的错误。真正的密钥检测、依赖漏洞检查和系统权限隔离仍需要专门工具。
+
+4. 受保护输入和修改规模
+
+标签筛选任务的契约与产品规则会和 main 比较。执行功能任务时，如果它们发生变化，护栏要求停止并评审。一次变更默认最多触及 12 个文件，超过后也不会假装什么都没发生，而是要求拆分任务或扩大评审范围。
+
+文件数量不是代码质量指标。这个阈值保护的是“任务边界”，防止一个小需求悄悄扩展成仓库级重构。
+
+亲手制造一次架构违规
+
+现在验证护栏不是摆设。在 public/ 下临时新建 direct-data-access.js，内容如下：
+
+const fs = require("node:fs");
+
+const books = JSON.parse(fs.readFileSync("../data/books.json", "utf8"));
+console.log(books.length);
+
+
+这段代码本身也不适合浏览器运行，我们只是用它模拟一个最直白的“绕过数据访问层”修改。执行：
+
+npm run guard
+
+
+预期命令以非零状态退出，并明确指出：
+
+[guard] ERROR: public/direct-data-access.js reads data/books.json directly; use src/library.js instead.
+[guard] Guardrails failed.
+
+
+这次失败给 Agent 的信息足够具体：违规文件是哪一个，越过了什么边界，应该走哪一层。它不需要猜测“架构不合规”究竟指什么。
+
+删除这个临时文件。
+
+macOS 或 Linux：
+
+rm public/direct-data-access.js
+
+
+Windows PowerShell：
+
+Remove-Item public\direct-data-access.js
+
+
+重新运行：
+
+npm run guard
+
+
+现在应该恢复为 All guardrails passed。如果仍然失败，不要先修改策略；根据第一条 ERROR 检查临时文件是否真的删除，以及本篇开始前是否已有其他未提交改动。
+
+哪些操作可以自动做，哪些必须停下来问
+
+代码规则只能约束仓库内容，无法代替权限设计。docs/GUARDRAILS.md 因此还给操作分了三类。
+
+Agent 可以自行读取仓库、修改任务范围内的文件、运行文档列出的本地命令、查看 Git 状态和 Diff。这些动作可逆，影响也局限在实验仓库。
+
+下列动作必须获得批准：
+
+访问外部网络或向外部服务写数据；
+读取仓库之外的文件，使用凭据或扩大系统权限；
+安装依赖、修改策略或产品契约；
+改动持久数据、部署、发布、合并或重写 Git 历史；
+执行破坏性或难以恢复的命令。
+
+如果任务确实需要其中一项，正确行为不是永远拒绝，而是停下来说明：需要做什么、为什么需要、会影响哪里，以及最小需要什么授权。
+
+这张权限表的价值在于把“自主工作”与“无限权限”分开。Harness 的目标是减少不必要的人类接管，不是取消所有人工决策。
+
+可执行约束不是安全沙箱
+
+还有一个很容易被忽略的事实：如果 Agent 能编辑整个仓库，它通常也能编辑 scripts/guard.js 和策略文件。因此，本地护栏更像高质量的护栏和反馈机制，而不是不可绕过的安全边界。
+
+在团队项目里，关键检查应该再由可信 CI 执行，并结合：
+
+主分支保护和必要评审；
+对策略、测试与部署文件的所有者审核；
+最小权限的凭据和隔离运行环境；
+网络、文件系统和外部写操作的工具级限制。
+
+换句话说，仓库规则负责告诉 Agent 什么改动不合格；系统级权限负责限制它根本不能做什么。两者不要混为一谈。
+
+让 Agent 先读边界，再开始工作
+
+可以把下面的任务交给你的编码 Agent：
+
+请先阅读 AGENTS.md，以及与架构和护栏有关的文档。暂时不要修改代码。
+告诉我：
+1. 运行时代码读取藏书数据必须经过哪一个模块；
+2. 哪些操作可以自行执行，哪些必须先申请批准；
+3. 完成功能修改前要运行哪些通用检查；
+4. 如果 npm run guard 失败，你会怎样处理，而不是怎样绕过它。
+请引用对应文件和命令。
+
+
+合格回答应该定位到 src/library.js、docs/GUARDRAILS.md、npm run guard 与 npm run check，并明确表示不会为了变绿而弱化策略。
+
+这一步看起来没有产出代码，却能确认 Harness 已经把边界交付给 Agent。若它仍只复述通用安全常识，没有引用仓库事实，先修复知识入口，不要立刻把真实任务交给它。
+
+做一次完整复验
+
+运行通用检查：
+
+npm run setup
+npm run check
+
+
+check 中应该出现 repository guardrails 阶段，最后仍是：
+
+[check] All checks passed.
+
+
+标签功能尚未实现，因此任务专用验收依旧应该失败：
+
+npm run accept:tag-filter
+
+
+这两个结果并不矛盾。通用检查证明现有应用与仓库规则健康；红色验收证明下一篇要完成的标签功能还没有被伪造出来。
+
+最后审查改动：
+
+git status --short
+git diff --check
+git diff --stat
+git diff -- .gitignore AGENTS.md package.json scripts policy docs
+
+
+重点确认：guard 已进入 check，策略没有包含真实凭据，受保护的验收文件和产品规则没有改动，临时的违规文件也已经删除。
+
+提交：
+
+git add .gitignore AGENTS.md package.json scripts policy docs
+git commit -m "chore: enforce repository guardrails"
+git status --short --branch
+
+常见阻塞
+guard 说修改文件超过 12 个
+
+先用 git status --short 和 git diff --stat 确认是否混入了上一项任务。若是，先分支或提交前一项改动；若当前任务本来就需要更大范围，拆分任务或请评审者明确批准调整阈值。不要静默改成一个很大的数字。
+
+guard 说受保护文件不同于 main
+
+检查 git diff main -- acceptance/tag-filter.contract.js docs/PRODUCT_RULES.md。如果只是误改，恢复那两处；如果产品契约真的改变，暂停功能实现，让契约变更单独评审。
+
+我的默认分支不叫 main
+
+将 policy/repository-policy.json 的 baseRef 改成真实基线分支，并把这次策略调整纳入评审。临时也可以先创建课程约定的 main 分支，但不要让检查长期指向不存在的基线。
+
+创建 .env 后为什么 guard 直接失败
+
+这是预期行为。真实凭据应放在仓库之外，或由受控的密钥机制在运行时注入。若项目需要环境变量模板，只提交不含秘密的 .env.example。
+
+正常实现被架构规则误报
+
+先确认实现是否真的绕过了 src/library.js。如果架构已经有充分理由改变，不要在业务文件中藏一个技巧绕过正则；同时更新架构文档、策略和检查，并单独评审这项设计决定。
+
+本篇留下了什么
+
+ShelfCare 现在不只“写着一些规则”，而是拥有一条能失败的约束链：
+
+架构与安全意图
+  -> policy/repository-policy.json
+  -> npm run guard
+  -> npm run check
+  -> 可信 CI 与人工评审
+
+
+它保护的是少数关键不变量，不替 Agent 决定每个函数怎么写。下一篇我们会回到第二篇完全相同的标签筛选任务，让 Agent 在完整 Harness 中独立完成它，再比较前后两次的过程、结果和人工接管次数。
+
+验证计数与检查失败
+
+git status --porcelain=v1 -z --untracked-files=all 按文件列出未跟踪目录，脚本同时处理带空格的文件名和重命名前后路径。请在副本的 public/new/ 创建超过 maxChangedFiles 数量的文件，预期 guard 失败。基线不存在、Git 读取失败时同样失败；先修正 policy.baseRef 或提交基线，不能把“跳过检查”当通过。

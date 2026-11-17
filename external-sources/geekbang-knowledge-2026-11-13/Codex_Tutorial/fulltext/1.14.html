@@ -1,0 +1,247 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计学习时间：55—70 分钟<br>本篇目标：用 <code>codex exec</code> 为 TaskFlow 生成可验证的健康报告，理解普通输出、JSONL 事件、结构化结果、退出状态和自动化权限边界。</p>
+</blockquote>
+<p>前面几篇一直在 Codex 的交互界面里工作。交互模式适合需求还在变化、需要随时追问和纠偏的任务；当一套检查已经稳定，并且你希望从脚本、定时任务或 CI 中反复运行时，才轮到 <code>codex exec</code>。</p>
+<p><code>codex exec</code> 是 Codex CLI 的非交互模式。它接收一次任务说明，执行后退出，不需要你守在 TUI 里继续对话。它适合做下面这些工作：</p>
+<ul>
+<li>重复执行仓库健康检查；</li>
+<li>把测试日志整理成固定格式；</li>
+<li>为后续脚本输出 JSON；</li>
+<li>在 CI 中生成供人审查的报告或补丁。</li>
+</ul>
+<p>“非交互”不等于“可以放心给最高权限”。恰恰因为运行期间没人临时纠偏，工作目录、沙箱、输入、输出和完成条件更需要提前写清楚。</p>
+<p>这一篇继续使用 TaskFlow。我们会先跑一个只读命令，再逐步把它升级成既给人看、也能被脚本消费的健康检查。</p>
+<h2 id="wiki-h-0">先确认自动化的运行环境</h2>
+<p>进入 TaskFlow 仓库根目录。先执行：</p>
+<pre><code class="hljs language-bash">codex --version
+codex login status
+git rev-parse --show-toplevel
+git status --short
+</code></pre><p>这些命令在 PowerShell 中相同。</p>
+<p>你需要确认：</p>
+<ul>
+<li>Codex CLI 能正常运行；</li>
+<li>当前已经登录；</li>
+<li>Git 输出的根目录正是 TaskFlow；</li>
+<li>你知道自动化开始前有哪些未提交改动。</li>
+</ul>
+<p><code>codex exec</code> 默认要求在 Git 仓库中运行。这个限制能减少在错误目录里执行任务的风险。<code>--skip-git-repo-check</code> 适合你完全了解的临时目录，不应该成为项目脚本里的默认选项。</p>
+<p>再查看本机版本真正支持的参数：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --<span class="hljs-built_in">help</span>
+</code></pre><p>教程里的命令以当前稳定参数为准；如果帮助中没有某个选项，先更新 Codex，而不是直接照抄执行。</p>
+<h2 id="wiki-h-1">第一次运行：明确使用只读沙箱</h2>
+<p>在 TaskFlow 根目录执行：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --sandbox read-only <span class="hljs-string">"检查当前 TaskFlow 仓库，概括项目结构、完整测试命令和三个最值得关注的发布风险。只读取和分析，不修改文件。每个结论给出文件或命令证据。"</span>
+</code></pre><p>PowerShell 中可以使用同一条命令。</p>
+<p>运行过程中，进度信息会写到 <code>stderr</code>，最终回复写到 <code>stdout</code>。因此终端里可能先看到工具调用和进度，最后才出现一段完整结论。这是正常现象。</p>
+<p>命令结束后，先检查退出码。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> $?
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$LASTEXITCODE</span>
+</code></pre><p>退出码为 <code>0</code> 说明这次 <code>codex exec</code> 运行完成，不代表 TaskFlow 一定健康。项目是否通过，仍要看测试证据和报告里的状态。这是自动化中非常重要的区别：<strong>进程成功结束</strong>与<strong>业务检查通过</strong>不是一回事。</p>
+<p>再执行：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>结果应该与运行前一致。这个检查独立证明只读任务没有悄悄改动项目。</p>
+<p>官方对输出流、沙箱和非交互模式的说明见 <a href="https://learn.chatgpt.com/docs/non-interactive-mode">Non-interactive mode</a>。</p>
+<h2 id="wiki-h-2">把最终回复单独保存，而不是重定向所有日志</h2>
+<p>先创建输出目录。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p reports
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> reports | <span class="hljs-built_in">Out-Null</span>
+</code></pre><p>然后运行：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --sandbox read-only \
+  --output-last-message reports/taskflow-health.md \
+  <span class="hljs-string">"只读检查 TaskFlow 的测试、README 与实际 CLI 是否一致，并生成一份简洁的 Markdown 健康报告。列出实际证据、阻塞项和未能验证的内容。不要修改项目文件。"</span>
+</code></pre><p>PowerShell 可以写成一行：</p>
+<pre><code class="hljs language-powershell">codex exec <span class="hljs-literal">--sandbox</span> <span class="hljs-built_in">read-only</span> <span class="hljs-literal">--output-last-message</span> reports\taskflow<span class="hljs-literal">-health</span>.md <span class="hljs-string">"只读检查 TaskFlow 的测试、README 与实际 CLI 是否一致，并生成一份简洁的 Markdown 健康报告。列出实际证据、阻塞项和未能验证的内容。不要修改项目文件。"</span>
+</code></pre><p><code>-o</code> 是 <code>--output-last-message</code> 的短写。它只把 Agent 最终回复写入指定文件，进度仍然显示在终端。打开文件验证内容：</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">sed -n <span class="hljs-string">'1,240p'</span> reports/taskflow-health.md
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Content</span> reports\taskflow<span class="hljs-literal">-health</span>.md
+</code></pre><p>一份合格的报告至少要说明：</p>
+<ul>
+<li>它检查了哪些文件和命令；</li>
+<li>完整测试是否真的运行；</li>
+<li>README 与当前参数是否一致；</li>
+<li>哪些结论有证据，哪些仍未验证；</li>
+<li>是否存在发布阻塞项。</li>
+</ul>
+<p>如果文件只有“项目结构良好，可以发布”这一类结论，说明任务描述还不够可审计。</p>
+<p>不希望保留会话记录时，可以加：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --ephemeral --sandbox read-only <span class="hljs-string">"只读总结当前项目"</span>
+</code></pre><p><code>--ephemeral</code> 不保存这次运行的 session 文件，适合一次性检查；需要稍后 <code>resume</code> 的多阶段任务不要使用它。</p>
+<h2 id="wiki-h-3">不要让管道掩盖原始测试是否失败</h2>
+<p>你可以把命令输出通过标准输入交给 <code>codex exec</code>：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v 2&gt;&amp;1 \
+  | codex <span class="hljs-built_in">exec</span> --sandbox read-only <span class="hljs-string">"分析输入的测试日志，归纳失败测试、共同根因和建议的排查顺序。只分析，不修改文件。"</span>
+</code></pre><p>但这条简短写法有一个陷阱：管道最后显示的退出码通常来自 <code>codex exec</code>，不一定是前面的测试命令。测试明明失败，日志分析却成功完成，整个管道仍可能得到 <code>0</code>。</p>
+<p>更稳妥的做法是先保留测试日志和测试退出码，再交给 Codex 分析。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">python3 -m unittest discover -s tests -v &gt; reports/tests.log 2&gt;&amp;1
+test_exit=$?
+codex <span class="hljs-built_in">exec</span> --sandbox read-only \
+  <span class="hljs-string">"读取 reports/tests.log，归纳失败测试、共同根因和下一步。报告中必须注明原始测试退出码为 <span class="hljs-variable">${test_exit}</span>。只分析，不修改文件。"</span>
+codex_exit=$?
+<span class="hljs-built_in">echo</span> <span class="hljs-string">"tests=<span class="hljs-variable">$test_exit</span> codex=<span class="hljs-variable">$codex_exit</span>"</span>
+</code></pre><p>PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span> *&gt; reports\tests.log
+<span class="hljs-variable">$testExit</span> = <span class="hljs-variable">$LASTEXITCODE</span>
+codex exec <span class="hljs-literal">--sandbox</span> <span class="hljs-built_in">read-only</span> <span class="hljs-string">"读取 reports/tests.log，归纳失败测试、共同根因和下一步。报告中必须注明原始测试退出码为 <span class="hljs-variable">$testExit</span>。只分析，不修改文件。"</span>
+<span class="hljs-variable">$codexExit</span> = <span class="hljs-variable">$LASTEXITCODE</span>
+<span class="hljs-string">"tests=<span class="hljs-variable">$testExit</span> codex=<span class="hljs-variable">$codexExit</span>"</span>
+</code></pre><p>最终你会得到两个独立状态：</p>
+<ul>
+<li><code>tests</code>：TaskFlow 测试本身是否通过；</li>
+<li><code>codex</code>：Codex 是否完成日志分析。</li>
+</ul>
+<p>自动化脚本不应该把它们混成一个结果。日志中如果含有令牌、客户数据、本机敏感路径或生产内容，要先脱敏，再交给模型处理。</p>
+<h2 id="wiki-h-4">JSONL 记录的是过程事件，不是一份普通 JSON 报告</h2>
+<p>当下游系统需要观察运行过程时，可以使用 <code>--json</code>：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --json --sandbox read-only \
+  <span class="hljs-string">"只读核对 README 中的命令是否与当前 TaskFlow CLI 一致。"</span> \
+  &gt; reports/codex-events.jsonl
+</code></pre><p>PowerShell：</p>
+<pre><code class="hljs language-powershell">codex exec <span class="hljs-literal">--json</span> <span class="hljs-literal">--sandbox</span> <span class="hljs-built_in">read-only</span> <span class="hljs-string">"只读核对 README 中的命令是否与当前 TaskFlow CLI 一致。"</span> &gt; reports\codex<span class="hljs-literal">-events</span>.jsonl
+</code></pre><p>此时 <code>stdout</code> 不再只是最终回复，而是 JSON Lines：每一行都是一个独立 JSON 对象。常见事件包括 thread 开始、turn 开始或结束、命令执行、文件变化、Agent 消息和错误。</p>
+<p>先查看前几行。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">sed -n <span class="hljs-string">'1,12p'</span> reports/codex-events.jsonl
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Content</span> reports\codex<span class="hljs-literal">-events</span>.jsonl <span class="hljs-literal">-TotalCount</span> <span class="hljs-number">12</span>
+</code></pre><p>你应该看到多行各自完整的 JSON，而不是一个最外层数组。不能直接把整份 <code>.jsonl</code> 当成普通 <code>.json</code> 交给只接受单个 JSON 文档的解析器。集成时应逐行读取，并对未知事件类型保持兼容。</p>
+<p>如果你只关心最终结论，用 <code>-o</code>；如果你需要工具调用、进度、用量或失败事件，用 <code>--json</code>。二者可以同时使用。</p>
+<h2 id="wiki-h-5">用 JSON Schema 固定最终结果</h2>
+<p>人读 Markdown 很舒服，程序更需要稳定字段。现在为 TaskFlow 健康检查准备一个 Schema。</p>
+<p>创建 <code>schemas/taskflow-health.schema.json</code>：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"object"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"properties"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"string"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"enum"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"warn"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"fail"</span><span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"summary"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"string"</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"checks"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"array"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"items"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"object"</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">"properties"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"string"</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"string"</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">"enum"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"warn"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"fail"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"unknown"</span><span class="hljs-punctuation">]</span>
+          <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">"evidence"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"string"</span> <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">"required"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"name"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"status"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"evidence"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">"additionalProperties"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"blockers"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"array"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"items"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"string"</span> <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"required"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"status"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"summary"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"checks"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"blockers"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"additionalProperties"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>如果你正在 Codex 交互界面中，可以让它按上面内容创建文件；创建后要亲自打开核对。Schema 只规定报告长什么样，并不决定什么证据算通过。</p>
+<p>再创建 <code>prompts/taskflow-health.md</code>：</p>
+<pre><code class="hljs language-markdown">对当前 TaskFlow 仓库执行只读健康检查。
+
+检查范围：
+<span class="hljs-bullet">1.</span> 运行 AGENTS.md 规定的完整测试；
+<span class="hljs-bullet">2.</span> 核对 README 的命令、参数和默认行为；
+<span class="hljs-bullet">3.</span> 检查当前 Git Diff 是否包含真实运行数据、缓存、明显密钥或个人绝对路径；
+<span class="hljs-bullet">4.</span> 检查 TaskFlow 1.0 JSON 数据是否仍可读取。
+
+要求：
+<span class="hljs-bullet">-</span> 不修改任何项目文件；
+<span class="hljs-bullet">-</span> 只把实际执行或读取到的内容写为证据；
+<span class="hljs-bullet">-</span> 无法验证的检查标为 unknown；
+<span class="hljs-bullet">-</span> 任一发布阻塞项存在时，顶层 status 为 fail；
+<span class="hljs-bullet">-</span> 没有阻塞但存在提醒时为 warn；
+<span class="hljs-bullet">-</span> 全部有证据通过时才为 pass。
+</code></pre><p>把提示词放进文件有两个好处：版本控制可以审查它，shell 也不必处理一大段引号和 <code>$</code> 等特殊字符。</p>
+<p>macOS、Linux 或 WSL 执行：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --json --sandbox read-only \
+  --output-schema schemas/taskflow-health.schema.json \
+  --output-last-message reports/taskflow-health.json \
+  - &lt; prompts/taskflow-health.md \
+  &gt; reports/taskflow-health.events.jsonl
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Content</span> prompts\taskflow<span class="hljs-literal">-health</span>.md <span class="hljs-literal">-Raw</span> | codex exec <span class="hljs-literal">--json</span> <span class="hljs-literal">--sandbox</span> <span class="hljs-built_in">read-only</span> <span class="hljs-literal">--output-schema</span> schemas\taskflow<span class="hljs-literal">-health</span>.schema.json <span class="hljs-literal">--output-last-message</span> reports\taskflow<span class="hljs-literal">-health</span>.json - &gt; reports\taskflow<span class="hljs-literal">-health</span>.events.jsonl
+</code></pre><p>这里同时产生两个文件：</p>
+<ul>
+<li><code>reports/taskflow-health.json</code>：符合 Schema 的最终结果；</li>
+<li><code>reports/taskflow-health.events.jsonl</code>：完整事件流。</li>
+</ul>
+<p><code>--output-schema</code> 约束最终回复的结构，不能证明里面的判断一定正确。打开并验证 JSON 语法：</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">python3 -m json.tool reports/taskflow-health.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-m</span> json.tool reports\taskflow<span class="hljs-literal">-health</span>.json
+</code></pre><p>然后再对照完整测试、README 和 Git Diff 检查 <code>evidence</code>。只有结构正确而证据空泛，仍然不是一份可靠报告。</p>
+<h2 id="wiki-h-6">让脚本同时判断“运行成功”和“检查通过”</h2>
+<p>假设 <code>codex exec</code> 返回 <code>0</code>，但报告中的 <code>status</code> 是 <code>fail</code>，自动化仍应失败。可以用 Python 标准库读取最终结果。</p>
+<p>macOS、Linux 或 WSL：</p>
+<pre><code class="hljs language-bash">python3 -c <span class="hljs-string">'import json,sys; d=json.load(open("reports/taskflow-health.json", encoding="utf-8")); print(d["status"], d["summary"]); sys.exit(1 if d["status"] == "fail" else 0)'</span>
+<span class="hljs-built_in">echo</span> $?
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-c</span> <span class="hljs-string">"import json,sys; d=json.load(open('reports/taskflow-health.json', encoding='utf-8')); print(d['status'], d['summary']); sys.exit(1 if d['status'] == 'fail' else 0)"</span>
+<span class="hljs-variable">$LASTEXITCODE</span>
+</code></pre><p>这一步把“模型运行是否完成”和“项目健康检查是否通过”分开：</p>
+<ol>
+<li>先检查 <code>codex exec</code> 的退出码；</li>
+<li>再检查结构化报告里的业务状态；</li>
+<li>两者任意一个失败，流水线都不应该宣告成功。</li>
+</ol>
+<p>对于 <code>warn</code> 是否阻塞，可以按团队规则调整。入门阶段先让 <code>fail</code> 返回非零即可。</p>
+<h2 id="wiki-h-7">什么时候允许 <code>codex exec</code> 修改工作区</h2>
+<p>默认只读很适合报告、分类和审查。如果任务确实需要修改代码，必须显式开放：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --sandbox workspace-write \
+  <span class="hljs-string">"根据 AGENTS.md 修复当前唯一一个已经复现的失败测试。只做最小修改，先运行局部测试，再运行完整测试，最后汇报 Diff。"</span>
+</code></pre><p>非交互任务无法像你坐在 TUI 前那样随时解释需求。第一次执行新的写入流程时，最好先在可丢弃分支或 worktree 中试跑，并保留人工 Diff 审查。</p>
+<p>不要为了减少阻塞而默认使用：</p>
+<pre><code class="hljs language-text">--dangerously-bypass-approvals-and-sandbox
+</code></pre><p>它会绕过审批和沙箱，只适合外层已经有严格隔离的专用环境。日常仓库脚本应使用最小沙箱；需要额外目录时，优先精确使用 <code>--add-dir</code>，不要直接扩大到整个系统。</p>
+<h2 id="wiki-h-8">恢复一次非交互任务</h2>
+<p>如果自动化确实分两个阶段，而且第一阶段保留了 session，可以在同一仓库中运行：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> resume --last <span class="hljs-string">"继续上一次检查。先核对当前 Git 状态，只完成尚未执行的验证，然后输出最终结论。"</span>
+</code></pre><p><code>--last</code> 默认选择当前工作目录最近的非交互会话。更稳妥的自动化可以从 JSONL 的 <code>thread.started</code> 事件中保存 thread ID，后续用明确 ID 恢复：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">codex exec resume &lt;SESSION_ID&gt; "继续第二阶段验证"
+</code></pre><p>不要用 <code>--last</code> 跨多个并发任务猜会话，也不要对 <code>--ephemeral</code> 运行安排后续恢复。</p>
+<h2 id="wiki-h-9">接入 CI 前先守住凭据边界</h2>
+<p>本地练习会复用你已经保存的 Codex 登录。到了 CI，凭据、仓库代码和自动执行会同时出现，风险更高。</p>
+<p>一个稳妥的流水线通常是：</p>
+<pre><code class="hljs language-text">运行项目测试
+    ↓
+保留退出码并脱敏日志
+    ↓
+Codex 在只读仓库中生成结构化报告或补丁
+    ↓
+把结果保存为构建产物
+    ↓
+人工决定是否修复、合并或发布
+</code></pre><p>GitHub Actions 场景优先使用官方 <code>openai/codex-action</code>。不要把 API Key 设置成整个 Job 都能读取的环境变量，因为仓库里的构建脚本、测试和依赖生命周期脚本也可能读到它。官方建议让密钥只在运行 Codex 的受控步骤中可用，并把生成补丁与拥有仓库写权限的步骤分开。完整示例和安全说明见 <a href="https://learn.chatgpt.com/docs/non-interactive-mode#common-automation-patterns">Non-interactive mode</a>。</p>
+<p>这套入门教程不要求你立即搭建 CI。先把本地只读流程跑通、把输出字段稳定下来、明确什么状态会阻塞，再搬进流水线，排错成本会低很多。</p>
+<h2 id="wiki-h-10">常见问题先看这五项</h2>
+<h3 id="wiki-h-11">1. 提示“不是 Git 仓库”</h3>
+<p>先运行 <code>git rev-parse --show-toplevel</code>，确认工作目录。正式项目应回到仓库根目录；只有可丢弃的临时目录才考虑 <code>--skip-git-repo-check</code>。</p>
+<h3 id="wiki-h-12">2. 没有生成 <code>-o</code> 指定的文件</h3>
+<p>检查父目录是否已经创建、<code>codex exec</code> 退出码是否为零、Schema 文件是否有效。<code>-o</code> 不会替你建立缺失的复杂目录结构。</p>
+<h3 id="wiki-h-13">3. JSONL 无法被普通 JSON 解析器打开</h3>
+<p>这是预期行为。它是“一行一个 JSON 对象”，不是一个数组。逐行解析，或者只使用 <code>-o</code> 保存最终 JSON。</p>
+<h3 id="wiki-h-14">4. 命令完成了，但报告说 <code>fail</code></h3>
+<p>两者不矛盾。退出码说明 Agent 运行状态，报告字段说明 TaskFlow 健康状态。脚本要同时判断。</p>
+<h3 id="wiki-h-15">5. 非交互任务卡在权限或外部工具上</h3>
+<p>减少任务范围，显式设置沙箱，移除不必要的网络或 MCP 依赖。无人值守任务如果需要新的人工批准，应该失败并报告，而不是偷偷放宽权限。</p>
+<h2 id="wiki-h-16">本篇小结</h2>
+<p><code>codex exec</code> 的价值不是把交互式提示词原样塞进脚本，而是把一套已经验证的流程变成输入、权限、输出和判定规则都明确的命令。</p>
+<p>我们为 TaskFlow 完成了一个只读健康检查：普通模式给人看，<code>-o</code> 保存最终回复，<code>--json</code> 记录 JSONL 事件，<code>--output-schema</code> 固定机器可读结果，再由独立脚本同时判断 Codex 退出码和报告状态。整个过程中，Git 状态、真实测试和 Diff 仍然是最终证据。</p>
+<p>到这里，TaskFlow 主线已经覆盖了从规划、开发、调试到扩展与自动化的完整流程。接下来的三篇将进入综合实战：先接手陌生仓库修复缺陷，再完成跨文件功能，最后做代码审查、重构和发布准备。</p>
+</article>

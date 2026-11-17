@@ -1,0 +1,392 @@
+预计阅读时间：45～60 分钟
+本篇目标：把 Decision Inbox 的路由结果交给不同处理器，理解 Jev 在 Agent 系统中的正确位置，并完成上线前的安全检查。
+
+做到这里，我们已经有一条完整的判断链：
+
+messages.json
+      ↓
+Jev：分类、紧急度、行动请求
+      ↓
+代码：置信度门控与业务路由
+      ↓
+routed_inbox.json
+
+
+还差最后一步：不同队列由谁来处理？有的可以交给确定性代码，有的适合让生成式模型起草内容，有的必须由人决定。
+
+这也是 Jev 放进 Agent 时最容易被误解的地方。Jev 不是 Claude Code、Codex 或其他 Agent 背后的替代模型。它不聊天、不写代码，也不负责循环调用工具。官方对此有明确说明：编码 Agent 可以帮助你编写使用 Jev 的程序，而 Jev 作为程序中的判断模块，完成路由、评分、分类或守卫。详见 Jev with coding agents。
+
+四类工作，交给四种不同角色
+
+在一个 Agent 或应用里，可以这样划分：
+
+工作	更合适的承担者	Decision Inbox 中的例子
+精确规则与数据处理	普通代码	读写 JSON、排序、检查 ID、执行阈值
+快速语义判断	Jev	分类、紧急度、是否要求行动
+生成和推理	LLM	根据上下文起草回复、总结长材料、规划步骤
+高风险或模糊决定	人	复核低置信度结果、批准发送或删除
+
+这些角色不是谁“更聪明”的排名，而是接口与责任不同。用 LLM 解析一个必须稳定的固定标签，往往要额外处理格式漂移；让 Jev 写一封回复则根本不符合它的输出类型；让模型处理文件读写和权限规则，也不如代码清楚。
+
+官方的 Intent routing 模式 展示的正是这种组合：先判断请求类型，再把不同请求送给确定性逻辑、专门的 LLM 或人工处理。
+
+为四个队列设计处理器
+
+本篇继续保持“无外部副作用”：处理器只生成行动计划，不真的发消息或移动文件。这样可以验证接线是否正确，而不会把演示判断变成真实操作。
+
+在项目目录新建 handlers.py：
+
+def handle_manual_review(item: dict) -> dict:
+    return {
+        "message_id": item["id"],
+        "handler": "human_reviewer",
+        "planned_action": "inspect_judgment_and_choose_queue",
+        "requires_confirmation": True,
+        "status": "waiting_for_human",
+    }
+
+
+def handle_today(item: dict) -> dict:
+    return {
+        "message_id": item["id"],
+        "handler": "reply_draft_agent",
+        "planned_action": "prepare_reply_draft_today",
+        "requires_confirmation": True,
+        "status": "planned",
+    }
+
+
+def handle_follow_up(item: dict) -> dict:
+    return {
+        "message_id": item["id"],
+        "handler": "reply_draft_agent",
+        "planned_action": "prepare_reply_draft_later",
+        "requires_confirmation": True,
+        "status": "planned",
+    }
+
+
+def handle_read_only(item: dict) -> dict:
+    return {
+        "message_id": item["id"],
+        "handler": "local_organizer",
+        "planned_action": "add_read_only_label",
+        "requires_confirmation": False,
+        "status": "planned",
+    }
+
+
+HANDLERS = {
+    "manual_review": handle_manual_review,
+    "today": handle_today,
+    "follow_up": handle_follow_up,
+    "read_only": handle_read_only,
+}
+
+
+def dispatch(item: dict) -> dict:
+    queue = item["recommendation"]["queue"]
+    try:
+        handler = HANDLERS[queue]
+    except KeyError as error:
+        raise ValueError(f"没有为队列配置处理器：{queue}") from error
+
+    plan = handler(item)
+    return {
+        **plan,
+        "source_queue": queue,
+        "topic": item["recommendation"]["topic"],
+        "policy_reasons": item["recommendation"]["reasons"],
+    }
+
+
+注意 today 和 follow_up 只指向 reply_draft_agent，而且 requires_confirmation 为 True。即使以后真的接上 LLM，它也只能准备草稿，不能自动发出。
+
+manual_review 的处理器不是一个更贵的模型，而是人。复杂模型可以作为额外工具，但不能把“需要人工负责的决定”偷偷改名为“交给更强模型自动做”。
+
+生成一份行动计划
+
+新建 dispatch_inbox.py：
+
+import json
+from artifact_io import load_artifact, save_artifact
+from pathlib import Path
+
+from handlers import dispatch
+
+
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_FILE = BASE_DIR / "output" / "routed_inbox.json"
+OUTPUT_FILE = BASE_DIR / "output" / "action_plan.json"
+
+
+def main() -> None:
+    if not INPUT_FILE.exists():
+        raise FileNotFoundError(
+            "找不到 output/routed_inbox.json，请先运行 route_inbox.py"
+        )
+
+    items = load_artifact(INPUT_FILE)
+
+    plans = [dispatch(item) for item in items]
+
+    save_artifact(OUTPUT_FILE, plans, INPUT_FILE)
+
+    for plan in plans:
+        print(
+            f"{plan['message_id']}: "
+            f"{plan['source_queue']} -> {plan['handler']} "
+            f"({plan['planned_action']})"
+        )
+
+    print(f"行动计划已保存：{OUTPUT_FILE}")
+
+
+if __name__ == "__main__":
+    main()
+
+
+先检查语法：
+
+macOS 或 Linux：
+
+python -m py_compile handlers.py dispatch_inbox.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe -m py_compile handlers.py dispatch_inbox.py
+
+
+然后运行。它不调用 TypeSafe API，也不需要 API Key：
+
+macOS 或 Linux：
+
+python dispatch_inbox.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe dispatch_inbox.py
+
+
+你会看到每条消息从队列流向对应处理器，例如：
+
+msg-004: today -> reply_draft_agent (prepare_reply_draft_today)
+msg-003: read_only -> local_organizer (add_read_only_label)
+行动计划已保存：.../output/action_plan.json
+
+
+实际队列由前面的真实判断决定，不必与示例一致。
+
+用独立检查锁住安全约束
+
+我们最关心的不是文件是否生成，而是两条安全规则有没有被破坏：
+
+人工复核项必须送给人；
+草稿 Agent 的结果必须经过确认。
+
+macOS 或 Linux：
+
+python -c "import json; p=json.load(open('output/action_plan.json', encoding='utf-8')); assert p; assert all(x['handler']=='human_reviewer' for x in p if x['source_queue']=='manual_review'); assert all(x['requires_confirmation'] for x in p if x['handler']=='reply_draft_agent'); print('本次产物检查通过（覆盖范围需另测）')"
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe -c "import json; p=json.load(open('output/action_plan.json', encoding='utf-8')); assert p; assert all(x['handler']=='human_reviewer' for x in p if x['source_queue']=='manual_review'); assert all(x['requires_confirmation'] for x in p if x['handler']=='reply_draft_agent'); print('本次产物检查通过（覆盖范围需另测）')"
+
+
+看到 本次产物检查通过（覆盖范围需另测），说明当前行动计划满足这两条约束。它仍然不证明判断一定正确，但能保证即使接线修改了，关键安全边界不会悄悄消失。
+
+集成接口设计：后续接入 LLM 所需的任务契约
+
+如果以后实现 reply_draft_agent，它收到的输入应该是：
+
+原始留言；
+已确认的主题与处理时限；
+回复所需的事实资料；
+明确的语气、长度和禁止事项；
+“只能生成草稿，不能发送”的工具权限。
+
+它不需要重新决定这条消息是否应该被回复，因为前面的 Jev 判断、置信度门控和人工复核已经负责这一层。反过来，如果人工修改了路由，LLM 应使用人工确认后的结果，而不是坚持旧判断。
+
+工具权限也应与职责一致。只负责写草稿的 Agent 不需要发送邮件权限；只负责本地标签的处理器不需要网络权限。不要用提示词“请不要发送”代替真正的权限限制。
+
+Jev 在 Agent 系统里的三种常见位置
+
+掌握 Decision Inbox 后，可以迁移到三个典型位置。
+
+1. 入口路由器
+
+Agent 收到请求后，先由 Jev 判断意图和复杂度：
+
+查数据库就能回答       → 普通代码
+需要生成解释或草稿     → 专门的 LLM Agent
+高风险或低置信度       → 人工处理
+
+
+这能避免所有请求都进入最贵、权限最大的 Agent。Choice 回答“去哪里”，confidence 回答“现在是否足够确定”。
+
+2. 动作前守卫
+
+Agent 已经拟定动作，但在真正调用工具前，用 Jev 检查：
+
+用户是否明确要求了这个动作；
+内容是否属于需要确认的风险类别；
+现有上下文是否支持进入下一步。
+
+守卫不能替代权限系统。它只是额外判断信号；付款、删除、授权等高风险动作仍要使用硬性权限与人工确认。
+
+3. 批量评审器
+
+Agent 生成了很多候选项后，Jev 可以按固定量表评分或筛选，例如：
+
+给搜索结果做相关度分级；
+判断引用是否支持某个主张；
+给待办事项判断紧急度；
+把不确定项送人复核。
+
+它适合固定、窄而重复的判断，不适合代替需要长链规划和内容生成的主 Agent。
+
+官方 Agent Skill 是做什么的
+
+TypeSafe 提供了适用于 Claude Code、Codex 等编码 Agent 的官方 Skill。它的作用是把 API、三种原语、架构模式和最佳实践提供给编码 Agent，让 Agent 更容易写出正确的 Jev 集成；它不会把 Jev 变成编码 Agent 背后的聊天模型。
+
+官方当前提供两类安装方式，详情以 Agent Skill 文档 为准。
+
+Claude Code 使用官方插件市场：
+
+claude plugin marketplace add typesafe-ai/skills
+claude plugin install typesafe@typesafe-ai
+
+
+其他受支持的 Agent 可使用 Skills 安装器：
+
+npx skills add typesafe-ai/skills --skill typesafe-ai
+
+
+第二种方式需要本机已有 Node.js 和 npx。安装器会让你选择目标 Agent，当前官方说明默认安装到项目范围；如果界面或命令发生变化，请以文档为准。
+
+安装 Skill 后，可以让编码 Agent 检查当前项目，例如：
+
+请使用 TypeSafe Skill 检查这个 Decision Inbox 项目。
+重点审查 questions、threshold constants、人工复核路径和测试，
+不要改变类别定义或阈值，先列出发现和修改计划。
+
+
+先让 Agent 给计划，再审查它提出的问题定义和阈值。官方也特别建议把这些常量放在容易找到的位置，并要求 Agent 验证假设，而不是直接相信它声称“已经正确”。
+
+不想安装 Skill 也不影响本教程项目运行。Skill 是帮助编码 Agent 理解 TypeSafe 的开发资料，不是调用 Jev API 的必需依赖。
+
+从练习项目走向真实应用前的检查表
+1. 数据与隐私
+只发送判断所需字段；
+对个人信息和敏感内容做脱敏或获得合适授权；
+明确日志保存时间和访问权限；
+不把真实消息或 API Key 提交到公开仓库。
+2. 失败处理
+区分认证失败、限流、超时和服务错误；
+只对适合重试的错误做有限重试；
+重试仍失败时进入安全队列，而不是跳过记录；
+使用消息 ID 保证重复执行不会发送两次或写入两份动作。
+
+TypeSafe Python SDK 提供异常和重试相关接口，但具体类名、默认次数与状态码可能随版本变化。实现前查看当前的 Python SDK Usage 与 API 参考，不要根据教程猜参数。
+
+3. 可观测性
+
+至少记录：
+
+请求 ID 或业务消息 ID；
+请求模型别名与实际响应模型版本；
+问题与阈值的版本；
+概率、置信度、最终路由和复核原因；
+延迟、失败类型与人工改判结果。
+
+不要记录 API Key，也不要为了排查方便无限期保存完整敏感输入。
+
+4. 持续评估
+定期抽样自动处理结果；
+把人工改判样例加入候选评估集；
+模型、问题定义或阈值变化后重新跑固定测试集；
+同时监控准确率、覆盖率和复核量；
+指标恶化时允许快速退回纯人工或上一版策略。
+5. 权限和动作边界
+生成草稿与发送消息使用不同权限；
+查询与修改使用不同工具；
+高风险动作始终需要明确确认；
+低置信度时默认不行动；
+人工复核结果能够覆盖模型建议。
+什么时候不该用 Jev
+
+最后再给边界画一遍线。下面这些任务不应勉强交给 Jev：
+
+写文章、回复邮件、生成代码；
+开放式聊天和多轮咨询；
+需要长链规划、搜索和工具循环的 Agent 主任务；
+可以用精确规则或数据库查询直接完成的工作；
+没有清楚答案空间、连人都无法稳定标注的判断；
+一次错误就可能造成严重后果，却没有确认和恢复机制的自动动作。
+
+反过来，当任务可以被写成清楚的 Choice、Score 或 Noul，普通规则难以处理自然语言，而后续程序又确实需要类型化结果与不确定性信号时，Jev 才真正合适。
+
+完成整套教程的最终验收
+
+你的课程项目最后应包含下面这些关键文件：
+
+decision-inbox/
+├── .gitignore
+├── decision_inbox.py
+├── decision_policy.py
+├── dispatch_inbox.py
+├── evaluate_dataset.py
+├── evaluation_cases.json
+├── first_call.py
+├── handlers.py
+├── inspect_errors.py
+├── messages.json
+├── primitives_lab.py
+├── route_inbox.py
+├── test_decision_policy.py
+└── output/
+    ├── action_plan.json
+    ├── decisions.json
+    ├── evaluation_results.json
+    └── routed_inbox.json
+
+
+最后依次确认：
+
+python -m unittest -v test_decision_policy.py 全部通过；
+decision_inbox.py 能从原始留言生成类型化判断；
+route_inbox.py 能把不确定结果送进 manual_review；
+evaluate_dataset.py 能生成带模型版本的评估报告；
+dispatch_inbox.py 只生成行动计划，不执行外部动作；
+本次产物检查通过（覆盖范围需另测） 检查能够通过；
+真实 Key 没有写入代码、JSON、日志或 Git。
+
+完成这些步骤后，你掌握的不只是三个 API 类型，而是一套可以迁移的设计方法：让 Jev 做窄而明确的语义判断，让普通代码掌握流程与阈值，让 LLM 负责生成和复杂推理，让人在不确定或高风险处保留最终决定权。
+
+确定性分发验收
+
+在项目根目录保存 test_dispatch.py 并运行 python -m unittest -v test_dispatch.py：
+
+import unittest
+from handlers import dispatch
+
+class DispatchTests(unittest.TestCase):
+    def item(self, queue):
+        return {"id": "case", "recommendation": {"queue": queue, "topic": "billing", "reasons": []}}
+    def test_all_four_queues(self):
+        expected = {"manual_review": ("human_reviewer", True), "today": ("reply_draft_agent", True),
+                    "follow_up": ("reply_draft_agent", True), "read_only": ("local_organizer", False)}
+        for queue, result in expected.items():
+            with self.subTest(queue=queue):
+                plan = dispatch(self.item(queue))
+                self.assertEqual((plan["handler"], plan["requires_confirmation"]), result)
+    def test_unknown_queue_is_rejected(self):
+        with self.assertRaises(ValueError): dispatch(self.item("unknown"))
+
+if __name__ == "__main__": unittest.main()
+
+
+本课程交付到“本地决策与集成接口设计”：行动计划和草稿处理器契约可以验证，未实现真实消息发送、LLM 草稿生成及人工审批回流。进入真实应用前需另外实现这些接口及失败处理，不能把生成计划当作已完成外部动作。

@@ -1,0 +1,260 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本文属于《DeepSeek Harness 入门教程（实战版）》· 第四部分 · 沿着项目掌握核心能力</p>
+</blockquote>
+<h1>第 13 章　案例四：把两项审查交给子智能体</h1>
+<p>到上一章为止，日报助手已经能运行、能测试，也有了项目 Skill 和一套隔离的 MCP 练习配置。接下来我们不急着继续加功能，而是先做一次小型项目审查。</p>
+<p>这次审查有两个相互独立的方向：</p>
+<ul>
+<li>一名审查者只看源码和测试，寻找实现风险；</li>
+<li>另一名审查者只看文档、配置和安全边界，寻找使用风险。</li>
+</ul>
+<p>把两个方向都塞给当前 Agent，它当然也能从头看到尾。不过，这正适合用来学习 <strong>Subagent（子智能体）</strong>：主 Agent 负责拆分和汇总，两个子智能体各自在独立上下文中完成一项聚焦任务。</p>
+<p>本章结束时，你会得到一份 <code>AUDIT.md</code>，并能从界面中证明两项审查确实由两个子智能体完成。更重要的是，你会分清三件容易混在一起的事：</p>
+<ol>
+<li>子智能体是 DSH 执行任务时的协作结构，不是日报助手运行时的一部分；</li>
+<li>两项简单委派用 Subagent 就够了，不必上 Workflow；</li>
+<li>并行不会自动带来正确性，仍要控制写入、核对证据并由主 Agent 验收。</li>
+</ol>
+<h2 id="wiki-h-0">审查前的恢复点</h2>
+<p>在自己的外部终端检查 <code>git status --short</code>。尚未建立仓库时运行 <code>git init -b main</code>，先配置 .gitignore 排除 node_modules、凭证及生成报告，再只暂存课程源码、配置和测试，检查 <code>git diff --cached</code> 后提交审查基线。已有未提交工作先保存，不能把其混入本次审查。</p>
+<p>记录 <code>git rev-parse HEAD</code>，要求审查阶段 <code>git status --short --untracked-files=all</code> 为空；这才检查到未跟踪文件、暂存和未暂存变化。</p>
+<h2 id="wiki-h-1">13.1 先纠正一个容易出现的误解</h2>
+<p>“让每个数据源交给一个子智能体抓取”听起来很自然，却把两个运行阶段混到了一起。</p>
+<pre><code class="hljs language-text">写代码时：DSH 的主 Agent 可以委派子智能体审查、研究或实现
+程序运行时：Node.js 进程读取 sources.json，并发出普通网络请求
+</code></pre><p>子智能体属于 DSH 的任务执行能力。它可以帮助你改造抓取代码，但不会因为程序里有两个数据源，就在以后每次执行 <code>npm start</code> 时自动出现两个 Agent。真要让运行中的程序并发请求，应使用 <code>Promise.allSettled()</code>、任务队列或其他程序设计手段，而不是把 DSH 的委派关系写进业务需求。</p>
+<p>因此，本章选择“并行审查项目”作为练习。它能真实体现子智能体的价值，又不会给日报助手引入一个不存在的运行时依赖。</p>
+<h2 id="wiki-h-2">13.2 确认起点，并让 MCP 实验留在上一章</h2>
+<p>回到 <code>daily-report</code> 工作区。本章默认你已完成第 12 章，项目至少包含：</p>
+<pre><code class="hljs language-text">daily-report/
+├── .dsh/
+│   ├── mcp-filesystem.yml
+│   └── skills/
+│       └── daily-report-maintainer/
+│           └── SKILL.md
+├── PROJECT.md
+├── README.md
+├── package.json
+├── sources.json
+├── daily-report.md
+├── src/
+├── test/
+└── mcp-scratch/
+</code></pre><p><code>src</code> 和 <code>test</code> 下的具体文件名可能不同，以你的项目为准。第 12 章的 <code>mcp-lab</code> 只是隔离实验，本章不要求重新启动它，也不依赖 <code>mcp__daily_report_fs__...</code> 工具。</p>
+<p>先在系统终端进入项目目录，运行基线测试：</p>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+</code></pre><p>测试应全部通过。再确认项目中还没有本章的交付文件：</p>
+<p>macOS 与 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">test</span> ! -e AUDIT.md &amp;&amp; <span class="hljs-built_in">echo</span> <span class="hljs-string">"audit file not created"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> .\AUDIT.md)) { <span class="hljs-string">"audit file not created"</span> }
+</code></pre><p>看到 <code>audit file not created</code> 后再继续。如果文件已经存在，请先改名保存，避免本章覆盖你自己的内容。</p>
+<h2 id="wiki-h-3">13.3 检查子智能体设置</h2>
+<p>打开 DSH 的“设置 → 插件 → 子智能体”。不同窗口宽度下，这一项可能显示为插件设置中的一张卡片。</p>
+<p>先看两个值：</p>
+<ul>
+<li><strong>最大委派深度</strong>保持 <code>1</code>。它允许主 Agent 创建直接子级，但不让子智能体继续向下层层委派；</li>
+<li>本章不强制开启“允许 Agent 为子智能体选择模型”。关闭时，进程内子智能体通常沿用父 Agent 当前可用的模型路线；开启后，还要在允许列表中明确授权 provider 和 model。</li>
+</ul>
+<p>设置是为<strong>新建的顶层任务</strong>采样的。若你刚修改过这里，请稍后新建任务，不要在旧任务里判断是否生效。官方文档还说明，默认深度 <code>1</code> 只允许直接子级，改为 <code>0</code> 会禁用继承该设置的委派工具。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/subagent/subagent/README.zh.md">Subagent 服务说明</a> · <a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/subagent/tool-subagent/README.zh.md">委派工具说明</a></p>
+<p>为什么本章不专门为子智能体挑“便宜模型”？因为我们首先要验证任务拆分方式。模型路线、推理强度和提示词同时变化，就很难判断结果差异来自哪里。等你熟悉委派后，再为低风险检索任务选择成本更低的模型会更稳妥。</p>
+<h2 id="wiki-h-4">13.4 这次为什么选两个全新子智能体</h2>
+<p>DSH 的进程内委派主要有两种上下文起点：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>方式</th>
+<th>子智能体开始时看到什么</th>
+<th>适合什么任务</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>subagent</code>（spawn）</td>
+<td>一份全新的上下文，依靠委派提示了解任务</td>
+<td>自包含的研究、审查和限定实现</td>
+</tr>
+<tr>
+<td><code>subagent_fork</code>（fork）</td>
+<td>父 Agent 已完成的历史快照，不包含当前尚未结束的这一轮</td>
+<td>必须承接长对话背景的后续分析</td>
+</tr>
+</tbody></table></div>
+<p>本章的两项审查都能用“路径、范围、输出格式”完整描述，不需要继承前面对话，所以应优先使用全新的 <code>subagent</code>。这还能迫使主 Agent 把任务交代清楚，而不是依赖一句“你应该知道我说的是哪个项目”。</p>
+<p>无论哪一种，子智能体都有自己的 Session。父任务最终只接收委派结果；子智能体的中间步骤和工具调用保留在子会话中，不会整段塞进父对话。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/subagent.zh.md">官方 Subagent 架构说明</a></p>
+<h2 id="wiki-h-5">13.5 先做一轮严格只读的并行审查</h2>
+<p>在 <code>daily-report</code> 工作区新建一个<strong>标准模式</strong>任务，把权限设为 <strong>Read Only（仅可查看）</strong>。这一步很重要：第一轮只收集证据，不允许任何 Agent 一边审查一边顺手重构。</p>
+<p>发送下面这条完整指令：</p>
+<pre><code class="hljs language-text">请对当前 daily-report 项目做一次双视角只读审查。
+
+执行要求：
+1. 必须使用 subagent 工具，同时启动两个全新的子智能体；不要使用 subagent_fork，也不要使用 workflow。
+2. 两项委派必须互相独立，子智能体不得修改、创建或删除任何文件，不得访问网络，也不得运行 npm install 或 npm start。
+3. 主 Agent 在两个结果返回前也不要修改文件。
+
+委派 A：代码与测试审查
+- 读取 package.json、src/ 和 test/；
+- 可以运行 npm test；
+- 检查配置解析、请求失败、Markdown 渲染和 CLI 边界；
+- 最多给出 5 条发现。每条必须包含严重程度、文件或测试证据、影响和最小建议；
+- 没有证据的问题不要猜。
+
+委派 B：文档与安全审查
+- 读取 PROJECT.md、README.md、sources.json、.dsh/skills/daily-report-maintainer/SKILL.md 和 .dsh/mcp-filesystem.yml；
+- 不得读取任何凭证文件；
+- 检查文档与实际命令是否一致、示例是否可能误导、Skill 约束是否清楚、MCP 练习是否把权限限制在 mcp-scratch；
+- 最多给出 5 条发现，格式与委派 A 相同；
+- 遇到本机绝对路径时只说明是否需要由读者替换，不要在结果中复述完整用户名路径。
+
+两个子智能体完成后，由主 Agent：
+- 分别列出 A、B 的结论；
+- 合并重复项，把发现分为“已确认”“需要人工判断”“未发现问题”；
+- 明确指出每一条结论来自哪个子智能体；
+- 只在对话中汇总，不要写文件，不要实施修复。
+</code></pre><p>这里有三个刻意的约束：</p>
+<ul>
+<li>“同时启动”用于验证真正的并行委派；如果模型先等待 A 完成再启动 B，那仍是两个子智能体，却没有并行；</li>
+<li>“最多 5 条且必须有证据”避免两个 Agent 为了显得有用而制造一长串猜测；</li>
+<li>“只读后汇总”把发现问题和改动项目分开，防止并行写入冲突。</li>
+</ul>
+<p>标准模式通常会在一次主 Agent 步骤中出现两个 <code>subagent</code> 工具调用。当前官方工具指导也要求相互独立的可继续委派一起启动，父 Agent 可以在它们运行时继续做不依赖结果的工作。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/subagent/tool-subagent/README.zh.md">官方 tool-subagent 说明</a></p>
+<h2 id="wiki-h-6">13.6 不只看最终答案：打开两个子会话</h2>
+<p>子智能体开始后，父任务标题附近会出现一个带数量的子级入口。普通工作区会话列表不会把子会话当成独立顶层任务混在一起；应从父任务顶部的子智能体目录进入。</p>
+<p>依次打开两个子会话，核对下面几件事：</p>
+<ol>
+<li>目录中确实有两个直接子级，而不是主 Agent 自己假装了两份报告；</li>
+<li>两个子级的运行时间有重叠，或至少两个委派工具在同一主 Agent 步骤中启动；</li>
+<li>A 的轨迹集中在源码、测试和 <code>npm test</code>；</li>
+<li>B 的轨迹集中在文档、Skill 和 MCP patch；</li>
+<li>两边都没有写文件、联网、安装依赖或启动真实抓取。</li>
+</ol>
+<p>你可以点每个子级行尾的箭头，把会话放到右侧栏对照查看。一次性子会话完成后是只读记录；如果当前组合把 spawn 子级配置为可继续模式，运行中和结束后的状态、用量与持续时间也会显示在这里。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-subagent/README.md">官方 Web 子智能体界面说明</a></p>
+<p>别用“两个回答看起来不同”判断是否真的委派。<strong>子会话目录、工具调用卡片和各自的执行轨迹</strong>才是证据。</p>
+<h2 id="wiki-h-7">13.7 检查主 Agent 的汇总质量</h2>
+<p>两个结果到齐后，主 Agent 应给出一份带来源的合并结论。理想结果不是一定找出严重 bug，而是满足下面四点：</p>
+<ul>
+<li>不把同一问题重复计算两次；</li>
+<li>不把“可能如此”写成“已经确认”；</li>
+<li>引用实际文件、命令或测试作为证据；</li>
+<li>如果没有高可信问题，敢于明确写“未发现需要立即修复的问题”。</li>
+</ul>
+<p>子智能体并不会互相自动校验。主 Agent 收到的是各自的最终输出，不是某种天然正确的投票结果。两个 Agent 同时犯同一种错误，结论仍然是错的。因此，主 Agent 的职责不是把两段文字粘起来，而是审查冲突、回到项目核对关键证据，再形成一份可执行的判断。</p>
+<p>在系统终端再次运行：</p>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+</code></pre><p>然后检查 <code>AUDIT.md</code> 仍不存在。此时项目功能应该与本章开始时完全相同；这两项只验证部分行为。还必须比较审查前后的 HEAD，并确认 git status --short --untracked-files=all 为空，才能确认没有项目文件变更。</p>
+<h2 id="wiki-h-8">13.8 由主 Agent 写交付物，而不是让两个子智能体抢写</h2>
+<p>确认汇总可信后，把当前任务权限切换为 <strong>Workspace Write（工作区内修改）</strong>。继续发送：</p>
+<pre><code class="hljs language-text">现在由主 Agent 独立完成收尾，不要再委派子智能体。
+
+请把刚才经你核对后的审查结论写入项目根目录 AUDIT.md，结构如下：
+1. 审查范围与本次未执行的外部操作；
+2. 已确认的问题，包含严重程度、证据、影响和最小建议；
+3. 需要人工判断的事项；
+4. 两个子智能体均未发现问题的检查项；
+5. 验收记录。
+
+如果存在一项证据充分、低风险且不改变数据获取策略的问题，可以实施一项最小修复，并补充或更新对应测试；如果没有这样的事项，不要为了展示修改能力而改代码。
+
+完成后运行相关测试和 npm test，重新读取 AUDIT.md，并报告：
+- 实际改动文件；
+- 是否实施了修复以及理由；
+- 测试结果；
+- npm start、网络访问和依赖安装是否执行。
+</code></pre><p>这一步故意由主 Agent 串行执行。并行适合读取和分析，但两个执行者同时修改同一份代码、测试或文档时，容易互相覆盖，甚至各自基于不同的旧状态得出结论。更稳妥的结构是：</p>
+<pre><code class="hljs language-text">并行读取与分析 → 主 Agent 合并判断 → 单一写入者修改 → 统一测试
+</code></pre><p>如果最终没有改代码，只新增 <code>AUDIT.md</code>，完全可以接受。审查的目标是发现真实问题，不是制造 diff。</p>
+<h2 id="wiki-h-9">13.9 独立验收交付结果</h2>
+<p>不要只接受 Agent 的完成报告。在系统终端运行：</p>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+</code></pre><p>然后检查 <code>AUDIT.md</code> 确实存在且包含关键段落。</p>
+<p>macOS 与 Linux：</p>
+<pre><code class="hljs language-bash">grep -E <span class="hljs-string">"审查范围|已确认|人工判断|验收记录"</span> AUDIT.md
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Select-String</span> <span class="hljs-literal">-Path</span> .\AUDIT.md <span class="hljs-literal">-Pattern</span> <span class="hljs-string">"审查范围|已确认|人工判断|验收记录"</span>
+</code></pre><p>你还应该在 DSH 的改动视图中确认：</p>
+<ul>
+<li>一定存在的改动只有 <code>AUDIT.md</code>；</li>
+<li>若主 Agent 实施了修复，源码和测试必须成对出现；</li>
+<li><code>sources.json</code>、MCP 允许目录和 Skill 规则没有被无理由放宽；</li>
+<li>没有 <code>node_modules</code>、凭证、临时日志或联网生成物混入改动。</li>
+</ul>
+<p>若报告声称修复了问题，却没有对应测试或测试失败，请撤销该项修复后回到审查结论，不要把“子智能体建议”当成修改依据本身。</p>
+<h2 id="wiki-h-10">13.10 Subagent、Workflow 和 Agent Team 怎么选</h2>
+<p>本章没有使用 Workflow，不是因为它不支持并行，而是因为两个固定任务用普通委派更清楚。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>判断点</th>
+<th>Subagent</th>
+<th>Workflow</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>任务数量</td>
+<td>一两项聚焦委派</td>
+<td>多项同构任务或多阶段编排</td>
+</tr>
+<tr>
+<td>编排方式</td>
+<td>主 Agent 直接发起并接收结果</td>
+<td>模型生成 JavaScript 编排脚本</td>
+</tr>
+<tr>
+<td>常见结构</td>
+<td>“分别审查 A 和 B，再汇总”</td>
+<td>批量并行、流水线、分阶段聚合</td>
+</tr>
+<tr>
+<td>结果</td>
+<td>每个委派各自结算</td>
+<td>整个脚本返回一个最终 JSON 值</td>
+</tr>
+<tr>
+<td>额外成本</td>
+<td>每个子级一份独立上下文</td>
+<td>子级上下文之外，还有脚本、阶段和聚合复杂度</td>
+</tr>
+</tbody></table></div>
+<p>官方给出的边界很直接：一两项委派优先普通 Subagent；跨很多文件的审计、迁移或多角度研究，且用户明确要求工作流式编排时，再使用 <code>workflow</code>。Workflow 脚本可调用 <code>agent()</code>、<code>parallel()</code>、<code>pipeline()</code>、<code>phase()</code> 和 <code>log()</code>，但它不是“更高级所以总该用”的模式。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/workflow/tool-workflow/README.zh.md">官方 Workflow 工具说明</a> · <a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/workflow/workflow/README.zh.md">Workflow 能力说明</a></p>
+<p>如果以后把审查扩大为“对 30 个源配置逐项检查，再经过安全复核和最终归类”，Workflow 才开始有明显价值：第一阶段批量检查，第二阶段复核高风险项，第三阶段返回结构化汇总。本章只有两个固定视角，用脚本编排反而增加理解和排错成本。</p>
+<p><strong>Agent Team</strong>解决的是另一类问题：Lead 与具名 teammate 需要在同一工作区持续协作，用持久消息和共享任务板维护分工。当前官方实现仍以 <code>experimental</code> 包名发布；成员共享同一个工作目录，任务的 <code>writeScopes</code> 只是冲突提示，不是文件锁，也不支持为每位成员分配独立工作区。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/experimental/agent-team/README.zh.md">Agent Team 官方说明</a></p>
+<p>因此，本章的两项一次性只读审查使用 Subagent 就够了，不要求你为了看任务板而启用实验性 Team。等任务真的需要具名成员、成员间消息和可恢复任务状态时，再在隔离 Profile 中学习 Agent Team。</p>
+<h2 id="wiki-h-11">13.11 并行的收益、成本和边界</h2>
+<h3 id="wiki-h-12">并行不等于一定更快</h3>
+<p>两个子任务足够独立、每个都需要明显推理时间时，并行才可能缩短等待。任务只有几十秒，创建子上下文、传递提示和汇总结果的开销可能抵消收益。</p>
+<h3 id="wiki-h-13">每个子智能体都会产生模型消耗</h3>
+<p>子级有独立上下文，也会发起独立模型请求。并行改变的是墙上时间，不会把两份推理成本变成一份。启用子级模型选择时，可以为低风险任务限定较轻模型，但应先用 <code>list_subagent_models</code> 核对真实 provider、model 和推理强度，而不是猜模型 ID。</p>
+<h3 id="wiki-h-14">并行写入比并行读取危险</h3>
+<p>让多个子级同时读不同文件通常问题不大；让它们同时编辑共享文件，则需要清晰的文件所有权、合并顺序和冲突处理。初学阶段优先采用本章结构：子级只读，父级写入。</p>
+<h3 id="wiki-h-15">失败不会自动变成“部分成功”</h3>
+<p>一个委派失败时，主 Agent 应明确指出哪个子任务没有结果，以及哪些结论因此缺失。不要让它用另一名子智能体的意见填补空白，更不要让最终报告暗示“双视角审查已完成”。需要时可以重新委派失败的那一项，而不是把两项都重跑。</p>
+<h2 id="wiki-h-16">13.12 常见问题</h2>
+<h3 id="wiki-h-17">Agent 没有调用 <code>subagent</code></h3>
+<p>先确认使用的是标准模式的新任务，再打开“设置 → 插件 → 插件列表”检查 Subagent 服务、spawn provider 和委派工具是否正常加载。回到“设置 → 插件 → 子智能体”确认最大深度不是 <code>0</code>。若刚改设置，新建任务后再试。</p>
+<p>不要只把提示词改成“请更加并行”。工具没有加载时，模型不可能靠文字创造真正的子会话。</p>
+<h3 id="wiki-h-18">两个子智能体变成了先后执行</h3>
+<p>检查两个委派是否在同一主 Agent 步骤中发起。如果主 Agent 先等待 A，再调用 B，把要求收紧为“在同一条 assistant 消息里同时发起两个独立的 subagent 调用，等待前不要启动后续依赖工作”。</p>
+<p>也要确认两个任务真的没有依赖。若 B 必须读取 A 生成的内容，它们本来就不应并行。</p>
+<h3 id="wiki-h-19">子智能体说看不到前文</h3>
+<p>这是全新 spawn 子级的正常行为，不是故障。委派提示必须自包含：写清工作目录、允许读取的文件、禁止操作、输出格式和验收标准。只有任务确实依赖父对话已经完成的历史时，才考虑 <code>subagent_fork</code>。</p>
+<h3 id="wiki-h-20">子级开始改文件</h3>
+<p>先停止该子级当前轮次，并检查父任务是否真的处于 Read Only。然后重新委派，明确“不得创建、修改或删除文件”。权限控制和任务约束要同时存在；只写一句“请谨慎”不构成边界。</p>
+<h3 id="wiki-h-21">父 Agent 汇总了不存在的证据</h3>
+<p>打开对应子会话，找到原始结论和文件位置。如果父汇总无法追溯到任一子级，要求它删除该项或重新读取项目验证。多 Agent 的可观察性不是为了看起来热闹，而是为了让结论可以追责。</p>
+<h2 id="wiki-h-22">13.13 本章验收</h2>
+<p>进入下一章前，请确认：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">能解释 DSH 子智能体与日报助手 Node.js 运行时并发的区别；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">最大委派深度允许主 Agent 创建直接子级，且本章使用了新建任务；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">两个 <code>subagent</code> 在同一主 Agent 步骤中启动，并分别完成代码测试审查和文档安全审查；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能从父任务顶部的子级目录打开两个真实子会话；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">审查阶段没有文件写入、依赖安装或外部网络请求；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">主 Agent 对结论去重、区分确定性并标明来源；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>AUDIT.md</code> 由主 Agent 串行写入，任何可选修复都有测试；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已在系统终端独立运行 <code>npm test</code> 并检查 <code>AUDIT.md</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能说明 Subagent、Workflow 与实验性 Agent Team 分别解决什么问题；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">知道并行可以减少等待，但不会减少模型请求成本，也不会自动解决写冲突。</li>
+</ul>
+<p>现在，日报助手多了一份可追溯的审查记录。你也完成了一个真实的多智能体闭环：拆分独立任务、并行委派、查看子会话、合并证据、控制写入并独立验收。下一章会把注意力从“同时做两件事”转向“让一个较长目标跨多轮持续推进”。</p>
+<hr>
+<p>← 上一章：案例三：用 Skill 固化方法，用 MCP 接入工具　|　回目录　|　下一章：案例五：让 Agent 持续推进一个长目标 →</p>
+</article>

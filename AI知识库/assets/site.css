@@ -122,6 +122,66 @@ body,
   margin-top: 0;
 }
 
+/* 沉浸阅读：保留页头、搜索与退出入口，只收起阅读时的侧栏。 */
+.kb-reading-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  margin-inline: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: 0.2rem;
+  color: var(--ink-2);
+  background: var(--paper);
+  font: inherit;
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+.kb-reading-toggle svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.kb-reading-toggle:hover,
+.kb-reading-toggle[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--paper-2);
+}
+.kb-reading-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+html[data-reading-mode="immersive"] .md-sidebar,
+html[data-reading-mode="immersive"] .md-header label[for="__drawer"] {
+  display: none;
+}
+html[data-reading-mode="immersive"] .md-main__inner {
+  max-width: 76rem;
+  padding-inline: clamp(0.5rem, 3vw, 2rem);
+}
+html[data-reading-mode="immersive"] .md-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 64rem;
+  margin-inline: auto;
+}
+html[data-reading-mode="immersive"] .md-content__inner {
+  margin-inline: 0;
+  padding-inline: clamp(0.6rem, 2vw, 1.6rem);
+}
+@media (max-width: 40em) {
+  .kb-reading-toggle {
+    margin-inline: 0.15rem;
+    padding: 0.35rem;
+  }
+  .kb-reading-toggle span { display: none; }
+}
+
 /* 文章标题：衬线大字 + 发丝线 */
 .md-typeset h1 {
   font-family: "Songti SC", "Noto Serif SC", "STSong", serif;

@@ -1,0 +1,251 @@
+你让AI给笔记助手加一个搜索框。十分钟后，它说完成了，却改了十几个文件。页面打不开，你又让它修；第二轮能打开了，但原来显示的证据统计不见了。此时你最想知道的通常不是“再写一遍行不行”，而是：第一轮到底改了什么？哪一次还能用？能不能只撤掉错误的部分？
+
+上一篇把目标写进了搜索规格。本篇给项目建立可比较的起点，再亲手完成一次有选择的提交、一次未提交修改的撤回，以及一次已经提交错误的撤销。练习只改变教学笔记，应用源码与搜索规格都保持原样，历史搜索仍待第04篇实现。
+
+下载练习包 · 材料说明 · 上一篇：需求与规格
+
+核实日期：2026年10月4日。作者用Git 2.49.0在macOS临时仓库实际验证本文流程；Windows命令按通用Git语法提供，未做Windows实机验证。Kimi Code 2.0.2仅核对help/version，没有真实Agent生成或DeepSeek调用。本课不需要模型账户、付费额度或运行网页。
+
+先明白：检查点到底保存了什么
+
+Git是版本管理工具。你可以把一次commit理解成给选定内容建立一个可命名、可比较的项目版本。以后即使文件变了，已提交版本仍可供查看。它不是必须连接GitHub才能使用的服务：本篇所有操作都发生在本地。
+
+需要先认识三个位置：
+
+位置	在练习里是什么意思
+工作区	编辑器里正在修改的文件
+暂存区，也叫index	已经选定、准备放进下一次提交的内容
+当前提交，通常用HEAD指代	当前所在的已记录版本
+
+流程是：在工作区修改，使用git add选择内容，再使用git commit记录暂存区。add保存的是执行当时的内容，之后继续编辑不会自动更新暂存区。git-add文档
+
+所以“文件已保存”和“版本已提交”不是一回事。前者让磁盘上有最新文件，后者让你保留一个能够与未来修改比较的版本。提交也不代表测试通过；它只记录内容，质量证据需要另外给出。git-commit文档
+
+对AI开发，检查点最直接的价值是减少混淆：任务开始前是什么，Agent本轮改了什么，哪些是你自己的未完成工作，都有了明确参照。
+
+准备一个独立练习目录
+
+把练习包解压到新的学习文件夹，例如“文档”下的ai-git-lab。不要覆盖前两篇材料，也不要直接在自己的旧项目或包含私人资料的文件夹里演练撤销。
+
+包内结构如下：
+
+lesson-03/
+  README.md
+  TASK.md
+  verify_checkpoints.py
+  starter/
+    .gitignore
+    CHECKPOINT_NOTES.md
+    PERSONAL_NOTES.md
+    SEARCH_SPEC.md
+    search-cases.json
+    audit_cases.py
+    project/                 第02篇的38文件应用原样快照
+
+
+PERSONAL_NOTES.md只是公开的教学文件，名字用于模拟“与任务无关的个人改动”，不要填入真正私密内容。练习包不带.git历史，下面由你亲手创建；也不带运行数据库和密钥。
+
+先在终端进入解压后的lesson-03。macOS/Linux可用pwd查看所在目录，Windows PowerShell可用Get-Location。然后执行以下命令；除特别标注的Python启动方式外，本篇Git命令在两种终端相同：
+
+git --version
+cd starter
+git init -b main
+git rev-parse --show-toplevel
+
+
+最后一条必须指向刚解压的lesson-03/starter。它用于确认你操作的是本课仓库。如果显示其他项目路径，先停下并核对目录，不要继续暂存或恢复文件。本文使用支持init -b、switch和restore的Git；若旧版本不认识参数，可从Git安装页面选择对应系统安装方式，重新打开终端后检查。init -b main在新仓库设置初始分支名。git-init文档
+
+给这个新仓库设置提交身份：
+
+git config --local user.name "Course Learner"
+git config --local user.email "learner@example.invalid"
+
+
+这只是演示用的提交署名，不是Kimi、DeepSeek或GitHub登录。--local把设置限制在当前仓库，避免为了练习改变其他项目的全局身份。git-config文档
+
+在第一次提交前，先看清楚要保存的范围
+
+打开starter/.gitignore，你会看到.venv/、config.json、.env、data/以及生成记录等排除项。源码和config.example.json模板适合纳入版本；自己的真实配置、会话密钥与数据库不应混进去。
+
+.gitignore主要影响尚未跟踪的文件。已经被跟踪的文件不会因为补上一行忽略规则就从历史消失，它也不是自动识别密钥的扫描器。gitignore文档
+
+在这个尚未运行、没有私人文件的练习仓库里执行：
+
+git status --short --untracked-files=all
+git check-ignore -v project/config.json project/data/demo.sqlite3 .venv/example.txt
+git add .gitignore CHECKPOINT_NOTES.md PERSONAL_NOTES.md SEARCH_SPEC.md search-cases.json audit_cases.py project
+git diff --staged --stat
+git diff --staged --name-only
+
+
+check-ignore只是拿几个路径检查规则，即使文件尚不存在也可以检查，不会生成配置或数据库。它应列出相应忽略规则。随后暂存清单应包含44个教学文件，不包含密钥、数据、虚拟环境或外层的验证脚本。仔细检查文件名；不确定的文件先打开确认再提交。
+
+git commit -m "chore: record lesson 03 baseline"
+git status --short
+git log -1 --oneline
+
+
+预期status --short没有输出，log显示一条基线提交。输出的短哈希由你的提交内容和元数据决定，不必与任何示例相同。
+
+这份基线包含第01篇证据统计和第02篇搜索规格，没有新增搜索功能。你现在可以明确地说：“后面的差异是相对于这个起点产生的。”本地提交仍在这台电脑上，不能代替另存备份；本课不要求注册托管服务或推送代码。
+
+开一个分支，做一次有选择的提交
+
+在干净的基线上执行：
+
+git switch -c checkpoint-lab
+git branch --show-current
+
+
+预期当前分支是checkpoint-lab。分支可以先理解成一条有名字的版本路线：main保留基线，练习提交沿新路线前进。切分支使用的仍是这个文件夹，不会自动获得另一个独立工作目录；未提交修改也可能被带到其他分支，因此先确认状态干净再切换。git-switch文档
+
+用编辑器打开CHECKPOINT_NOTES.md，将全文改为：
+
+# 开发检查点
+
+状态：规格已确认，搜索尚未实现。
+
+
+编辑器按UTF-8保存，并保留文件末尾换行；配套检查会核对这些完整文字。再在PERSONAL_NOTES.md末尾添加一行：
+
+临时想法：以后研究界面配色。
+
+
+保存两个文件，运行：
+
+git status --short
+git diff --stat
+git diff -- CHECKPOINT_NOTES.md PERSONAL_NOTES.md
+
+
+如果终端进入分页查看界面，按q退出后再输入下一条命令。应只有两个文件改变。差异中-标出删除的旧行，+标出新增的行；它们不是需要复制到文件中的字符。检查点结论属于本次任务，配色想法暂时不属于。
+
+只选择检查点文件：
+
+git add CHECKPOINT_NOTES.md
+git diff --staged -- CHECKPOINT_NOTES.md
+git diff -- PERSONAL_NOTES.md
+
+
+第一条diff看准备提交的内容，第二条看尚未暂存的内容。一般地，git diff比较工作区与暂存区，git diff --staged比较暂存区与当前提交；git diff HEAD可查看已跟踪文件相对当前提交的整体变化，但不会展示新建且未跟踪文件的正文。先看status，再看diff，才能不漏文件。git-diff文档
+
+先练习取消选择，再重新选择：
+
+git restore --staged -- CHECKPOINT_NOTES.md
+git diff --staged --name-only
+git diff -- CHECKPOINT_NOTES.md
+git add CHECKPOINT_NOTES.md
+git commit -m "docs: record confirmed search scope"
+git status --short
+
+
+取消暂存后，暂存文件清单应为空，但正确的新句子仍在工作区；重新暂存并提交后，只剩PERSONAL_NOTES.md未提交。没有把所有改动捆成一包，才方便独立审阅和撤销。
+
+现实中，同一文件也可能混着多个任务的修改。先拆成小步最容易理解；需要时可使用git add -p按差异块选择，但仍要检查暂存diff，不能把“选了一部分”当作天然正确。本篇只练习按文件选择。
+
+撤回未提交改动：先明确放弃的是哪一份内容
+
+现在配色想法是本课故意制造的可丢弃文字。先看一遍，再恢复它：
+
+git diff -- PERSONAL_NOTES.md
+git restore --source=HEAD --worktree -- PERSONAL_NOTES.md
+git status --short
+
+
+预期文件恢复到基线文字，工作区干净。这里明确指定从HEAD恢复工作区的这个文件，真正丢弃了尚未提交的那一行。对真实的未完成工作，应该先保留副本或整理成提交，而不是照搬这个练习。
+
+再做一个容易混淆的实验：把CHECKPOINT_NOTES.md中的状态改为“状态：搜索已经上线并通过验收。”，保存后检查：
+
+git diff -- CHECKPOINT_NOTES.md
+git restore --source=HEAD --worktree -- CHECKPOINT_NOTES.md
+
+
+重新打开文件，应恢复为“规格已确认，搜索尚未实现”。这次错误从未提交，所以恢复文件即可。
+
+对照两种操作：restore --staged只是取消暂存，本篇指定--source=HEAD --worktree则用已提交版本覆盖工作区文件。默认不带--source的工作区恢复来源是暂存区；为了不让初学者混淆“从哪恢复”，这里始终写明来源。若同时有暂存和未暂存修改，先分别看两个diff再决定，不能凭命令名字猜作用。git-restore文档
+
+撤销已提交错误：留下修正记录
+
+假设那个错误结论已经被提交，处理方式就不同了。再次用编辑器把状态改为：
+
+状态：搜索已经上线并通过验收。
+
+
+这是教学反例，不是功能真的上线。只在当前练习仓库执行：
+
+git add CHECKPOINT_NOTES.md
+git commit -m "demo: record an intentionally wrong completion claim"
+git status --short
+git log -1 --oneline
+git show --stat HEAD
+
+
+确认工作区干净、最新提交正是故意造出的错误，然后执行：
+
+git revert --no-edit HEAD
+git log --oneline --max-count=4
+
+
+revert创建一个新提交，用相反的改动抵消所选提交；原错误仍在历史里，可以看清它如何被修正。本实验里目标就是刚刚核对过的HEAD。真实项目如果错误在更早的提交，要先定位正确提交，不能机械地撤销最新版本。较复杂改动可能发生冲突，应停下来理解差异；尚未完成的revert可用git revert --abort退出。git-revert文档
+
+预期现在总共有四条提交：基线、正确结论、故意错误、撤销错误。文件最终又写着“搜索尚未实现”。Git帮你恢复的是已记录的代码或文档状态；它不能退还已经调用模型的费用，也不能自动恢复被程序改过、但没有纳入版本的数据库。
+
+用独立检查证明自己没有撤错
+
+不要仅因为命令没有报错就认为练习完成。仍在starter目录，执行：
+
+git status --short
+git diff main HEAD --name-only
+git diff main HEAD -- project SEARCH_SPEC.md search-cases.json audit_cases.py PERSONAL_NOTES.md
+git log --oneline --max-count=4
+
+
+四个结果应分别是：无未提交文件；只有CHECKPOINT_NOTES.md与main不同；应用、规格、案例和临时想法文件无差异；历史保留四条记录。即使最终文件正确，错误提交与撤销提交依然可以在历史中看到。
+
+再运行包外层提供的只读检查脚本：
+
+macOS/Linux：
+
+python3 ../verify_checkpoints.py
+
+
+Windows PowerShell：
+
+py -3 ../verify_checkpoints.py
+
+
+预期显示“检查点练习通过：4次提交，工作区干净，应用与规格未变。”脚本检查固定练习目录、分支、提交父子关系、最终文件和各阶段差异，不运行应用、不修复仓库，也不创建提交。若你的文件或提交顺序与教程不同，它会给出未通过原因；不要为了凑结果在真实仓库里删除历史。
+
+作者在临时副本实际演练了这些命令，并检查：取消暂存仍保留工作区文字，文件恢复没有碰无关文件，错误提交被新提交抵消，忽略路径未进入基线。随后分别故意留下未跟踪文件、改动应用、破坏最终结论，确认独立脚本能拒绝这些错误状态。应用源码没有改变，本篇没有重新声称搜索或模型调用通过了测试。
+
+把这套流程交给Kimi Code时，责任怎样分
+
+完成练习后，可以把同样的检查习惯用于真实Agent任务。安装与登录已完成的读者可在自己的练习仓库运行kimi --plan，发送下面的审阅请求；它可能消耗Kimi额度，手工执行本篇不需要这一步。
+
+先确认仓库根目录、当前分支、git status和本轮diff。
+只解释修改范围，不修改文件、不暂存、不提交、不撤销。
+区分本轮任务修改与原有未提交工作；无法确定归属就明确说明。
+核对CHECKPOINT_NOTES与SEARCH_SPEC的状态是否一致。
+不要读取运行data、个人配置或密钥，也不调用应用模型。
+最后给出建议的提交范围和仍需验证的事项，由我执行提交。
+
+
+当前文档与本机help均提供--plan，但规划模式不等于操作系统只读隔离；仍应核对实际动作。Kimi Code命令文档
+
+下一次让Agent正式改代码时，先记录已存在的未提交工作；在干净或归属明确的起点开始，每次完成一个可验证的小目标，再审阅diff与检查结果，提交这个目标。提交说明写清结果，例如“限制历史搜索为当前会话问题字段”，比“AI修改”更方便日后定位。
+
+遇到这些情况，先查原因
+现象	先检查什么
+git找不到，或不认识switch、init -b	Git是否安装、终端是否重开、版本是否过旧
+提交要求设置身份	是否在starter里配置了本仓库的user.name和user.email
+git diff为空，却知道改了文件	是否已暂存，或文件仍是??未跟踪状态；分别看status和暂存diff
+取消暂存后新文字还在	这是正确结果，取消选择不等于删除工作区修改
+切分支被拒绝	本地修改可能被覆盖；先看状态并保存，不加强制参数硬切
+提交要求签名或触发自己配置的钩子	这是本机配置影响，先看错误；不要为练习关闭其他真实项目的规则
+检查脚本不通过	对照目录、分支、四次提交及文件内容，先定位第一项差异
+
+git status --short的两列分别描述暂存区与工作区状态：本篇常见 M是未暂存修改，M 是已暂存修改，??是未跟踪文件。终端会保留这些空格，阅读时别把它们混成同一种M。git-status文档
+
+最后想一想：Agent说“已经帮你回退了”，你应该看什么？至少看当前文件、工作区差异和提交历史，再运行对应验证。它如果只恢复了源码，却已经写过数据库，任务就不能仅凭Git状态干净宣布恢复完成。
+
+本篇完成后，你拥有一个可检查的起点和一段能解释的修改历史。下一篇根据已经确认的搜索规格拆分页面、业务与存储任务，开始把功能做出来；届时每个小步都有自己的差异和验证证据。

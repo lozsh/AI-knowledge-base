@@ -1,0 +1,259 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本文属于《DeepSeek Harness 入门教程（实战版）》· 第四部分 · 沿着项目掌握核心能力</p>
+</blockquote>
+<h1>第 12 章　案例三：用 Skill 固化方法，用 MCP 接入工具</h1>
+<p>上一章结束时，日报助手已经是一个可运行、可测试的 Node.js 项目。现在会遇到两个很实际的问题：</p>
+<ol>
+<li>每次维护项目，都要重复说“不安装依赖、测试不联网、同步 README”；</li>
+<li>DSH 自带的工具之外，以后还可能需要连接数据库、文件服务或公司内部系统。</li>
+</ol>
+<p>第一个问题用 <strong>Skill</strong> 解决，第二个问题用 <strong>MCP</strong> 解决。本章不停留在概念上，你会完成两个闭环：</p>
+<ul>
+<li>在项目中创建真正能被 DSH 发现的 <code>daily-report-maintainer</code> Skill，再用它完成一次小改动；</li>
+<li>在隔离的 CLI/Web Profile 中接入官方 MCP Filesystem Server，只授予一个练习目录，完成工具调用和越界拒绝验证。</li>
+</ul>
+<p>这里不接入需要账号、付费或密钥的外部服务。我们先把机制和边界学清楚，以后换成真实业务系统时，判断方法不变。</p>
+<h2 id="wiki-h-0">12.1 先分清四个名词</h2>
+<p>Skill、MCP、插件和 Agent 预设经常同时出现，但它们处在不同层。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>机制</th>
+<th>它解决什么</th>
+<th>会不会自动增加能力</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Skill</td>
+<td>告诉 Agent 一类任务应怎么做</td>
+<td>不会；它是指令，仍使用现有工具</td>
+</tr>
+<tr>
+<td>MCP Server</td>
+<td>对外提供标准化的工具或资源</td>
+<td>会；连接后模型获得新工具</td>
+</tr>
+<tr>
+<td>插件</td>
+<td>向 DSH 运行时提供或组合能力</td>
+<td>取决于插件角色</td>
+</tr>
+<tr>
+<td>Agent 预设</td>
+<td>为新任务选定插件、工具与指令组合</td>
+<td>本身是组合，不是外部协议</td>
+</tr>
+</tbody></table></div>
+<p>DSH 里的 MCP 其实正好跨越两层：外部程序是 MCP Server，<code>@deepseek-ai/dsh-mcp-client</code> 则是把它接入 DSH 工具注册表的插件。所以“配了 MCP”不等于“写了一份 Skill”，也不等于“创建了 Agent 预设”。</p>
+<h2 id="wiki-h-1">12.2 确认项目起点</h2>
+<p>回到 <code>daily-report</code> 工作区。本章默认你已完成第 11 章，因此至少应该看到：</p>
+<pre><code class="hljs language-text">daily-report/
+├── PROJECT.md
+├── README.md
+├── package.json
+├── sources.json
+├── daily-report.md
+├── src/
+└── test/
+</code></pre><p>具体的 <code>src</code> 和 <code>test</code> 文件名可能不同，这不影响继续。先在系统终端进入该目录，执行：</p>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+</code></pre><p>只有基线测试通过才继续。如果这里已经失败，先回第 11 章修复；否则后面无法判断是 Skill 引导的改动出了问题，还是原项目本来就是坏的。</p>
+<h2 id="wiki-h-2">12.3 创建一份真正的项目 Skill</h2>
+<p>DSH 的本地 Skill 不是随便放在 <code>skills/</code> 下的 Markdown。当前文件系统提供方会扫描几个明确的根目录，项目级 DSH Skill 的首选位置是：</p>
+<pre><code class="hljs language-text">&lt;projectRoot&gt;/.dsh/skills/&lt;skill-name&gt;/SKILL.md
+</code></pre><p>它也支持在 <code>.dsh/skills</code> 顶层使用平铺的 <code>&lt;name&gt;.md</code>，但目录 bundle 更适合以后增加 <code>references/</code>、<code>scripts/</code> 或 <code>assets/</code>。Skill 名称必须使用 kebab-case，文件必须有 <code>name</code> 和 <code>description</code> frontmatter；嵌套更深的 <code>**/SKILL.md</code> 不会被递归发现。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.zh.md">官方 Skill 文件系统说明</a></p>
+<p>在标准模式、Workspace Write 权限的当前任务中发送：</p>
+<pre><code class="hljs language-text">请在当前 daily-report 项目中创建一份项目级 Skill，路径必须是：
+.dsh/skills/daily-report-maintainer/SKILL.md
+
+文件内容必须与下面一致。不要创建脚本，不要改动项目其他文件。
+
+```markdown
+---
+name: daily-report-maintainer
+description: 修改日报助手的配置、输出格式或命令行为，并保持测试与 README 同步。
+user-invocable: true
+---
+
+# Daily Report Maintainer
+
+处理日报助手的行为变更时，请遵守：
+
+1. 先读取 PROJECT.md、package.json、README.md 和相关源码，再修改。
+2. 保持 ES Modules 和零第三方依赖；不要运行 npm install。
+3. 行为变更必须补充或更新测试，用法变更必须同步 README.md。
+4. 自动测试使用假 fetch，不访问真实网络，不在项目根目录留下测试报告。
+5. 先运行直接相关的聚焦测试，再运行 npm test。
+6. 除非用户单独批准，不要运行会访问 GitHub 的 npm start。
+7. 最终报告列出改动文件、实际测试结果，并单列“未执行的外部操作”。
+```
+
+创建后重新读取该文件，确认 frontmatter 和 7 条规则都完整。
+</code></pre><p>这份 Skill 只是文本指令，没有脚本和新工具，因此不会绕过工作区权限或审批。它真正的价值是把项目约定从每次的长提示词中抽出来，让后续任务可复用、可更新。</p>
+<h2 id="wiki-h-3">12.4 验证 Skill 已被发现，而不是只创建了文件</h2>
+<p>本地 Skill 提供方会监视根目录，新增或更改有效 Skill 后通常不用重启 DSH。为了避免旧任务已有上下文干扰，在 <code>daily-report</code> 工作区下新建一个标准模式任务。</p>
+<p>在输入框中输入 <code>/daily-report-maintainer</code>。如果内联建议里出现这个名称，说明目录已发现它。把下面的完整任务作为同一条消息发送：</p>
+<pre><code class="hljs language-text">/daily-report-maintainer
+
+请在当前日报 Markdown 的生成时间下方增加一行汇总，显示“数据源数量”和“release 总数”。
+
+要求：
+1. 根据当前实际源码做最小改动，不改数据获取策略；
+2. 更新渲染相关测试和 README.md；
+3. 只运行无网络测试，本次不批准 npm start；
+4. 完成后按 Skill 要求报告。
+</code></pre><p>DSH 的 <code>tool-skill</code> 会给 Agent 提供可用 Skill 的名称与描述目录，完整正文按需加载。用户在消息中显式写出 <code>/name</code> 时，该 Skill 的完整内容会注入当前步骤，无需模型再调用一次 <code>skill</code> 工具。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/tool-skill/README.zh.md">官方 Skill 加载工具说明</a></p>
+<p>一次合格执行应该出现下面的特征：</p>
+<ul>
+<li>Agent 先读当前项目文件，而不是凭空假设渲染函数名；</li>
+<li>实际差异集中在 Markdown 渲染、相关测试和 README；</li>
+<li>先跑相关测试，再跑 <code>npm test</code>；</li>
+<li>轨迹中没有 <code>npm install</code>、<code>npm start</code> 或 GitHub 网络请求；</li>
+<li>最终报告单列“未执行的外部操作”，并注明 <code>npm start</code> 未运行。</li>
+</ul>
+<p>最后在系统终端亲自执行：</p>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+</code></pre><p>再打开代码差异，确认 <code>sources.json</code> 和网络请求模块没有被改动。这次不运行 <code>npm start</code>，因为我们要验证 Skill 中的“外部操作需单独批准”确实影响了执行边界。</p>
+<h3 id="wiki-h-4">Skill 没出现时先查什么</h3>
+<ol>
+<li>检查路径是 <code>.dsh/skills/daily-report-maintainer/SKILL.md</code>，不是 <code>skills/daily-report-maintainer.md</code>；</li>
+<li>检查 frontmatter 两侧的 <code>---</code>，以及 <code>name</code> 是否与目录名一致的 kebab-case；</li>
+<li>新建任务再试，避免旧目录投影造成误判；</li>
+<li>在“设置 → 插件 → 插件列表”中确认 Skill registry、filesystem provider 和 <code>tool-skill</code> 没有加载错误。</li>
+</ol>
+<p>无效 frontmatter 的 Skill 会被跳过并记录警告，模型目录未必会把具体解析错误直接展示给你。所以排查顺序应该先看路径和 frontmatter，不是反复让模型“再搜一遍”。</p>
+<h2 id="wiki-h-5">12.5 MCP 部分为什么使用隔离 Profile</h2>
+<p>Skill 会被按需加载；MCP Server 连接成功后，它的工具名称、描述和参数 schema 会加入模型的工具列表。连接的 Server 越多，模型每次要理解的工具定义就越多。</p>
+<p>为了不把练习 Server 永久加到你的 Desktop 或日常 Web Profile，本章采用一个临时组合：</p>
+<pre><code class="hljs language-text">独立 mcp-lab Profile + 项目内 patch + 一个 mcp-scratch 允许目录
+</code></pre><p>这条路线需要系统 Node.js 和 <code>npx</code>。只安装了 Desktop 的读者，请先按 macOS 或 Windows 安装章的 CLI/Web 小节确认：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --version
+</code></pre><p>官方 MCP Client 的可复现配置方式，就是为每个 Server 插入一条 <code>@deepseek-ai/dsh-mcp-client</code> 配置。本地程序使用 <code>stdio</code>，远程服务使用 <code>streamable-http</code>；连接后工具名称是 <code>mcp__&lt;serverName&gt;__&lt;rawName&gt;</code>。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/mcp/mcp-client/README.zh.md">官方 MCP Client 说明</a></p>
+<h2 id="wiki-h-6">12.6 为 MCP 准备一个最小权限目录</h2>
+<p>在 <code>daily-report</code> 项目根目录创建一个空目录 <code>mcp-scratch</code>。</p>
+<p>macOS 与 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p mcp-scratch
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> mcp<span class="hljs-literal">-scratch</span>
+</code></pre><p>接下来需要它的<strong>绝对路径</strong>。</p>
+<p>macOS 与 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> mcp-scratch
+<span class="hljs-built_in">pwd</span>
+<span class="hljs-built_in">cd</span> ..
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">(<span class="hljs-built_in">Resolve-Path</span> .\mcp<span class="hljs-literal">-scratch</span>).Path
+</code></pre><p>记录输出。Windows 用户写入 YAML 时可以把路径改为正斜杠，例如 <code>C:/Users/mei/dsh-learning/daily-report/mcp-scratch</code>，避免反斜杠转义带来混淆。</p>
+<p>为什么不把整个用户主目录交给 Filesystem Server？因为 MCP Server 是 DSH 之外的进程。Workspace Write 是 DSH 原生文件和 Shell 路径的边界，不应被当成所有外部 Server 的通用沙箱。这次的强边界来自 Filesystem Server 启动参数中唯一允许的 <code>mcp-scratch</code> 目录。</p>
+<h2 id="wiki-h-7">12.7 创建 MCP patch，但先不启动</h2>
+<p>在项目中新建 <code>.dsh/mcp-filesystem.yml</code>，内容如下。请把 <code>&lt;MCP_SCRATCH_ABSOLUTE_PATH&gt;</code> 替换成上一步得到的绝对路径，不要保留尖括号。</p>
+<pre><code class="hljs language-yaml"><span class="hljs-bullet">-</span> <span class="hljs-attr">insert:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-attr">id:</span> <span class="hljs-string">mcp-daily-report-fs</span>
+      <span class="hljs-attr">name:</span> <span class="hljs-string">'@deepseek-ai/dsh-mcp-client'</span>
+      <span class="hljs-attr">config:</span>
+        <span class="hljs-attr">serverName:</span> <span class="hljs-string">daily_report_fs</span>
+        <span class="hljs-attr">transport:</span> <span class="hljs-string">stdio</span>
+        <span class="hljs-attr">command:</span> <span class="hljs-string">npx</span>
+        <span class="hljs-attr">args:</span>
+          <span class="hljs-bullet">-</span> <span class="hljs-string">'-y'</span>
+          <span class="hljs-bullet">-</span> <span class="hljs-string">'@modelcontextprotocol/server-filesystem@2026.7.10'</span>
+          <span class="hljs-bullet">-</span> <span class="hljs-string">'&lt;MCP_SCRATCH_ABSOLUTE_PATH&gt;'</span>
+        <span class="hljs-attr">toolCallTimeoutMs:</span> <span class="hljs-number">60000</span>
+        <span class="hljs-attr">failOnStartupError:</span> <span class="hljs-literal">true</span>
+</code></pre><p>本练习固定使用官方已发布的 <code>@modelcontextprotocol/server-filesystem@2026.7.10</code>，而不是每次随机获取 <code>latest</code>，这样便于复现教程环境。它是 Model Context Protocol 官方参考 Server，能读写启动参数列出的目录。<a href="https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem">官方 Filesystem Server 源码</a> · <a href="https://github.com/modelcontextprotocol/servers/releases/tag/2026.7.10">2026.7.10 发布记录</a></p>
+<p>第一次启动时，<code>npx -y</code> 会从 npm 下载并执行该固定版本及依赖。这是真实的外部代码执行，不是一条无害的配置读取。如果你的环境不允许从 npm 执行包，就不要继续这一部分；可以仅完成前面的 Skill 实操，再由管理员审核和预装 MCP Server。</p>
+<h2 id="wiki-h-8">12.8 先做配置检查，再起服务</h2>
+<p>打开新的系统终端，确认当前目录是 <code>daily-report</code>。首次创建隔离 Profile 时执行：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --profile mcp-lab --from-default-profile web --patch ./.dsh/mcp-filesystem.yml --dump-config
+</code></pre><p>这条命令会从官方 <code>web</code> 模板初始化 <code>mcp-lab</code> Profile，组合 patch 并输出最终配置，不启动 Web 服务。在输出中搜索 <code>mcp-daily-report-fs</code>、<code>daily_report_fs</code> 和你的绝对路径，三者都应出现。</p>
+<p>如果你之前已经创建过 <code>mcp-lab</code>，<code>--from-default-profile web</code> 会明确拒绝覆盖已有 Profile。此时不要删目录，只需去掉初始化参数后重试：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --profile mcp-lab --patch ./.dsh/mcp-filesystem.yml --dump-config
+</code></pre><p>配置检查通过后，再启动它：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --profile mcp-lab --patch ./.dsh/mcp-filesystem.yml --port 3081
+</code></pre><p>启动器参数 <code>--profile</code> 和 <code>--patch</code> 必须放在 Web 应用参数 <code>--port</code> 前面。正常情况下，终端会打印服务地址并打开页面；没有自动打开时，手动访问 <code>http://127.0.0.1:3081</code>。如果 3081 已被占用，换一个未占用的本地端口。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.zh.md">官方 CLI 启动与 patch 说明</a></p>
+<p>第一次启动会下载 MCP Server，可能需要一些时间。<code>failOnStartupError: true</code> 会让这条 MCP 配置在连接或工具同步失败时明确激活失败，而不是让我们对着一个空工具列表猜原因。</p>
+<h2 id="wiki-h-9">12.9 验证 MCP 工具真的进了 Agent</h2>
+<p>在新打开的 <code>mcp-lab</code> Web 页面中选中 <code>daily-report</code> 工作区。这是一个新 Profile，如果模型列表为空，按第 8 章的最短路线配置一个模型；不要把 API Key 写入项目 patch。</p>
+<p>新建标准模式任务，发送：</p>
+<pre><code class="hljs language-text">请检查当前任务可用的工具，只列出名称以 mcp__daily_report_fs__ 开头的工具。
+不要调用它们，不要读写文件。
+</code></pre><p>工具清单中应该出现类似：</p>
+<pre><code class="hljs language-text">mcp__daily_report_fs__list_allowed_directories
+mcp__daily_report_fs__list_directory
+mcp__daily_report_fs__write_file
+mcp__daily_report_fs__read_text_file
+</code></pre><p>具体数量会随 Filesystem Server 版本变化，但前缀应该稳定。只在设置里看到 <code>dsh-mcp-client</code> 不算验证成功；模型的实际工具目录中有这组限定名称，才说明 Server 已连接并完成工具发现。</p>
+<p>如果列表为空，先回看启动终端的错误，再打开“设置 → 插件 → 插件列表”查找 <code>mcp-daily-report-fs</code> 的加载状态。</p>
+<h2 id="wiki-h-10">12.10 用 MCP 写入文件，再独立验收</h2>
+<p>继续在同一任务中发送：</p>
+<pre><code class="hljs language-text">这一次只允许使用名称以 mcp__daily_report_fs__ 开头的 MCP 工具，不要使用原生文件工具或 Shell。
+
+1. 先调用 list_allowed_directories，报告 Server 唯一允许的目录；
+2. 列出该目录的当前内容；
+3. 在该目录中创建 mcp-check.txt，内容必须是：MCP connection verified
+4. 通过 MCP 再读回该文件，原样报告内容。
+
+不要修改其他文件。
+</code></pre><p>执行轨迹中应该明确出现 <code>mcp__daily_report_fs__...</code> 工具卡片。<code>write_file</code> 具有覆盖文件的能力，如果当前批准策略显示确认卡片，要同时核对工具名、绝对路径和内容；不同组合的审批呈现可能不同，不要把“没弹卡片”当成服务端边界已经安全的证明。</p>
+<p>工具返回成功后，在系统终端的 <code>daily-report</code> 目录中独立执行：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"const fs=require('node:fs'); const p='mcp-scratch/mcp-check.txt'; const s=fs.readFileSync(p,'utf8'); if(s!=='MCP connection verified') process.exit(1); console.log('MCP file OK')"</span>
+</code></pre><p>成功时应看到：</p>
+<pre><code class="hljs language-text">MCP file OK
+</code></pre><p>这条命令不经过 MCP，所以它独立证明了外部 Server 的调用确实落到了磁盘，而不是 Agent 只用文字回答“写好了”。</p>
+<h2 id="wiki-h-11">12.11 故意做一次越界失败</h2>
+<p>现在反过来验证 Server 不能读取 <code>mcp-scratch</code> 之外的项目文件。发送：</p>
+<pre><code class="hljs language-text">请只使用 mcp__daily_report_fs__read_text_file，尝试读取 mcp-scratch 的上级目录中的 PROJECT.md。
+不要改用原生 read、Shell 或其他工具绕过这个限制。
+请保留实际错误并解释它证明了什么。
+</code></pre><p>预期结果是 MCP 工具调用失败，错误指向路径不在允许目录内。这次失败是成功验收的一部分：</p>
+<ul>
+<li>前一步证明“允许范围内能工作”；</li>
+<li>这一步证明“允许范围外会拒绝”。</li>
+</ul>
+<p>如果 Agent 改用原生文件工具读到了 <code>PROJECT.md</code>，那不能证明 MCP 边界失效，只能说明 Agent 没有遵守这次验收的工具限制。请重新发送任务，并在轨迹中确认实际调用的是 MCP 限定名工具。</p>
+<h2 id="wiki-h-12">12.12 停用与回退</h2>
+<p>实验完成后，回到运行 <code>mcp-lab</code> 的终端，按 <code>Ctrl+C</code> 停止该 Web Profile。终端应返回命令提示符，3081 页面随后无法继续连接。</p>
+<p>因为 MCP 条目是通过这次启动的 <code>--patch</code> 叠加进去的：</p>
+<ul>
+<li>你的官方 Desktop Profile 没有被修改；</li>
+<li>平时使用的 <code>web</code> Profile 也没有被修改；</li>
+<li>不带 <code>--patch</code> 启动 <code>mcp-lab</code> 时，不会加载这个 MCP Server；</li>
+<li><code>.dsh/mcp-filesystem.yml</code> 与 <code>mcp-scratch/mcp-check.txt</code> 作为练习产物保留，便于以后复盘。</li>
+</ul>
+<p>如果你想再次验证回退，可以不带 patch 启动同一 Profile，新建任务后再查工具列表：</p>
+<pre><code class="hljs language-bash">npx @deepseek-ai/dsh@0.1.7-rc.2 --profile mcp-lab --port 3081
+</code></pre><p>这一次不应再出现 <code>mcp__daily_report_fs__...</code> 工具。不要在旧任务中判断：工具调用历史会保留在会话中，只有新任务的当前工具列表能证明 MCP 已不再加载。</p>
+<h2 id="wiki-h-13">12.13 这两种扩展该怎么选</h2>
+<p>现在可以用一个很实际的问题来判断：<strong>Agent 缺的是方法，还是缺的是工具？</strong></p>
+<ul>
+<li>已经有读文件、写代码和跑测试的工具，只是每次容易忘记项目约定：写 Skill。</li>
+<li>现有工具无法访问某个数据库、文档系统或内部 API：评估 MCP Server。</li>
+<li>需要改变 DSH 的运行时服务、界面或组合方式：评估插件。</li>
+<li>需要为一类任务固定一套工具和行为方式：创建 Agent 预设。</li>
+</ul>
+<p>还要多问一句：不接这个外部工具，任务是否已能可靠完成？本章的 Filesystem MCP 和 DSH 原生文件工具有意重复，是为了在不引入账号和密钥的情况下学会连接、限权、调用和回退。真实项目里没有新需求时，不应保持这种重复工具长期启用。</p>
+<h2 id="wiki-h-14">12.14 常见问题</h2>
+<h3 id="wiki-h-15">patch 提示 YAML 解析失败</h3>
+<p>先检查尖括号占位符是否已替换，路径是否保持在引号内，以及缩进是否使用空格。再运行 <code>--dump-config</code>，不要通过反复启动 Web 来试错。</p>
+<h3 id="wiki-h-16">启动时提示找不到 <code>npx</code></h3>
+<p>MCP Client 是 DSH 进程，Filesystem Server 则是它要启动的外部子进程。确认在同一个系统终端中 <code>node -v</code>、<code>npm -v</code>、<code>npx -v</code> 都能输出版本。Windows 若受 PowerShell 执行策略影响，参考第 6 章的 <code>npx.cmd</code> 路线，不要改成管理员权限运行整个 DSH。</p>
+<h3 id="wiki-h-17">首次连接一直等待或失败</h3>
+<p>先在系统终端确认 npm 能访问当前 registry。不要把 DSH 模型 API 可用当成 npm 也一定可用，这是两条不同的网络路径。保留启动终端中第一条完整错误，根据包下载、子进程启动或 MCP 握手阶段分层排查。</p>
+<h3 id="wiki-h-18">工具出现了，调用却失败</h3>
+<p>先展开工具卡片看实际错误。MCP Client 在连接中断期间可能仍保留最后已知工具名，但调用会失败，直到重连成功。同时检查路径是否真的在 <code>mcp-scratch</code> 内；对越界路径的拒绝不应通过扩大到用户主目录来“修复”。</p>
+<h2 id="wiki-h-19">12.15 本章验收</h2>
+<p>进入下一章前，请确认：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>.dsh/skills/daily-report-maintainer/SKILL.md</code> 已被 DSH 发现，不是普通的散落 Markdown；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已用 <code>/daily-report-maintainer</code> 完成一次真实小改动，并独立运行 <code>npm test</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能解释 Skill 只增加指令，不增加工具或权限；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已用 <code>--dump-config</code> 检查过隔离的 <code>mcp-lab</code> 配置；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">模型工具列表中出现 <code>mcp__daily_report_fs__...</code> 限定名工具；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">MCP 成功写入 <code>mcp-scratch/mcp-check.txt</code>，并已用系统终端独立验收；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已证明 MCP Server 不能越界读取 <code>PROJECT.md</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已停止实验 Profile，并知道不带 patch 即可回退该 MCP 工具组；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能根据“缺方法还是缺工具”选择 Skill 或 MCP。</li>
+</ul>
+<p>项目现在多了一份可复用维护 Skill，你也完成了一次有真实工具、有权限边界、有独立验收和可回退路径的 MCP 接入。下一章会改变任务的执行结构：让主 Agent 把两个相互独立的评审任务委派给子智能体，再审查他们的依赖、输出和失败边界。</p>
+<hr>
+<p>← 上一章：案例二：从需求到可运行的第一版　|　回目录　|　下一章：案例四：把两项审查交给子智能体 →</p>
+</article>

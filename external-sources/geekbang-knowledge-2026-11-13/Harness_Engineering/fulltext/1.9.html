@@ -1,0 +1,312 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与操作时间：60～90 分钟<br>本篇目标：用第二篇完全相同的任务做一次受控复测，让 Agent 在完整 Harness 中实现标签筛选，再用自动检查、运行证据和过程记录判断改造是否真的有效。</p>
+</blockquote>
+<h2 id="wiki-h-0">配套代码说明</h2>
+<p>本篇的 <code>assets/lesson-08-reference-solution/</code> 是<strong>失败后的恢复路径</strong>，不是衡量 Agent 的答案标准——只要另一种实现满足产品契约、架构边界和验证要求，就同样有效：</p>
+<pre><code class="hljs language-text">lesson-08-reference-solution/
+├── public/
+│   ├── filter-books.js         # 新增：可在 Node 与浏览器复用的纯筛选模块
+│   ├── app.js                  # 接入 filterBooks + 动态标签控件
+│   └── index.html              # 加入 #tag-filter 下拉框、引入 filter-books.js
+├── scripts/
+│   ├── check.js                # 把标签验收并入长期回归
+│   └── setup.js                # 必需文件清单加入 filter-books.js
+└── docs/                       # 同步更新架构/开发/可观测性文档
+</code></pre><p>各文件实现的功能：</p>
+<ul>
+<li><strong>public/filter-books.js</strong> 是验收契约要求的那个“约定接口”的参考实现。它用 IIFE 包裹，导出 <code>filterBooks(books, {keyword, status, tag})</code>：对每本书做三条件 AND 过滤（关键词匹配 title+author 且忽略大小写、状态等于或为 <code>all</code>、标签命中或为 <code>all</code>）。它同时做两件事——<code>module.exports</code> 导出给 Node 测试用，<code>window.ShelfCareFilters</code> 挂到全局给浏览器用，所以同一份逻辑能在两端复用，这是它能被 <code>acceptance/tag-filter.contract.js</code> 直接 require 的原因。</li>
+<li><strong>public/app.js</strong> 的改动有三处：从 <code>window.ShelfCareFilters</code> 取 <code>filterBooks</code>；<code>activeFilters()</code> 增加 <code>tag</code> 字段；新增 <code>populateTags()</code> 从 <code>data/books.json</code> 的 tags 去重、按中文排序后填充 <code>#tag-filter</code> 下拉框（不维护第二份硬编码标签列表）。故障注入 <code>?fault=search-empty</code> 逻辑被完整保留，只是改由 <code>filterBooks</code> 承接过滤。</li>
+<li><strong>public/index.html</strong> 在工具栏新增“标签”下拉框（<code>id="tag-filter"</code>，初始只有“全部标签”一项，选项由 JS 动态生成），并在 <code>&lt;script&gt;</code> 里先加载 <code>filter-books.js</code> 再加载 <code>app.js</code>。</li>
+<li><strong>scripts/check.js</strong> 新增 <code>filter syntax</code> 和 <code>tag-filter acceptance</code> 两个阶段，把标签验收升级为长期回归；<strong>scripts/setup.js</strong> 把 <code>filter-books.js</code>、<code>OBSERVABILITY.md</code>、<code>GUARDRAILS.md</code>、<code>policy/</code> 等新文件纳入必需清单。</li>
+</ul>
+<p>这套参考实现能一次性满足第五篇的八项验收（控件存在、接口可导出、科幻/技术+在读/all 三组样本结果正确、页面真正接入），并且 <code>npm run guard</code>、<code>npm run check</code> 全部通过——我在实际复现时验证过：<code>accept:tag-filter</code> 输出 <code>pass 6 / fail 0</code>，<code>filterBooks(books,{tag:"科幻"})</code> 恰好返回 <code>book-001、book-006</code>。</p>
+<p>第二篇里，我们把一份几乎没有工作说明、稳定入口和任务验收的 ShelfCare 交给了 Agent。现在业务功能仍然没有实现，但它周围的环境已经不同：仓库知识可发现，启动和检查命令稳定，验收先红，运行状态可观察，关键边界也能自动阻止违规。</p>
+<p>这一篇不再增加新的 Harness 概念。我们要回答一个更重要的问题：做完这些改造后，同一个 Agent 面对同一句任务，是否更容易稳定交付？</p>
+<h2 id="wiki-h-1">先控制变量，不要把演示当成证明</h2>
+<p>这次对照尽量只改变 Harness。请保持以下条件与第二篇一致：</p>
+<ul>
+<li>使用同一种 Agent、同一个模型和相同的思考强度；</li>
+<li>新开会话，不把第一次尝试的分析或答案复制过来；</li>
+<li>使用完全相同的原始任务，不追加实现提示；</li>
+<li>不在执行中途替 Agent 指路，除非它明确请求必要授权；</li>
+<li>仍然由你独立验收，而不是只接受 Agent 的完成总结。</li>
+</ul>
+<p>模型或 Agent 版本若已经升级，也不必放弃实验，但要把变化记下来。一次个人实验不能证明普遍因果，它能证明的是：在你的项目和当前工具条件下，新的工作环境是否减少了猜测、返工和人工接管。</p>
+<p>OpenAI 的 Harness Engineering 实践也强调，Agent 端到端完成任务依赖特定仓库的结构、工具、验证和恢复能力，不能脱离这些投入直接推广到所有项目。<a href="https://openai.com/index/harness-engineering/">官方案例</a></p>
+<h2 id="wiki-h-2">确认复测起点</h2>
+<p>你现在应该位于 <code>shelfcare-lab</code> 的 <code>main</code> 分支，第七篇改动已经提交，工作区干净。运行：</p>
+<pre><code class="hljs language-bash">git status --short --branch
+git branch --list
+</code></pre><p>预期能看到 <code>main</code> 和第二篇保留的 <code>baseline-attempt</code>，当前分支是 <code>main</code>。如果 <code>baseline-attempt</code> 不在，也可以继续，只是最终无法查看第一次代码尝试；第二篇保存的过程记录仍可用于比较。</p>
+<p>先确认完整 Harness 的健康状态：</p>
+<pre><code class="hljs language-bash">npm run setup
+npm run check
+</code></pre><p>两条命令都应通过。接着复现任务目标尚未完成：</p>
+<pre><code class="hljs language-bash">npm run accept:tag-filter
+</code></pre><p>它应该失败，并指向缺少 <code>#tag-filter</code>、<code>public/filter-books.js</code> 和页面集成。如果此时已经通过，先检查自己是否把第二篇的实现带回了 <code>main</code>；没有红色起点，就无法证明接下来的修改使验收从失败变成成功。</p>
+<p>创建第二次尝试分支：</p>
+<pre><code class="hljs language-bash">git switch -c harness-attempt
+</code></pre><p>不要删除或重置 <code>baseline-attempt</code>。两个分支分别保存改造前后尝试，<code>main</code> 保存功能尚未实现但 Harness 完整的基线。</p>
+<h2 id="wiki-h-3">把完全相同的任务交给 Agent</h2>
+<p>在 <code>shelfcare-lab</code> 根目录启动一个新 Agent 会话，只发送第二篇使用过的这句话：</p>
+<pre><code class="hljs language-text">请为 ShelfCare 增加按标签筛选藏书的功能。请完成实现并检查结果。
+</code></pre><p>不要补充“请阅读 AGENTS.md”“请运行某条测试”或“请新建纯函数”。这些信息现在已经进入仓库；如果还需要人每次在对话里重新讲一遍，Harness 就没有真正承担交接工作。</p>
+<p>让 Agent 自己完成本轮。你可以观察，但先不干预。重点记录过程，而不是只等最终答案：</p>
+<ul>
+<li>它是否先查看 <code>AGENTS.md</code>，再按链接读取相关文档；</li>
+<li>是否运行 <code>npm run setup</code> 或直接找到稳定入口；</li>
+<li>是否在修改前复现 <code>npm run accept:tag-filter</code> 的失败；</li>
+<li>是否保持验收文件、产品规则和数据不变；</li>
+<li>是否把搜索、状态和标签组合逻辑集中在可测试接口中；</li>
+<li>是否运行专项验收、通用检查并检查 Diff；</li>
+<li>有浏览器能力时，是否真的操作页面并读取 DOM 或控制台证据；</li>
+<li>遇到权限边界时，是说明阻塞并请求最小授权，还是自行扩大范围。</li>
+</ul>
+<p>一个健康过程不一定与参考实现逐行相同。Harness 约束的是结果、边界和证据，不应该规定每个变量名或每一行代码。</p>
+<h2 id="wiki-h-4">先审查结果，再运行命令</h2>
+<p>Agent 结束后，先不要立刻接受它的总结。在仓库根目录运行：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --check
+git diff --<span class="hljs-built_in">stat</span>
+git diff
+</code></pre><p>检查下面几件事：</p>
+<ol>
+<li><code>data/books.json</code> 没有为了凑出结果而被修改；</li>
+<li><code>acceptance/tag-filter.contract.js</code> 和 <code>docs/PRODUCT_RULES.md</code> 没有被弱化；</li>
+<li>没有新增第三方依赖、凭据或与任务无关的大规模重构；</li>
+<li>标签选项来自图书数据，不是另存了一份硬编码列表；</li>
+<li>新筛选不会破坏原有搜索、状态筛选和故障注入。</li>
+</ol>
+<p>再单独确认受保护输入与 <code>main</code> 一致：</p>
+<pre><code class="hljs language-bash">git diff --exit-code main -- acceptance/tag-filter.contract.js docs/PRODUCT_RULES.md
+</code></pre><p>正确结果是没有输出，退出码为 0。如果这里出现差异，不要继续把其他绿色测试当作完成证据。先审查 Agent 为什么改了考试题或产品契约。</p>
+<h2 id="wiki-h-5">让红色验收变绿</h2>
+<p>先运行任务专用验收：</p>
+<pre><code class="hljs language-bash">npm run accept:tag-filter
+</code></pre><p>预期六项检查全部通过，输出会包含类似：</p>
+<pre><code class="hljs language-text">pass 6
+fail 0
+</code></pre><p>具体排版和耗时随 Node.js 版本变化。关键是这六类行为都被证明：控件存在、纯筛选接口可用、科幻结果正确、技术与在读使用 AND 组合、<code>all</code> 只移除标签条件、页面确实接入新逻辑。</p>
+<p>接着运行通用检查：</p>
+<pre><code class="hljs language-bash">npm run guard
+npm run check
+</code></pre><p>两条都必须通过。专项验收绿色证明新任务完成，通用检查绿色证明现有能力和仓库边界没有被破坏。任意一条失败，都不能用另一条替代。</p>
+<p>如果 Agent 的实现让专项验收通过，却没有把已经稳定的标签验收纳入日常 <code>npm run check</code>，先记录本次实验结果，不要中途改变测量。完成对照后，再按第八节做项目收尾。</p>
+<h2 id="wiki-h-6">验证真正运行的页面</h2>
+<p>自动验收还不能替代浏览器。打开第一个终端，运行：</p>
+<pre><code class="hljs language-bash">npm run dev
+</code></pre><p>在第二个终端运行：</p>
+<pre><code class="hljs language-bash">npm run doctor
+</code></pre><p><code>doctor</code> 应继续报告健康状态为 <code>ok</code>，API 返回 8 本书。然后在浏览器打开终端打印的地址，通常是 <code>http://127.0.0.1:3000</code>。</p>
+<p>逐项检查第二篇定义的七个用户行为：</p>
+<ol>
+<li>页面出现“标签”下拉框；</li>
+<li>选项来自现有数据，能看到“科幻”和“技术”；</li>
+<li>选择“科幻”后，只剩《献给阿尔吉侬的花束》和《你一生的故事》；</li>
+<li>选择“技术”，再把阅读状态设为“在读”，只剩《设计数据密集型应用》和《程序员修炼之道》；</li>
+<li>再输入搜索词时，搜索、状态和标签同时生效；</li>
+<li>恢复“全部标签”后，状态和搜索条件仍然保留；</li>
+<li>组合出零结果时显示“没有找到符合条件的书。”，Console 没有异常。</li>
+</ol>
+<p>打开开发者工具，在 Elements 面板找到 <code>#runtime-status</code>。选择“技术”与“在读”后，<code>data-filters</code> 应同时包含当前 <code>status</code> 和 <code>tag</code>，<code>data-visible-count</code> 应为 <code>2</code>。Console 中的 <code>books_rendered</code> 事件也应给出相同状态。</p>
+<p>最后确认第六篇的诊断练习没有被新功能破坏。打开：</p>
+<pre><code class="hljs language-text">http://127.0.0.1:3000/?fault=search-empty
+</code></pre><p>输入任意搜索词后仍应触发 <code>client_fault_active</code>；移除查询参数，搜索恢复正常。验证完按 <code>Ctrl+C</code> 停止服务。</p>
+<p>如果 Agent 没有浏览器工具，这部分由你手动完成，并在记录里写“运行验证由人执行”。不要把缺少工具伪装成 Agent 已经检查过页面。</p>
+<h2 id="wiki-h-7">保存第二次尝试和过程数据</h2>
+<p>回到课程目录，在 <code>shelfcare-lab</code> 旁边新建 <code>shelfcare-harness.md</code>，与第二篇的 <code>shelfcare-baseline.md</code> 放在一起。不要把它放进实验仓库，避免过程记录混入功能 Diff。用相同字段记录结果：</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># ShelfCare Harness 复测记录</span>
+
+<span class="hljs-section">## 固定条件</span>
+
+<span class="hljs-bullet">-</span> Agent 与模型：
+<span class="hljs-bullet">-</span> 思考强度：
+<span class="hljs-bullet">-</span> 原始任务：请为 ShelfCare 增加按标签筛选藏书的功能。请完成实现并检查结果。
+<span class="hljs-bullet">-</span> 与基线不同的工具或版本：
+
+<span class="hljs-section">## 运行结果</span>
+
+<span class="hljs-bullet">-</span> 是否交付可见的标签筛选：是 / 否 / 部分
+<span class="hljs-bullet">-</span> 独立行为检查通过数：<span class="hljs-strong">__/7
+- npm run accept:tag-filter：通过 / 失败
+- npm run check：通过 / 失败
+- Agent 提供的完成证据：
+
+## 过程数据
+
+- 人工补充信息次数：
+- 权限确认次数：
+- 预期的失败验收次数：
+- 非预期失败命令次数：
+- 无效重试次数：
+- 修改文件数：
+- 是否检查实际页面：
+- 是否检查 Git Diff：
+
+## Harness 仍然缺少什么
+
+- 知识：
+- 工具：
+- 环境：
+- 反馈：
+- 验证：
+- 权限：</span>
+</code></pre><p>这里把“预期的红色验收”和“非预期命令失败”分开。先红后绿是证据，不是无效失败；找错命令、重复撞同一个错误才是流程成本。</p>
+<p>回到 <code>shelfcare-lab</code>，把实现提交到当前分支：</p>
+<pre><code class="hljs language-bash">git add .
+git diff --cached --check
+git diff --cached --<span class="hljs-built_in">stat</span>
+git commit -m <span class="hljs-string">"feat: add tag filtering with harness validation"</span>
+git status --short --branch
+</code></pre><p>预期当前位于 <code>harness-attempt</code>，工作区干净。不要急着删除两个实验分支，它们是本次课程最有价值的产物之一。</p>
+<h2 id="wiki-h-8">把任务验收升级为长期回归</h2>
+<p>实验结束后，标签筛选不再是“未来任务”，而是现有产品能力。以后修改搜索或筛选时，<code>npm run check</code> 应该一起检查它。</p>
+<p>如果 Agent 已经完成下面三件事，只需核对，不要重复修改：</p>
+<ul>
+<li><code>scripts/check.js</code> 包含标签验收阶段；</li>
+<li><code>scripts/setup.js</code> 把 <code>public/filter-books.js</code> 列为必需文件；</li>
+<li><code>AGENTS.md</code>、架构、开发和可观测性文档反映新的筛选结构与状态。</li>
+</ul>
+<p>如果没有，在记录完实验后再给 Agent 一个独立的收尾任务：</p>
+<pre><code class="hljs language-text">标签筛选已经通过独立验收。现在请把它升级为长期回归能力：
+让 npm run check 包含标签验收；让 setup 检查新增运行文件；同步更新 AGENTS.md、架构、开发和可观测性文档。
+不要修改产品规则、验收契约、样本数据或仓库策略。完成后运行 npm run check 并审查 Diff。
+</code></pre><p>这不是偷偷改变原始实验，而是把一次成功任务产生的新事实写回 Harness。今后的 Agent 将继承这次经验，不必重新猜测标签筛选的接口和验证方式。</p>
+<p>如果第二次尝试没有完成，先填写仓库外的失败记录，并保存 Agent 留下的代码，不要覆盖它。确认 Diff 中没有凭据或个人文件后，在 <code>harness-attempt</code> 上提交失败现场；即使只有部分实现，也值得保留：</p>
+<pre><code class="hljs language-bash">git add .
+git diff --cached --check
+git diff --cached --<span class="hljs-built_in">stat</span>
+git commit -m <span class="hljs-string">"experiment: preserve failed harness attempt"</span>
+</code></pre><p>如果代码没有任何变化，Git 会提示没有内容可提交，保留外部记录即可。工作区干净后，再从 <code>main</code> 新建恢复分支，使用课程提供的参考资产：</p>
+<pre><code class="hljs language-bash">git switch main
+git switch -c harness-reference
+</code></pre><p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R ../assets/lesson-08-reference-solution/. .
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> ..\assets\lesson<span class="hljs-literal">-08-reference-solution</span>\* .
+</code></pre><p>然后运行：</p>
+<pre><code class="hljs language-bash">npm run accept:tag-filter
+npm run check
+</code></pre><p>参考资产只是恢复路径，不是衡量 Agent 的答案标准。只要另一种实现满足产品契约、架构边界和验证要求，就同样有效。</p>
+<h2 id="wiki-h-9">怎样比较两次结果</h2>
+<p>把 <code>shelfcare-baseline.md</code> 和 <code>shelfcare-harness.md</code> 并排打开，填写一张小表：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>改造前</th>
+<th>改造后</th>
+<th>你要观察的变化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>独立行为通过数</td>
+<td>__/7</td>
+<td>__/7</td>
+<td>结果是否更完整</td>
+</tr>
+<tr>
+<td>人工补充信息</td>
+<td>__ 次</td>
+<td>__ 次</td>
+<td>仓库能否自行交接</td>
+</tr>
+<tr>
+<td>非预期失败命令</td>
+<td>__ 次</td>
+<td>__ 次</td>
+<td>入口是否更稳定</td>
+</tr>
+<tr>
+<td>无效重试</td>
+<td>__ 次</td>
+<td>__ 次</td>
+<td>反馈是否能推动修正</td>
+</tr>
+<tr>
+<td>自动验证证据</td>
+<td>有 / 无</td>
+<td>有 / 无</td>
+<td>完成是否可重复证明</td>
+</tr>
+<tr>
+<td>页面运行证据</td>
+<td>Agent / 人 / 无</td>
+<td>Agent / 人 / 无</td>
+<td>工具能否触达用户行为</td>
+</tr>
+<tr>
+<td>越界或过度修改</td>
+<td>有 / 无</td>
+<td>有 / 无</td>
+<td>约束是否守住任务范围</td>
+</tr>
+</tbody></table></div>
+<p>不要只比较“最后都做成功了没有”。如果两次都成功，但改造后少了多轮猜命令、主动复现红色验收、给出完整 Diff 和页面证据，这仍是明显改善。Harness 的价值常常体现在成功的可重复性和失败的可定位性，而不只是单次通过率。</p>
+<p>如果改造后仍然失败，按证据判断下一步：</p>
+<ul>
+<li>找不到已有规则：知识入口或渐进式披露仍有问题；</li>
+<li>命令可运行但看不到页面：工具或运行反馈还不够；</li>
+<li>所有信息、工具和验收都齐全，仍写不出基本逻辑：更可能是模型能力、规划或实现问题；</li>
+<li>为通过测试而改契约：受保护输入和可信评审还不够强；</li>
+<li>频繁请求不必要权限：权限说明或工具默认权限需要调整。</li>
+</ul>
+<p>不要因为一次结果不好，就把所有 Harness 推倒重来。修复最大、最重复的一个缺口，再执行下一次代表性任务。</p>
+<h2 id="wiki-h-10">给自己的项目做一张 Harness 体检表</h2>
+<p>ShelfCare 的改造可以压缩成六个问题：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>最低可用状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>知识</td>
+<td>Agent 能从短入口找到产品、架构和开发事实</td>
+</tr>
+<tr>
+<td>环境</td>
+<td>一条稳定命令可以检查环境，一条命令可以启动项目</td>
+</tr>
+<tr>
+<td>验证</td>
+<td>任务有先红后绿的验收，完成还包含回归与 Diff</td>
+</tr>
+<tr>
+<td>可观测性</td>
+<td>Agent 或操作者能读取 UI、日志、健康与错误证据</td>
+</tr>
+<tr>
+<td>约束</td>
+<td>关键架构和安全不变量能自动失败并给出修复方向</td>
+</tr>
+<tr>
+<td>权限</td>
+<td>自动动作、需审批动作和禁止捷径有明确边界</td>
+</tr>
+</tbody></table></div>
+<p>把这张表带到自己的项目里，不必一次补齐所有工程。先选一个经常让 Agent 失败的小任务，保存基线，然后只补最影响结果的那一层。Harness Engineering 不是先造一套宏大平台再开始工作，而是把每次失败暴露出的缺失能力沉淀回环境。</p>
+<h2 id="wiki-h-11">常见阻塞</h2>
+<h3 id="wiki-h-12">第二次尝试一开始就无法创建分支</h3>
+<p>运行 <code>git status --short</code>。如果第七篇还有未提交改动，先确认内容并提交；不要用强制切换或硬重置清理。实验需要一个可追踪的起点。</p>
+<h3 id="wiki-h-13">Agent 修改了受保护文件</h3>
+<p>保存 Diff 和它给出的理由，把这次行为记入复测记录。若没有经过契约评审，恢复这两处改动后再验收；不要通过修改测试获得绿色结果。</p>
+<h3 id="wiki-h-14">guard 提示修改超过 12 个文件</h3>
+<p>先判断 Agent 是否做了与标签无关的重构。如果是，让它缩小范围；如果确实需要扩大修改，结束受控实验并单独评审，而不是当场放宽策略。</p>
+<h3 id="wiki-h-15">自动验收全绿，但页面标签选项为空</h3>
+<p>打开 Console 和 <code>#runtime-status</code>，再检查 <code>/api/books</code>。这说明静态契约覆盖不够或页面加载流程没有真正接上，也是下一轮应该沉淀的新验收。自动测试绿色不代表观察到的用户问题不存在。</p>
+<h3 id="wiki-h-16">两次尝试使用的模型已经不同</h3>
+<p>在记录中明确标注，避免把全部变化都归因于 Harness。你仍可以评估当前项目是否更容易交接，但不能把它当成严格的单变量比较。</p>
+<h3 id="wiki-h-17">没有浏览器工具，是否还能完成课程</h3>
+<p>可以。由人完成七项页面检查，并如实记录人工接管一次。之后再决定是否值得为 Agent 接入受控浏览器；不要为了追求“全自动”跳过真实用户行为验证。</p>
+<h2 id="wiki-h-18">课程结束时，你真正得到的是什么</h2>
+<p>最终成果不是一个标签下拉框，而是一套可以迁移的工作方法：</p>
+<pre><code class="hljs language-text">保存真实失败
+  -&gt; 判断缺少知识、工具、反馈、验证还是边界
+  -&gt; 把缺失能力写进仓库或执行环境
+  -&gt; 用相同任务复测
+  -&gt; 把新经验继续沉淀进 Harness
+</code></pre><p>模型仍然重要，提示词也仍然重要。但当 Agent 进入真实项目，稳定交付还取决于它能否看懂环境、采取正确动作、读取结果、证明完成，并在越界前停下来。</p>
+<p>如果第二次实验让这些步骤更少依赖你在旁边解释，这套 Harness 就已经开始发挥作用。下一次 Agent 失败时，先别急着换一句更用力的提示词；问一问：它缺的究竟是能力，还是一个本来就应该由环境提供的条件？</p>
+</article>

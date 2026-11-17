@@ -1,0 +1,37 @@
+原文：《How Anthropic teams use Claude Code》部门版 PDF，共 23 页，本页面对应原文 P11-P12
+版本：PDF 由 Anthropic 于 2025-06-03 生成
+译本：v1.0，2026-11
+时效：内容为 2025 年 6 月版本，功能名与命令以官方文档为准
+版权：原文 © Anthropic。非官方中文译本，仅供学习交流。
+
+数据科学团队和机器学习工程（ML Engineering）团队需要精密的可视化工具来理解模型性能，但构建这些工具往往需要不熟悉的语言和框架方面的专业知识。Claude Code 让这些团队无需成为全栈开发者，就能构建生产级质量的分析仪表盘。
+
+Claude Code 的主要用例
+
+构建 JavaScript/TypeScript 仪表盘应用（Building JavaScript/Typescript dashboard apps） —— 尽管对 JavaScript 和 TypeScript「懂得很少」，团队还是用 Claude Code 构建完整的 React 应用，用来可视化强化学习（RL）模型的性能和训练数据。他们把主导权交给 Claude，让它从零编写完整应用——比如一个 5,000 行的 TypeScript 应用——而自己无需看懂这些代码。这一点很关键：可视化应用所需的上下文（context）相对较少，不需要理解整个单一仓库（monorepo），因此能快速做出工具原型，用于在训练和评测期间理解模型性能。
+
+处理重复性重构任务（Handling repetitive refactoring tasks） —— 当遇到合并冲突，或遇到对编辑器宏来说太复杂、又没大到值得投入大型开发工作的半复杂文件重构时，他们像用「老虎机（slot machine）」一样使用 Claude Code：先提交当前状态，让 Claude 自主工作 30 分钟，然后要么接受方案，要么在它不管用时从头再来。
+
+创建持久化的分析工具，而非一次性笔记本（Creating persistent analytics tools instead of throwaway notebooks） —— 团队不再构建用后即弃的一次性 Jupyter 笔记本，而是让 Claude 构建可长期保留的 React 仪表盘，供未来的模型评估反复使用。这很重要，因为理解 Claude 的表现是「团队最重要的事情之一」——他们需要弄清模型在训练和评测期间的表现如何，而这「其实并不简单，只盯着一个数字往上涨，简单工具得不到太多信号」。
+
+零依赖的任务委托（Zero-dependency task delegation） —— 对于完全陌生的代码库或语言中的任务，他们把整个实现委托给 Claude Code，利用它从单一仓库收集上下文并执行任务的能力，而自己完全不参与实际编码过程。这让他们能在专长之外的领域保持产出，而不必花时间学习新技术。
+
+团队影响
+
+实现 2–4 倍的时间节省（Achieved 2-4x time savings） —— 原本繁琐但尚可手动完成的常规重构任务，现在完成得快得多。
+
+用陌生语言构建复杂应用（Built complex applications in unfamiliar languages） —— 尽管 JavaScript/TypeScript 经验极少，还是构建出了 5,000 行的 TypeScript 应用。
+
+从一次性工具转向持久化工具（Shifted from throwaway to persistent tools） —— 不再使用一次性的 Jupyter 笔记本，改为构建可复用的 React 仪表盘用于模型分析。
+
+直接的模型改进洞察（Direct model improvement insights） —— 一手使用 Claude Code 的经验，为未来模型迭代中开发更好的记忆系统（memory system）、改进 UX（用户体验）提供了依据。
+
+实现以可视化驱动的决策（Enabled visualization-driven decision making） —— 借助先进的数据可视化工具，更好地理解 Claude 在训练和评测期间的表现。
+
+来自数据科学与机器学习工程团队的首要建议
+
+把它当老虎机用（Treat it like a slot machine） —— 在让 Claude 工作前先保存状态，让它跑 30 分钟，然后要么接受结果，要么从头再来，而不是费力去纠正。重新开始的成功率往往高于试图修复 Claude 的错误。
+
+必要时打断，要求更简单的做法（Interrupt for simplicity when needed） —— 监督过程中，不要犹豫，随时可以停下 Claude，问它「why are you doing this? Try something simpler.」。模型默认倾向于更复杂的方案，但对「换一种更简单的做法」的请求响应良好。
+
+原文备注：zero-dependency 指团队不参与编码，不是软件意义上的「零依赖」，按字面直译。

@@ -1,0 +1,236 @@
+上一版助手会在你提问后安静地等待，等整个回答返回，才一次显示出来。问题稍长时，这段空白容易让人怀疑程序是不是卡住了。
+
+本篇把它改为收到一段就显示一段。但任务不只是让文字动起来：如果显示到“安排改为……”时突然断线，这半句话不能被当成完整答案，更不能悄悄混进下一轮历史。
+
+完成后，你会得到一个保留上一课多轮对话命令的流式助手。它能累计文本、记录结束状态，并把“已经展示”和“可以进入历史”分开处理。
+
+仍使用 Python 3.11+、固定的 openai==3.24.0、DeepSeek 官方 API 与 deepseek-flash，思考模式关闭。接口与库行为核查日期为 2026 年 10 月 4 日；代码完成离线模拟验证，未使用个人密钥进行真实付费调用。
+
+一次请求，为什么会收到很多块
+
+非流式模式等待一个完整的响应对象；流式模式让服务在同一次请求的响应中持续发送增量数据。本篇使用的聊天接口通过 SSE（Server-Sent Events，服务器发送事件）传输这些增量，SDK 将事件解析成可逐个读取的响应块。DeepSeek：聊天接口的流式响应
+
+这不是“每个字调用一次 API”，也不是前端拿到完整答案后播放打字动画。后者只是展示效果；本篇是在答案仍返回的过程中处理内容。
+
+一个响应块也不等于一个汉字、一个 Token 或一个完整句子。你可能连续收到“第二章”“改到周六”“复习。”，也可能一次收到更长的片段。不能把固定分块方式写进业务逻辑。
+
+流式输出通常能让用户更早看到部分内容，但不保证整体生成更快，也不保证模型更聪明。正文很短或终端存在缓冲时，即使正确开启流式，看起来也可能几乎一次显示完；不要用肉眼看到的动画速度判断接口是否正确。
+
+先认识三个不同的信号
+
+在本例中，增量文本位于 choices[0].delta.content。这与上一篇完整回答里的 choices[0].message.content 不同：delta 表示这一块带来的增量，不是截至此刻的全文。
+
+下面是为说明机制简化的示意：
+
+接收到的内容	程序应该做什么
+role 信息，content为空	不打印正文，继续读取
+content为“第二章”	追加到缓冲，并显示这段
+content为“改到周六复习。”	继续追加，而不是覆盖之前的内容
+finish_reason为stop	记住正常结束原因，继续读取流中可能还有的数据
+usage统计	单独保存用量，不当作正文
+
+当前 DeepSeek 文档说明末尾块携带整次请求的用量；它可以与结束信息在同一块出现。示例同时防御性地兼容 choices 为空、只携带用量的块，不假设用量一定另占一个块。官方流结束标记是 data: [DONE]，本篇由 SDK 处理 SSE 协议，不把这个标记当作答案输出。DeepSeek：stream_options 与响应字段
+
+对这个应用而言，需要分别回答三个问题：现在有哪些可显示的文字？模型报告了什么结束原因？读取过程有没有发生异常？即使前两个看起来正常，最后一个仍可能失败。
+
+准备第 04 篇项目
+
+下载 完整代码包，解压后将 lesson-04 放到 deepseek-notes 下，与 lesson-03 并列，保留旧版本。
+
+本篇没有新增依赖，也不改配置文件的三个字段。变化主要集中在 api_client.py 的流式连接和 conversation.py 的累计与提交；main.py 保留命令行入口，增加本课离线演示。完整文件和 README 都在代码包内。
+
+在 lesson-03 目录的读者先执行 cd ../lesson-04，其他读者在编辑器打开 lesson-04 后打开终端。确认当前目录有 main.py，再运行：
+
+macOS / Linux：
+
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cp config.example.json config.json
+.venv/bin/python main.py --check
+.venv/bin/python main.py --dry-run
+
+
+Windows PowerShell：
+
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item config.example.json config.json
+.\.venv\Scripts\python.exe main.py --check
+.\.venv\Scripts\python.exe main.py --dry-run
+
+
+Windows 只有 python 命令可用时，创建环境的第一行用 python 替换 py -3。模板只在首次创建时复制；已有配置不要覆盖。虚拟环境、安装和证书问题参照第 02 篇。
+
+--check 应显示正确解释器、SDK 3.24.0 和本篇配置路径。--dry-run 不读取密钥、不调用模型；检查预演中以下三个字段：
+
+{
+  "stream": true,
+  "stream_options": {"include_usage": true},
+  "thinking": {"type": "disabled"}
+}
+
+
+这只是请求里的关键字段摘录，不要用它替换整个请求。完整请求还包含模型、消息和输出预算。默认 max_tokens 仍是 256。
+
+用离线演示同时看成功与断线
+
+macOS / Linux：
+
+.venv/bin/python main.py --demo
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe main.py --demo
+
+
+这个模式明确显示“预置文本块与人为延迟，不读取密钥、不调用模型；无真实用量”。它分两次演示。
+
+第一次正常完成。 程序按预置分块逐步显示：
+
+助手（生成中）：第二章改到周六复习；笔记没有提供具体时间。
+本轮完成，已加入历史；结束原因： stop
+用量： null
+
+
+演示人为在片段之间等待 0.2 秒，方便观察。它不代表模型实际速度。null 表示这份演示没有真实用量数据，不是证明“请求免费”。
+
+第二次模拟半途断线。 屏幕只显示“第二章”，随后提示本轮未完成、不加入历史，错误类型为 ConnectionError。程序接着输出：
+
+失败前后历史条数： 3 3
+
+
+三条历史分别是 system、第一次问题、第一次完整回答。第二次失败的问题和半截文本都没有加入。最后程序会预演一个新的追问，其 messages 为四条，不含失败那一轮。
+
+打开 lesson-04/records，找到本次新产生的文件：
+
+文件组	独立检查
+demo-ok-随机ID-request.json、同ID的result.json	结果中status为complete，text是完整预置文本
+demo-broken-随机ID-request.json、同ID的result.json	status为failed，text只到“第二章”，没有正常结束原因
+
+这里的 result.json 是应用整理的结果记录，记录累计文本、结束原因、用量、块数量和错误类型。它与上一课保存的完整响应结构不同，也不是原始网络抓包。
+
+真实使用时，操作没有变成另一套
+
+去掉 --demo，在系统终端运行 main.py，按提示隐藏输入自己的 DeepSeek 密钥。
+
+macOS / Linux：
+
+.venv/bin/python main.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe main.py
+
+
+普通文本每按一次回车，会发起一次可能计费的请求。先逐行输入本课构造笔记：
+
+笔记：第二章原定周五，现改为周六复习，未确定几点。请用两句话说明最新安排，以及还需要确认什么。
+
+
+你应看到“助手（生成中）”，随后逐步出现片段。具体措辞由模型生成；正确内容应包括周六，以及具体时间尚未确认，不应自行编出时刻。
+
+正常完成后再输入 /history。应看到一条完整的 assistant 文本，而不是每收到一个块就产生一条新的助手消息。再输入：
+
+/preview 那原来安排在哪天？
+
+
+预演应带上本轮完整的问答。决定真问时，再单独输入不带 /preview 的问题。/history、/preview 问题、/reset、/quit 都沿用上一课，仍不请求模型；六轮和每条 2000 字符的教学限制也保留。
+
+本篇串行处理一轮请求。流正在返回时，不会同时读取新的本地命令；/quit 要等本轮结束、重新出现 你： 后才会生效。想中断当前生成，用 Ctrl+C，程序会退出，而不是发送一条“请停止”的聊天消息。
+
+只要进程仍有机会正常处理这次键盘中断且磁盘可写，程序会尝试保存 status: interrupted 和已收到的片段。关闭终端、强制终止进程或断电，不保证能留下结果文件。客户端停止等待也不保证服务端完全没有继续处理或计费。
+
+从“返回对象”改为“读取流”
+
+先看 api_client.py 的完整流入口：
+
+@contextmanager
+def open_stream(client, settings, messages):
+    with client.chat.completions.create(**request_options(settings, messages)) as stream:
+        yield (chunk.model_dump(mode="json") for chunk in stream)
+
+
+request_options() 将 stream 改为 True，并设置 stream_options={"include_usage": True}。返回值因此成为可以循环读取的流；不再直接对“整个返回值”调用 model_dump()。每个块单独导出成字典，再交给后面的累计函数。
+
+@contextmanager 与 with 配合使用，让调用方进入读取过程，并在离开时清理资源。内层 with ... as stream 会在正常完成、异常或 Ctrl+C 时关闭 SDK 流连接。这是释放本地连接的动作，不是远端不计费的保证。本篇核对了固定 SDK 版本的上下文管理与关闭实现。OpenAI Python SDK
+
+思考模式继续显式关闭，所以只展示正文 delta.content。思考内容有不同字段，不应盲目拼进用户答案；第 07 篇再讨论相关模式。DeepSeek：思考模式流式示例
+
+显示、累计和提交，分别在什么时候发生
+
+collect_stream() 对每个块先取用量，再检查 choices。这两步的顺序使“没有文本但有统计”的块也能被处理，而不会因为先访问 choices[0] 越界而失败。
+
+正文累计部分如下，原样摘自配套文件：
+
+        piece = delta.get("content")
+        if piece is not None and not isinstance(piece, str):
+            raise StreamFailure("content 不是文本。")
+        if piece:
+            if result["finish_reason"] is not None:
+                raise StreamFailure("结束标记后出现额外正文。")
+            result["text"] += piece
+            print(piece, end="", flush=True)
+
+
++= 把新增片段接在已有文本后面。如果写成 result["text"] = piece，最后只剩最后一块。如果每次把累计全文再打印一遍，屏幕又会重复出现前面的文字。因此内存保留全文，终端每次只打印新增部分。
+
+end="" 不自动换行，flush=True 要求刷新 Python 输出缓冲，减少文字积攒到最后才出现的情况。它不能控制远端服务、网络代理或终端界面的所有缓冲。Python：print
+
+空字符串和 None 不打印；这不等于整个回答已经结束。真正的结束原因保存在 finish_reason 中。代码不会在读到 stop 的那一刻直接 break，而是继续读到 SDK 迭代结束，以保留末尾信息并发现后续读取异常。
+
+本篇的接纳规则是：SDK 读取过程正常返回、累计文本非空、结束原因为 stop，而且本地结果保存成功，才把整轮问答加入历史。 length、缺少结束原因、传输异常、空回答都不接纳。
+
+应用只观察 SDK 暴露的块和异常，不单独抓取底层 [DONE]；正常迭代结束本身也不是答案完整的充分条件，所以还检查 finish_reason。这份实现适合本课的单个文本回答，不能直接当作工具调用或多候选答案的通用解析器。
+
+屏幕上的“生成中”是临时状态。结果检查后，程序才宣布“本轮完成，已加入历史”。即使已经打印过一整段看似完整的文字，只要读取后来失败，就仍保留为失败片段。
+
+用结果记录区分三种“结束”
+
+每次在线请求会生成同一 ID 的 live-…-request.json 和 live-…-result.json。请求文件先写，结果文件在读取结束或捕获异常时写。若最开始就写不了请求记录，本轮不会调用模型；结果保存失败时，请求可能已经完成，程序会停止，历史也不会提交。
+
+结果里的几个字段要分开读：
+
+字段	解释
+status	应用的complete、failed或interrupted状态，不是厂商返回的HTTP状态
+text	已累计的正文，失败时可能只有半句
+finish_reason	模型响应中的结束原因；没收到时为null
+usage	已接收的用量统计；没收到时为null
+chunk_count	SDK已解析并交给应用的块数量，不是Token数
+error_type	失败类型，不保存整段原始错误消息或认证头
+
+status: complete 说明本程序的完整性检查通过，不证明内容正确。finish_reason: stop 但 status: failed 也可能出现，例如读到结束原因后又发生网络异常。
+
+请求用量如果没有收到，应记录为未知，不能擅自填 0。服务端计费也不能用 chunk_count 推算；同一段文字可以按不同大小分块。
+
+记录中可能包含私人笔记和模型回答，不要随意分享。/reset 仍然只重置内存历史，不删除这些文件；重启程序也不会自动恢复旧历史。
+
+几个容易卡住的地方
+现象	优先检查
+看起来还是一次显示完	先用--dry-run确认stream为true，再跑带人为延迟的--demo；短答案与缓冲可能使真实输出不明显
+出现None、空行很多或一段话重复出现	是否直接打印了空content，或每次打印累计全文；对照本篇累计片段
+访问choices[0]时报错	是否先判断列表是否为空；不要假定所有块都包含文本选项
+已看到文字，但历史里没有这一轮	查结果status和finish_reason；显示过片段不等于通过完整性检查
+没收到stop，流就结束	按不完整处理；查看网络与结果记录，不自动补一次调用
+finish_reason为length	输出预算可能耗尽；先缩短任务，必要时调整max_tokens并重新预演，不拼接两次独立请求冒充无缝续传
+401、402、429或服务错误	沿用前两篇的账户/余额/限流排查；stream并不绕过这些条件
+Ctrl+C后只有请求文件	中断时机或磁盘问题可能影响记录；不能由文件缺失推断没有费用
+
+仍可用 SDK 模拟测试验证解析逻辑，但是否成功访问真实账户、实际用量是多少，要由读者自己的在线运行与平台信息核对。本课程不会为验证例子读取个人密钥或自动付费。
+
+完成两个检查再进入下一篇
+
+第一个检查不用联网：运行 --demo，打开失败的 result.json，确认 text 有片段、status 为 failed，历史条数却保持 3。再找到末尾预演，确认只有上一轮完整问答和新问题，没有失败问题。
+
+第二个检查可用纸面完成：假设依次收到“周”“六”，然后一个 finish_reason: length。屏幕应显示什么，下一轮历史应是什么？
+
+答案是：屏幕可以已经显示“周六”，但本轮整体没有正常完成，不应提交这次用户消息与助手答案。不能因为恰好看见了正确日期，就忽略结束状态。
+
+再判断：一个空 choices 块带有 usage，是不是应当直接丢弃？不是，应先保存统计；它没有新增正文，可以跳过文本处理。
+
+笔记助手现在能逐步展示回答，也能把半成品挡在后续历史之外。下一篇回到任务本身：设计笔记输入与提示要求，让助手产出可以核对的复习卡，而不仅仅是看起来顺畅地聊天。
+
+上一篇：消息与多轮对话 · 本部分大纲 · 完整代码包
+
+验证范围：Python 3.11.8、openai 3.24.0，真实SDK配合模拟SSE传输的离线测试；未真实付费调用。Windows / Linux命令未实机执行。离线演示的文本、延迟和断线均由代码构造。

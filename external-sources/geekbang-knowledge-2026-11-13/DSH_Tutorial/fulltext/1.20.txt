@@ -1,0 +1,113 @@
+本附录按 DeepSeek Harness v0.1.7-rc.2 整理，适合学完正文后查阅。它只收录正文中已经解释或实际验证过的内容，不能代替对应章节的操作步骤与安全说明。
+
+A. 容易混淆的术语
+术语	在本教程中的准确含义
+DSH / DeepSeek Harness	面向 Agent 的开源运行框架。它把模型、工具、审批、插件、工作区、会话和界面组织成可运行的系统。
+Host / Client	Host 是实际运行 Agent、插件和会话的后端进程；Desktop、Web 等 Client 负责展示与交互。关闭一个界面不一定等于 Host 已退出。
+Workspace（工作区）	当前会话选中的项目目录，也是许多文件与终端操作的默认位置。它有助于限定任务范围，但不自动代表所有外部进程都被关在这里。
+Model Provider	模型调用路线，例如 DeepSeek 官方 API、内置第三方 Provider 或兼容协议的自定义 API。不要和插件系统中的 Provider 角色混为一谈。
+Agent 预设	决定 Agent 采用哪些工具和工作方式的插件组合。课程实操了标准、PTC、极简和创造模式。
+标准模式	模型直接调用文件、终端等原生工具；轨迹直观，适合多数日常任务。
+PTC 模式	模型主要通过 run_code 编排工具 SDK；适合需要在一次代码执行中批量处理、循环或聚合大量工具结果的任务。它不是“更强的标准模式”。
+极简模式	工具更少、执行路径更短，适合只需推理或少量操作的任务；工具少不等于权限天然更安全。
+创造模式	用自然语言组合并保存自定义 Agent 预设的入口。创建后仍要检查实际 bundle、工具和权限。
+Profile	一套可独立保存的运行配置，包含插件组合、补丁和依赖状态。Desktop 的保留 Profile 与 CLI/Web 自建 Profile 不应视为同一份配置。
+Plugin / Bundle	Plugin 是一个能力模块；Bundle 是可被 Profile 加载的一组插件配置。第三方 bundle 会在 Host 中运行代码，因此应像依赖包一样审查来源与权限。
+Cordis	DSH 的插件框架，负责插件生命周期、服务注册和依赖关系。
+Service Definition / Provider / Consumer	插件系统中的接口定义、接口实现和接口使用方。这里的 Provider 不是模型 Provider。
+Skill	一份可发现、按需加载的任务说明，告诉 Agent 应遵循什么流程。Skill 本身不会凭空增加工具、模型权限或系统权限。
+MCP	连接外部 MCP Server 的标准协议。课程实操的是一个受限目录的 MCP 工具；没有把所有 MCP Resource 能力都当作已掌握内容。
+Subagent	由主 Agent 派出的子任务执行者，适合并行进行边界清晰的读取、研究或审查。最终结论仍需主 Agent 汇总和核证。
+Workflow	把多个步骤或 Agent 组织成显式流程的机制，适合结构稳定、需要复用的编排。
+Agent Team	当前仍属实验性能力。正文只解释了它与 Subagent、Workflow 的边界，没有把它作为主线实操。
+Goal	让同一个长期目标跨多个 Round 自动推进的机制。它不是后台服务、定时器、并行系统或权限豁免。
+Schedule	由运行中的 DSH Host 在指定时间触发任务。Host 未运行、时区错误或任务重复都会影响结果。
+Headless	不打开交互界面，以命令行方式执行一次任务并返回退出状态或事件流。
+审批	对一次敏感操作是否放行的用户决定。批准一条命令，不等于永久授权同类命令。
+权限 / 沙箱	限制 Agent 或进程能够访问什么的边界。工作区、DSH 原生工具和外部 MCP Server 可能各有不同的边界。
+Trajectory（轨迹）	一次任务中模型思考、工具调用、结果和错误组成的执行记录，是审查 Agent 是否按要求工作的主要证据。
+Python SDK / ACP	两种程序化集成入口：SDK 用 Python 代码驱动 DSH；ACP 用协议让兼容客户端连接 DSH。它们不是同一种接口。
+
+如果只记住一条：预设决定 Agent 怎么工作，Profile 决定一套环境加载什么，Skill 提供做事说明，Plugin 与 MCP 才会真正接入能力。
+
+B. 常用命令
+B.1 DSH 与 CLI/Web
+
+以下命令使用课程推荐的临时运行方式，不要求全局安装。请在系统终端执行；Windows PowerShell 如果无法解析 npx，可把它替换成 npx.cmd。
+
+用途	命令	结果或注意事项
+查看版本	npx @deepseek-ai/dsh@0.1.7-rc.2 --version	输出当前实际运行版本。排错时先记录它。
+查看总帮助	npx @deepseek-ai/dsh@0.1.7-rc.2 --help	以本机输出为准，不要凭旧教程猜参数。
+启动 Web	npx @deepseek-ai/dsh@0.1.7-rc.2 web	启动 Web Profile；终端进程需要保持运行。
+指定端口且不自动开浏览器	npx @deepseek-ai/dsh@0.1.7-rc.2 web --port 3100 --no-open	适合端口冲突、服务器或 SSH 隧道场景。不要直接把服务暴露到公网。
+查看 Web Profile 的最终配置	npx @deepseek-ai/dsh@0.1.7-rc.2 --profile web --dump-config	输出可能含本机路径与 Provider 信息，不要未经脱敏上传。
+查看 Headless 帮助	npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --help	先用帮助确认当前版本的选项。
+执行一次 Headless 任务	npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless "任务描述"	任务结束后进程退出，可用退出码判断成功与否。
+输出 Headless 事件流	npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --json "任务描述"	输出 NDJSON，适合脚本逐行处理，不是一个普通 JSON 数组。
+继续已有 Headless 会话	npx @deepseek-ai/dsh@0.1.7-rc.2 --profile headless --session-id <SESSION_ID> "任务描述"	把 <SESSION_ID> 换成真实会话 ID，尖括号只是占位符。
+从 Web 模板创建隔离 Profile 并检查配置	npx @deepseek-ai/dsh@0.1.7-rc.2 --profile daily-report-lab --from-default-profile web --dump-config	创建或使用 daily-report-lab；它不会自动同步到 Desktop 的保留 Profile。
+
+第三方插件安装没有列入“常用命令”。这类操作会改变 Profile 的依赖、锁文件和 bundle，并让外部代码进入 Host；需要时应回到第 16 章，先核验来源，再在隔离 Profile 中操作。
+
+B.2 日报助手项目
+
+下面三条命令要在 daily-report 项目根目录执行：
+
+命令	是否联网	是否写入报告	用途
+npm run check	否	否	校验默认 sources.json 和项目配置；成功时应以退出码 0 结束。
+npm test	否	否	使用伪造的 fetch 做完整回归测试。
+npm start	是	是	请求两个 GitHub Releases API，并在全部数据获取成功后生成或覆盖 daily-report.md。
+
+如果项目使用 Git，还可以运行 git diff --check 检查空白错误；它不验证程序逻辑，也不能替代测试。
+
+C. 日报助手的最终状态
+
+完成第 7～16 章后，项目应大致包含这些产物：
+
+daily-report/
+├── .dsh/
+│   ├── mcp-filesystem.yml
+│   └── skills/
+│       └── daily-report-maintainer/
+│           └── SKILL.md
+├── mcp-scratch/
+│   └── mcp-check.txt
+├── src/
+├── test/
+├── AUDIT.md
+├── PROJECT.md
+├── README.md
+├── daily-report.md
+├── package.json
+└── sources.json
+
+
+src/ 和 test/ 中的具体文件名可能因 Agent 批准的实现计划而不同，这不影响验收。.dsh/mcp-filesystem.yml 与 mcp-scratch/mcp-check.txt 是第 12 章留下的 MCP 实验产物；如果你按文中说明清理了实验，也可以不存在。
+
+最终验收关注行为，而不是目录是否和示意图逐字一致：
+
+npm run check 能离线检查配置，不修改 daily-report.md；
+npm test 能离线通过，测试不会真的请求 GitHub；
+npm start 会真实联网，并生成含两个数据源和有效链接的报告；
+.dsh/skills/daily-report-maintainer/SKILL.md 已包含测试、检查和外部操作边界；
+AUDIT.md 记录了子智能体审查后由主 Agent 核证的结论。
+
+另外还有两类状态不在项目树中：
+
+daily-report-lab 是 DSH Home 下的隔离 Profile，不是项目文件；
+第 15 章创建的 Schedule 任务是否保留，由你在章末明确选择。它不能通过查看项目目录来确认。
+D. 官方资料入口
+想继续了解	官方入口	正文对应位置
+项目源码、版本和已知变化	官方仓库 · Releases	第 1～3 章
+Desktop 安装与生命周期	Desktop 中文说明	第 4、6 章
+CLI 参数与 Profile	CLI 中文参考	第 4～6、15～17 章
+模型 Provider	Provider 中文指南	第 8 章
+插件与整体架构	架构说明	第 9、10、16 章
+项目级 Skill	Skill 文件系统	第 12、16 章
+MCP 接入	MCP Client 中文说明	第 12 章
+Headless 自动化	Headless 中文说明	第 15 章
+
+产品仍在快速迭代。遇到界面名称、参数或默认行为与教程不同，先运行 --version 和 --help，再查对应版本的 Release 与官方文档；不要为了“跟教程一致”而降级、清空配置或放宽权限。
+
+上一篇：第 18 章　进阶学习路线：从会用走向会设计
+返回：封面与导读

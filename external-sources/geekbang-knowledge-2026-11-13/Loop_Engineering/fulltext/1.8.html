@@ -1,0 +1,218 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与练习时间：60～80 分钟<br>本篇目标：让同一个 Dispatcher 接受手动、定时和事件三类触发，用单实例锁阻止重叠运行，并在独立 Git worktree 中生成候选，证明主工作区不会被 Agent 的代码改动污染。</p>
+</blockquote>
+<p>前六篇一直由我们手工运行命令，而且 Generator 直接修改 <code>issue-garden-lab/</code>。这便于学习控制逻辑，但不适合长期运行：定时器和文件事件可能同时到达，两次调度会争抢同一任务；失败候选还可能把主工作区留在半成品状态。</p>
+<p>这一篇把三个问题分开处理：</p>
+<pre><code class="hljs language-text">Trigger：为什么现在值得检查队列
+Scheduler：同一时刻由谁取得运行权
+Workspace：候选改动发生在哪里
+</code></pre><p>触发器只负责“敲门”，不能绕过任务契约；调度器一次最多领取一项任务；候选代码在独立 worktree 中生成并验证，只把 patch 和报告送回主工作区供人审核。</p>
+<h2 id="wiki-h-0">先把第 6 篇的终态保存下来</h2>
+<p>第 6 篇结束时，<code>issue-005</code> 已完成并提交，<code>issue-006</code> 因连续相同失败进入 <code>tasks/needs-input/</code>，但这次队列移动尚未提交。先确认主代码没有额外 Diff：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+git status --short
+</code></pre><p>源代码 Diff 应为空，状态列表只应包含 <code>issue-006</code> 的队列移动。保存这个控制面终态：</p>
+<pre><code class="hljs language-bash">git add tasks
+git commit -m <span class="hljs-string">"chore: record publisher task needs input"</span>
+git status --short
+</code></pre><p>最后一条命令应没有输出。创建 worktree 时，Git 会从当前 <code>HEAD</code> 复制一个独立工作目录；如果该提交没有包含前面课程的成果，隔离区也不会凭空拥有它们。</p>
+<h2 id="wiki-h-1">加入 Dispatcher、锁和隔离 Worker</h2>
+<p>从课程根目录复制本篇增量素材。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R assets/lesson-07-dispatch/. issue-garden-lab/
+<span class="hljs-built_in">cd</span> issue-garden-lab
+<span class="hljs-built_in">source</span> .venv/bin/activate
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> assets/lesson<span class="hljs-literal">-07-dispatch</span>/* issue<span class="hljs-literal">-garden-lab</span>
+<span class="hljs-built_in">Set-Location</span> issue<span class="hljs-literal">-garden-lab</span>
+.\.venv\Scripts\Activate.ps1
+</code></pre><p>新增部件：</p>
+<pre><code class="hljs language-text">tools/dispatch.py                    统一触发入口
+issue_garden/scheduler.py            单实例目录锁与事件校验
+issue_garden/dispatcher.py           选任务、建 worktree、收集候选
+issue_garden/isolated_worker.py      只在隔离目录运行 Generator 和 Verifier
+tasks/inbox/issue-007.json           图书标签搜索任务
+events/inbox/issue-007.json          受限事件示例
+acceptance/tag-search.test.mjs       标签搜索验收
+</code></pre><p>先运行控制面测试：</p>
+<pre><code class="hljs language-bash">python -m unittest discover -s loop_tests -p <span class="hljs-string">"test_*.py"</span> -v
+</code></pre><p>预期十八项通过。本篇新增两项：第二个调度器无法取得已被占用的目录锁；事件入口只接受 <code>task.created</code>，不会把任意事件类型当作执行指令。</p>
+<p>提交课程代码和任务定义：</p>
+<pre><code class="hljs language-bash">git add .
+git commit -m <span class="hljs-string">"feat: add triggers and isolated dispatch"</span>
+git status --short
+</code></pre><p>工作区应为空。后面创建的锁、worktree、候选 patch 和报告都位于已忽略的 <code>.loop/</code>，不会混进项目提交。</p>
+<h2 id="wiki-h-2">三个触发入口，最终都只能进入同一个队列</h2>
+<p><code>dispatch.py</code> 支持三种触发来源：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>触发类型</th>
+<th>适合什么情况</th>
+<th>它能提供什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>manual</code></td>
+<td>调试、人工确认后运行</td>
+<td>明确的人为启动时机</td>
+</tr>
+<tr>
+<td><code>schedule</code></td>
+<td>每隔一段时间检查积压任务</td>
+<td>固定时间窗口，不保证一定有任务</td>
+</tr>
+<tr>
+<td><code>event</code></td>
+<td>新任务文件或外部事件到达</td>
+<td>指向一个已存在任务的结构化通知</td>
+</tr>
+</tbody></table></div>
+<p>它们不会获得三套不同权限。无论谁触发，Dispatcher 都要检查同一个 <code>tasks/inbox/</code>、同一个验证注册表和同一套预算。</p>
+<p>先使用 Dry Run，不创建 worktree、不移动任务。手动触发预演：</p>
+<pre><code class="hljs language-bash">python tools/dispatch.py --trigger manual --dry-run
+</code></pre><p>定时触发预演：</p>
+<pre><code class="hljs language-bash">python tools/dispatch.py --trigger schedule --dry-run
+</code></pre><p>两者都应返回：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"planned"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-007"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"worktree"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">".loop/worktrees/issue-007"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"side_effects"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p><code>trigger</code> 字段不同，但任务和计划工作区相同。Dry Run 的 <code>side_effects</code> 为空，独立检查：</p>
+<pre><code class="hljs language-bash">git status --short
+git worktree list
+</code></pre><p>Git 状态仍为空，worktree 列表只有主工作区。</p>
+<h3 id="wiki-h-3">事件不能携带任意命令</h3>
+<p>打开 <code>events/inbox/issue-007.json</code>，内容只有：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"event_type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"task.created"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-007"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"occurred_at"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2026-09-24T00:00:00Z"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>事件只指向队列里已经存在的稳定任务 ID。它不能提供 Shell 命令、验证入口、写入路径或 Agent Prompt。预演：</p>
+<pre><code class="hljs language-bash">python tools/dispatch.py \
+  --trigger event \
+  --event events/inbox/issue-007.json \
+  --dry-run
+</code></pre><p>Windows PowerShell 可以写成一行：</p>
+<pre><code class="hljs language-powershell">python tools/dispatch.py <span class="hljs-literal">--trigger</span> event <span class="hljs-literal">--event</span> events/inbox/issue<span class="hljs-literal">-007</span>.json <span class="hljs-literal">--dry-run</span>
+</code></pre><p>应得到同一项 <code>planned</code> 结果。如果把 <code>event_type</code> 改成 <code>run.shell</code>，入口会以非零状态拒绝；它不会根据事件名字扩大能力。</p>
+<p>真实事件系统还应持久化并去重 <code>event_id</code>。本地示例依靠任务 ID 和队列终态避免同一任务再次领取，没有实现通用 Webhook 去重。</p>
+<h2 id="wiki-h-4">单实例锁保护的是调度，不是整个世界</h2>
+<p>Dispatcher 启动后会尝试创建：</p>
+<pre><code class="hljs language-text">.loop/dispatch.lock/
+</code></pre><p>同一文件系统里，只有一个进程能成功创建不存在的目录。取得锁的进程会写入 <code>owner.json</code>，记录 PID、主机名和取得时间；第二个进程看到目录已存在，就返回：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"stopped"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"already_running"</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>正常退出时，<code>finally</code> 会释放锁。Dry Run 之后检查，macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">test</span> ! -d .loop/dispatch.lock &amp;&amp; <span class="hljs-built_in">echo</span> <span class="hljs-string">"lock released"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> .loop/dispatch.lock)) { <span class="hljs-string">"lock released"</span> }
+</code></pre><p>应看到 <code>lock released</code>。</p>
+<p>目录锁解决“同一个本地项目里不要重叠调度”的问题。它不是跨机器分布式锁，也不能保护 Agent 访问数据库、网络或其他目录。多个主机共同消费一个远端队列时，应使用队列服务或数据库提供的租约与原子领取，而不是共享一个本地目录。</p>
+<h2 id="wiki-h-5">先证明主工作区还没有标签搜索</h2>
+<p>运行新的验收：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/tag-search.test.mjs
+</code></pre><p>测试应失败。书目有 <code>tags: ["systems", "computer science"]</code>，当前搜索文本只包含标题、作者和 ISBN。</p>
+<p>记住这个失败。稍后隔离 worktree 中的同一测试会通过，而主工作区仍会失败，这正是候选隔离是否生效的独立证据。</p>
+<h2 id="wiki-h-6">手动调度一次隔离任务</h2>
+<p>现在执行真实调度：</p>
+<pre><code class="hljs language-bash">python tools/dispatch.py --trigger manual
+</code></pre><p>成功输出的关键字段如下：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"completed"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"isolated_candidate_verified"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"trigger"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"manual"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"issue-007"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"worktree"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">".loop/worktrees/issue-007"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"patch"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">".loop/candidates/issue-007/candidate.patch"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"report"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">".loop/candidates/issue-007/report.json"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"worker_exit_code"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>Dispatcher 实际做了五步：</p>
+<pre><code class="hljs language-text">取得调度锁
+  -&gt; 从 inbox 选择 issue-007
+  -&gt; 从当前 HEAD 创建 detached Git worktree
+  -&gt; 在 worktree 内生成并验证候选
+  -&gt; 把 patch 与报告写回主工作区的 .loop/candidates/
+</code></pre><p>任务进入 <code>tasks/done/</code>，这里的 <code>done</code> 表示“候选已独立验证并等待审阅”，不是“已合并到主分支”，更不是“已发布”。</p>
+<h2 id="wiki-h-7">用两个目录证明隔离确实存在</h2>
+<p>先看 Git 注册的工作区：</p>
+<pre><code class="hljs language-bash">git worktree list
+</code></pre><p>应有两个条目：主工作区，以及 detached 状态的 <code>.loop/worktrees/issue-007</code>。</p>
+<p>在主工作区重新运行标签验收：</p>
+<pre><code class="hljs language-bash">node --<span class="hljs-built_in">test</span> acceptance/tag-search.test.mjs
+</code></pre><p>它仍应失败。再进入候选 worktree 运行同一条测试。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> .loop/worktrees/issue-007
+node --<span class="hljs-built_in">test</span> acceptance/tag-search.test.mjs
+<span class="hljs-built_in">cd</span> ../../..
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> .loop/worktrees/issue<span class="hljs-literal">-007</span>
+node <span class="hljs-literal">--test</span> acceptance/tag<span class="hljs-literal">-search</span>.test.mjs
+<span class="hljs-built_in">Set-Location</span> ../../..
+</code></pre><p>候选 worktree 中应通过。两个目录来自同一个 Git HEAD，却有不同的未提交工作树：Agent 的标签搜索改动没有进入主目录。</p>
+<p>查看候选而不应用它：</p>
+<pre><code class="hljs language-bash">git apply --<span class="hljs-built_in">stat</span> .loop/candidates/issue-007/candidate.patch
+git apply --check .loop/candidates/issue-007/candidate.patch
+python -m json.tool .loop/candidates/issue-007/report.json
+</code></pre><p><code>--stat</code> 应只列出 <code>src/search.mjs</code>；<code>--check</code> 没有输出且退出码为 <code>0</code>，表示 patch 可以应用到当前主工作区，但它不会真的修改文件；报告应显示 <code>tag-search</code> 的三条验证命令通过、边界错误为空。</p>
+<p>再检查主工作区：</p>
+<pre><code class="hljs language-bash">git diff -- src/search.mjs
+git status --short
+</code></pre><p>源文件没有 Diff。Git 状态只显示 <code>issue-007</code> 从 <code>inbox</code> 移到 <code>done</code>，<code>.loop/</code> 中的候选不会出现。</p>
+<h2 id="wiki-h-8">审核后再清理 worktree</h2>
+<p>本教程默认不自动应用候选。你可以保留 worktree继续检查，或在确认 patch 和报告均已保存后删除隔离目录。</p>
+<p>下面的命令会丢弃 worktree 中尚未提交的候选文件，只在你已经验证 <code>.loop/candidates/issue-007/candidate.patch</code> 非空且可读后执行：</p>
+<pre><code class="hljs language-bash">git worktree remove --force .loop/worktrees/issue-007
+git worktree prune
+git worktree list
+</code></pre><p>最后列表应只剩主工作区。<code>--force</code> 是必要的，因为候选 worktree 故意保留未提交 Diff；可恢复副本是主目录 <code>.loop/candidates/issue-007/candidate.patch</code>。</p>
+<p>任务终态可以提交，但候选代码仍不合并：</p>
+<pre><code class="hljs language-bash">git add tasks
+git commit -m <span class="hljs-string">"chore: record isolated tag-search candidate"</span>
+git status --short
+</code></pre><p>工作区应干净，标签验收在主目录仍失败。这清楚地区分了三件事：候选已验证、候选已审核、候选已合并。自动化程度越高，越不应该把它们压成一个模糊的“完成”。</p>
+<h2 id="wiki-h-9">怎样接入系统定时器</h2>
+<p>Dispatcher 每次启动最多处理一个任务，然后退出。系统定时器负责“过一会儿再来看”，而不是让 Python 写一个永久 <code>while true</code>。</p>
+<p>macOS 或 Linux 可以使用现有的 cron、systemd timer 或平台调度器。以 cron 为例，先用 <code>pwd</code> 找到绝对路径，再把下面的占位符替换成你的实际路径：</p>
+<pre><code class="hljs language-cron">*<span class="hljs-string">/15</span> * * * * <span class="hljs-keyword">cd</span> /绝对路径<span class="hljs-string">/issue-garden-lab</span> &amp;&amp; /绝对路径<span class="hljs-string">/issue-garden-lab/.venv/bin/python</span> tools/dispatch.py <span class="hljs-params">--trigger</span> schedule &gt;&gt; <span class="hljs-string">.loop/scheduler.log</span> 2&gt;&amp;1
+</code></pre><p>它每 15 分钟检查一次。队列为空时 Dispatcher 返回 <code>no_task</code> 并结束，不会制造任务。cron 环境变量通常比交互终端少，所以要使用绝对 Python 路径和明确工作目录。</p>
+<p>Windows 可以打开“任务计划程序”，选择“创建基本任务”，依次填写：</p>
+<ol>
+<li>触发器：按你需要的间隔；</li>
+<li>操作：启动程序；</li>
+<li>程序或脚本：<code>issue-garden-lab\.venv\Scripts\python.exe</code> 的绝对路径；</li>
+<li>参数：<code>tools\dispatch.py --trigger schedule</code>；</li>
+<li>起始于：<code>issue-garden-lab</code> 的绝对路径。</li>
+</ol>
+<p>先把计划设为“仅在用户登录时运行”，手动点击“运行”并查看 <code>.loop/scheduler.log</code> 或任务历史。确认工作目录、Python 环境和权限都正确后，再决定是否允许无人值守。</p>
+<p>定时频率不是越高越好。间隔应该大于常见任务耗时，锁只是最后防线；如果每次都因 <code>already_running</code> 跳过，说明调度频率或任务粒度需要调整。</p>
+<h2 id="wiki-h-10">常见阻塞</h2>
+<h3 id="wiki-h-11">提示 <code>worktree_already_exists</code></h3>
+<p>先运行：</p>
+<pre><code class="hljs language-bash">git worktree list
+</code></pre><p>如果该目录包含尚未审阅的候选，继续审阅，不要覆盖。如果 patch 已保存且决定放弃候选，再按上一节的 <code>git worktree remove --force</code> 清理。</p>
+<h3 id="wiki-h-12">锁一直存在</h3>
+<p>硬断电或强制结束进程可能来不及执行 <code>finally</code>。先查看：</p>
+<pre><code class="hljs language-bash">python -m json.tool .loop/dispatch.lock/owner.json
+</code></pre><p>确认记录的主机和 PID 已经没有运行中的 Dispatcher，再把整个锁目录改名保存现场，而不是直接假定它过期：</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mv</span> .loop/dispatch.lock .loop/dispatch.lock.stale
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Move-Item</span> .loop/dispatch.lock .loop/dispatch.lock.stale
+</code></pre><p>若进程仍在运行，应先调查它为什么耗时过长。强行清锁会重新引入重叠调度。</p>
+<h3 id="wiki-h-13">worktree 是不是安全沙箱</h3>
+<p>不是。Git worktree 隔离代码目录和未提交 Diff，但仍共享 Git 对象库，也通常以同一个操作系统用户运行，拥有相同网络和本机文件权限。高风险或不受信任 Agent 还需要容器、沙箱、独立用户、只读挂载和网络策略。</p>
+<h3 id="wiki-h-14">事件到达就能直接执行吗</h3>
+<p>事件只触发一次队列检查。示例会校验事件类型与任务 ID，并要求对应任务已经在 <code>inbox</code>。不要把 Webhook 正文直接拼成命令或 Prompt；先认证来源、限制大小、解析为受控字段，再创建任务。</p>
+<h2 id="wiki-h-15">本篇留下了什么</h2>
+<p>Issue Garden 现在有了统一触发入口：手动、定时和事件只决定“何时检查”，不会改变任务权限；原子目录锁阻止本地重叠调度；每项候选在 detached Git worktree 中生成和验证，主工作区只接收报告、patch 和队列终态。</p>
+<p>下一篇，我们会在这个受控运行框架上补齐全局资源治理：除了每轮文件数和 Diff 行数，还要追踪任务总时长、Agent 运行次数、可选 Token/费用指标，以及真正需要人注意的通知，避免“安全地运行”变成“安全地烧预算”。</p>
+<h2 id="wiki-h-16">修订后的边界验收</h2>
+<p>candidate.patch 使用临时 Git 索引，以 HEAD 为基线收集已跟踪变化与未忽略的新文件，不修改真实索引。清理前用 git apply --stat 查看清单，并在干净副本执行 git apply --check；新增 src 文件必须出现在补丁中。</p>
+</article>

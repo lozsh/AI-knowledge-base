@@ -1,0 +1,237 @@
+第二章 安装与初始化（多操作系统详解）
+
+本章手把手带你完成安装。文字步骤尽量写清楚，让你光看文字就能操作。
+
+2.1 系统要求
+
+安装前，请确认设备满足以下要求：
+
+操作系统	最低版本	架构
+macOS	macOS 14.7.8 及以上	x86_64（Intel）、ARM64（Apple Silicon）
+Linux	Ubuntu 20.04+、Debian 10+	x86_64、ARM64
+Windows	Windows 10 及以上	x86_64、ARM64
+
+此外，你的电脑需要有可用的终端环境和可用的 TRAE 账号权限。
+
+本教程以 TraeCode CLI 2.0（当前最新版本）为准。
+
+2.2 macOS 安装
+
+第 1 步：打开终端
+
+方式一：按 Command + 空格 打开「聚焦搜索」，输入 终端 或 Terminal，回车打开。
+方式二：打开「访达」→ 顶部菜单「前往」→「实用工具」→ 双击「终端」。
+
+第 2 步：执行安装脚本
+
+在终端窗口中，粘贴下面这一行命令并回车：
+
+sh -c "$(curl -fsSL https://trae.cn/trae-cli/install_v2.sh)"
+
+
+脚本会自动下载并安装最新版 TraeCode CLI。过程中可能提示输入密码（你的 Mac 登录密码，输入时不会显示字符，属正常现象）。
+
+第 3 步：验证安装
+
+安装完成后，在终端执行：
+
+traecli --version
+
+
+如果输出类似 traecli version 2.x.x 的版本号，说明安装成功，可以跳到 2.6 节登录。
+
+如果提示 command not found: traecli：说明可执行文件所在目录不在 PATH 中。CLI 通常安装到 ~/.local/bin，手动把它加进 PATH：
+
+echo 'export PATH=~/.local/bin:$PATH' >> ~/.zshrc
+source ~/.zshrc
+
+
+如果你用的是 bash 而非 zsh，把上面两行里的 .zshrc 换成 .bash_profile。
+
+2.3 Linux 安装
+
+第 1 步：打开终端
+
+Ubuntu/Debian：按 Ctrl + Alt + T 打开终端。
+其他发行版：在应用列表中搜索「Terminal」或「终端」。
+
+第 2 步：执行安装脚本
+
+sh -c "$(curl -fsSL https://trae.cn/trae-cli/install_v2.sh)"
+
+
+如果系统提示缺少 curl，先装一下：
+
+sudo apt update && sudo apt install -y curl
+
+
+第 3 步：验证安装
+
+traecli --version
+
+
+看到版本号即成功。若提示 command not found，把 ~/.local/bin 加入 PATH：
+
+echo 'export PATH=~/.local/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+
+2.4 Windows WSL2 安装（Windows 用户推荐）
+
+TraeCode 官方建议 Windows 用户优先使用 WSL2，因为能获得接近原生 Linux 的开发体验。本节带你从零配置。
+
+第 1 步：确认 Windows 版本
+
+按 Win + R，输入 winver 回车。需为 Windows 10（版本 2004+）或 Windows 11。若版本过低，先更新系统。
+
+第 2 步：安装 WSL2 与 Ubuntu
+
+以管理员身份打开 PowerShell：右键点击「开始」菜单 → 选择「Windows PowerShell（管理员）」或「终端（管理员）」。
+
+执行：
+
+wsl --install -d Ubuntu
+
+
+这会一次性安装 WSL2 虚拟机平台和一个 Ubuntu 发行版。安装完成后重启电脑。
+
+重启后，Ubuntu 会自动弹出窗口（或从开始菜单点开「Ubuntu」），首次启动会让你设置一个 Linux 用户名和密码。密码输入时不显示字符，这是正常的，设好并记住。
+
+第 3 步：进入 WSL 终端
+
+以后打开 WSL 的方式：
+
+方式一：开始菜单搜索「Ubuntu」并打开。
+方式二：在 PowerShell 或 Windows Terminal 里输入 wsl 回车。
+
+进入后，提示符会变成类似 用户名@电脑名:~$，说明你已在 Linux 环境中。
+
+第 4 步：在 WSL 中安装 TraeCode CLI
+
+在 WSL 终端中执行（和 Linux 一样的脚本）：
+
+sudo apt update && sudo apt install -y curl
+sh -c "$(curl -fsSL https://trae.cn/trae-cli/install_v2.sh)"
+
+
+第 5 步：验证安装
+
+traecli --version
+
+
+看到版本号即成功。若 command not found，同样把 ~/.local/bin 加入 PATH：
+
+echo 'export PATH=~/.local/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+
+
+小贴士：在 WSL 中，你的 Windows C 盘挂在 /mnt/c。建议把项目放在 WSL 原生目录（如 ~ 下），性能比放在 /mnt/c 更好。
+
+2.5 Windows PowerShell 原生安装
+
+如果你不想用 WSL2，也可以在 Windows 原生环境安装。
+
+第 1 步：打开 PowerShell
+
+按 Win + S 打开搜索，输入 PowerShell，点击「Windows PowerShell」打开（普通权限即可，无需管理员）。
+
+第 2 步：执行安装脚本
+
+在 PowerShell 窗口中粘贴并回车：
+
+irm https://trae.cn/trae-cli/install_v2.ps1 | iex
+
+
+脚本会自动下载安装。
+
+第 3 步：安装 VC 运行库（如需要）
+
+如果安装后提示 TraeCode CLI 自带的 Ripgrep 不可用，需要额外安装 Visual C++ Redistributable（VC 运行库）：
+
+打开浏览器访问 微软官方下载页
+下载 vc_redist.x64.exe 并双击安装
+
+第 4 步：验证安装
+
+关闭并重新打开 PowerShell（让 PATH 生效），执行：
+
+traecli --version
+
+
+看到版本号即成功。
+
+第 5 步：完成沙箱初始化（首次启动时）
+
+首次运行 traecli 时，Windows 原生版会按界面提示引导你完成沙箱初始化，按提示操作即可。沙箱用于在受限环境中执行命令，降低误操作风险。
+
+2.6 首次启动与登录
+
+安装完成后，我们来启动并登录。
+
+第 1 步：进入一个项目目录
+
+随便选一个文件夹（可以先用一个已有项目，或新建一个）：
+
+# macOS / Linux / WSL2
+cd ~/Desktop/my-project
+
+# Windows PowerShell
+cd $env:USERPROFILE\Desktop\my-project
+
+
+如果目录不存在，先用 mkdir my-project && cd my-project（macOS/Linux/WSL2）或 New-Item -ItemType Directory my-project; cd my-project（PowerShell）创建。
+
+第 2 步：启动 TraeCode CLI
+
+traecli
+
+
+启动后你会进入交互式 TUI（终端图形界面），底部有一个输入框。
+
+第 3 步：登录
+
+首次打开时，TUI 会自动引导你登录。登录界面支持：
+
+账号登录：用你的 TRAE 企业账号。
+自定义域登录：如果你的组织使用自定义 API 域名，按提示填写。
+
+在输入框随便发一句话（比如「你好」），首次会唤起登录页面，按网页提示完成授权，然后返回 CLI 即可开始使用。
+
+查看 / 退出登录状态（在终端中执行）：
+
+traecli login status   # 查看登录状态
+traecli logout          # 退出登录
+
+
+自动化场景用 PAT 登录（无需交互，适合 CI）：
+
+# 交互输入，不把真实 token 写进 shell 历史
+stty -echo
+IFS= read -r TRAECLI_PERSONAL_ACCESS_TOKEN
+stty echo
+export TRAECLI_PERSONAL_ACCESS_TOKEN
+traecli login --with-trae-pat
+
+
+如果组织用自定义 API 域名，再加一个环境变量：
+
+export TRAECLI_HOST="https://api.example.com"
+# 交互输入，不把真实 token 写进 shell 历史
+stty -echo
+IFS= read -r TRAECLI_PERSONAL_ACCESS_TOKEN
+stty echo
+export TRAECLI_PERSONAL_ACCESS_TOKEN
+traecli login --with-trae-pat
+
+
+PAT 是可选自动化路线。Windows 请使用 Read-Host -AsSecureString 后在当前进程设置变量；不要在命令行字面写入真实 token。主线使用交互登录即可。
+
+2.7 升级方式
+
+TraeCode CLI 支持两种升级方式：
+
+自动升级：启动 CLI 后，若当前版本非最新，会自动开始升级并在界面右下角提示状态。
+手动升级：在终端执行：
+traecli update
+
+
+至此，你已经装好并登录了 TraeCode CLI。下一章我们先用一个现成项目练手，熟悉基本交互。

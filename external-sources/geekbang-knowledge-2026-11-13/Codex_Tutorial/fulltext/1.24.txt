@@ -1,0 +1,137 @@
+配置字段会随 Codex 版本更新。修改前先备份，修改后用 /debug-config 检查。密钥只放环境变量或安全凭据系统，不写入 TOML。
+
+配置文件位置
+macOS、Linux、WSL2：~/.codex/config.toml
+Windows：%USERPROFILE%\.codex\config.toml
+项目级配置：<项目>/.codex/config.toml
+
+项目配置只应放适合整个仓库共享的安全默认值。Provider 路由和认证应保留在用户级配置中。
+
+默认使用 OpenAI
+
+用户级配置：
+
+model_provider = "openai"
+
+
+登录方式和可用模型以当前账户与 CLI 提示为准。
+
+只修改 OpenAI 网关地址
+
+仅当网关继续使用 OpenAI 身份验证语义时：
+
+model_provider = "openai"
+openai_base_url = "https://gateway.example.com/v1"
+
+
+如果网关发放自己的 Key，应定义自定义 Provider，不要混用认证方式。
+
+自定义 Provider
+
+先在终端设置环境变量。
+
+macOS、Linux、WSL2：
+
+export COMPANY_MODEL_API_KEY="<your-key>"
+
+
+Windows PowerShell，仅当前窗口：
+
+$env:COMPANY_MODEL_API_KEY = "<your-key>"
+
+
+用户级配置：
+
+model_provider = "company"
+model = "provider-model-id"
+
+[model_providers.company]
+name = "Company Gateway"
+base_url = "https://gateway.example.com/v1"
+env_key = "COMPANY_MODEL_API_KEY"
+wire_api = "responses"
+
+
+平台若只兼容其他协议，wire_api 必须按其文档和 Codex 当前支持范围设置，不能仅凭 URL 猜测。
+
+为第三方 Provider 创建独立 Profile
+
+默认 ~/.codex/config.toml 保持：
+
+model_provider = "openai"
+
+[model_providers.relay]
+name = "My Relay"
+base_url = "https://relay.example.com/v1"
+env_key = "RELAY_API_KEY"
+wire_api = "responses"
+
+
+另建 ~/.codex/relay.config.toml：
+
+model_provider = "relay"
+model = "provider-model-id"
+
+
+使用：
+
+codex --profile relay
+
+
+退出后运行普通 codex，即可回到默认 OpenAI Provider。
+
+本地模型
+
+命令行：
+
+codex --oss --local-provider ollama
+
+
+或：
+
+codex --oss --local-provider lmstudio
+
+
+配置默认本地 Provider：
+
+oss_provider = "ollama"
+
+
+本地模型是否适合 Agent 任务，取决于上下文、工具调用和机器资源，不要只用聊天效果判断。
+
+项目级安全默认值
+
+<项目>/.codex/config.toml：
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+
+项目级配置只有在项目受信任时才会加载。不要在陌生仓库中盲目接受高权限设置。
+
+最小 AGENTS.md
+# Project guide
+
+## Commands
+- Test: `<完整测试命令>`
+- Lint: `<检查命令>`
+
+## Constraints
+- Do not install dependencies unless the task requires it.
+- Tests must not access production data.
+- Preserve backward compatibility unless explicitly changed.
+- Do not commit secrets, generated data, or personal paths.
+
+## Definition of done
+- Requested behavior is implemented.
+- Focused and full tests pass.
+- User-facing docs match actual behavior.
+- Final response lists changes, validation, and limitations.
+
+配置排错顺序
+codex --version；
+检查 TOML 是否有重复键、引号或表名错误；
+确认环境变量名与 env_key 完全一致；
+运行 /debug-config；
+用 /status 核对最终 Provider 和模型；
+对 401、403、404、429 分别检查认证、权限、地址和限流。

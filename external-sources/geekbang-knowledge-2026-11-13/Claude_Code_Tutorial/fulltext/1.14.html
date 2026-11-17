@@ -1,0 +1,371 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计用时：65～85 分钟<br>本篇目标：创建并显式调用一个项目级只读 Subagent，让它审查固定 MealCraft 候选代码；用 <code>/tasks</code> 观察运行状态，再由主 Agent 和独立脚本复核证据。Agent Teams 只建立选择边界，不作为通关要求。</p>
+</blockquote>
+<p>第 12 篇的插件里已经短暂调用过一个 Agent，但那一节只证明“插件能携带 Agent”。本篇会把 Subagent 本身做完整：固定输入、确定失败、最终配置、工具白名单、显式调用、结构化结果、主会话复核、文件哈希和失败恢复一个都不少。</p>
+<p>Subagent 的首要价值是<strong>隔离上下文</strong>。它可以读很多文件，把有用结论带回主会话，而不让中间搜索结果占满主上下文。并行只是次要收益；一个边界清楚的审查任务，先用一个 Subagent 做对，比一开始同时派三个更适合初学者。</p>
+<h2 id="wiki-h-0">开始状态</h2>
+<p>从完成第 12 篇后的 MealCraft 项目开始。普通 <code>mealcraft-pantry</code> MCP 已移除，<code>mealcraft-tools</code> 插件也没有在当前会话临时加载。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/claude-code-course/mealcraft
+git status --short
+python3 scripts/verify_2_0.py --stage complete
+python3 -m unittest discover -s tests -v
+claude --version
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course\mealcraft"</span>
+git status <span class="hljs-literal">--short</span>
+py scripts/verify_2_0.py <span class="hljs-literal">--stage</span> complete
+py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+claude <span class="hljs-literal">--version</span>
+</code></pre><p>预期工作区为空，23 项正式测试全部通过。本文使用的候选缺陷位于隔离练习目录，不会替换或导入正式 <code>mealcraft/</code> 代码。</p>
+<p>本文按 Claude Code 2.1.281 或更高版本编写。若更低，先运行 <code>claude update</code>。当前 <code>/agents</code> 已不再是创建 Agent 的交互向导；项目 Agent 应直接保存为 <code>.claude/agents/*.md</code>，然后通过校验和实际发现来确认。</p>
+<h2 id="wiki-h-1">先理解主会话与 Subagent 的边界</h2>
+<p>一个普通自定义 Subagent 启动时有自己的上下文窗口。它不会看到你此前的完整对话，也不知道主会话已经读过哪些文件；主 Agent 会为它组织一条委派任务。项目级自定义 Agent 默认还会加载项目的 <code>CLAUDE.md</code>、Rules 与启动时的 Git 状态快照。</p>
+<p>两个内置只读 Agent 是例外：Explore 与 Plan 为了快速调查，会跳过 <code>CLAUDE.md</code> 和 Git 状态快照。临时查“函数在哪里”可以用 Explore；需要反复使用同一审查范围、工具和输出契约时，才值得定义本篇这样的项目 Agent。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>选择</th>
+<th>适合什么</th>
+<th>结果回到哪里</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>主会话直接做</td>
+<td>小任务、需要持续使用当前对话上下文</td>
+<td>仍在主上下文</td>
+</tr>
+<tr>
+<td>内置 Explore/Plan</td>
+<td>一次性只读搜索或计划调查</td>
+<td>摘要回到主会话</td>
+</tr>
+<tr>
+<td>自定义 Subagent</td>
+<td>重复出现的专门任务，需要固定工具与交付格式</td>
+<td>结果回到调用它的会话</td>
+</tr>
+<tr>
+<td>后台独立会话</td>
+<td>长时间独立工作，需要之后 attach/resume</td>
+<td>自己的会话记录</td>
+</tr>
+<tr>
+<td>Agent Team</td>
+<td>成员必须直接讨论、共享任务和自协调</td>
+<td>由 Team lead 汇总</td>
+</tr>
+</tbody></table></div>
+<p>Subagent 会单独发起模型请求，计入相同的用量限制。隔离上下文能减少主会话污染，不等于免费，也不保证更快。</p>
+<h2 id="wiki-h-2">复制固定审查素材</h2>
+<p>先退出 Claude Code，在普通终端操作。把课程路径替换为你的实际位置。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> COURSE_SOURCE=<span class="hljs-string">"/替换为实际路径/claude-code-tutorial-v0.2"</span>
+<span class="hljs-built_in">export</span> AGENT_SOURCE=<span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/agent-review-kit"</span>
+<span class="hljs-built_in">test</span> -f <span class="hljs-string">"<span class="hljs-variable">$AGENT_SOURCE</span>/mealcraft-reviewer.md"</span>
+<span class="hljs-built_in">test</span> ! -e .claude/agents/mealcraft-reviewer.md
+<span class="hljs-built_in">test</span> ! -e extensions/mealcraft-agent-lab
+<span class="hljs-built_in">mkdir</span> -p .claude/agents extensions
+<span class="hljs-built_in">cp</span> <span class="hljs-string">"<span class="hljs-variable">$AGENT_SOURCE</span>/mealcraft-reviewer.md"</span> .claude/agents/mealcraft-reviewer.md
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$AGENT_SOURCE</span>"</span> extensions/mealcraft-agent-lab
+python3 extensions/mealcraft-agent-lab/verify_agent_lab.py --phase complete --project-root <span class="hljs-string">"<span class="hljs-variable">$PWD</span>"</span>
+claude plugin validate .claude/agents --strict
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$CourseSource</span> = <span class="hljs-string">"C:\替换为实际路径\claude-code-tutorial-v0.2"</span>
+<span class="hljs-variable">$AgentSource</span> = <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\agent-review-kit"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">"<span class="hljs-variable">$AgentSource</span>\mealcraft-reviewer.md"</span>)) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"Agent 素材路径错误"</span> }
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">".claude\agents\mealcraft-reviewer.md"</span>) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"同名项目 Agent 已存在，请先人工比较"</span> }
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">"extensions\mealcraft-agent-lab"</span>) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"Agent 练习目录已存在，请先人工比较"</span> }
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-string">".claude\agents"</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-string">"extensions"</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$AgentSource</span>\mealcraft-reviewer.md"</span> <span class="hljs-string">".claude\agents\mealcraft-reviewer.md"</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-variable">$AgentSource</span> <span class="hljs-string">"extensions\mealcraft-agent-lab"</span> <span class="hljs-literal">-Recurse</span>
+py extensions\mealcraft<span class="hljs-literal">-agent-lab</span>\verify_agent_lab.py <span class="hljs-literal">--phase</span> complete <span class="hljs-literal">--project-root</span> <span class="hljs-variable">$PWD</span>
+claude plugin validate .claude\agents <span class="hljs-literal">--strict</span>
+</code></pre><p>预期输出包含：</p>
+<pre><code class="hljs language-text">PASS layout: fixed case and read-only project agent
+PASS baseline: 5 tests, 2 expected failures, 0 errors
+PASS agent lab phase=complete
+✔ Validation passed
+</code></pre><p>这里的两个失败是<strong>练习基线</strong>，不是 MealCraft 2.0 回归。目录结构如下：</p>
+<pre><code class="hljs language-text">.claude/agents/
+└── mealcraft-reviewer.md
+extensions/mealcraft-agent-lab/
+├── mealcraft-reviewer.md
+├── verify_agent_lab.py
+└── review-case/
+    ├── REVIEW_BRIEF.md
+    ├── candidate_shopping.py
+    ├── test_candidate_shopping.py
+    └── BASELINE.txt
+</code></pre><p>检查器会比较项目 Agent 与固定副本、核对四个审查文件的 SHA-256，并真实运行 5 项测试。候选实现稳定出现两个问题：不同单位被合并，以及数值 0 没有被拒绝。现在先把确定起点提交，后面才看得出 Agent 是否越界写文件。</p>
+<pre><code class="hljs language-bash">git add .claude/agents/mealcraft-reviewer.md extensions/mealcraft-agent-lab
+git diff --cached --check
+git commit -m <span class="hljs-string">"add read-only MealCraft review agent lab"</span>
+</code></pre><h2 id="wiki-h-3">读懂完整 Agent 定义</h2>
+<p>项目真正加载的文件是 <code>.claude/agents/mealcraft-reviewer.md</code>。它与素材副本内容一致：</p>
+<pre><code class="hljs language-markdown">---
+name: mealcraft-reviewer
+description: Reviews the fixed MealCraft shopping-list candidate for data correctness and test evidence. Use only for the lesson 13 read-only review case.
+tools:
+<span class="hljs-bullet">  -</span> Read
+<span class="hljs-bullet">  -</span> Grep
+<span class="hljs-bullet">  -</span> Glob
+permissionMode: plan
+model: inherit
+maxTurns: 8
+<span class="hljs-section">background: true
+---</span>
+
+You are a narrow, read-only reviewer for the fixed MealCraft lesson 13 case.
+
+<span class="hljs-section">## Scope</span>
+
+Read only these files unless one of them directly references another file under the same <span class="hljs-code">`review-case`</span> directory:
+
+<span class="hljs-bullet">-</span> <span class="hljs-code">`extensions/mealcraft-agent-lab/review-case/REVIEW_BRIEF.md`</span>
+<span class="hljs-bullet">-</span> <span class="hljs-code">`extensions/mealcraft-agent-lab/review-case/candidate_shopping.py`</span>
+<span class="hljs-bullet">-</span> <span class="hljs-code">`extensions/mealcraft-agent-lab/review-case/test_candidate_shopping.py`</span>
+<span class="hljs-bullet">-</span> <span class="hljs-code">`extensions/mealcraft-agent-lab/review-case/BASELINE.txt`</span>
+
+Do not review the live <span class="hljs-code">`mealcraft/`</span> package. Do not edit or create files, run commands, call MCP tools, invoke Skills, or spawn another agent. Treat <span class="hljs-code">`BASELINE.txt`</span> as captured evidence that the main session must reproduce independently.
+
+<span class="hljs-section">## Review method</span>
+
+<span class="hljs-bullet">1.</span> Map each failing test in <span class="hljs-code">`BASELINE.txt`</span> to the candidate implementation.
+<span class="hljs-bullet">2.</span> Confirm the expected behavior from the test and brief, then explain the smallest root cause supported by the code.
+<span class="hljs-bullet">3.</span> Report only reproduced correctness defects. Do not add style opinions or speculative features.
+<span class="hljs-bullet">4.</span> If the supplied evidence is insufficient, put the uncertainty in <span class="hljs-code">`unverified`</span>; do not invent a result.
+
+<span class="hljs-section">## Output contract</span>
+
+Return one JSON object and no Markdown fence or surrounding prose:
+
+<span class="hljs-code">```json
+{
+  "agent": "mealcraft-reviewer",
+  "verdict": "FAIL",
+  "findings": [
+    {
+      "id": "MC-001",
+      "severity": "high",
+      "test": "test_keeps_different_units_separate",
+      "file": "extensions/mealcraft-agent-lab/review-case/candidate_shopping.py",
+      "line": 1,
+      "root_cause": "Evidence-backed explanation",
+      "expected": "Expected behavior",
+      "actual": "Observed behavior from BASELINE.txt"
+    }
+  ],
+  "files_changed": false,
+  "unverified": []
+}
+```</span>
+
+Use exactly two findings, <span class="hljs-code">`MC-001`</span> for <span class="hljs-code">`test_keeps_different_units_separate`</span> with severity <span class="hljs-code">`high`</span>, and <span class="hljs-code">`MC-002`</span> for <span class="hljs-code">`test_rejects_non_positive_numeric_amount`</span> with severity <span class="hljs-code">`medium`</span>. Replace the example line and prose with evidence from the files. Keep <span class="hljs-code">`files_changed`</span> false.
+</code></pre><p>关键字段分别承担不同职责：</p>
+<ul>
+<li><code>description</code> 帮助 Claude 判断何时自动委派；细节放正文，避免每次会话都为长描述付上下文成本。</li>
+<li><code>tools</code> 是这个 Agent 的工具类型白名单。这里只有 Read、Grep、Glob，所以它没有 Write、Edit、Bash、PowerShell、MCP、Skill 或 Agent 工具。</li>
+<li><code>permissionMode: plan</code> 让它以 Plan 权限模式运行；但如果主会话处于 acceptEdits、auto 或 bypassPermissions，Claude Code 会沿用主会话模式并忽略这里的模式值。无论如何，没出现在 <code>tools</code> 中的写入和命令工具仍不会凭空出现。</li>
+<li><code>model: inherit</code> 使用当前会话可用的模型选择，避免教程硬编码一个账号未必可用的模型。实际运行模型可在 <code>/tasks</code> 中查看。</li>
+<li><code>maxTurns: 8</code> 限制 Agentic turns；到达上限会返回 partial，不是 Token 或金额上限。</li>
+<li><code>background: true</code> 让它在后台工作，主会话可以继续操作；权限请求仍会回到主会话。</li>
+</ul>
+<p>正文中的“不要写文件”是行为说明，真正可观察的强边界是工具白名单与哈希检查。它没有 <code>Agent</code> 工具，也不能继续生成一层子 Agent。</p>
+<h2 id="wiki-h-4">显式调用，避免赌自动路由</h2>
+<p>从项目根目录启动一个新会话：</p>
+<pre><code class="hljs language-bash">claude
+</code></pre><p>项目启动前 <code>.claude/agents/</code> 已经存在，所以应立即被扫描。输入 <code>@</code> 并搜索 <code>mealcraft-reviewer</code>，或直接提交完整的手动 mention：</p>
+<pre><code class="hljs language-text">@agent-mealcraft-reviewer 审查固定 lesson 13 case。严格遵守你的 Scope、Review method 和 Output contract；只返回一个 JSON 对象，不要修改文件。
+</code></pre><p>自然语言“请用 mealcraft-reviewer”通常会触发委派，但 <code>@agent-mealcraft-reviewer</code> 才保证指定 Agent 为这项任务运行。你发送的整条消息仍先到主 Claude，再由它组织委派提示；mention 只固定 Agent 类型，不绕过主会话。</p>
+<p>调用开始后输入：</p>
+<pre><code class="hljs language-text">/tasks
+</code></pre><p>预期能看到名为 <code>mealcraft-reviewer</code> 的后台项、运行状态和实际模型。任务很短，打开 <code>/tasks</code> 时它可能已经 completed；完成项仍能证明实际启动过。终端下方的 Agent 面板也会显示运行或已完成状态。</p>
+<p>展开 Agent 工具记录，必须只出现 Read、Grep 或 Glob。若出现 Bash、Write、Edit 或 MCP，停止验收并检查实际加载的是不是同名的另一个 Agent。</p>
+<h2 id="wiki-h-5">保存并机器校验 Subagent 结果</h2>
+<p>Agent 应返回一个没有 Markdown 围栏的 JSON 对象。不要手工“美化”其内容，让主会话只负责原样保存：</p>
+<pre><code class="hljs language-text">不要再委派。把刚才 mealcraft-reviewer 返回的 JSON 对象原样保存到 extensions/mealcraft-agent-lab/output/review-result.json。可以创建 output 目录，但不要修改其他文件。保存后只报告路径。
+</code></pre><p>这里的写入来自<strong>主会话</strong>，不是只读 Subagent。退出 Claude Code，在普通终端校验结果。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 extensions/mealcraft-agent-lab/verify_agent_lab.py \
+  --phase report \
+  --project-root <span class="hljs-string">"<span class="hljs-variable">$PWD</span>"</span> \
+  --report extensions/mealcraft-agent-lab/output/review-result.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py extensions\mealcraft<span class="hljs-literal">-agent-lab</span>\verify_agent_lab.py `
+  <span class="hljs-literal">--phase</span> report `
+  <span class="hljs-literal">--project-root</span> <span class="hljs-variable">$PWD</span> `
+  <span class="hljs-literal">--report</span> extensions\mealcraft<span class="hljs-literal">-agent-lab</span>\output\review<span class="hljs-literal">-result</span>.json
+</code></pre><p>预期：</p>
+<pre><code class="hljs language-text">PASS report: 2 evidence-backed findings, read-only boundary recorded
+PASS agent lab phase=report
+</code></pre><p>检查器要求结果具备：</p>
+<ul>
+<li><code>agent</code> 为 <code>mealcraft-reviewer</code>，<code>verdict</code> 为 <code>FAIL</code>；</li>
+<li>正好两个发现，测试名、严重级别和文件路径正确；</li>
+<li>每个发现含正整数行号、root cause、expected 和 actual；</li>
+<li><code>files_changed</code> 为 <code>false</code>，<code>unverified</code> 为空。</li>
+</ul>
+<p>如果 JSON 语法错误或少字段，不要重新开一个 Agent。回到同一会话说：</p>
+<pre><code class="hljs language-text">继续刚才的 mealcraft-reviewer 实例，只按 Output contract 修正返回格式，不重新调查；然后由主会话覆盖 review-result.json。不要修改其他文件。
+</code></pre><p>每次新的 @-mention 默认创建新实例；明确“继续刚才实例”可以让 Claude 用原 Agent ID 恢复它，保留此前工具结果和上下文。Explore 与 Plan 是一次性内置 Agent，没有可恢复的 Agent ID。</p>
+<h2 id="wiki-h-6">由主 Agent 独立复核证据</h2>
+<p>Subagent 的报告只是线索，不是最终真相。重新进入 Claude Code，让主会话自己读代码并运行固定检查：</p>
+<pre><code class="hljs language-bash">claude
+</code></pre><p>发送：</p>
+<pre><code class="hljs language-text">不要委派，也不要修改文件。作为主 Agent，读取 extensions/mealcraft-agent-lab/output/review-result.json、REVIEW_BRIEF.md、candidate_shopping.py 和测试；运行 verify_agent_lab.py --phase baseline --project-root 当前目录。逐项核对 MC-001、MC-002 的代码位置、预期、实际和根因，只报告“确认”或“驳回”及证据。
+</code></pre><p>预期主 Agent 亲自运行检查并确认：</p>
+<ol>
+<li>合并键只有规范化名称，没有单位，所以 <code>2 个 + 300 g</code> 被错误合成 <code>302 个</code>；</li>
+<li>数值分支没有校验 <code>amount &gt; 0</code>，所以 0 没有抛出 <code>ValueError</code>。</li>
+</ol>
+<p>退出后，再用固定脚本核对 Subagent 没动审查输入：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 extensions/mealcraft-agent-lab/verify_agent_lab.py --phase complete --project-root <span class="hljs-string">"<span class="hljs-variable">$PWD</span>"</span>
+git status --short
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py extensions\mealcraft<span class="hljs-literal">-agent-lab</span>\verify_agent_lab.py <span class="hljs-literal">--phase</span> complete <span class="hljs-literal">--project-root</span> <span class="hljs-variable">$PWD</span>
+git status <span class="hljs-literal">--short</span>
+</code></pre><p>预期哈希仍匹配、5 项测试仍是固定的 2 个失败；Git 状态只新增：</p>
+<pre><code class="hljs language-text">?? extensions/mealcraft-agent-lab/output/
+</code></pre><p>如果候选代码、测试、Agent 定义或正式 MealCraft 文件出现修改，说明流程越界，不能通过。查看 <code>git diff</code> 找到来源；不要把所有改动一起丢弃，以免覆盖自己的工作。</p>
+<p>保存审查证据并恢复干净状态：</p>
+<pre><code class="hljs language-bash">git add extensions/mealcraft-agent-lab/output/review-result.json
+git diff --cached --check
+git commit -m <span class="hljs-string">"record read-only agent review evidence"</span>
+git status --short
+</code></pre><h2 id="wiki-h-7">工具白名单、权限与费用不要混为一谈</h2>
+<p>本篇有三层不同控制：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>层</th>
+<th>控制什么</th>
+<th>本篇证据</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Agent <code>tools</code></td>
+<td>Agent 能看见哪些工具类型</td>
+<td>工具记录中只有 Read/Grep/Glob</td>
+</tr>
+<tr>
+<td>权限模式与项目规则</td>
+<td>已有工具调用是否自动执行、询问或拒绝</td>
+<td><code>permissionMode: plan</code> 与第 8 篇设置共同生效</td>
+</tr>
+<tr>
+<td>固定检查器与 Git</td>
+<td>实际文件是否被改变、报告是否有证据</td>
+<td>SHA-256、失败基线、<code>git status</code></td>
+</tr>
+</tbody></table></div>
+<p>不要把 <code>permissionMode: plan</code> 当成工具白名单，也不要把提示词中的“只读”当成 Sandbox。反过来，给 Agent 一个宽泛 Bash 再在正文写“不要写”，也没有本篇的窄工具配置可靠。</p>
+<p>Subagent 会产生自己的模型请求。<code>model: inherit</code> 不保证便宜；运行前后可用 <code>/usage</code> 查看账号用量，用 <code>/tasks</code> 查看本次实际模型。只有大量搜索确实会污染主上下文，或同类专门审查会重复出现时，额外请求才有合理收益。</p>
+<h2 id="wiki-h-8">什么时候才需要并行多个 Subagent</h2>
+<p>适合并行的子任务应满足：输入已经固定、彼此依赖很少、主要是调查、最终能由主 Agent 去重和复核。例如第 17 篇会让不同视角检查跨平台日志，但不会让多个 Agent 同时改同一文件。</p>
+<p>以下情况继续用单会话：</p>
+<ul>
+<li>任务只有几分钟，协调成本更高；</li>
+<li>第二步必须等第一步结论；</li>
+<li>多个 Agent 会编辑同一文件；</li>
+<li>没有稳定测试或证据，结果无法复核；</li>
+<li>只是想“看起来更智能”。</li>
+</ul>
+<p>如果未来允许 Subagent 写入，优先让主 Agent 汇总后统一改。确实需要独立写入时，再评估 <code>isolation: worktree</code>；Checkpoint 不应替代 Git，Subagent 的所有改动也不应被假设会由主会话 <code>/rewind</code> 完整恢复。</p>
+<h2 id="wiki-h-9">Agent Teams 只建立选择边界</h2>
+<p>Agent Teams 与 Subagents 都有独立上下文，但协作结构不同：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th></th>
+<th>Subagents</th>
+<th>Agent Teams</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>协调者</td>
+<td>主 Agent 派发并收结果</td>
+<td>Team lead 加共享任务，成员可自协调</td>
+</tr>
+<tr>
+<td>成员通信</td>
+<td>主要把结果交回调用者</td>
+<td>Teammates 可直接互相消息</td>
+</tr>
+<tr>
+<td>适合</td>
+<td>聚焦调查，只需要最终结果</td>
+<td>需要相互挑战假设或跨模块协作</td>
+</tr>
+<tr>
+<td>成本</td>
+<td>较低</td>
+<td>每个 teammate 是独立 Claude 实例，明显更高</td>
+</tr>
+</tbody></table></div>
+<p>Agent Teams 当前仍是实验功能且默认关闭，恢复、任务状态和关闭流程也有已知限制。开启它还会改变普通委派行为：Claude 命名的 Subagent 可能作为 teammate 启动。MealCraft 的两个固定缺陷不需要成员互相通信，因此本篇不启用 Team。</p>
+<p>只有在你主动做选学实验时，才用当前 Shell 临时开启：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS</span> = <span class="hljs-string">"1"</span>
+claude
+<span class="hljs-built_in">Remove-Item</span> Env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+</code></pre><p>必须明确要求“创建 Agent Team”，并把输入、文件所有权、完成条件和预算写清；仅在 Agent 面板看到多个条目不能证明 Team 已建立，因为普通 Subagents 也出现在那里。<code>claude -p</code> 非交互模式不会生成 teammates，即使变量已开启。</p>
+<h2 id="wiki-h-10">关键排错</h2>
+<h3 id="wiki-h-11"><code>@</code> 搜不到 <code>mealcraft-reviewer</code></h3>
+<p>先运行：</p>
+<pre><code class="hljs language-bash">claude plugin validate .claude/agents --strict
+</code></pre><p>确认文件名是 <code>.claude/agents/mealcraft-reviewer.md</code>，frontmatter 的 <code>name</code> 没有冒号。如果 <code>.claude/agents/</code> 是启动会话后才第一次创建，当前 watcher 不会自动发现新目录；退出并从项目根目录重启 Claude Code。</p>
+<h3 id="wiki-h-12">Agent 请求运行 Bash 或写文件</h3>
+<p>先拒绝请求，再打开实际加载的 Agent 文件。<code>tools</code> 应只有 Read、Grep、Glob。若配置正确却看到其他工具，检查是否存在同名用户级或更靠近当前目录的项目 Agent；项目层级越近优先级越高，<code>/doctor</code> 可报告同目录中的重名定义。</p>
+<h3 id="wiki-h-13"><code>/tasks</code> 显示 partial</h3>
+<p>说明达到 <code>maxTurns: 8</code> 或运行被中断。打开任务看最后进度；如果只是尚未输出 JSON，让主 Agent 恢复同一实例并要求直接按契约收口。不要反复新建 Agent，让它们重复读取同一批文件。</p>
+<h3 id="wiki-h-14">报告检查通过，但根因文字很空泛</h3>
+<p>机器检查只保证结构和最小证据字段，不能判断每句话的技术质量。主 Agent 必须对照代码与真实失败逐项复核。若 <code>root_cause</code> 只是改写测试名，没有指出合并键或正数校验缺失，应驳回并恢复原 Agent 补证据。</p>
+<h3 id="wiki-h-15">正式 23 项测试失败</h3>
+<p>本练习目录不应影响正式包。先用 <code>git status --short</code> 与 <code>git diff</code> 检查是否误改 <code>mealcraft/</code>、<code>tests/</code> 或 <code>data/recipes/</code>。不要为了让教程继续而更新正式测试期望。</p>
+<h2 id="wiki-h-16">文章级验收</h2>
+<p>在普通终端完成最终检查：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/claude-code-course/mealcraft
+python3 extensions/mealcraft-agent-lab/verify_agent_lab.py --phase complete --project-root <span class="hljs-string">"<span class="hljs-variable">$PWD</span>"</span>
+python3 extensions/mealcraft-agent-lab/verify_agent_lab.py --phase report --project-root <span class="hljs-string">"<span class="hljs-variable">$PWD</span>"</span> --report extensions/mealcraft-agent-lab/output/review-result.json
+claude plugin validate .claude/agents --strict
+python3 scripts/verify_2_0.py --stage complete
+python3 -m unittest discover -s tests -v
+git status --short
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course\mealcraft"</span>
+py extensions\mealcraft<span class="hljs-literal">-agent-lab</span>\verify_agent_lab.py <span class="hljs-literal">--phase</span> complete <span class="hljs-literal">--project-root</span> <span class="hljs-variable">$PWD</span>
+py extensions\mealcraft<span class="hljs-literal">-agent-lab</span>\verify_agent_lab.py <span class="hljs-literal">--phase</span> report <span class="hljs-literal">--project-root</span> <span class="hljs-variable">$PWD</span> <span class="hljs-literal">--report</span> extensions\mealcraft<span class="hljs-literal">-agent-lab</span>\output\review<span class="hljs-literal">-result</span>.json
+claude plugin validate .claude\agents <span class="hljs-literal">--strict</span>
+py scripts\verify_2_0.py <span class="hljs-literal">--stage</span> complete
+py <span class="hljs-literal">-m</span> unittest discover <span class="hljs-literal">-s</span> tests <span class="hljs-literal">-v</span>
+git status <span class="hljs-literal">--short</span>
+</code></pre><p>完成标准：</p>
+<ul>
+<li>Agent 组件 strict validation 通过；</li>
+<li>固定 case 仍是 5 项测试、2 个预期失败、0 error，四个输入哈希不变；</li>
+<li>JSON 报告的两个 finding 通过检查；</li>
+<li>主 Agent 亲自复现并确认两个根因，而不是照抄 Subagent；</li>
+<li><code>/tasks</code> 或 Agent 面板证明 <code>mealcraft-reviewer</code> 实际运行过；</li>
+<li>Agent 工具记录只有 Read/Grep/Glob；</li>
+<li>正式 MealCraft 23 项测试仍通过，Git 工作区为空。</li>
+</ul>
+<h2 id="wiki-h-17">本篇小结</h2>
+<p>Subagent 的价值不是“多叫几个模型”，而是把专门调查放进独立上下文，用窄工具、固定输入和交付契约收口。主 Agent 仍对最终结论负责，测试、哈希与 Git 才是文件没有越界的证据。</p>
+<p>Agent Teams 解决的是成员需要直接协作的问题，成本和协调面都更大；对个人 MealCraft 的一次两缺陷审查，一个受限 Subagent 已经足够。</p>
+<p>下一篇会进入 <code>claude -p</code> 自动化，并纠正一个更危险的误区：<code>--allowedTools</code> 只免审批，不会把未列出的工具从 Claude 的可用工具池中移除；真正限制工具要使用 <code>--tools</code>。</p>
+<p>官方参考：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/sub-agents">自定义 Subagents：作用域、frontmatter、工具和显式调用</a></li>
+<li><a href="https://code.claude.com/docs/en/agent-teams">Agent Teams：适用场景、开启方式与当前限制</a></li>
+<li><a href="https://code.claude.com/docs/en/commands">内置命令：<code>/tasks</code> 与当前 <code>/agents</code> 行为</a></li>
+</ul>
+<h2 id="wiki-h-18">迁移练习：格式正确之后，还要验证判断</h2>
+<p>前面的“恰好两个缺陷”练习用于确认代理发现、调用和报告协议接通，不用于证明独立审查能力。完成后创建一个独立的 <code>review-transfer</code> 副本，让同伴在金额汇总、排序或空输入处理中任选一处改动，也可选择不引入缺陷；审查者不预先知道数量与位置。</p>
+<p>只给需求、候选代码和允许读取的范围，要求每项结论附文件位置、触发输入、预期和实际结果；允许报告零项。先检查 JSON 格式，再由未参与审查的人运行触发案例判断真假。记录漏报和误报，不用报告条数作分数。完成后可把同一方法用于第 14 篇：程序采集的测试状态才是事实，模型重新排成 JSON 只验格式转换。</p>
+</article>

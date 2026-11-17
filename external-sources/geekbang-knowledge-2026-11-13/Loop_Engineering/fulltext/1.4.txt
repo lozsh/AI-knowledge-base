@@ -1,0 +1,294 @@
+预计阅读与练习时间：50～70 分钟
+本篇目标：让 Issue Garden 完整运行一轮——检查基线、领取一个任务、调用确定性模拟 Agent、观察真实 Diff、执行验证，并输出 completed 或明确停止原因。
+
+上一篇结束时，我们已经有了有效的 loop.yaml，但还没有程序根据它做决定。现在要补上第一个 Runner。
+
+这版 Runner 故意只跑一轮。它不会自动重试，也不会连接真实编码 Agent。这样我们可以先看清一轮里哪些动作属于控制面、哪些结果必须由外部观察，而不被模型输出、网络和多轮状态同时干扰。
+
+把本篇素材加入实验副本
+
+起点应是第 2 篇留下的 issue-garden-lab/：虚拟环境已经安装 PyYAML，Git 已有一个干净的基线提交。若你跳过了上一篇，请先按上一篇的方法复制 assets/issue-garden-starter/、安装依赖并提交基线。
+
+回到课程根目录，把本篇增量素材覆盖复制进实验副本。
+
+macOS 或 Linux：
+
+cp -R assets/lesson-03-runner/. issue-garden-lab/
+cd issue-garden-lab
+source .venv/bin/activate
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force assets/lesson-03-runner/* issue-garden-lab
+Set-Location issue-garden-lab
+.\.venv\Scripts\Activate.ps1
+
+
+新增内容包括：
+
+issue_garden/single_round.py       单轮控制逻辑和模拟适配器
+tools/run_once.py                  命令行入口
+tasks/inbox/issue-001.json         第一项待处理任务
+loop_tests/test_single_round.py    命令边界与路径边界测试
+
+
+先运行控制面测试：
+
+python -m unittest discover -s loop_tests -p "test_*.py" -v
+
+
+你应该看到第 2 篇的四项契约测试和本篇的四项单轮测试，共八项通过。新增测试特别检查了：任务可以调用指定的 Node 验收测试，&& 拼接命令会被拒绝，../ 越界路径会被拒绝，修改受保护测试文件会被报告。
+
+确认测试通过后，把本篇文件保存为新的课程基线：
+
+git add .
+git commit -m "feat: add single-round runner"
+git status --short
+
+
+最后一条命令应没有输出。这样，接下来看到的 Diff 就只来自本轮运行，不会混入刚复制的课程文件。
+
+先确认任务确实没有完成
+
+打开 tasks/inbox/issue-001.json，任务内容可以概括为：当搜索词里出现全角空格时，ShelfCare 仍能匹配不带空格的中文书名；Agent 只允许修改 src/。
+
+其中最值得注意的是验收命令：
+
+"verification_command": [
+  "node",
+  "--test",
+  "acceptance/fullwidth-space.test.mjs"
+]
+
+
+它是参数数组，不是一段交给 Shell 解释的文本。当前 Runner 只接受 node --test acceptance/*.mjs 这种固定形状，像 && curl ...、项目外路径或其他可执行程序都会在领取任务前被拒绝。
+
+先手工运行验收测试：
+
+node --test acceptance/fullwidth-space.test.mjs
+
+
+此时测试应该失败，核心差异是实际结果为空数组 []，预期结果包含《深入理解计算机系统》。这是我们故意保留的任务缺陷，不是环境安装失败。
+
+再运行项目基础检查：
+
+npm test
+npm run check
+
+
+这两条应该通过。它们与失败的任务验收并不矛盾：基础检查证明当前项目没有已知回归，任务验收则定义本轮要新增的行为。Runner 必须分清“基线本来就坏了”和“新需求尚未满足”。
+
+一轮不是“一次调用 Agent”
+
+tools/run_once.py 的核心入口是 run_one_round()。它依次完成八个动作：
+
+验证 loop.yaml
+  -> 运行干净基线检查
+  -> 从 inbox 选择文件名排序最前的任务
+  -> 检查任务及验收命令
+  -> 把任务原子移动到 processing
+  -> 调用 Agent 适配器
+  -> 观察 Git Diff 并运行外部验证
+  -> 作出决策并移动已完成任务
+
+
+这也是“运行（run）”和“一轮（round）”的实际区别：Agent 调用只是其中一步。一轮还包含调用前的准入检查，以及调用后的观察、验证和裁决。
+
+为什么先检查基线，再领取任务
+
+如果 npm test 在开始前就失败，Runner 会输出：
+
+{
+  "decision": "stopped",
+  "reason": "dirty_baseline"
+}
+
+
+任务仍留在 inbox，Agent 不会启动。否则一轮结束时，Runner 无法判断失败是旧问题还是本次修改引入的。
+
+为什么领取使用文件移动
+
+Runner 把：
+
+tasks/inbox/issue-001.json
+
+
+移动为：
+
+tasks/processing/issue-001.json
+
+
+在同一个本地文件系统中，重命名比“先复制、再删除”更接近一次原子状态转换：另一个 Runner 不会在中间看到两份同名待办。它还不是完整的并发锁；第 7 篇会加入调度与隔离。目前请只启动一个 Runner。
+
+为什么先用确定性模拟 Agent
+
+agent_adapter 目前是 mock。它只认识 fix_fullwidth_space 场景，并执行一项固定修改：用 Unicode NFKC 统一字符宽度，再移除检索字符串中的空白。
+
+模拟适配器有两个作用：
+
+同一输入总得到同一改动，便于验证控制逻辑；
+它不需要账号、API Key 或网络，失败来源只有本地代码和 Runner。
+
+它仍遵守适配器边界：接收结构化任务，返回 status 与 summary。以后接入真实 CLI Agent，只替换“怎样产生候选改动”，任务领取、Diff 观察、验证和决策不应全部重写。
+
+为避免覆盖读者已有修改，模拟 Agent 会先比对 src/search.mjs 是否仍是课程基线。只要文件内容不同，它就停止，而不是强行写回固定答案。
+
+真正运行第一轮
+
+确认当前目录是 issue-garden-lab/，执行：
+
+python tools/run_once.py
+
+
+成功时会输出一份较长的 JSON 报告。下面只保留关键字段，实际报告还会包含每条命令的输出和耗时：
+
+{
+  "decision": "completed",
+  "reason": "verified",
+  "task_id": "issue-001",
+  "agent": {
+    "status": "changed",
+    "summary": "已用 NFKC 统一字符宽度并移除检索空白；只修改 src/search.mjs"
+  },
+  "changes": {
+    "files": ["src/search.mjs"],
+    "lines": 9
+  },
+  "boundary_errors": [],
+  "verification": [
+    {"command": ["npm", "test"], "exit_code": 0},
+    {"command": ["npm", "run", "check"], "exit_code": 0},
+    {
+      "command": ["node", "--test", "acceptance/fullwidth-space.test.mjs"],
+      "exit_code": 0
+    }
+  ],
+  "recovery_note": null
+}
+
+
+只有下面四个条件同时成立，决策才是 completed：
+
+模拟 Agent 确实产生了候选修改；
+基础检查和任务验收全部以 0 退出；
+Git Diff 没有离开 src/，也没有触碰保护路径；
+修改文件数和 Diff 行数没有超过 loop.yaml 的预算。
+
+Agent 的 summary 不参与成功裁决。即使它声称“已修复”，只要验收失败或真实 Diff 越界，Runner 就不会完成任务。
+
+Windows 上为什么也能直接运行 npm
+
+Runner 会先用系统路径查找命令的实际可执行文件，再通过 subprocess 以参数数组调用，且设置 shell=False。这既兼容 Windows 常见的 npm.cmd，也避免把任务内容交给 Shell 展开。
+
+这不代表任意参数都安全。可执行文件和任务验收路径仍必须通过允许规则；使用参数数组只是减少一层注入面。
+
+别只相信 Runner 的报告
+
+现在独立检查它留下的结果。
+
+先确认任务已从待办箱进入完成区。macOS 或 Linux：
+
+ls tasks/inbox
+ls tasks/done
+
+
+Windows PowerShell：
+
+Get-ChildItem tasks/inbox
+Get-ChildItem tasks/done
+
+
+inbox 应为空，done 中应出现 issue-001.json。
+
+重新运行三类验证：
+
+node --test acceptance/fullwidth-space.test.mjs
+npm test
+npm run check
+
+
+现在任务验收应由失败变为通过，原有两项搜索测试仍通过，语法检查退出码仍为 0。这证明修复了新增行为，同时没有破坏原有行为。
+
+最后直接查看改动，而不是只读 Agent 摘要：
+
+git diff -- src/search.mjs
+git status --short
+
+
+Diff 应只显示 src/search.mjs 增加 normalizeText() 并在查询与候选书目上使用它。状态列表还会显示任务从 tasks/inbox/ 移到 tasks/done/；这是 Runner 自己管理的队列状态，不属于 Agent 的代码修改。
+
+代码 Diff 和任务移动暂时都没有提交。课程默认把结果留给人审阅，不会替你合并或发布。
+
+验证“没有任务”也会结束
+
+再次运行同一命令：
+
+python tools/run_once.py
+
+
+这次应输出：
+
+{
+  "decision": "stopped",
+  "reason": "no_task"
+}
+
+
+命令退出码为 2，表示没有完成新任务。no_task 不是异常事故，而是“不应继续启动 Agent”的正常停止原因。一个可靠循环不应该在队列为空时发明工作。
+
+macOS 或 Linux 用 echo $?、PowerShell 用 $LASTEXITCODE，可以确认退出码。第二次运行不会再次改写 src/search.mjs，也不会复制一份完成记录。
+
+当前版本故意没有解决什么
+
+这个 Runner 已经形成了单轮闭环，但还不能用来无人值守运行真实 Agent。
+
+报告只打印到终端。 进程退出后，没有结构化历史供下一轮恢复；
+失败任务会留在 tasks/processing/。 当前版本宁可停住，也不冒险自动重放；
+队列移动没有独立锁。 两个进程同时启动的竞争条件尚未完整处理；
+Git 观察针对已跟踪代码 Diff。 现在的模拟 Agent只修改一个已跟踪文件；接入任意真实 Agent 前，还要处理新文件、删除、重命名和工作区隔离；
+验证逻辑与 Runner 在同一模块。 第 5 篇会把生成者和验证者拆开，避免执行者影响裁决规则。
+
+这些不是让读者自己猜着补的遗漏，而是后续课程要逐步解决的问题。现在的边界很明确：它只用于本地、单进程、确定性实验。
+
+常见阻塞与恢复
+输出 dirty_baseline
+
+先手工运行报告里的基础命令。若 npm test 或 npm run check 失败，修复环境或还原无关改动，再启动 Runner。不要为了让循环继续而关闭基线检查。
+
+模拟 Agent 提示课程基线不同
+
+先查看：
+
+git diff -- src/search.mjs
+
+
+如果这些是你希望保留的改动，不要还原，改用一份新的实验副本。如果只是重复练习产生的修改，可以先把任务文件移回 inbox，再还原源文件。
+
+macOS 或 Linux：
+
+mv tasks/done/issue-001.json tasks/inbox/issue-001.json
+git restore src/search.mjs
+
+
+Windows PowerShell：
+
+Move-Item tasks/done/issue-001.json tasks/inbox/issue-001.json
+git restore src/search.mjs
+
+
+若失败任务在 tasks/processing/，把上面的 done 换成 processing。git restore 会丢弃该文件尚未提交的修改，所以一定先看 Diff；不确定时，重新复制实验目录更稳妥。
+
+输出 verification_command_not_allowed
+
+检查任务里的命令是否恰好是三个参数：node、--test、acceptance/ 下的 .mjs 文件。不要通过放宽到“允许任意字符串命令”来绕过错误。真实项目应建立自己的验证命令注册表，而不是允许任务正文决定执行什么程序。
+
+本篇留下了什么
+
+Issue Garden 已经完成第一轮真实控制流程：有效契约和干净基线允许任务进入处理区，模拟 Agent 产生可预测修改，Runner 从 Git 和进程退出码中收集观察，外部验证通过后才把任务标记为 completed；队列为空时，下一次运行会明确停止。
+
+下一篇，我们会处理这版 Runner 最明显的缺口：终端输出不是记忆，processing 里的半成品也不会自己解释发生过什么。我们将建立 .loop/ 状态脊柱，把任务事实、每轮尝试、验证证据和最终决策分别持久化，让循环在进程中断后仍然知道从哪里继续。
+
+修订后的边界验收
+
+超时输出统一转为文本，退出码为 124。stdout、stderr 有无内容都必须能写入 JSON。修订版在 POSIX 终止整个命令进程组；Windows 使用 taskkill /T，仍需在目标 Windows 环境验证进程树清理。

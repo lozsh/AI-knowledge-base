@@ -1,0 +1,218 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你的个人复习助手已经能把笔记改成问答卡。现在，你给它一个稍微复杂的任务：安排今晚的学习时间。</p>
+<pre><code class="hljs language-text">可用时间：19:00—20:30，共 90 分钟。
+任务 A：复习概念，25 分钟。
+任务 B：完成练习，35 分钟，必须在 A 完成后开始。
+任务 C：整理错题，20 分钟，可以放在任何位置。
+
+所有任务都要完成，而且不能拆开。
+中间恰好休息一次，休息 10 分钟。
+任意一段连续学习不能超过 45 分钟。
+</code></pre><p>直接按 A、B、C 排下来，看起来很自然。但 A 加 B 已经是 60 分钟，违反连续学习的上限。如果在 A 后休息，B 加 C 又有 55 分钟。</p>
+<p>问题不在于能否写出一张漂亮的时间表，而在于能否同时满足多个条件。模型需要比较安排、保留约束、排除不合格方案，再检查结果。这正是理解推理模型的一个入口。</p>
+<p>上一篇介绍了后训练如何塑造助手行为。本篇进一步讨论：<strong>训练怎样改善多步解题能力，以及模型参数不变时，怎样通过增加本次任务的计算提高成功机会。</strong> 所有日程、概率与预算算例均为教学构造，不是模型实测。</p>
+<h2 id="wiki-h-0">先分清“推理”的两种意思</h2>
+<p>机器学习里的 Inference，通常也译作“推理”，指使用训练好的模型计算输出。哪怕只是给笔记贴一个标签，也属于这个意义上的推理。</p>
+<p>而“推理模型”里的 Reasoning，更强调处理多步关系、约束、计算、论证或搜索。二者有关，但不等同：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>说法</th>
+<th>这里指什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>执行一次模型推理</td>
+<td>用模型参数处理输入并得到输出</td>
+</tr>
+<tr>
+<td>模型具有推理能力</td>
+<td>能在某些任务上正确处理多步关系与约束</td>
+</tr>
+<tr>
+<td>增加推理时计算</td>
+<td>回答当前任务时多投入计算，不一定更新参数</td>
+</tr>
+</tbody></table></div>
+<p>“推理模型”也不是一套统一认证的架构名称。这里用它指针对复杂解题进行过专门训练、并能使用相应解题过程的模型。普通语言模型同样可能完成推理任务；模型名称中有“推理”二字，也不能代替评测。</p>
+<h2 id="wiki-h-1">把中间结果留下来，为什么可能有帮助</h2>
+<p>先由我们手工解开篇的日程题。</p>
+<p>学习总时长是 <code>25+35+20=80</code> 分钟，加休息正好 90 分钟。休息把学习分成前后两段，每段最多 45 分钟。由于 B 已经占 35 分钟，再加 A 或 C 都超限，所以 B 必须单独占一段；A 与 C 合起来恰好是 45 分钟。</p>
+<p>又因为 A 必须在 B 前面，可以这样安排：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>时段</th>
+<th>安排</th>
+<th align="right">时长</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>19:00—19:25</td>
+<td>A：复习概念</td>
+<td align="right">25 分钟</td>
+</tr>
+<tr>
+<td>19:25—19:45</td>
+<td>C：整理错题</td>
+<td align="right">20 分钟</td>
+</tr>
+<tr>
+<td>19:45—19:55</td>
+<td>休息</td>
+<td align="right">10 分钟</td>
+</tr>
+<tr>
+<td>19:55—20:30</td>
+<td>B：完成练习</td>
+<td align="right">35 分钟</td>
+</tr>
+</tbody></table></div>
+<p>检查时不看文风，而看四件事：任务各出现一次且未拆分；B 在 A 之后；总用时 90 分钟；连续学习分别为 45 和 35 分钟。C、A、休息、B 也是有效安排，因此这道题没有唯一时间表。</p>
+<p>对于自回归语言模型，生成出的中间 Token 会成为后续生成的上下文。把“B 必须单独成段”“A 与 C 合计 45 分钟”等中间结果保留下来，可以为后续选择提供条件。后续步骤无需只从最初长问题直接跳到最终答案。</p>
+<p>这类中间推导通常称为 <strong>CoT，Chain of Thought，思维链</strong>。原始 CoT 提示研究通过在提示中给出带中间步骤的示例，在所测模型的算术、常识和符号任务上观察到改善。<a href="https://arxiv.org/abs/2201.11903">《Chain-of-Thought Prompting Elicits Reasoning in Large Language Models》</a></p>
+<p>不过，多生成 Token 本身没有赋予每一步正确性。模型也可能先错误地写下“A 和 B 只需 40 分钟”，然后围绕这个错误继续生成流畅解释。中间步骤提供了计算与检查的机会，也可能传播错误。</p>
+<h3 id="wiki-h-2">写一句“认真思考”，不等于完成推理训练</h3>
+<p>提示可以引导模型使用已有能力，但不会因为多了一句要求，就把一个模型训练成另一种模型。</p>
+<p>同样，让模型把一个简单回答扩写成两千字，并不等于增加了两千字有效解题。对日程题有价值的是约束检查、候选比较和算术核对；重复题目或表态“我将仔细考虑”，未必产生相同收益。</p>
+<h2 id="wiki-h-3">推理能力怎样通过训练改善</h2>
+<p>可以从两类训练信号理解，而不必先学习完整算法推导。</p>
+<h3 id="wiki-h-4">用解题示范进行监督训练</h3>
+<p>训练材料可以包含问题、中间解法和答案。模型学习在类似输入下生成这些步骤；若示范包含识别约束、比较分支、纠正错误，相关行为就成为训练目标的一部分。</p>
+<p>示范仍要有质量。仅仅收集很长的文字，或者只保留最后答案对、过程却错误的样本，不能保证教会可靠推导。训练目标和数据覆盖决定了哪些行为得到强化。</p>
+<h3 id="wiki-h-5">用可以检查的结果提供奖励</h3>
+<p>有些任务允许程序判定结果。例如，检查一个时间表是否满足所有约束，或运行代码的测试用例。这样的反馈不只是在比较“哪段话更让人喜欢”，而是检查明确条件。</p>
+<p>用开篇题目构造四个候选，每个候选都只休息一次：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>候选</th>
+<th>核查结果</th>
+<th align="right">教学奖励</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A、B、休息、C</td>
+<td>第一段连续学习 60 分钟</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>A、C、休息、B</td>
+<td>满足全部条件</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>C、A、休息、B</td>
+<td>满足全部条件</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>B、休息、A、C</td>
+<td>B 在 A 之前</td>
+<td align="right">0</td>
+</tr>
+</tbody></table></div>
+<p>训练程序可以利用这类差异更新模型，让通过检查的生成行为获得更有利的学习信号。<strong>这里关键的一步是参数更新</strong>；只是在应用里生成四份计划并选一份，不等于已经做了强化学习。</p>
+<p>DeepSeek-R1 原始报告是一个具体案例：R1-Zero 从预训练基础模型开始，在没有前置 SFT 的情况下进行强化学习；报告使用数学答案检查和代码测试等规则奖励，并采用 GRPO，以一组输出的分数构造相对反馈。R1 则加入冷启动示范及多阶段训练，以处理可读性等问题。<a href="https://arxiv.org/html/2501.12948v1">DeepSeek-R1 原始技术报告</a></p>
+<p>这不意味着 R1-Zero “没有训练数据”，也不意味着普通应用必须复制这条路线。它已经有预训练基础，强化学习阶段仍需任务和反馈。上面的 0/1 表只解释奖励差异，不是 GRPO 的完整算法实现。</p>
+<h3 id="wiki-h-6">最后答对，与每一步合理，是两种监督粒度</h3>
+<p><strong>结果监督</strong>主要评价最终产物；<strong>过程监督</strong>还评价中间步骤。例如，最终时间表合格是一种结果检查，“B 与任何另一任务放在同一段都会超限”则是一条可以独立检查的推导。</p>
+<p>《Let's Verify Step by Step》研究比较了结果监督与过程监督，并在其数学任务实验中观察到过程监督的优势。<a href="https://arxiv.org/abs/2305.20050">原始论文</a> 但过程标注更细，评价器也可能误判；不能推出每个任务都必须逐步标注，或逐步打分一定最好。</p>
+<p>无论采用哪种反馈，检查器覆盖什么，训练才直接获得什么信号。代码通过有限测试，并不证明没有其他缺陷；日程满足给定时长，也不证明它符合没有写出的个人习惯。</p>
+<h2 id="wiki-h-7">参数不变，也可以给当前问题更多计算</h2>
+<p>完成训练后，模型参数通常在一次普通调用中保持不变。我们仍可通过不同方式增加本次解题的计算，称为 <strong>Test-time Compute / Inference-time Compute，推理时计算</strong>。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>方式</th>
+<th>额外计算用在哪里</th>
+<th>主要局限</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>一条解题路径走得更深入</td>
+<td>分解、计算、检查、修订</td>
+<td>可能在错误前提上越走越远</td>
+</tr>
+<tr>
+<td>生成多个候选</td>
+<td>尝试不同路径或方案</td>
+<td>候选可能重复犯同一种错</td>
+</tr>
+<tr>
+<td>搜索并验证候选</td>
+<td>给分支评分、淘汰违规方案</td>
+<td>取决于验证器是否准确、完整</td>
+</tr>
+</tbody></table></div>
+<p>这些方式可以组合。一条较长路径也可能在内部尝试多个方案；产品里的“思考等级”更不是对所有模型通用的固定步骤数。具体服务如何控制预算、怎样计费，需要查看对应文档，本篇不假定统一参数名或固定倍率。</p>
+<p>相关研究发现，不同推理时计算方法的收益会随问题难度变化；在一定实验条件下，按问题分配计算比一律使用同一种候选数量更有效。<a href="https://arxiv.org/abs/2408.03314">《Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters》</a></p>
+<p>因此，训练计算和推理时计算解决的是不同问题：前者改变模型以后怎样处理一类问题，后者为眼前这道题增加尝试与检查。二者可以互补，不能无限互相替代。模型若完全缺少必要知识，重复计算并不会自动补入那份知识。</p>
+<h2 id="wiki-h-8">多试几次，为什么不等于最终正确率相应提高</h2>
+<p>这是理解推理预算时最容易混淆的一点。</p>
+<h3 id="wiki-h-9">“至少出现一次正确答案”的概率</h3>
+<p>假设针对某一道固定问题，每次尝试成功概率都是 40%，各次尝试独立。这是便于手算的假设，不是对真实模型的测量。</p>
+<p>一次失败概率是 60%。四次全部失败的概率是：</p>
+<pre><code class="hljs language-text">0.6 × 0.6 × 0.6 × 0.6 = 0.1296
+</code></pre><p>因此四次中至少一次成功的概率是：</p>
+<pre><code class="hljs language-text">1 - 0.1296 = 0.8704，也就是 87.04%
+</code></pre><p>一般写作 <code>1-(1-p)^n</code>，其中 <code>p</code> 是每次成功概率，<code>n</code> 是尝试次数。</p>
+<p>但 87.04% 说的是<strong>候选集合里至少有一个正确答案</strong>。如果系统不知道哪一个正确，随机挑一个交付，并没有自动得到 87.04% 的最终正确率。只有在能可靠识别并选中正确候选等条件下，候选覆盖率才可能转化为交付成功率。</p>
+<p>也不能把模型在一百道不同难度问题上的平均正确率，直接当成每一道题都固定为 40%。题目差异、系统性错误与候选之间的依赖，都会使简单公式失去对应的现实含义。</p>
+<h3 id="wiki-h-10">多数投票也不是天然正确</h3>
+<p>Self-consistency，自一致性，研究了采样多条推理路径、汇总最终答案的方法，并在所测任务中获得改善。<a href="https://arxiv.org/abs/2203.11171">《Self-Consistency Improves Chain of Thought Reasoning in Language Models》</a></p>
+<p>它利用的是不同路径对结论的支持，但共同出现不等于共同正确。</p>
+<p>再构造一个只有“正确”和“同一个错误答案”两种结果的例子，每次独立，正确概率仍是 40%。三次投票要至少两次正确才选对：</p>
+<pre><code class="hljs language-text">恰好两次正确：3 × 0.4² × 0.6 = 0.288
+三次全正确：0.4³ = 0.064
+多数正确：0.288 + 0.064 = 0.352，即 35.2%
+</code></pre><p>此处比一次的 40% 还低。这个反例不否定自一致性的实验收益，而是说明收益需要条件；正确答案与错误答案如何分布，会改变结果。尤其对日程题，多个不同时间表都可能正确，逐字投票还可能把正确方案拆散。</p>
+<h3 id="wiki-h-11">有明确约束时，检查候选比数票更直接</h3>
+<p>对开篇任务，可以检查任务顺序、时长、休息和连续学习，而不是统计哪张表出现次数最多。</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-6" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1092px;" viewBox="4 4 1092 312" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-6{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-6 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-6 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-6 .error-icon{fill:#552222;}#wiki-mermaid-6 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-6 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-6 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-6 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-6 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-6 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-6 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-6 .marker{fill:#666;stroke:#666;}#wiki-mermaid-6 .marker.cross{stroke:#666;}#wiki-mermaid-6 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-6 p{margin:0;}#wiki-mermaid-6 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-6 .cluster-label text{fill:#333;}#wiki-mermaid-6 .cluster-label span{color:#333;}#wiki-mermaid-6 .cluster-label span p{background-color:transparent;}#wiki-mermaid-6 .label text,#wiki-mermaid-6 span{fill:#000000;color:#000000;}#wiki-mermaid-6 .node rect,#wiki-mermaid-6 .node circle,#wiki-mermaid-6 .node ellipse,#wiki-mermaid-6 .node polygon,#wiki-mermaid-6 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-6 .rough-node .label text,#wiki-mermaid-6 .node .label text,#wiki-mermaid-6 .image-shape .label,#wiki-mermaid-6 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-6 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-6 .rough-node .label,#wiki-mermaid-6 .node .label,#wiki-mermaid-6 .image-shape .label,#wiki-mermaid-6 .icon-shape .label{text-align:center;}#wiki-mermaid-6 .node.clickable{cursor:pointer;}#wiki-mermaid-6 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-6 .arrowheadPath{fill:#333333;}#wiki-mermaid-6 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-6 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-6 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-6 .edgeLabel p{background-color:white;}#wiki-mermaid-6 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-6 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-6 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-6 .cluster text{fill:#333;}#wiki-mermaid-6 .cluster span{color:#333;}#wiki-mermaid-6 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-6 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-6 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-6 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-6 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-6 .icon-shape,#wiki-mermaid-6 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-6 .icon-shape p,#wiki-mermaid-6 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-6 .icon-shape .label rect,#wiki-mermaid-6 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-6 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-6 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-6 .node .neo-node{stroke:#999;}#wiki-mermaid-6 [data-look="neo"].node rect,#wiki-mermaid-6 [data-look="neo"].cluster rect,#wiki-mermaid-6 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-6-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-6 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-6 [data-look="neo"].node path{stroke:url(#wiki-mermaid-6-gradient);stroke-width:1px;}#wiki-mermaid-6 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-6 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-6 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-6-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-6 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-6 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-6-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-6 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-6-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-6 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-6_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-6_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-6_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-6_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-6_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-6_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-6_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-6_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-6_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-6_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-6_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-6_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,220.33333333333334L200,220.33333333333334" id="wiki-mermaid-6-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTY0LCJ5IjoyMjAuMzMzMzMzMzMzMzMzMzR9LHsieCI6MjA0LCJ5IjoyMjAuMzMzMzMzMzMzMzMzMzR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-6_flowchart-v2-pointEnd-margin)"></path><path d="M356,211.66666666666666L368.9289321881345,211.66666666666666Q376,211.66666666666666 376,204.59559885480118L376,167.07106781186548Q376,160 383.0710678118655,160L392,160" id="wiki-mermaid-6-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 78.33838653564453 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzU2LCJ5IjoyMTEuNjY2NjY2NjY2NjY2NjZ9LHsieCI6Mzc2LCJ5IjoyMTEuNjY2NjY2NjY2NjY2NjZ9LHsieCI6Mzc2LCJ5IjoxNjB9LHsieCI6Mzk2LCJ5IjoxNjB9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-6_flowchart-v2-pointEnd-margin)"></path><path d="M548,160L584,160" id="wiki-mermaid-6-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ4LCJ5IjoxNjB9LHsieCI6NTg4LCJ5IjoxNjB9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-6_flowchart-v2-pointEnd-margin)"></path><path d="M718.9999809265137,123L756,123L768.9289321881345,123Q776,123 776,115.92893218813452L776,55.071067811865476Q776,48 783.0710678118655,48L932,48" id="wiki-mermaid-6-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 278.6717224121094 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6NzE4Ljk5OTk4MDkyNjUxMzcsInkiOjEyM30seyJ4Ijo3NTYsInkiOjEyM30seyJ4Ijo3NzYsInkiOjEyM30seyJ4Ijo3NzYsInkiOjQ4fSx7IngiOjkzNiwieSI6NDh9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-6_flowchart-v2-pointEnd-margin)"></path><path d="M718.9999809265137,197L756,197L768.9289321881345,197Q776,197 776,204.07106781186548L776,256.26226552146784Q776,263.3333333333333 783.0710678118655,263.3333333333333L932,263.3333333333333" id="wiki-mermaid-6-L_D_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 270.00506591796875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_F_0" data-points="W3sieCI6NzE4Ljk5OTk4MDkyNjUxMzcsInkiOjE5N30seyJ4Ijo3NTYsInkiOjE5N30seyJ4Ijo3NzYsInkiOjE5N30seyJ4Ijo3NzYsInkiOjI2My4zMzMzMzMzMzMzMzMzfSx7IngiOjkzNiwieSI6MjYzLjMzMzMzMzMzMzMzMzN9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-6_flowchart-v2-pointEnd-margin)"></path><path d="M936,280.6666666666667L846,280.6666666666667L672,280.6666666666667L472,280.6666666666667L383.0710678118655,280.6666666666667Q376,280.6666666666667 376,273.5955988548012L376,236.07106781186548Q376,229 368.9289321881345,229L360,229" id="wiki-mermaid-6-L_F_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 618.3385009765625 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_B_0" data-points="W3sieCI6OTM2LCJ5IjoyODAuNjY2NjY2NjY2NjY2N30seyJ4Ijo4NDYsInkiOjI4MC42NjY2NjY2NjY2NjY3fSx7IngiOjY3MiwieSI6MjgwLjY2NjY2NjY2NjY2Njd9LHsieCI6NDcyLCJ5IjoyODAuNjY2NjY2NjY2NjY2N30seyJ4IjozNzYsInkiOjI4MC42NjY2NjY2NjY2NjY3fSx7IngiOjM3NiwieSI6MjI5fSx7IngiOjM1NiwieSI6MjI5fV0=" data-look="neo" marker-end="url(#wiki-mermaid-6_flowchart-v2-pointEnd-margin)"></path><path d="M756,160L932,160" id="wiki-mermaid-6-L_D_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 172 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_G_0" data-points="W3sieCI6NzU2LCJ5IjoxNjB9LHsieCI6OTM2LCJ5IjoxNjB9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-6_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(846, 47.5)"><g class="label" data-id="L_D_E_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-10" y="-3" width="20" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">是</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(846, 263.3333333333333)"><g class="label" data-id="L_D_F_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-50" y="-3" width="100" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">否且仍有预算</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(846, 159.5)"><g class="label" data-id="L_D_G_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-50" y="-3" width="100" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">否且预算耗尽</tspan></tspan></text></g></g></g></g><g class="nodes"><g class="node default" id="wiki-mermaid-6-flowchart-A-0" data-look="neo" transform="translate(88, 220.33333333333334)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>任务与明确约束</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-6-flowchart-B-1" data-look="neo" transform="translate(280, 220.33333333333334)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>生成一个或多个候选</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-6-flowchart-C-3" data-look="neo" transform="translate(472, 160)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>检查顺序 时长 休息 连续学习</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-6-flowchart-D-5" data-look="neo" transform="translate(672, 160)"><polygon points="84,0 168,-84 84,-168 0,-84" class="label-container" transform="translate(-83.5, 84)"></polygon><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>存在合格候选吗</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-6-flowchart-E-7" data-look="neo" transform="translate(1012, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>选择合格方案并交付</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-6-flowchart-F-9" data-look="neo" transform="translate(1012, 272)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>带上失败原因继续尝试</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-6-flowchart-G-13" data-look="neo" transform="translate(1012, 160)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>说明未找到合格方案</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-6-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-6-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-6-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>这仍不等于检查器能证明一切。在开放式分析里，很多标准无法被几条程序规则完全覆盖。模型评分器能扩大检查范围，却也引入新的误差来源。</p>
+<h2 id="wiki-h-12">长解释、慢响应和正确推理之间没有等号</h2>
+<p>看到模型写出长段分析，很容易把它当作内部计算的完整实录。但模型生成的说明、用户可见的推理摘要与实际决定输出的计算过程，不能简单画等号。</p>
+<p>关于思维链忠实性的研究发现，模型的解释可能没有准确反映影响其判断的因素。解释看起来合理，不足以证明它完整呈现了判断原因。<a href="https://arxiv.org/abs/2305.04388">《Language Models Don't Always Say What They Think》</a></p>
+<p>对应用开发者，更有用的要求是让最终结果可核对。例如，让日程助手给出时间表和每段连续学习时长；让算术助手给出必要等式；让代码助手提供可以运行的修改与测试结果。你需要的是可检查的依据，而非尽可能长的自述。</p>
+<p>响应慢也不一定表示进行了更多有效推导：排队、网络、工具调用和输出长度都可能影响等待时间。反过来，最终答案很短，也不表示之前没有投入额外计算。</p>
+<p>因此，预算检查至少要看两件事：任务表现是否改善，以及代价是否在可接受范围。单独观察文字长度或等待时间，都无法回答这个问题。</p>
+<h2 id="wiki-h-13">给复习助手分配预算，而不是每次都开到最大</h2>
+<p>“把笔记标题改得简短”与“在多项约束下排一周日程”，需要的处理深度通常不同。可以先在自己的样本上比较几种计算预算，再决定是否值得升级。</p>
+<p>一个实际可用的检查设计是：保持模型版本、输入材料和判定规则一致，改变计算预算或候选生成策略；记录合格率、遗漏类型、端到端耗时和实际费用。涉及随机采样时，每种设置应多次运行，不用某次幸运结果代替稳定收益。</p>
+<p>下面只演示预算分配的算术：假设有 20 个任务，18 个简单、2 个复杂；低预算每个消耗 10 个虚构成本单位，高预算每个消耗 100 个。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>分配方法</th>
+<th align="right">教学成本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>全部高预算</td>
+<td align="right">20 × 100 = 2000</td>
+</tr>
+<tr>
+<td>简单任务低预算，复杂任务高预算</td>
+<td align="right">18 × 10 + 2 × 100 = 380</td>
+</tr>
+</tbody></table></div>
+<p>差额是 1620，约节省 81%。但这<strong>没有证明第二种方式保持了同样质量</strong>。现实中，你未必能事先完美判断难度，初次尝试和升级重试也有成本，必须把它们纳入实际记录。</p>
+<p>可以先把明显的格式转换留在较低预算，把复杂约束问题交给更充分的计算；如果检查失败，再在成本上限内升级。对于题目本身矛盾、资料缺失、工具报错等情况，升级思考预算未必有效，应分别修正输入、补充资料或处理工具问题。</p>
+<p>还要记住，Token 数只是某些场景下的成本线索。一条长路径与多条短路径可能重复处理不同数量的输入，也可能使用验证器和缓存；Token 总数相近，不代表运算量、延迟和费用完全相同。</p>
+<h2 id="wiki-h-14">理解检查</h2>
+<p><strong>1. 一次生成八份计划、检查后选出一份，是否说明模型完成了强化学习？</strong></p>
+<p>不一定。若没有训练损失、梯度和参数更新，只是在使用阶段进行候选生成与选择，属于推理时计算。</p>
+<p><strong>2. 开篇任务能按 A、休息、B、C 排吗？为什么？</strong></p>
+<p>不能。B 与 C 连续学习 55 分钟，超过 45 分钟。总时间合格不能代替逐条约束检查。</p>
+<p><strong>3. “A、C、休息、B”和“C、A、休息、B”为什么都合格？</strong></p>
+<p>前一学习段均为 45 分钟，后一段 B 为 35 分钟；休息 10 分钟，总计 90 分钟；两种情况下 A 均在 B 前。C 没有顺序限制。</p>
+<p><strong>4. 独立尝试成功概率为 50%，三次中至少一次成功的概率是多少？是否等于任意选择一个候选的成功率？</strong></p>
+<p>前者是 <code>1-0.5³=87.5%</code>。任意选择没有保证；若不看结果、随机选一个，则仍是 50%。要交付正确候选，还需要可靠的选择过程。</p>
+<p><strong>5. 为什么模型多次给出同一答案，也不能直接当成事实依据？</strong></p>
+<p>多次输出可能共享错误前提；固定偏差不一定因采样而消失。应结合原始材料、计算或独立检查。对多解问题，还不能只数逐字相同的答案。</p>
+<p><strong>6. 提高计算预算后，答案更长但任务合格率没有提高，该怎样判断？</strong></p>
+<p>额外计算尚未显示出该任务上的收益。检查任务是否缺资料、标准是否明确、失败是否能由程序处理，再比较成本与效果；不把长度增加当作能力改善。</p>
+<hr>
+<p>推理训练影响模型怎样利用解题机会，推理时预算影响眼前任务可以尝试和检查多少。两者的价值最终都要落到可核对的任务结果上。</p>
+<p>下一篇《上下文窗口、缓存与记忆：模型这一次到底看到了什么》，我们将回到输入：模型即使愿意花更多计算，也必须先得到完成任务所需的信息。</p>
+<p>上一篇：后训练与对齐 · 返回第二部分大纲</p>
+</article>

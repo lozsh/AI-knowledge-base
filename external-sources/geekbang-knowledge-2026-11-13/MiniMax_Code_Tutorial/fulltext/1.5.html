@@ -1,0 +1,187 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>这一章开始动手了。我们要在本地建一个 <code>habitlog</code> 项目，跑 <code>mcode init .</code>，让 Agent 帮我们生成 <code>AGENTS.md</code>，然后做第一次 git 提交。<br>学完这一章，你会有一个可以长期维护的、能记住"我们这个项目是怎么约定"的初始仓库。</p>
+</blockquote>
+<h2 id="wiki-h-0">4.1 这一章要达成什么</h2>
+<ul>
+<li>在家目录下建好 <code>habitlog</code> 项目目录</li>
+<li>在目录里跑 <code>git init</code> 把项目交给 git 管</li>
+<li>跑 <code>mcode init .</code> 让 Agent 生成 <code>AGENTS.md</code></li>
+<li>读懂 <code>AGENTS.md</code>，知道它会怎么影响 Agent 的行为</li>
+<li>把脚手架用规范 commit 提交</li>
+</ul>
+<p>完成后你就有了一个干净的起点。</p>
+<h2 id="wiki-h-1">4.2 准备项目目录</h2>
+<p>打开终端，先到你想放项目的目录。教程默认放在家目录的 <code>projects/habitlog</code>。</p>
+<h3 id="wiki-h-2">macOS / Linux / WSL2</h3>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p ~/projects/habitlog
+<span class="hljs-built_in">cd</span> ~/projects/habitlog
+<span class="hljs-built_in">pwd</span>
+</code></pre><p><code>pwd</code> 应该输出 <code>/Users/sean/projects/habitlog</code>（macOS）或 <code>/home/&lt;你的用户名&gt;/projects/habitlog</code>（Linux / WSL2）。</p>
+<h3 id="wiki-h-3">Windows PowerShell</h3>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-literal">-Path</span> <span class="hljs-string">"<span class="hljs-variable">$env:USERPROFILE</span>\projects\habitlog"</span>
+<span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$env:USERPROFILE</span>\projects\habitlog"</span>
+<span class="hljs-built_in">Get-Location</span>
+</code></pre><p><code>Get-Location</code> 应该输出 <code>C:\Users\&lt;你的用户名&gt;\projects\habitlog</code>。</p>
+<h2 id="wiki-h-4">4.3 用 git 接管</h2>
+<h3 id="wiki-h-5">macOS / Linux / WSL2</h3>
+<pre><code class="hljs language-bash">git init -b main
+</code></pre><p>预期看到：</p>
+<pre><code>Initialized empty Git repository <span class="hljs-keyword">in</span> <span class="hljs-regexp">/Users/</span>sean<span class="hljs-regexp">/projects/</span>habitlog<span class="hljs-regexp">/.git/</span>
+</code></pre><h3 id="wiki-h-6">Windows PowerShell</h3>
+<pre><code class="hljs language-powershell">git init <span class="hljs-literal">-b</span> main
+</code></pre><p>输出类似。</p>
+<h3 id="wiki-h-7">配置仓库级身份（可选）</h3>
+<p>如果你的全局 <code>user.name</code> / <code>user.email</code> 还没配，现在就配：</p>
+<pre><code class="hljs language-bash">git config --global user.name <span class="hljs-string">"你的名字"</span>
+git config --global user.email <span class="hljs-string">"你的邮箱@example.com"</span>
+</code></pre><p><code>--global</code> 表示这台机器所有仓库都用这个身份。如果只想给当前仓库配，去掉 <code>--global</code> 并在项目目录里跑。</p>
+<h3 id="wiki-h-8">顺手写一个 <code>.gitignore</code></h3>
+<p><code>habitlog</code> 是 Python 项目，会有一些不该提交进 git 的文件。先建一个最小可用的 <code>.gitignore</code>：</p>
+<p>macOS / Linux / WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cat</span> &gt; .gitignore &lt;&lt;<span class="hljs-string">'EOF'</span>
+<span class="hljs-comment"># Python</span>
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+<span class="hljs-comment"># 编辑器</span>
+.vscode/
+.idea/
+.DS_Store
+
+<span class="hljs-comment"># habitlog 用户数据（可选：教程里我们会让数据放在 ~/.habitlog/，所以这里不进仓库）</span>
+EOF
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-string">@'
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# 编辑器
+.vscode/
+.idea/
+
+# habitlog 用户数据
+'@</span> | <span class="hljs-built_in">Out-File</span> <span class="hljs-literal">-Encoding</span> utf8 .gitignore
+</code></pre><p><code>habitlog</code> 的实际数据放在 <code>~/.habitlog/data.json</code>（每台机器一个），不需要写进仓库。</p>
+<h2 id="wiki-h-9">4.4 让 Agent 认识这个仓库：<code>mcode init .</code></h2>
+<p>这是这一章的核心。<code>mcode init .</code> 会启动 Agent，让它分析当前目录的结构、已经存在的文件、可能的项目规则，然后生成或更新 <code>AGENTS.md</code>。</p>
+<h3 id="wiki-h-10">先把命令敲进去</h3>
+<p>确保你在 <code>habitlog</code> 目录里，然后：</p>
+<pre><code class="hljs language-bash">mcode init .
+</code></pre><p>会发生三件事：</p>
+<ol>
+<li>CLI 启动 TUI，Agent 收到一条 <code>/init</code> 任务："分析当前目录，生成 <code>AGENTS.md</code>"</li>
+<li>Agent 读取目录内容（这时候只有 <code>.gitignore</code> 和 <code>.git</code>），可能问你几个澄清问题</li>
+<li>Agent 把 <code>AGENTS.md</code> 写出来，并在 TUI 里汇报结果</li>
+</ol>
+<h3 id="wiki-h-11">你可能看到 Agent 问的问题</h3>
+<p><code>AGENTS.md</code> 不是模板填空，而是 Agent 真的去读项目然后推出来的。所以对空目录，Agent 通常会问：</p>
+<ul>
+<li>这是什么语言的项目？</li>
+<li>主要入口是什么？</li>
+<li>怎么运行 / 怎么测试？</li>
+<li>有没有特殊的目录约定？</li>
+</ul>
+<p>按你的实际情况回答。习惯上对 <code>habitlog</code> 你可以这样告诉它：</p>
+<pre><code>这是一个 Python 命令行工具，叫 habitlog，用来做个人习惯打卡。
+语言：Python <span class="hljs-number">3.10</span><span class="hljs-operator">+</span>
+测试：pytest
+入口：habitlog<span class="hljs-operator">/</span>cli.py（马上要创建）
+存储：<span class="hljs-symbol">~/.habitlog/data.json</span>
+约定：使用 conventional commit（<span class="hljs-params">feat:</span> <span class="hljs-symbol">/</span> <span class="hljs-params">fix:</span> <span class="hljs-symbol">/</span> <span class="hljs-params">docs:</span> <span class="hljs-symbol">/</span> <span class="hljs-params">test:</span> <span class="hljs-symbol">/</span> refactor:）
+</code></pre><h3 id="wiki-h-12">等待生成完成</h3>
+<p>Agent 在做分析时，你会在 TUI 底部看到工具调用日志（读目录、写文件等）。完成后，退出 TUI（按 <code>Esc</code> 或输入 <code>/exit</code>）。</p>
+<p>回到普通终端，验证 <code>AGENTS.md</code> 已生成：</p>
+<p>macOS / Linux / WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">ls</span> -la
+<span class="hljs-built_in">cat</span> AGENTS.md
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span>
+<span class="hljs-built_in">Get-Content</span> AGENTS.md
+</code></pre><p>你应该看到目录里多了 <code>AGENTS.md</code> 文件，内容大致包括：</p>
+<ul>
+<li>项目概述（Project Overview）</li>
+<li>目录结构（Directory Structure）</li>
+<li>常用命令（Common Commands）—— 怎么跑、怎么测</li>
+<li>约定（Conventions）—— 代码风格、commit 规范、测试要求</li>
+</ul>
+<p>如果觉得 <code>AGENTS.md</code> 写得不够详细，可以再次进入 TUI 让它补充：</p>
+<pre><code class="hljs language-bash">mcode <span class="hljs-string">"请补充 AGENTS.md：把 commit 规范、测试约定、错误处理约定写得更具体一些"</span>
+</code></pre><h3 id="wiki-h-13"><code>AGENTS.md</code> 是什么、能做什么</h3>
+<p><code>AGENTS.md</code> 不是一个写给人看的文档，而是写给 Agent 看的"项目记忆"。每次你让 Agent 干活，它都会先读这个文件，按里面的约定来：</p>
+<ul>
+<li>写代码要不要带类型？</li>
+<li>commit message 用什么前缀？</li>
+<li>测试覆盖率要求是什么？</li>
+<li>哪些目录是禁区（不要碰）？</li>
+</ul>
+<p>所以养成习惯：<strong>项目里发生重要约定变化时，回到 TUI 让 Agent 把 <code>AGENTS.md</code> 更新一下</strong>。这是这套教程从一开始就强调"养成好规范"的根。</p>
+<h2 id="wiki-h-14">4.5 第一次提交</h2>
+<p><code>AGENTS.md</code> 是项目里第一个真正有意义的文件，单独做一个 commit。</p>
+<p>macOS / Linux / WSL2：</p>
+<pre><code class="hljs language-bash">git status
+git add .gitignore AGENTS.md
+git commit -m <span class="hljs-string">"chore: initialize habitlog project with AGENTS.md"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">git status
+git add .gitignore
+git add AGENTS.md
+git commit <span class="hljs-literal">-m</span> <span class="hljs-string">"chore: initialize habitlog project with AGENTS.md"</span>
+</code></pre><p><code>git status</code> 用来确认要提交哪些文件；<code>git add</code> 用来把这些文件加入暂存区；<code>git commit -m "..."</code> 用来提交并写 commit message（提交说明）。<code>chore:</code> 是 conventional commit 前缀之一，表示"杂项维护性变更"。</p>
+<p>预期看到：</p>
+<pre><code>[main <span class="hljs-punctuation">(</span>root-commit<span class="hljs-punctuation">)</span> xxxxxxx] chore: initialize habitlog project with AGENTS.md
+ <span class="hljs-number">2</span> files changed, xx insertions<span class="hljs-punctuation">(</span>+<span class="hljs-punctuation">)</span>
+ create mode <span class="hljs-number">100644</span> .gitignore
+ create mode <span class="hljs-number">100644</span> AGENTS.md
+</code></pre><h3 id="wiki-h-15">养成"提交前看一眼"的习惯</h3>
+<p>每章都会做这种 commit。流程固定下来：</p>
+<ol>
+<li>改完代码 → <code>git status</code> 看改了哪些文件</li>
+<li><code>git diff</code> 看具体改动（不想看 diff 可以跳过，但 qa 等接口测试时不必往下走）</li>
+<li>确认无遗漏 → <code>git add</code> 把对应文件加入暂存区</li>
+<li><code>git commit -m "..."</code> 提交并写规范 message</li>
+</ol>
+<p>这条流程会在第 5 章直接复用，先记住这个四步。</p>
+<h2 id="wiki-h-16">4.6 这一章做了什么、留下了什么</h2>
+<ul>
+<li>项目目录建好并交给 git</li>
+<li><code>.gitignore</code> 写好</li>
+<li><code>AGENTS.md</code> 生成，Agent 知道这个项目的约定</li>
+<li>第一次 commit 提交进 git</li>
+</ul>
+<p>当前仓库状态：</p>
+<pre><code>habitlog/
+├── <span class="hljs-string">.git/</span>
+├── <span class="hljs-string">.gitignore</span>
+└── AGENTS.md
+</code></pre><p>下一章我们会用 Plan Mode 写第一个子命令 <code>habitlog add</code>，把 TUI 的核心操作（Plan Mode、权限、<code>/steer</code>、<code>/queue</code>）一并熟悉一遍。</p>
+<h2 id="wiki-h-17">4.7 这一章的常见问题</h2>
+<h3 id="wiki-h-18"><code>mcode init .</code> 一直转圈</h3>
+<ul>
+<li>看 TUI 顶部是否有 Agent 在等你回复（澄清问题）。按一下回车让输入框获得焦点再回答</li>
+<li>网络问题时 Agent 会重试；如果超过 2 分钟没动静，按 <code>Esc</code> 中断后重试</li>
+</ul>
+<h3 id="wiki-h-19"><code>AGENTS.md</code> 太简单</h3>
+<ul>
+<li>再进 TUI 跑 <code>mcode "请基于现有 AGENTS.md 补充：commit 规范、测试约定、错误处理约定"</code></li>
+<li>或者直接手动编辑 <code>AGENTS.md</code>，把你想加的约定写进去</li>
+</ul>
+<h3 id="wiki-h-20"><code>git commit</code> 报 "Please tell me who you are"</h3>
+<ul>
+<li>还没配 <code>user.name</code> / <code>user.email</code>，按 4.3 节的命令配一遍</li>
+</ul>
+<h3 id="wiki-h-21">Windows 上 <code>.gitignore</code> 文件名打错</h3>
+<ul>
+<li>PowerShell 里新建文件时不要写 <code>.gitignore.txt</code>。如果建错了，删掉重来：<pre><code class="hljs language-powershell"><span class="hljs-built_in">Remove-Item</span> .gitignore.txt
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> File <span class="hljs-literal">-Path</span> .gitignore <span class="hljs-literal">-Value</span> <span class="hljs-string">"# Python`n__pycache__/`n..."</span>
+</code></pre></li>
+</ul>
+</article>

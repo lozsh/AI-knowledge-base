@@ -1,0 +1,138 @@
+核对日期：2026-09-30
+核对环境：Claude Code 2.1.281
+范围：只包含终端中的 Claude Code CLI 交互会话，不含桌面客户端快捷键。
+
+先记住两个现场入口：
+
+在空输入框键入 /：查看当前账号、平台与版本实际可用的 Commands 和 Skills；
+在空输入框键入 ?：打开当前终端快捷键帮助。
+
+命令会随版本、平台、账号方案和功能开关变化。若本附录与界面不一致，以这两个现场入口和当前官方文档为准。
+
+命令怎样输入
+
+斜杠命令必须出现在消息开头，后面的文字作为参数：
+
+/compact 只保留当前计划、关键决定和未完成项
+
+
+输入 / 再输入若干字母可筛选；看到补全后按 Tab 或按界面提示选择。Skills 也以 /<skill-name> 出现；最多可以在消息开头连续调用六个 Skill，再写共同参数。
+
+下面的 [参数] 表示可选，不要把方括号原样输入。
+
+先看状态和排障
+命令	用途	你应该看到什么
+/help	查看帮助与当前可用入口	命令、输入和快捷键提示
+/status	查看版本、模型、账号、连接和会话类型	当前实际状态，不靠猜设置
+/doctor	检查安装、设置和扩展，并提出可确认的修复	先显示发现，再询问是否处理
+/debug [问题描述]	从当前点启用日志并诊断运行问题	调试日志与针对性分析
+/context [all]	查看上下文由什么占用	Memory、Skills、工具和消息的占比
+/permissions	查看和编辑 Allow、Ask、Deny 与工作目录	当前解析后的权限规则
+/tasks	查看本会话的后台 Bash、Subagents 等任务	状态、输出与管理动作
+
+/doctor 与终端外的 claude doctor 不相同：后者是只读检查；前者可以在你确认后应用修复。完整诊断链见第 18 篇。
+
+日常开发与验证
+命令	用途	关键边界
+/plan [任务]	切到 Plan Mode，先调查和规划	不应直接修改源文件
+/model [模型]	选择或查看当前模型	列表取决于账号与提供商
+/effort [级别]	调整当前模型的推理强度	可用级别取决于模型
+/diff	查看未提交变化和逐轮 Diff	是审查入口，不等于测试通过
+/run	启动并操作项目，观察真实行为	Bundled Skill；可用性以 / 菜单为准
+/verify	构建、运行并观察改动结果	必须由用户显式调用，不代替固定验收脚本
+/rewind	恢复代码/对话到检查点，或从某处总结	不保证恢复外部脚本和所有后台改动
+/sandbox	在受支持平台切换命令 Sandbox	Sandbox 与权限审批是两层控制
+
+课程中的最低验收仍是：检查 Diff、运行固定测试、运行独立验证，再进行必要的人工操作。/run 或 /verify 不可用时，按正文里的手工命令完成同一证据链。
+
+上下文与会话
+命令	用途	何时用
+/compact [重点]	总结历史，释放上下文	任务相同但对话变长
+/btw [问题]	问一个不进入主对话历史的旁支问题	快速确认，不想污染上下文
+/clear [名称]	开始空白对话，可给旧会话命名	任务已经完全改变
+/resume [会话]	恢复指定会话或打开选择器	回到过去任务
+/branch [名称]	从当前位置分出会话并切过去	自己探索另一条路线
+/fork [任务]	复制当前对话到新的后台会话，主会话继续	让完整副本独立工作
+/background [补充任务]	把当前会话移到后台并释放终端	当前长任务继续跑；别名 /bg
+/subtask <任务>	派生带当前上下文的后台 Subagent	结果要回到当前会话
+/rename [名称]	给当前会话命名	方便稍后恢复和区分
+/exit	退出；若附着后台会话则只分离	别名 /quit
+
+四个容易混淆的动作：
+
+你想要的结果	使用
+同一会话继续，只缩短历史	/compact
+切到一条新对话分支亲自工作	/branch
+复制成独立后台会话，原会话继续	/fork
+派侧任务，结果回报当前会话	/subtask
+
+/background 是把当前会话移到后台，不是复制。之后在普通终端用 claude agents 查看，或用 claude attach <id> 接管。完整后台流程见第 10 篇。
+
+上表按启用 Agent view 的当前版本说明。若组织关闭了 Agent view，或你使用的是较旧版本，/fork 可能仍表示 forked Subagent，/subtask 也可能不可用；以本机会话的 /help 为准。
+
+项目记忆与扩展
+命令	用途	关键边界
+/init	为当前项目生成起始 CLAUDE.md	生成后仍要人工精简和审查
+/memory	查看和管理 CLAUDE.md 与 Auto Memory	用 /context 验证是否实际加载
+/skills	列出并筛选项目、用户和插件 Skills	可查看来源与可见性
+/reload-skills	重新扫描运行中新增或修改的 Skills	无需仅为 Skill 改动重启
+/hooks	查看当前已注册 Hooks	Hook 缺失时先查来源与 matcher
+/mcp	查看连接、审批、工具和认证状态	项目 MCP 未批准时不会连接
+/plugin [子命令]	管理插件	安装或启用后按提示 reload/restart
+/reload-plugins [--force]	重新加载活跃插件	MCP 工具变化可能需要 --force 并影响缓存
+/config	打开终端设置界面	别名 /settings
+
+当前 /agents 不再打开旧版 Agent 创建向导；它会提醒你让 Claude 创建 Agent，或直接编辑 .claude/agents/ 与 ~/.claude/agents/。运行中的 Subagent 看 /tasks，跨会话后台工作看终端命令 claude agents。Skills、Hooks、MCP、插件与 Agent 的完整练习分别见第 11 篇、第 12 篇和第 13 篇。
+
+账号与退出
+命令	用途	注意点
+/login	登录 Anthropic 账号	环境变量仍可能覆盖认证路径
+/logout	退出当前账号	切换身份前先保存任务状态
+/usage	查看上下文与方案用量	别名 /cost、/stats
+/export [文件名]	导出当前会话为纯文本	分享前必须脱敏
+
+第三方网关、云提供商和环境变量问题应回到第 3 篇，不要通过反复登录掩盖路由配置错误。
+
+最常用的终端快捷键
+快捷键	用途	细节
+Ctrl+C	中断当前动作或清空输入	无任务时第一次清空，第二次退出
+Esc	中断响应、关闭对话框或拒绝权限	已完成的磁盘改动会保留
+空输入时 Esc 两次	打开 Rewind 菜单	有输入时会清空草稿并存入历史
+Ctrl+D	退出 Claude Code	空输入时需在约 800 ms 内再按一次确认
+Ctrl+O	打开/关闭详细 Transcript	查看工具调用、时间和模型
+Ctrl+T	显示/隐藏 Claude 的任务清单	不是后台任务视图；后台任务用 /tasks
+Ctrl+B	把运行中的 Bash 或 Agent 放到后台	tmux 用户通常需要按两次
+Ctrl+R	反向搜索历史输入	继续输入可缩小匹配
+Ctrl+G	用默认编辑器编辑长输入	也可用 Ctrl+X 后再按 Ctrl+E
+Ctrl+S	暂存/恢复当前输入	再次在空输入时恢复
+Shift+Tab	循环权限模式	Windows 某些运行时用 Alt+M
+Ctrl+J	插入换行	各终端都可用；也可用反斜杠后按 Enter
+空输入时 ?	打开快捷键帮助	当前版本的现场依据
+终端拦截时怎么处理
+Ctrl+S 无响应或冻结输出：终端可能启用了软件流控；优先用 /help 核对，再调整终端设置，不要反复按键；
+macOS 的 Option 组合键：终端可能需要把 Option 配置为 Meta；
+tmux 中 Ctrl+B：它本身是 tmux 前缀，Claude Code 通常要求按两次；
+Shift+Enter 不换行：使用通用的 Ctrl+J，或按官方终端配置处理；
+键位与本表不同：以空输入 ? 和当前 /help 为准。
+三个快速输入入口
+开头字符	作用	示例
+/	Command 或 Skill	/weekly-menu 3
+!	直接运行 Shell 命令，并把输出加入会话	!git status --short
+@	文件路径补全和引用	@src/app.py
+
+Shell 模式仍受权限与 Sandbox 约束。不要用 ! 绕开项目验证流程，也不要把含密钥的文件用 @ 加入上下文。
+
+自检
+能用 / 和空输入 ? 找到本机真实入口；
+能区分 /tasks、/background、/fork 和 /subtask；
+能用 /context 找到上下文占用，而不是盲目 /compact；
+知道 /agents 不再是旧版向导；
+知道 /rewind 不能替代 Git 与独立验证；
+快捷键被终端拦截时，会回到现场帮助核对。
+
+官方入口：
+
+Commands
+Interactive mode
+Agent view
+Permissions

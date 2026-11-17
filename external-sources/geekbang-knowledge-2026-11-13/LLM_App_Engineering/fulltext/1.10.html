@@ -1,0 +1,252 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>笔记里写着“借阅期限为14天”，助手回答“可以借30天”，下面还认认真真附上了那句14天的原文。</p>
+<p>这种输出很容易骗过一套看似完整的检查：JSON能解析，问题ID正确，引用的片段存在，引文也确实在原文中。程序没有报错，引用不是伪造的，用户却得到了错误结论。</p>
+<p>上一篇，我们通过复现和代码差异修复了历史搜索故障。这一篇面对另一类问题：<strong>代码按设计运行，并不代表它生成的回答达到了产品要求。</strong>我们要为笔记助手建立一个小型评测集，把“找没找到资料”“引用是否合法”“结论有没有依据”“该不该说不知道”分别检查。</p>
+<p>本篇的交付是一份机器检查报告和一份人工评审记录。约需40—60分钟，不需要模型账号、API Key或付费调用。用到的响应都是作者构造的教学案例，不是DeepSeek或Kimi的真实输出。</p>
+<h2 id="wiki-h-0">从正确的应用版本开始</h2>
+<p>下载第09篇完整材料，解压后在<code>lesson-09</code>目录打开终端。也可直接阅读工作区说明。</p>
+<p>第08篇的<code>project</code>故意带有“删掉查询内部空格”的错误。本篇的<code>project</code>已经从它的<code>reference</code>正确版本复制，38个应用文件没有改动。若跟着自己的Git仓库学习，先确认上篇修复已经完成；不要用故障快照覆盖当前代码。</p>
+<p>应用仍然使用DeepSeek官方API，Kimi Code仍是开发工具。本篇的必做路径完全离线，新脚本只调用本地资料读取、检索与验证函数，不导入模型客户端，也不读取应用运行配置。</p>
+<p>先在编辑器中找到这些文件：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>本篇作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>eval/notes/library.md</code></td>
+<td>固定的原始笔记</td>
+</tr>
+<tr>
+<td><code>eval/cases.json</code></td>
+<td>问题、检索关键词、人工标注的标准证据</td>
+</tr>
+<tr>
+<td><code>eval/candidates.json</code></td>
+<td>准备送入检查器的构造回答</td>
+</tr>
+<tr>
+<td><code>evaluate_offline.py</code></td>
+<td>调用真实本地函数，生成分层报告</td>
+</tr>
+<tr>
+<td><code>docs/EVAL_REVIEW.md</code></td>
+<td>需要你填写的人工记录模板</td>
+</tr>
+<tr>
+<td><code>docs/EVAL_RUBRIC.md</code></td>
+<td>评分规则与作者参考判定</td>
+</tr>
+</tbody></table></div>
+<p>资料、候选回答、评分规则分开存，是为了防止“用被评对象自己的说法证明自己正确”。标准证据需要人先读原文标注；它不是从候选答案倒推出来的。</p>
+<h2 id="wiki-h-1">先把一次回答拆成四个问题</h2>
+<p>本项目的资料问答大致经过这条路径：</p>
+<pre><code class="hljs language-text">问题 + 显式关键词
+        ↓
+从原始笔记切分并检索片段
+        ↓
+有命中 → 把选中片段交给模型 → 得到候选回答
+无命中 → 在生成之前停止
+        ↓
+检查格式和引用 → 再判断语义及缺失行为
+</code></pre><p>图中最后的语义与缺失评审是本课增加的人工检查，不是应用已经具备的自动裁判。</p>
+<p>这里的“显式关键词”是应用目前真正使用的输入。它按关键词子串匹配片段，再排序选取；没有在后台自动做向量搜索或让模型改写查询。评测必须先理解当前系统，不能拿想象中的实现解释结果。</p>
+<p>我们分四层看：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>层</th>
+<th>要回答的问题</th>
+<th>典型失败</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>检索</td>
+<td>必要的证据有没有进入所选上下文？</td>
+<td>资料有答案，却没搜到</td>
+</tr>
+<tr>
+<td>机械检查</td>
+<td>格式、ID、引文位置是否符合约定？</td>
+<td>引用了一句不存在的话</td>
+</tr>
+<tr>
+<td>语义忠实</td>
+<td>回答的事实断言是否得到资料支持？</td>
+<td>引用14天，却回答30天</td>
+</tr>
+<tr>
+<td>缺失判断</td>
+<td>有证据时回答、证据不足时承认不足了吗？</td>
+<td>编造罚款；有答案却拒答</td>
+</tr>
+</tbody></table></div>
+<p>Ragas原始论文同样强调，RAG评估需要分别考察检索上下文与生成回答等不同维度。本篇借用这种分层思路，使用自己的小题集和人工规则，不安装Ragas，也不把自定义结果称为该框架的指标。<a href="https://arxiv.org/abs/2309.15217">Ragas论文</a></p>
+<p>分层的目的，是让下一步行动具体起来。检索没有交付证据时，应该先查资料切分、关键词和排序；证据已经完整交付，回答却改写了数字，才继续查生成环节。把所有失败统称“模型不够聪明”，很容易让你反复换模型，却绕开真正的问题。</p>
+<h2 id="wiki-h-2">用七个案例把盲区显露出来</h2>
+<p>打开<code>eval/notes/library.md</code>，全文很短：</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># 社区书屋</span>
+
+借阅期限为14天。
+
+续借需要在到期前向管理员申请。
+</code></pre><p>按当前应用的切分方式，标题是<code>F1-C1</code>，借阅期限是<code>F1-C2</code>，续借说明是<code>F1-C3</code>。这些ID由文件顺序与切分顺序产生，不是永远不变的知识编号；将来修改资料后，必须重新核对标注。</p>
+<p>现在看七个案例。前几项故意重复同一个问题，以便隔离变量：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>案例</th>
+<th>输入或候选中的关键差异</th>
+<th>用来观察什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>E01</td>
+<td>搜“借阅”，答14天，引14天原句</td>
+<td>正常对照</td>
+</tr>
+<tr>
+<td>E02</td>
+<td>同样证据，答30天，引14天原句</td>
+<td>真实引用掩盖错误结论</td>
+</tr>
+<tr>
+<td>E03</td>
+<td>答30天，引用捏造的“借阅期限为30天。”</td>
+<td>机械检查能抓到什么</td>
+</tr>
+<tr>
+<td>E04</td>
+<td>问借多久，却搜“贷款”</td>
+<td>原文有答案，检索无命中</td>
+</tr>
+<tr>
+<td>E05</td>
+<td>问罚款，选中续借说明，答每天1元</td>
+<td>相关不等于足够</td>
+</tr>
+<tr>
+<td>E06</td>
+<td>与E05同样问题及上下文，标记资料不足</td>
+<td>合理的缺失回答</td>
+</tr>
+<tr>
+<td>E07</td>
+<td>已选中14天说明，却标记资料不足</td>
+<td>过度拒答</td>
+</tr>
+</tbody></table></div>
+<p>E04没有候选响应。现有应用无命中时会在生成前停止；评测脚本也不把这个案例伪装成“模型看完资料后拒答”。</p>
+<p>E05更隐蔽：它确实检索到一段关于借书的文字，但这段文字不能回答罚款问题。有资料、资料相关、资料足够支持答案，是三个不同判断。</p>
+<p>此时还要区分两个观察位置：评审者能阅读整份固定笔记，生成器在这次任务中只看到选中的片段。若整份资料有答案、所选片段没有，生成器谨慎标记缺失可能是合理的，同时检索系统仍然失败。不能要求模型凭空知道它没有收到的内容。</p>
+<h2 id="wiki-h-3">跑出报告，先不要急着庆祝“通过”</h2>
+<p>确认终端当前目录为<code>lesson-09</code>，并且Python版本至少为3.11。已有虚拟环境可以复用，但新评测不需要安装依赖。</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 --version
+python3 evaluate_offline.py --report evaluation-result.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">--version</span>
+py <span class="hljs-literal">-3</span> evaluate_offline.py <span class="hljs-literal">--report</span> evaluation<span class="hljs-literal">-result</span>.json
+</code></pre><p>脚本把结果打印在终端，同时创建<code>evaluation-result.json</code>。如果同名文件已存在，会拒绝覆盖并退出2；复跑时换新文件名，或者去掉<code>--report</code>只看终端输出。</p>
+<p>默认题集的实际离线结果中，<code>summary</code>应包含：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"cases"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"retrieval_eligible_cases"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"mean_gold_coverage"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.8</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"mechanical_checked"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">6</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"mechanical_pass"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"skipped_no_context"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"semantic_pending"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">6</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>请用编辑器重新打开生成的文件，找到E02、E03、E04，而不是只读汇总。每项都记录了所选片段及原文、候选内容和机械结果。独立核对以下三件事：</p>
+<ol>
+<li>E02的候选是30天，上下文是14天，但<code>mechanical</code>为<code>pass</code>。</li>
+<li>E03的<code>mechanical</code>为<code>fail</code>，原因是引文不在对应原文中。</li>
+<li>E04的<code>selected_ids</code>为空，候选为<code>null</code>，状态为<code>skipped_no_context</code>。</li>
+</ol>
+<p>这才证明你看到的是本课要研究的情况。退出码0仅表示脚本完成了报告；它不表示所有回答合格。本脚本是一个收集评测结果的工具，并没有把全部质量要求配置成发布门禁。</p>
+<h3 id="wiki-h-4">0.8究竟算的是什么</h3>
+<p>题集里五个“整份资料能够回答”的案例都标了一个必要证据片段。四个成功取到了它，E04没有，因此平均标准证据覆盖是<code>(1+1+1+0+1)/5=0.8</code>。</p>
+<p>E05、E06的问题在原始资料中没有答案，标准证据列表为空。它们的覆盖值为<code>null</code>，不加入分母。把“没有标准证据可找”算成检索100%成功，会把指标人为抬高。</p>
+<p>这只是本课基于人工标注的覆盖规则。真实任务可能需要两个片段联合回答，也可能有多个不同片段都足以回答；那时必须先定义必要证据与可替代证据，不能机械照搬此处ID集合。</p>
+<p>同样，机械检查是5/6通过，不是5/7。E04未进入这一层。一个总百分比很难同时表达这些不同分母，更不能直接拿来判断“用户满意度”。</p>
+<h2 id="wiki-h-5">人工评审要找出结论与依据之间的关系</h2>
+<p>把<code>docs/EVAL_REVIEW.md</code>另存为<code>docs/my-eval-review.md</code>，先自行填表，再打开评分规则末尾的参考答案。</p>
+<p>不要只写“感觉不靠谱”。以E02为例，写清楚：</p>
+<pre><code class="hljs language-text">候选断言：可以借30天。
+收到的证据：借阅期限为14天。
+机械结果：通过，引用确实存在。
+语义结果：失败，期限与证据矛盾。
+归因：已有必要证据，问题发生在候选答案的内容层。
+</code></pre><p>对于较长回答，把每一个可核查的事实分别列出。例如“可以借14天，逾期每天罚1元”前半句有依据，后半句没有；不能因为第一句正确就让整段过关。这里关注的是对所给资料的忠实程度，不是让评审者用常识替回答补证据。</p>
+<p>也不要要求答案逐字等于参考句子。“借期是两周”在本题语境下可以正确表达14天；字符串完全相等的检查会误伤合理改写。不过金额、数量、否定词、条件与时间范围必须保留原意。</p>
+<p>E07则说明“少说就永远安全”也不成立。上下文已经给出14天，候选仍说“笔记未提供，无法判断”，虽然满足现有<code>missing</code>格式，却没完成用户任务。评估资料不足行为时，要同时观察无根据作答和不必要拒答。</p>
+<p>按本题集规则，E01、E06合格；E02、E03、E05、E07不合格；E04没有回答可评。机器报告中的六项<code>pending</code>不会自动变成这些人工结论，你的评审文件负责保留判断和依据。</p>
+<p>这是六份刻意安排的教学响应，包含重复问题和坏答案。<strong>人工2/6合格不代表DeepSeek的准确率，也不代表真实用户会遇到同样的错误比例。</strong>它证明的是：仅用当前机械验证器，不足以识别全部质量问题。</p>
+<h2 id="wiki-h-6">做一次对照：修改答案，为什么机器分数没变</h2>
+<p>现在用编辑器把<code>eval/candidates.json</code>另存为<code>eval/candidates-trial.json</code>。只改E02的<code>answer</code>，从“可以借30天。”改为“可以借14天。”，保留原题集和其他字段。</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 evaluate_offline.py --candidates <span class="hljs-built_in">eval</span>/candidates-trial.json --report evaluation-trial.json
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> evaluate_offline.py <span class="hljs-literal">--candidates</span> eval/candidates<span class="hljs-literal">-trial</span>.json <span class="hljs-literal">--report</span> evaluation<span class="hljs-literal">-trial</span>.json
+</code></pre><p>预期机械汇总完全相同：仍然5/6通过、6项语义待评。但E02的候选文本已经变化，人工判断应从失败改为通过。对比两个报告，其他案例应保持相同。</p>
+<p>原因在<code>project/validation.py</code>中：对于<code>supported</code>回答，它检查引用存在、引文为原文子串等约束，没有实现“30与14是否矛盾”的语义判定。缺少这个能力不会因为换了一个好答案就自动显露为机器分数变化。</p>
+<p>再思考一个问题：只把E03的伪造引文改成14天原句，保留30天答案，会怎样？答案是机械检查转为通过，语义仍错。作者已用临时候选副本验证这个反例，它正好回到了E02的结构。</p>
+<p>这项练习是在修改构造响应，不是修改提示词，更不是改善真实模型。它帮助你验证评测工具的能力边界。后续若真的调整了提示词，应重新生成回答并保留真实请求与结果，再在相同规则下比较。</p>
+<h2 id="wiki-h-7">可以请Kimi帮忙，但评审标准要握在自己手里</h2>
+<p>已配置好Kimi Code的读者，可以在本篇目录运行下面的可选步骤。它会消耗开发工具的服务额度；本课没有要求批量生成或让笔记助手调用DeepSeek。</p>
+<pre><code class="hljs language-bash">kimi --plan
+</code></pre><p>写作日2026年10月4日本机<code>kimi --version</code>为2.0.2，帮助中确认有<code>--plan</code>；官方文档也提供<code>/plan</code>切换说明。模式用于安排计划与执行流程，不能取代你对实际工具操作的审查。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/guides/interaction.html">Kimi交互文档</a></p>
+<p>提交一轮范围明确的请求即可：</p>
+<pre><code class="hljs language-text">请阅读docs/tasks/009-evaluation.md、eval/cases.json、
+eval/candidates.json、eval/notes/library.md、docs/EVAL_RUBRIC.md
+以及project/validation.py。
+只评审E02、E04、E07：列出关键断言、直接证据、失败层和理由。
+说明为什么机械pass不能代表语义通过。
+不改文件，不运行外部请求，不读取配置、密钥或个人data。
+不要把构造候选当成真实DeepSeek输出，也不要为了全绿删案例。
+</code></pre><p>这段请求由作者提供，未执行真实Kimi会话。你得到结果后，仍然回到原文逐条核对。如果Kimi说E04是“模型拒答”，就指出它没有候选响应；如果它认为E07很谨慎所以通过，就让它解释已收到的14天证据为何不足。</p>
+<p>以后题集变大，模型裁判可以辅助筛查，但要先用人工标注校准、抽查分歧，并记录裁判自身的模型、提示词与消耗。让同一个模型生成回答后再笼统评价“是否优秀”，很难形成独立证据。</p>
+<h2 id="wiki-h-8">把小题集变成持续改进的起点</h2>
+<p>个人项目开始时，不需要立刻搭建大型评测平台。先积累几类真实失败：同义表达搜不到、只找到部分条件、引用正确却结论错误、资料不足仍编造、有依据仍拒答。去掉个人信息，再为每个案例补上可复核的原文与判断标准。</p>
+<p>比较两个版本时，固定资料、问题、关键词、所选上下文或检索设置，以及生成参数。一次只改一个因素，才能解释改进来自哪里。若比较完整应用，允许检索结果变化，但要分别保留检索与回答记录，避免把两层变化混为一谈。</p>
+<p>不要一边看结果，一边悄悄删掉失败题或放宽判分规则。开发题集可以用于调试；另外保留一些未参与调参的题，检查修改是否只对熟悉案例奏效。真实生成具有波动，单次成功也不能证明每次都成功；重复次数应结合任务风险与预算确定，不在入门练习里无上限重试。</p>
+<p>本篇脚本刻意始终标记候选来源为<code>authored_offline_fixtures_not_live_model</code>。若将来加入真实API评测，应增加明确的运行记录与来源区分，不能把抓来的响应塞进本脚本，却继续冒用“作者构造”的标识。</p>
+<h2 id="wiki-h-9">遇到这些情况先查哪里</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>优先检查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>找不到脚本或资料文件</td>
+<td>是否在解压后的lesson-09；保留eval与project目录结构</td>
+</tr>
+<tr>
+<td>提示报告已存在</td>
+<td>这是防覆盖；改报告名或去掉--report，不必删原记录</td>
+</tr>
+<tr>
+<td>机械通过5项，误以为任务失败</td>
+<td>先确认E03故意伪造引文；本课不追求全部候选为绿色</td>
+</tr>
+<tr>
+<td>出现6项语义pending</td>
+<td>正常，脚本没有语义裁判；需要填写人工记录</td>
+</tr>
+<tr>
+<td>覆盖率或片段ID变了</td>
+<td>对比原文与报告hash；检查空行、标题、关键词、top_k和标注是否被改过</td>
+</tr>
+<tr>
+<td>真实项目里标missing太多</td>
+<td>分开查看检索漏证据、所选上下文不足、已给足证据仍拒答</td>
+</tr>
+</tbody></table></div>
+<p>作者完成了默认报告、候选改写对照、伪造引文变体、缺少/多余候选、重复JSON键及报告防覆盖检查，并确认38个应用文件与第08篇正确版相同。恢复正确版本后的历史搜索HTTP检查4项通过，包含上篇触发错误的S10。没有真实Kimi或DeepSeek调用，也没有Windows实机或浏览器视觉验证。</p>
+<p>完成本篇时，你应留下原始报告、自己的人工评审，以及一次候选对照结果。项目增加的是一套能说明“哪里出了问题”的反馈材料，业务代码还没变化。下一篇将把这种分层观察延伸到日志、追踪和成本：一次失败经历了哪些步骤，花在哪里，又该从哪里恢复。</p>
+<p>返回第四部分大纲 · 上一篇：调试与代码审查</p>
+</article>

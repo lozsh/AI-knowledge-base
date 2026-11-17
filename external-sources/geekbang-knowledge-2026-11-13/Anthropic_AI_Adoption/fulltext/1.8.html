@@ -1,0 +1,19 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《How Anthropic teams use Claude Code》部门版 PDF，共 23 页，本页面对应原文 P13-P14<br><strong>版本</strong>：PDF 由 Anthropic 于 2025-06-03 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 6 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<p>API 知识团队（API Knowledge team）负责 PDF 支持、引用、网页搜索这类功能，它们把额外的知识带进 Claude 的上下文窗口（context window）。在大型、复杂的代码库中工作，意味着会不断遇到陌生的代码段，要花大量时间弄清楚面对任何一项任务该检查哪些文件，并在动手修改前建立上下文（context）。Claude Code 通过扮演向导来改善这一体验：它能帮助团队理解系统架构、找出相关文件，并解释复杂的交互。</p>
+<h2 id="wiki-h-0">Claude Code 的主要用例</h2>
+<p><strong>第一步工作流规划（First-step workflow planning）</strong> —— 团队把 Claude Code 当作任何任务的「第一站」，让它指出做缺陷修复、功能开发或分析时该检查哪些文件。这取代了以往开工前手动在代码库中摸索、收集上下文的耗时流程。</p>
+<p><strong>跨代码库独立调试（Independent debugging across codebases）</strong> —— 团队现在有信心处理代码库中陌生部分的缺陷，而不必向他人求助。他们可以问 Claude「Do you think you can fix this bug? This is the behavior I'm seeing」，往往能立刻取得进展——考虑到所需的时间投入，这在以前是做不到的。</p>
+<p><strong>通过内部试用做模型迭代测试（Model iteration testing through dogfooding）</strong> —— Claude Code 会自动使用最新的研究模型快照（model snapshot），这成了他们体验模型变化的主要途径。这让他们在开发周期中直接获得关于模型行为变化的反馈，而这是他们在以往的产品发布中未曾体验过的。</p>
+<p><strong>消除上下文切换的开销（Eliminating context-switching overhead）</strong> —— 与其复制代码片段、把文件拖进 Claude.ai 并大段解释问题，他们可以直接在 Claude Code 里提问，无需额外收集上下文，显著减轻了脑力负担。</p>
+<h2 id="wiki-h-1">团队影响</h2>
+<p><strong>处理陌生领域的信心增强（Increased confidence in tackling unfamiliar areas）</strong> —— 团队成员能在陌生代码库中独立调试缺陷、调查事故。</p>
+<p><strong>上下文收集大幅省时（Significant time savings in context gathering）</strong> —— 消除了复制代码片段、把文件拖进 Claude.ai 的开销，减轻了上下文切换带来的脑力负担。</p>
+<p><strong>轮岗上手（onboarding）更快（Faster rotation onboarding）</strong> —— 轮岗到新团队的工程师能快速熟悉陌生的代码库，无需大量请教同事就能做出有意义的贡献。</p>
+<p><strong>开发者幸福感提升（Enhanced developer happiness）</strong> —— 团队反馈，日常工作流（workflow）中的摩擦减少，他们感到更开心、效率更高。</p>
+<h2 id="wiki-h-2">来自 API 知识团队（API Knowledge team）的建议</h2>
+<p><strong>把它当作可迭代的伙伴，而非一次性方案（Treat it as an iterative partner, not a one-shot solution）</strong> —— 与其指望 Claude 立刻解决问题，不如把它当作与你一起迭代的协作者。这比试图第一次就拿到完美方案更有效。</p>
+<p><strong>用它建立处理陌生领域的信心（Use it for building confidence in unfamiliar areas）</strong> —— 不要犹豫去处理专业范围之外的缺陷或调查事故——Claude Code 让在那些通常需要大量上下文积累的领域里独立工作变得可行。</p>
+<p><strong>从最少信息开始（Start with minimal information）</strong> —— 只从你需要的最低限度开始，让 Claude 引导你走完整个流程，而不是一开始就堆上大量解释。</p>
+</article>

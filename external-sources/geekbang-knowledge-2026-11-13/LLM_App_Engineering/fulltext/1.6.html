@@ -1,0 +1,186 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你换了一个Kimi Code会话，准备继续开发笔记助手。新助手读到一份旧规格，里面写着“搜索尚未实现”，于是开始设计你上一课已经完成的功能。你又得解释：搜索已经有了，应用还是调用DeepSeek，今天只整理文档，别动生成流程。</p>
+<p>这不一定是模型记性差。项目里如果同时摆着旧任务、现行规则和零散聊天结论，新会话就缺少一个明确的入口。我们需要把“这个项目长期怎样工作”“目前做到哪了”“这一次要做什么”分开保存。</p>
+<p>本篇给已完成历史搜索的项目整理一套小型开发文档。交付结果是一个新会话能够找到入口、识别现状并遵守任务范围的工作区。应用功能不变，也不提前实现导出或其他后续需求。</p>
+<p>下载完整工作材料 · 参考项目约定 · 新会话理解检查 · 上一篇：任务拆分与架构边界</p>
+<blockquote>
+<p>核实日期：2026年10月4日。本机Kimi Code为2.0.2，仅核对help/version与官方文档。本文文档由作者整理，没有真实Agent读取或生成实录；“文件存在”不等于已经验证Kimi自动加载。配套应用与验证命令完成本地离线检查，未调用模型。</p>
+</blockquote>
+<h2 id="wiki-h-0">别把所有信息都塞进同一份说明</h2>
+<p>先看笔记助手里的四句话：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>这句话</th>
+<th>适合放在哪里</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>应用使用DeepSeek，Kimi Code用于辅助开发</td>
+<td>项目长期约定</td>
+<td>每轮修改都容易遇到的边界</td>
+</tr>
+<tr>
+<td>搜索已完成，上一轮检查通过</td>
+<td>当前状态</td>
+<td>会随实现与验证进度变化</td>
+</tr>
+<tr>
+<td>这一轮只整理文档，不动应用源码</td>
+<td>本次任务</td>
+<td>只约束当前工作范围</td>
+</tr>
+<tr>
+<td>搜索只匹配当前会话的问题文本</td>
+<td>行为规格</td>
+<td>定义某项功能应该怎样工作</td>
+</tr>
+</tbody></table></div>
+<p>再加一份README作为入口，基本就够了。没有必要为个人项目照搬企业里所有文档分类；只有在这些信息开始互相干扰时，才值得分开。</p>
+<p>最常见的错误是把“今天还没做完”写进长期约定，过几天忘了删。另一个错误是把完整需求、实现说明、测试记录复制到三处，改了一处却漏掉另外两处。文档拆开后，应通过链接引用详细内容，而不是每份文件都抄一遍。</p>
+<p>可以用一句简单的问题判断：<strong>下一轮换一个任务，这句话还应该原样成立吗？</strong> 若是稳定边界，放长期约定；若是今天的安排或结果，放任务与状态。</p>
+<h2 id="wiki-h-1">AGENTS.md能帮什么，不能保证什么</h2>
+<p>Kimi Code当前官方文档把<code>AGENTS.md</code>列为项目指令文件的一种形式，也支持项目树里的<code>.kimi-code/AGENTS.md</code>。这些说明作为上下文中的参考信息提供给Agent；它们与通过<code>--agent-file</code>选择的Agent定义不是一回事。本课只使用项目根目录的一份<code>AGENTS.md</code>，不配置自定义Agent。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/agents.html#instruction-files">Kimi项目指令文件</a></p>
+<p>它适合写入口、约定、验证方式与交付要求。它不会把一句“不要越权读取”变成数据库访问控制，也不会因为写了“必须测试”就自动证明测试执行过。真正的owner隔离仍在代码里，验证证据仍来自执行结果。</p>
+<p>因此，本课做两层检查：先核对文件和事实，再让读者在自己的新会话里检查Agent能否正确找到并解释它们。作者没有发起真实Kimi请求，所以不能把本课离线检查说成“已证明模型一定会遵守AGENTS”。</p>
+<p>这里也不使用用户级的全局指令文件。官方文档区分全局与项目内指令；把笔记助手特有的“默认离线、运行DeepSeek”等规则放到全局位置，可能影响其他不相关项目。本课把它们留在学习工作区内。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/data-locations.html">Kimi数据与指令位置</a></p>
+<p>不同工具和版本的指令发现方式可能不同。若要迁移到别的Agent，保留通用内容，再核实它支持的文件入口；不要只改一个文件名就假定作用完全相同。</p>
+<h2 id="wiki-h-2">先让人能找到入口，再让Agent读懂</h2>
+<p>解压练习包，进入<code>lesson-05</code>。这次不再有starter/reference两个应用目录，只有已经实现搜索的<code>project</code>。它与第04篇reference的38个文件逐字节相同。</p>
+<pre><code class="hljs language-text">lesson-05/
+  README.md                 开发入口与可执行命令
+  AGENTS.md                 长期约定和导航
+  project/                  已完成搜索的应用
+  verify_search.py          搜索检查
+  verify_preview.py         证据统计检查
+  search-cases.json         原固定案例
+  docs/
+    PROJECT_MAP.md          代码入口与职责
+    STATUS.md               当前状态与验证范围
+    READING_CHECK.md        理解问题及核对答案
+    specs/search.md         当前搜索行为契约
+    tasks/005-docs.md        本次文档任务
+    archive/                保留的历史规格原稿
+</code></pre><p>工作目录始终是外层<code>lesson-05</code>，不是<code>project</code>。目录变化必须写清，否则上一课的<code>verify_search.py reference</code>原样复制过来就会失败。</p>
+<p>按顺序打开外层README、AGENTS和STATUS，先回答三个问题：应用做什么，今天已经有什么，接下来允许改什么。README负责引导，AGENTS写稳定约定，STATUS记录现在；详细函数和搜索规则再按链接去查。</p>
+<p><code>project/README.md</code>和页面里还保留第三部分“第16篇”的旧标识。本课不改这38个应用文件，而是在外层README明确当前开发入口。旧文件有历史来源并不等于必须删掉，但要让读者知道哪个说明适用于当前工作。</p>
+<p>如果你已经有自己的连续开发仓库，就将这套分类映射到自己的真实目录，不要直接覆盖原AGENTS或README。先比较并保留已有内容，尤其不要把本课的<code>project/</code>路径机械搬进一个源码就在仓库根目录的项目。</p>
+<h2 id="wiki-h-3">写一份短而能执行的项目约定</h2>
+<p>先阅读参考AGENTS，再在自己的练习副本中另存一份<code>docs/archive/AGENTS-reference.md</code>作为对照，随后编辑根目录AGENTS。你的版本需要覆盖四类信息。</p>
+<p><strong>第一类是入口。</strong> 从哪里开始读，应用放在哪里，当前状态由哪个文件记录。这里写路径，不写一整段口头背景。</p>
+<p><strong>第二类是容易被破坏的边界。</strong> 例如Kimi用于开发、应用仍用DeepSeek；身份来自session；旧预览使用资料快照；生成与保存计划保留确认。它们直接关联项目行为，值得每轮提醒。</p>
+<p><strong>第三类是工作方式。</strong> 开始前检查已有修改，只改变当前任务范围；发现文档和实现冲突要指出证据。无需要求每次都重新阅读所有文件，也不要加入与项目无关的“永远写最优秀代码”之类空话。</p>
+<p><strong>第四类是验证与交付。</strong> 指向真实命令，要求区分已经执行、未执行和仍有限制的检查。不让一句“完成了”代替可核对的结果。</p>
+<p>参考文件中有这样一段：</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section">## 交付</span>
+
+说明改动范围、实际执行的检查与结果、未验证内容；没运行就写未运行。更新当前任务记录与docs/STATUS.md，不把聊天中的愿望写成已完成。稳定规则留在本文件，阶段进度不要堆到这里。
+</code></pre><p>它没有要求每轮都写长篇报告，而是要求结论可以对应事实。比如本轮只是修正README中的目录名，没有改应用，也没有重跑模型相关检查，就据实记录“命令路径已核对；应用代码未改；本轮未运行应用测试”。</p>
+<p>检查自己的AGENTS：如果出现“待实现搜索”“下一次做导出”“昨天跑了6项测试”，把这些句子移到相应的状态或任务记录。若出现完整的R1—R7搜索规则，改成指向搜索契约的链接，减少重复维护。</p>
+<h2 id="wiki-h-4">项目地图要能带人走到代码，而不是重复架构口号</h2>
+<p>打开<code>docs/PROJECT_MAP.md</code>。这里没有画一张脱离文件的宏大架构图，而是把具体问题映射到真实入口：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>想确认的事情</th>
+<th>应该找到的入口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>程序怎样启动？</td>
+<td>project/run_local.py的main、initialize、check</td>
+</tr>
+<tr>
+<td>当前会话身份从哪来？</td>
+<td>project/web_app.py中create_app里的guard与home</td>
+</tr>
+<tr>
+<td>搜索怎样匹配？</td>
+<td>project/storage.py的Store.search_history</td>
+</tr>
+<tr>
+<td>空结果为什么也能显示搜索框？</td>
+<td>project/templates/web.html的history-search区域</td>
+</tr>
+<tr>
+<td>导出的应用源码包包含哪些文件？</td>
+<td>project/package_project.py的FILES与build</td>
+</tr>
+</tbody></table></div>
+<p>实际操作时，不只检查链接能否打开，还要在文件里找到对应函数或区域。函数改名了而地图没改，链接仍有效，却已经不能指路；这是只检查Markdown链接发现不了的问题。</p>
+<p>地图里的说明保持短小。搜索长度、排序和可见范围由<code>docs/specs/search.md</code>统一规定；地图只告诉你去哪里理解实现。以后新增导出功能时，才补上相关入口，不提前把尚不存在的文件写成事实。</p>
+<p>本课有一个很具体的交接边界：<code>project/package_project.py</code>仍只打包38个应用文件，外层AGENTS、状态和验证材料不会自动进入那个ZIP。如果你打算把“可继续开发的工作区”交给别人，必须包含这些开发材料，不能把“应用源码包已生成”误认为“所有项目知识已交接”。配套lesson-05.zip包含本课完整的50个文件，没有运行数据。</p>
+<h2 id="wiki-h-5">让旧规格保留历史，让当前状态反映现实</h2>
+<p>现在打开<code>docs/archive/search-v1-before-implementation.md</code>。它仍写着当时的“未实现”，这是第02篇原稿；不需要伪造历史，把它改成当时就已经完成。</p>
+<p>再打开<code>docs/specs/search.md</code>。它保留同一套行为规则，但明确适用当前project快照，网页输入与错误映射也已写清。最后打开STATUS，确认当前搜索已经包含在代码里，以及作者验证了哪些范围。</p>
+<p>这三份文件回答不同问题：当时怎样定义需求，现在行为契约是什么，目前实现验证到了哪里。AGENTS提醒Agent不要把archive里的过去状态当成新的待办。</p>
+<p>遇到冲突时，要具体判断：若当前契约要求只搜问题，代码却开始搜答案，这可能是实现偏离；若任务明确批准升级为答案搜索，则应同步更新契约和案例。不能简单规定“代码永远对”或“文档永远对”，因为代码可能有错，文档也可能过期。</p>
+<p>状态记录还必须带范围。写“搜索6个测试方法通过”，应说明哪个工作副本、何时运行、哪些命令、有没有真实模型调用。作者对参考材料的通过结论，不代表你的本地修改也已通过。</p>
+<p>本课的<code>docs/tasks/005-docs.md</code>专门留下“读者记录”栏，初始写的是“未运行、未填写”。请把自己的检查结果放在那里，再更新自己的STATUS；不要直接复制作者结论冒充已经亲自执行。</p>
+<h2 id="wiki-h-6">用新会话理解检查验收文档</h2>
+<p>完成整理后，先手工做五问：应用是否换模型了、搜索是否已实现、从哪里跑验证、这一轮能改什么、应用源码ZIP是否包含AGENTS。每个回答都要给出文件路径或函数作为证据。核对答案在<code>docs/READING_CHECK.md</code>，它是作者的检查标准，不是模型回答实录。</p>
+<p>已自行安装并登录Kimi的读者，可在外层<code>lesson-05</code>运行：</p>
+<pre><code class="hljs language-bash">kimi --plan
+</code></pre><p>发出一个明确的读取任务：</p>
+<pre><code class="hljs language-text">这是一次新会话的项目理解检查，只读，不改文件也不运行应用。
+请先读取根目录AGENTS.md、README.md、docs/STATUS.md和docs/tasks/005-docs.md。
+需要时再查PROJECT_MAP、当前搜索契约和对应源码，先不要看READING_CHECK答案。
+请回答：应用使用什么模型服务？搜索是否已经实现？
+本目录的搜索验证命令是什么？本轮允许改什么？
+应用源码打包是否包含外层AGENTS和状态文档？
+每个回答给出文件路径或函数依据，最后指出仍有歧义的地方。
+不要读取个人配置、密钥或运行data，不要依据旧会话记忆猜测。
+</code></pre><p>官方入门说明提供新会话与退出方式；如果当前已有长对话，可以退出后从这个目录启动新会话，或使用<code>/new</code>。重点是检查它能从持久文件重建理解，而不是靠刚刚聊过的内容答题。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/guides/getting-started.html">Kimi会话基本操作</a></p>
+<p>这次开发对话可能使用你的Kimi额度。没有账户也可以请另一位读者按相同步骤手工核对，不影响完成文档整理。</p>
+<p>不要只问“你读过AGENTS了吗”。模型回答“读过”并不足以证明理解正确。看它是否找到了真实路径、是否区分已经实现与待办、是否把Kimi开发工具误认成应用模型。即使明确读取后答对了，也只能说明这次给定上下文下回答合理，不能证明所有未来会话都会自动读取并遵守。</p>
+<p>如果它仍建议从零实现搜索，把STATUS和search_history的实际位置指出来，再让它修正理解。先修正文档入口或歧义，不要因为一句错误建议就重复施工。</p>
+<h2 id="wiki-h-7">验证目录与命令，避免文档“看起来正确”</h2>
+<p>文档正确至少包含三个层次：链接能打开，说明符合源码，命令能在指定目录执行。它们不能互相替代。</p>
+<p>本课将上一包的目标名starter/reference改为project，两个外层验证脚本只调整了参数选项、目标名称和用法提示，测试断言没有改变。因为目录确实变化，作者在新布局中运行了一次对应检查，确认命令不是照抄来的。</p>
+<p>需要自行复核时，在外层<code>lesson-05</code>按README建立Python3.11或以上虚拟环境并安装<code>project/requirements.txt</code>。已有适用环境可复用；只读文档练习无需安装依赖。macOS/Linux验证命令为：</p>
+<pre><code class="hljs language-bash">.venv/bin/python verify_search.py project
+.venv/bin/python verify_preview.py project
+.venv/bin/python project/acceptance.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe verify_search.py project
+.\.venv\Scripts\python.exe verify_preview.py project
+.\.venv\Scripts\python.exe project/acceptance.py
+</code></pre><p>预期分别为6、5、10个测试方法通过。测试在临时目录运行，不需要复制自己的数据库，不需要真实Key。它们验证应用与调整后的入口能工作，不验证Agent有没有读文档。</p>
+<p>若你只修正一处说明文字、没有改变目录或代码，通常先核对相应事实和链接就足够，不必每次重复全部回归。本课也没有为“文件包含某句话”编造一个所谓AI理解测试；五问仍需要人核对回答与证据。</p>
+<p>完成后查看Git差异。本轮应集中在外层文档以及因目录调整而改变的验证入口，应用project的38个文件保持原样。若自己的整理不涉及脚本移动，连验证脚本也不必改。提交时写清“整理项目入口与当前状态”，不要写成“实现了新搜索功能”。</p>
+<h2 id="wiki-h-8">文档维护中最常见的几种偏差</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>处理方向</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Agent读错项目</td>
+<td>确认启动目录是外层lesson-05，再明确要求读取这份AGENTS与README</td>
+</tr>
+<tr>
+<td>根README与project/README说法不同</td>
+<td>区分当前开发入口与继承的应用说明；给出范围，不让读者猜哪份更新</td>
+</tr>
+<tr>
+<td>AGENTS越来越长</td>
+<td>移走当前进度、完整需求、历史聊天与重复规则，留下导航</td>
+</tr>
+<tr>
+<td>昨天的“测试通过”被当成今天的保证</td>
+<td>加日期、代码范围、命令和未验证项，修改后更新自己的记录</td>
+</tr>
+<tr>
+<td>换个目录后命令全失效</td>
+<td>核对工作目录、解释器和目标名，逐一运行受影响入口</td>
+</tr>
+<tr>
+<td>文档写了不读取data，Agent仍尝试读取</td>
+<td>把文档当协作约定，检查真实工具动作；后续权限章节再建立执行约束</td>
+</tr>
+</tbody></table></div>
+<p>再做一个迁移判断：一句“下一轮只整理README”，应该放进AGENTS吗？它属于单次任务；“默认离线，真实生成需要明确进入相应流程”则是长期边界；“本轮没有运行应用测试”是本轮状态。把这三句话放对位置，比增加一百条笼统要求更有帮助。</p>
+<p>下一篇处理另一个问题：文档已经分好了，一次具体任务到底应该把哪些内容交给模型？我们会继续讨论上下文的选择、组织与更新，避免把整个仓库和全部历史一股脑塞进对话。</p>
+</article>

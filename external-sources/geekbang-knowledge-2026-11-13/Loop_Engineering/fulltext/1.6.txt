@@ -1,0 +1,298 @@
+预计阅读与练习时间：55～75 分钟
+本篇目标：把“产生候选改动”和“裁决是否完成”拆成两个边界，用一项过度自信但没有改代码的结果证明 Agent 自述不能通关，再让真实候选改动通过独立验证。
+
+前两篇的 Runner 已经会检查 Git Diff 和测试，但生成逻辑、验证逻辑和调度仍挤在同一模块里。代码能工作，不代表职责已经清楚：如果任务自己带来一条验证命令，或生成者能够在验证前改写验收文件，那么“测试通过”可能只是规则也被一起改了。
+
+这一篇把流程拆成三部分：
+
+Orchestrator：领取任务、推进状态、根据验证报告移动队列
+Generator：只负责产生候选改动和一份不受信任的说明
+Verifier：提前锁定验证策略，观察真实工作区并独立裁决
+
+
+核心原则很简单：生成者可以提出“我完成了”，但只有验证者可以把任务判定为 completed。
+
+保存第 4 篇留下的结果
+
+起点是完成 issue-002 后的 issue-garden-lab/。先确认全角空格、标点归一化和基础检查仍然通过：
+
+node --test acceptance/fullwidth-space.test.mjs
+node --test acceptance/punctuation-search.test.mjs
+npm test
+npm run check
+
+
+全部通过后，把第 4 篇的候选结果保存为新基线：
+
+git add src/search.mjs tasks
+git commit -m "fix: ignore punctuation in search"
+git status --short
+
+
+最后一条命令应没有输出。新版 Orchestrator 会在领取任务前拒绝 tasks/ 之外的未提交改动，避免把上一轮残留误算成这一轮候选。
+
+加入独立验证器和两项对照任务
+
+从课程根目录复制本篇增量素材。
+
+macOS 或 Linux：
+
+cp -R assets/lesson-05-verifier/. issue-garden-lab/
+cd issue-garden-lab
+source .venv/bin/activate
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force assets/lesson-05-verifier/* issue-garden-lab
+Set-Location issue-garden-lab
+.\.venv\Scripts\Activate.ps1
+
+
+新增结构如下：
+
+issue_garden/generator.py       候选改动生成器
+issue_garden/verifier.py        工作区观察和验证策略执行器
+issue_garden/orchestrator.py    只编排，不替任何一方声称成功
+verification/registry.json      受保护的验证配置注册表
+tasks/inbox/issue-003.json      自称成功但不改代码的对照任务
+tasks/inbox/issue-004.json      真正加入 ISBN 搜索的任务
+acceptance/isbn-search.test.mjs 受保护的任务验收
+
+
+loop.yaml 也有两处变化：verification/ 被加入保护路径，allow_task_verification_command 改为 false。任务不再直接决定运行哪个程序，只能引用预先登记的验证配置。
+
+先运行控制面测试：
+
+python -m unittest discover -s loop_tests -p "test_*.py" -v
+
+
+预期十三项通过。本篇新增的三项测试检查 Git 状态解析：修改、新文件、删除和重命名都能被识别；领取任务造成的既有队列移动不会被误算成 Generator 的候选代码。
+
+保存课程代码和任务定义：
+
+git add .
+git commit -m "feat: separate generator and verifier"
+git status --short
+
+
+应得到干净工作区。这样，后面每个任务的候选 Diff 都从同一个可说明的 Git HEAD 开始。
+
+任务只选择验证配置，不提供任意命令
+
+打开 tasks/inbox/issue-004.json，你会看到：
+
+{
+  "id": "issue-004",
+  "title": "允许按 ISBN 搜索藏书",
+  "scenario": "add_isbn_search",
+  "instructions": "把可选 ISBN 字段加入搜索文本，只允许修改 src/ 下的实现。",
+  "verification_profile": "isbn-search"
+}
+
+
+任务只声明 verification_profile。真正的命令保存在已提交的 verification/registry.json：
+
+{
+  "isbn-search": {
+    "commands": [
+      ["npm", "test"],
+      ["npm", "run", "check"],
+      ["node", "--test", "acceptance/isbn-search.test.mjs"]
+    ]
+  }
+}
+
+
+这么做有三个直接好处：
+
+任务输入不能把 curl、重定向或 Shell 拼接偷偷塞进验证阶段；
+验收命令可以经过代码审查并跟项目一起版本化；
+多个同类任务可以复用同一验证配置，而不是复制一段容易漂移的命令。
+
+这不是说所有项目都必须使用 JSON 注册表。你也可以把验证入口放在固定脚本、CI Job 或构建系统中。关键是验证规则由控制面拥有，任务只能选择受信任入口，不能临时发明执行权限。
+
+先确认 ISBN 行为尚未实现：
+
+node --test acceptance/isbn-search.test.mjs
+
+
+测试应失败。书目里虽然有 978-7-111-54493-7，当前搜索文本只包含标题和作者，查询 9787111544937 得不到结果。
+
+验证器必须在生成之前锁定规则
+
+Orchestrator 在启动 Generator 之前会完成三件事：
+
+从注册表读取 isbn-search 的命令，并复制到内存；
+记录当前 Git 状态，区分领取任务造成的队列变化与后续候选变化；
+计算 test/、acceptance/、verification/ 和 loop.yaml 的文件摘要。
+
+Generator 返回以后，Verifier 不会重新相信任务或生成者提供的命令，而是使用事先锁定的参数数组。它还会比较验证资产摘要，并读取 git status --porcelain -z，识别：
+
+已修改和已删除的跟踪文件；
+新建但尚未加入 Git 的文件；
+重命名前后的两个路径；
+修改文件数和 Diff 行数；
+白名单外路径与受保护路径。
+
+这比只运行 git diff --name-only 多走一步，因为普通 Diff 不包含未跟踪文件。一个生成者即使没有修改现有测试，也可能新建脚本或生成物；验证者必须观察完整候选表面。
+
+先拒绝一份“只有口头成功”的结果
+
+文件名排序最前的是 issue-003.json。它使用一个故意过度自信的模拟 Generator：不修改任何文件，却返回“已经完成，所有测试都应该通过”。运行：
+
+python tools/run_once.py
+
+
+预期退出码为 2，关键报告如下。命令输出会比示例更长：
+
+{
+  "decision": "blocked",
+  "reason": "independent_verification_rejected",
+  "task_id": "issue-003",
+  "generation": {
+    "status": "claimed_success",
+    "summary": "我已经完成 ISBN 搜索支持，所有测试都应该通过。"
+  },
+  "verification": {
+    "accepted": false,
+    "changed_files": [],
+    "changed_lines": 0,
+    "boundary_errors": [
+      "生成者没有产生候选文件改动"
+    ]
+  }
+}
+
+
+验证报告中，基础测试和语法检查仍会通过，但 ISBN 验收退出码是 1。Generator 的语气再肯定，也不能覆盖两项外部事实：没有候选 Diff，新增验收仍失败。
+
+检查队列。macOS 或 Linux：
+
+ls tasks/blocked
+ls tasks/processing
+
+
+Windows PowerShell：
+
+Get-ChildItem tasks/blocked
+Get-ChildItem tasks/processing
+
+
+issue-003.json 应进入 blocked，processing 应为空。再检查：
+
+git diff -- src/search.mjs
+node --test acceptance/isbn-search.test.mjs
+python -m json.tool .loop/results/issue-003.json
+
+
+源文件没有变化，验收仍失败，结果文件记录 decision: blocked。失败在这里不是坏事：系统拒绝把没有证据的自述伪装成完成。
+
+再接受一份有证据的候选改动
+
+现在待办箱中只剩 issue-004。再次运行同一个入口：
+
+python tools/run_once.py
+
+
+这次 Generator 会把可选 isbn 字段加入搜索文本。Verifier 从自己锁定的注册表运行三条命令，并根据真实工作区产生类似报告：
+
+{
+  "decision": "completed",
+  "reason": "independent_verification_passed",
+  "task_id": "issue-004",
+  "generation": {
+    "status": "candidate_ready",
+    "summary": "已把可选 ISBN 字段加入搜索文本；只修改 src/search.mjs"
+  },
+  "verification": {
+    "accepted": true,
+    "changed_files": ["src/search.mjs"],
+    "changed_lines": 2,
+    "boundary_errors": []
+  }
+}
+
+
+这里，Generator 的 candidate_ready 仍然不是终态。真正让 Orchestrator 输出 completed 的，是 verification.accepted: true：一项白名单内的小改动，三条验证命令全部以 0 退出，验证资产没有变化。
+
+从行为、Diff 和持久记录三处复核
+
+先运行用户可见行为：
+
+node --test acceptance/isbn-search.test.mjs
+node --test acceptance/fullwidth-space.test.mjs
+node --test acceptance/punctuation-search.test.mjs
+npm test
+npm run check
+
+
+所有检查都应通过。ISBN 查询支持新增能力，前两篇完成的空格与标点行为仍保留。
+
+查看真实改动：
+
+git diff -- src/search.mjs
+git status --short
+
+
+src/search.mjs 只应把 book.isbn ?? "" 加入待归一化的搜索文本。状态列表还会显示 issue-003 从 inbox 移到 blocked、issue-004 从 inbox 移到 done；.loop/ 仍不会出现在 Git 状态中。
+
+查看两份最终裁决：
+
+python -m json.tool .loop/results/issue-003.json
+python -m json.tool .loop/results/issue-004.json
+
+
+第一份应是 blocked，包含失败验收和“没有候选改动”的边界错误；第二份应是 completed，包含实际 Diff 与成功验证。它们使用同一个 Orchestrator，差别来自证据，不来自 Generator 的自我评价。
+
+确认结果无误后，保存这一阶段的项目基线，为第 6 篇的多轮重试做准备：
+
+git add src/search.mjs tasks
+git commit -m "feat: search books by ISBN"
+git status --short
+
+
+应再次得到干净工作区。
+
+模块分开不等于权限已经隔离
+
+目前 Generator 和 Verifier 是不同 Python 模块，但仍运行在同一个用户权限和同一个项目目录中。这种拆分已经改善了设计：策略归属清楚、报告可单测、生成者说明不参与裁决；但它还不是强安全边界。
+
+如果把任意不受信任程序当作 Generator，它理论上仍可能尝试修改验证器代码、Git 元数据或进程能访问的其他文件。当前 Verifier 会检测工作区里持续存在的验证资产变化，却无法防止所有“修改后又恢复”的进程内攻击。
+
+因此，真实系统通常还需要至少一层执行隔离：独立用户、容器、受限沙箱、只读挂载或一次性工作区。第 7 篇会先加入 Git 工作区隔离；高风险场景仍应使用操作系统或基础设施提供的权限边界。
+
+同样，使用另一个模型充当“验证 Agent”可以补充主观审查，但它仍可能和生成 Agent 犯相关错误。能由测试、类型检查、规则、Diff 和资源上限判定的条件，优先交给确定性工具；模型评审适合处理这些工具覆盖不了的语义问题，而不应替代它们。
+
+常见阻塞
+输出 dirty_worktree
+
+新版 Orchestrator 不接受 tasks/ 之外的未提交改动。先运行：
+
+git status --short
+git diff
+
+
+确认这些变化属于上一轮、你自己的工作，还是意外残留。需要保留就提交或换新实验副本；不要为了继续而把干净检查关掉。
+
+输出 invalid_verification_profile
+
+任务引用了注册表中不存在的名字，或注册表命令不是非空字符串数组。先核对 verification/registry.json，不要把任务里的任意命令重新开放。新增验证配置应和测试一起评审、提交，再让任务引用它。
+
+为什么 issue-003 直接进入 blocked，没有重试
+
+本篇只负责建立独立裁决。没有代码改动、验收仍失败时，原样再调用一次生成器没有新信息，只会重复消耗。第 6 篇会区分可重试失败、需要重新规划的失败和应该立即升级给人的失败。
+
+验证命令通过，但仍被拒绝
+
+查看 boundary_errors。测试通过只证明行为检查满足，不代表改动范围合规。修改了 acceptance/、verification/、测试、契约或白名单外文件，即使所有命令为绿色，也应拒绝候选结果。
+
+本篇留下了什么
+
+Issue Garden 现在有了清楚的信任分工：Generator 只能产生候选改动和不受信任的说明；Verifier 在生成前锁定注册策略与验证资产，生成后观察包括新建、删除和重命名在内的工作区变化，并运行独立命令；Orchestrator 只根据验证报告决定 completed 或 blocked。
+
+下一篇，我们会让失败不再只有“拒绝并结束”。循环将根据失败签名判断：这次是否值得带着新证据重试，是否必须生成新计划，还是已经连续撞上同一个问题、应该停止并升级给人。
+
+修订后的边界验收
+
+验证资产现在包含 package.json、锁文件、scripts、tools 和 issue_garden。边界检查失败立即返回，不执行候选修改后的验证命令；先试改 package.json 并放入哨兵副作用，确认该命令完全未执行。

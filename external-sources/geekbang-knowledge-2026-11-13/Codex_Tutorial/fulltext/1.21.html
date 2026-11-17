@@ -1,0 +1,159 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>具体参数以当前版本的 <code>codex --help</code> 和子命令帮助为准。</p>
+</blockquote>
+<h2 id="wiki-h-0">安装与版本</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>查看版本</td>
+<td><code>codex --version</code></td>
+</tr>
+<tr>
+<td>查看帮助</td>
+<td><code>codex --help</code></td>
+</tr>
+<tr>
+<td>升级 npm 安装版本</td>
+<td><code>npm install -g @openai/codex@latest</code></td>
+</tr>
+<tr>
+<td>启动交互式 CLI</td>
+<td><code>codex</code></td>
+</tr>
+<tr>
+<td>带初始任务启动</td>
+<td><code>codex "解释这个项目并告诉我如何运行测试"</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-1">目录、沙箱与审批</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>工作区可写</td>
+<td><code>codex --sandbox workspace-write</code></td>
+</tr>
+<tr>
+<td>按需审批</td>
+<td><code>codex --ask-for-approval on-request</code></td>
+</tr>
+<tr>
+<td>增加一个额外目录</td>
+<td><code>codex --add-dir /specific/path</code></td>
+</tr>
+<tr>
+<td>指定工作目录</td>
+<td><code>codex -C /path/to/project</code></td>
+</tr>
+</tbody></table></div>
+<p>日常开发常用组合：</p>
+<pre><code class="hljs language-bash">codex --sandbox workspace-write --ask-for-approval on-request
+</code></pre><p>不要把 Full Access 设成习惯性默认值。</p>
+<h2 id="wiki-h-2">恢复会话</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>选择并恢复历史会话</td>
+<td><code>codex resume</code></td>
+</tr>
+<tr>
+<td>恢复最近会话</td>
+<td><code>codex resume --last</code></td>
+</tr>
+<tr>
+<td>从历史会话分支</td>
+<td><code>codex fork</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-3">非交互模式</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>目的</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>一次性执行</td>
+<td><code>codex exec "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>临时会话</td>
+<td><code>codex exec --ephemeral "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>允许写工作区</td>
+<td><code>codex exec --sandbox workspace-write "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>JSONL 事件</td>
+<td><code>codex exec --json "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>最终消息写入文件</td>
+<td><code>codex exec -o result.md "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>用 Schema 约束结果</td>
+<td><code>codex exec --output-schema schema.json -o result.json "&lt;任务&gt;"</code></td>
+</tr>
+<tr>
+<td>继续最近一次执行</td>
+<td><code>codex exec resume --last "&lt;后续任务&gt;"</code></td>
+</tr>
+<tr>
+<td>非 Git 临时目录</td>
+<td><code>codex exec --skip-git-repo-check "&lt;任务&gt;"</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-4">交互快捷操作</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>操作</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入 <code>@</code></td>
+<td>搜索并引用工作区文件</td>
+</tr>
+<tr>
+<td>输入 <code>!命令</code></td>
+<td>在权限范围内运行本地 shell 命令</td>
+</tr>
+<tr>
+<td>Enter</td>
+<td>在运行过程中补充或转向当前任务</td>
+</tr>
+<tr>
+<td>Tab</td>
+<td>把消息排到当前工作之后</td>
+</tr>
+<tr>
+<td>Ctrl+C</td>
+<td>中止当前运行或退出，视当前状态而定</td>
+</tr>
+</tbody></table></div>
+<h2 id="wiki-h-5">常见组合</h2>
+<p>只读理解陌生项目：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> <span class="hljs-string">"只读分析项目入口、测试命令和主要风险，不修改文件。"</span>
+</code></pre><p>允许在仓库内完成一个修复：</p>
+<pre><code class="hljs language-bash">codex --sandbox workspace-write --ask-for-approval on-request
+</code></pre><p>输出结构化健康报告：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">exec</span> --output-schema schema.json -o health.json <span class="hljs-string">"检查项目健康状态，不修改文件。"</span>
+</code></pre></article>

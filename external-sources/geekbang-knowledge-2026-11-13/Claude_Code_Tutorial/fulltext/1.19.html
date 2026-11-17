@@ -1,0 +1,325 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计用时：按需查阅<br>本篇目标：遇到阻塞时，先保留证据，再用最短只读检查把问题定位到安装、认证、权限、自定义配置、扩展、会话或自动化中的一层；只有证据指向恢复动作时才修改状态。</p>
+</blockquote>
+<p>这不是错误消息百科，也不重复前 17 篇的完整教学。先按症状找到一条诊断链；需要重做能力练习时，再回到对应正文。</p>
+<p>本文按 2026-09-30 的 Claude Code 2.1.281 核对。命令与错误会继续变化，先记录版本，再以本机帮助和官方文档为准。</p>
+<h2 id="wiki-h-0">所有问题先做这四件事</h2>
+<h3 id="wiki-h-1">1. 停止扩大影响</h3>
+<p>如果 Claude 正在重复执行、修改范围失控或命令似乎挂住，先按一次 <code>Ctrl+C</code>。不要连续批准权限，不要立刻运行 <code>--dangerously-skip-permissions</code>，也不要用 <code>git reset --hard</code> 清场。</p>
+<p>若涉及真实密钥泄露，先到密钥签发方撤销或轮换；“从终端清屏”不能让已经泄露的凭据失效。</p>
+<h3 id="wiki-h-2">2. 保存原始症状</h3>
+<p>记录：</p>
+<ul>
+<li>完整错误文字与退出码；</li>
+<li>执行的命令和当前目录；</li>
+<li>第一次出现问题前的最后一个动作；</li>
+<li><code>git status --short</code> 与相关 Diff；</li>
+<li>是否只在一个项目、一个终端或一种认证方式下出现。</li>
+</ul>
+<p>截图和日志必须先脱敏。不要提交 API Key、OAuth Token、Cookie、私人路径、未授权代码或完整会话记录。</p>
+<h3 id="wiki-h-3">3. 在普通终端运行基础检查</h3>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">pwd</span>
+<span class="hljs-built_in">command</span> -v claude
+claude --version
+claude doctor
+claude auth status --text
+git status --short
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Location</span>
+<span class="hljs-built_in">Get-Command</span> claude <span class="hljs-literal">-ErrorAction</span> SilentlyContinue
+claude <span class="hljs-literal">--version</span>
+claude doctor
+claude auth status <span class="hljs-literal">--text</span>
+git status <span class="hljs-literal">--short</span>
+</code></pre><p>不在 Git 仓库时，最后一条报错可以忽略。<code>claude doctor</code> 会读取当前目录中的 settings，而且不会显示工作区信任提示；只在你信任的目录运行。它负责报告安装、设置和扩展健康状况，不会像交互会话内的 <code>/doctor</code> 那样在你确认后应用修复。</p>
+<h3 id="wiki-h-4">4. 能启动会话时，再看内部状态</h3>
+<pre><code class="hljs language-text">/status
+/doctor
+/context
+/permissions
+/mcp
+/tasks
+</code></pre><p>不需要机械执行全部命令。认证问题先看 <code>/status</code>，上下文问题看 <code>/context</code>，审批问题看 <code>/permissions</code>，MCP 问题看 <code>/mcp</code>，后台 Agent 问题看 <code>/tasks</code>。</p>
+<h2 id="wiki-h-5"><code>claude</code> 找不到、启动失败或版本不对</h2>
+<h3 id="wiki-h-6">症状：<code>command not found</code> / “无法将 claude 识别为命令”</h3>
+<p>最短检查：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">command</span> -v claude
+</code></pre><p>PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Command</span> claude <span class="hljs-literal">-All</span> <span class="hljs-literal">-ErrorAction</span> SilentlyContinue
+</code></pre><p>按顺序恢复：</p>
+<ol>
+<li>关闭并重新打开终端，让 Shell 重新读取 <code>PATH</code>；</li>
+<li>确认安装发生在当前环境，而不是把 PowerShell、CMD、WSL 混用；</li>
+<li>回看官方安装器末尾的 PATH 提示；</li>
+<li>使用原来的安装方式修复或重装，不要再叠加第二种方式；</li>
+<li>命令恢复后运行 <code>claude doctor</code>。</li>
+</ol>
+<p>详细平台命令回到第 2 篇。</p>
+<h3 id="wiki-h-7">症状：<code>claude doctor</code> 显示重复安装，更新后版本没变</h3>
+<p>检查 <code>type -a claude</code>（Zsh/Bash）或 <code>Get-Command claude -All</code>（PowerShell），判断当前实际执行的是原生、Homebrew、WinGet 还是 npm 版本。</p>
+<ul>
+<li>原生安装：使用 <code>claude update</code>；</li>
+<li>Homebrew、WinGet、apt、dnf、apk：使用对应包管理器更新；</li>
+<li>npm：使用 npm 更新。</li>
+</ul>
+<p>只保留一条主安装路径。卸载前先确认来源；不要删除不认识的系统目录，也不要因为 PATH 指向旧版本就同时安装第三份。</p>
+<h3 id="wiki-h-8">症状：升级后某个参数突然不可用</h3>
+<p>先运行：</p>
+<pre><code class="hljs language-bash">claude --version
+claude --<span class="hljs-built_in">help</span>
+</code></pre><p>再查看具体子命令，例如 <code>claude plugin --help</code>。不要用一个作用相似但风险更高的旧参数替代。团队环境还要确认是否有人固定了 stable 通道或包管理器版本。</p>
+<h2 id="wiki-h-9">登录、凭据、模型和 API 错误</h2>
+<h3 id="wiki-h-10">症状：已经登录，仍提示 <code>Not logged in</code> 或认证方式不对</h3>
+<p>先在启动 Claude 的同一个终端运行：</p>
+<pre><code class="hljs language-bash">claude auth status --text
+</code></pre><p>只列出可能覆盖认证的<strong>变量名</strong>，不要打印值。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">env</span> | sed -n <span class="hljs-string">'s/^\(ANTHROPIC_[A-Za-z0-9_]*\)=.*/\1/p'</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-ChildItem</span> Env: | <span class="hljs-built_in">Where-Object</span> Name <span class="hljs-operator">-Like</span> <span class="hljs-string">'ANTHROPIC_*'</span> | <span class="hljs-built_in">Select-Object</span> <span class="hljs-literal">-ExpandProperty</span> Name
+</code></pre><p>如果你预期使用订阅登录，却看见 <code>ANTHROPIC_API_KEY</code>、<code>ANTHROPIC_AUTH_TOKEN</code> 或 <code>ANTHROPIC_BASE_URL</code>，回到第 3 篇按对应 Shell 清除覆盖变量，关闭旧会话后重新检查。不要同时堆叠多种凭据再靠猜测判断优先级。</p>
+<h3 id="wiki-h-11">症状：401 / 403</h3>
+<p>先区分来源：</p>
+<ul>
+<li>Anthropic 官方登录或 API：检查 <code>claude auth status --text</code>、组织策略、账号权限和 API Key 是否有效；</li>
+<li>Bedrock、Google Cloud Agent Platform、Foundry：按组织的云凭据流程排查；</li>
+<li>第三方兼容网关：401/403 的认证头、Token 与模型权限由该服务商解释，不能把它当作 Anthropic 官方故障。</li>
+</ul>
+<p><code>organization disabled</code>、组织禁止订阅或 API Key 的错误需要组织管理员处理；反复登录或更换模型不会绕过策略。</p>
+<h3 id="wiki-h-12">症状：404 或 <code>model not found</code></h3>
+<p>官方账号先在会话内运行 <code>/model</code>，从实际可用列表选择，不要照抄旧教程的完整模型 ID。</p>
+<p>兼容网关还要核对：完整 Base URL、是否包含服务商要求的路径、认证方式和模型映射。<code>ANTHROPIC_BASE_URL</code> 只改变请求目的地，不会自动修复模型名或认证头，也不让 Claude Code 支持非 Claude 模型。</p>
+<h3 id="wiki-h-13">症状：429、529、5xx 或超时</h3>
+<p>先保存状态码和时间，查看 <a href="https://status.anthropic.com/">Anthropic Status</a>。429 可能是速率或用量限制；529/5xx 通常是服务端暂时问题。Claude Code 会对部分可重试错误自动重试，不要在它重试时同时启动很多新会话放大负载。</p>
+<p>持续失败时查看官方错误条目和账号用量。不要通过轮换未知 Key、关闭权限或修改项目代码来“修”服务端状态。</p>
+<h3 id="wiki-h-14">症状：Bare Mode 下订阅登录突然失效</h3>
+<p>这是当前设计，不是登录数据被删除。<code>--bare</code> 不读取订阅 OAuth 或系统钥匙串；Anthropic API 需要 <code>ANTHROPIC_API_KEY</code> 或显式 <code>apiKeyHelper</code>，受支持云提供商使用各自凭据。</p>
+<p>如果目标只是排查 Hooks、Skills、插件或 MCP，优先使用：</p>
+<pre><code class="hljs language-bash">claude --safe-mode
+</code></pre><p>Safe Mode 关闭普通自定义项但保留正常认证。Bare Mode 也仍有 Bash、文件读写工具，不能当作只读或安全模式。完整边界见第 14 篇。</p>
+<h2 id="wiki-h-15">权限、工具与 Sandbox</h2>
+<h3 id="wiki-h-16">症状：Claude 不能写文件</h3>
+<p>依次检查：</p>
+<ol>
+<li><code>/status</code>：当前是否在 Plan Mode；</li>
+<li><code>/permissions</code>：是否有匹配的 Deny、Ask 或 Allow 规则；</li>
+<li>当前文件是否在工作目录或已添加目录中；</li>
+<li>操作系统文件权限、只读属性和其他程序锁定；</li>
+<li>Hook 是否主动阻止了动作。</li>
+</ol>
+<p>Plan Mode 本来就不应写源文件。需要实施时切回 Manual，并只批准明确路径；不要为了一个被拒写入改成 bypassPermissions。</p>
+<h3 id="wiki-h-17">症状：权限提示太多</h3>
+<p>先在 <code>/permissions</code> 找出重复调用，再判断它是否稳定、范围明确、确实只读。只为具体命令或路径增加窄 Allow。</p>
+<p><code>--allowedTools</code> 是<strong>免审批规则</strong>，不是工具白名单；它不会移除其他工具。要限制 Claude 能看见的内置工具，使用 <code>--tools</code>；MCP 还需 <code>--disallowedTools "mcp__*"</code> 或相应规则。不要允许全部 Bash 只为少点几次确认。</p>
+<h3 id="wiki-h-18">症状：明明用了 <code>dontAsk</code>，某些读操作仍执行</h3>
+<p><code>dontAsk</code> 只自动拒绝本来需要询问的动作；原本无需批准的工作目录读取，以及已被规则预批准的动作仍可运行。它不是“禁用全部工具”。</p>
+<p>需要完全无内置工具的任务使用：</p>
+<pre><code class="hljs language-bash">--tools <span class="hljs-string">""</span>
+</code></pre><p>并单独处理 MCP 工具。第 14 篇的自动化练习给出了完整组合。</p>
+<h3 id="wiki-h-19">症状：设置了权限规则，命令仍然访问了不希望的范围</h3>
+<p>权限审批与 OS Sandbox 是两层控制。Allow 表示无需再问，不等于把进程限制在目录里；Sandbox 管子进程的文件和网络边界。原生 Windows 当前没有与 macOS/Linux/WSL2 同等的命令 Sandbox，敏感任务要使用更窄权限、隔离副本或受控环境。</p>
+<p>回到第 8 篇重跑固定探针，不要用提示词“请小心”代替强制边界。</p>
+<h3 id="wiki-h-20">症状：<code>/rewind</code> 没恢复全部文件</h3>
+<p>先运行 <code>git status --short</code> 和 <code>git diff</code>。Checkpoint 不保证跟踪外部脚本、某些 Bash/PowerShell、Subagent、符号链接或硬链接造成的全部变化。批量迁移、生成器和后台进程必须依赖 Git 提交或独立备份。</p>
+<p>不要继续反复 <code>/rewind</code> 覆盖证据，也不要 <code>reset --hard</code>。先确认哪些变化属于你，再使用针对性恢复或 <code>git revert</code>。</p>
+<h2 id="wiki-h-21">CLAUDE.md、Rules、Skills 与 Hooks</h2>
+<h3 id="wiki-h-22">症状：CLAUDE.md 或 Rules 看起来没加载</h3>
+<p>在会话中运行 <code>/context</code>，查看 Memory/Instructions 的来源；用 <code>/memory</code> 查看可编辑的记忆入口。确认项目根目录、<code>.claude/CLAUDE.md</code> 与 <code>.claude/rules/*.md</code> 的真实路径、frontmatter 和 glob。</p>
+<p>用一个<strong>全新会话</strong>复核，因为已经运行的会话可能保留旧上下文。规则匹配失败时，不要把内容重复粘贴到多个文件；先用第 9 篇的静态检查器和指定路径验证。</p>
+<h3 id="wiki-h-23">症状：Skill 没出现在列表或没有触发</h3>
+<p>检查：</p>
+<ul>
+<li>文件是否为 <code>.claude/skills/&lt;name&gt;/SKILL.md</code>；</li>
+<li>frontmatter 与 <code>description</code> 是否有效；</li>
+<li>当前会话是否在文件创建前启动；</li>
+<li><code>/skills</code> 是否列出它；修改后是否运行 <code>/reload-skills</code>；</li>
+<li>是否处于 <code>--safe-mode</code> 或使用了 <code>--disable-slash-commands</code>。</li>
+</ul>
+<p>Bare Mode 不会自动发现常规项目自定义项，但已知名称的 Skill 仍可通过 <code>/&lt;skill-name&gt;</code> 显式解析；所以“在 Bare Mode 里还能手动调用 Skill”不是异常。要彻底禁用 Skills，使用 <code>--disable-slash-commands</code>。</p>
+<p>自动触发太宽时收窄 description；只想手动调用时使用相应 frontmatter。Skill 文字是工作说明，不是权限强制。回到第 11 篇运行固定周菜单 Skill。</p>
+<h3 id="wiki-h-24">症状：Hook 没运行</h3>
+<p>最短链：</p>
+<ol>
+<li>直接在普通终端运行 Hook 命令，确认解释器与路径可用；</li>
+<li>用 <code>/hooks</code> 检查事件、matcher 和来源；</li>
+<li>用 <code>claude doctor</code> 查 settings 语法；</li>
+<li>确认没有使用会跳过 Hook 的 Safe/Bare Mode；</li>
+<li>触发一次最小目标动作并查看 Hook 日志。</li>
+</ol>
+<p>Hook 很慢或循环时，先禁用相关条目再定位。PostToolUse 不应每次 Edit 都运行整套端到端测试，也不应修改一个会再次触发自己的文件。</p>
+<h3 id="wiki-h-25">症状：自定义配置后启动变慢、高 CPU 或异常</h3>
+<p>从同一可信目录启动：</p>
+<pre><code class="hljs language-bash">claude --safe-mode
+</code></pre><p>若问题消失，范围已缩小到 CLAUDE.md、Skills、Hooks、MCP、插件、Agent 等普通自定义项。再用 <code>/doctor</code>、<code>/context</code>、<code>/mcp</code>、插件详情和逐项禁用定位。管理员托管策略仍可能在 Safe Mode 生效。</p>
+<p>需要更细日志时可使用 <code>--debug='hooks,mcp'</code>；等号形式才会绑定过滤器。Debug 日志可能包含路径、提示词或配置，不要未经检查公开分享。</p>
+<h2 id="wiki-h-26">MCP 与插件</h2>
+<h3 id="wiki-h-27">症状：MCP 已配置，但工具不可用</h3>
+<p>在项目根目录运行：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">claude mcp list
+claude mcp get &lt;服务器名&gt;
+</code></pre><p>会话内再运行 <code>/mcp</code>。检查：</p>
+<ul>
+<li>名称和 scope 是否正确；</li>
+<li><code>.mcp.json</code> 项目服务器是否处于 <code>Pending approval</code>；</li>
+<li>stdio 命令能否启动，HTTP URL 与认证是否正确；</li>
+<li>服务器是否被 disable；</li>
+<li>当前是否用了 Bare/Safe Mode、<code>--strict-mcp-config</code> 或 MCP deny；</li>
+<li>工具名是否使用实际命名空间。</li>
+</ul>
+<p>项目 MCP 可以启动外部程序。陌生仓库中的 <code>.mcp.json</code> 不应为了“连上再说”而批准。需要重做项目选择时，先理解影响再使用 <code>claude mcp reset-project-choices</code>；它会清除该项目已批准和已拒绝的选择。</p>
+<p>回到第 12 篇，先让固定只读 pantry MCP 完成一次调用。</p>
+<h3 id="wiki-h-28">症状：插件安装或临时加载后行为异常</h3>
+<p>先看组件与预计上下文成本：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">claude plugin list
+claude plugin details &lt;插件名&gt;
+</code></pre><p>本地开发插件先验证：</p>
+<pre><code class="hljs language-bash">claude plugin validate /插件目录 --strict
+</code></pre><p>用 <code>--plugin-dir</code> 加载的插件只影响当前会话；已安装插件可用 <code>claude plugin disable &lt;插件名&gt;</code> 暂停。禁用后新开会话比较，不要一边改插件一边继续沿用已加载的旧会话。</p>
+<p>插件可以携带 Hooks、MCP、Agents、Skills 和 LSP；“manifest 验证通过”只证明结构有效，不是安全审计。只加载你已审查的代码。</p>
+<h2 id="wiki-h-29">Subagents 与后台会话</h2>
+<h3 id="wiki-h-30">症状：项目 Agent 未被发现或没按指定 Agent 运行</h3>
+<p>检查 <code>.claude/agents/&lt;name&gt;.md</code> 的 YAML frontmatter，至少确认 <code>name</code>、<code>description</code>、<code>tools</code> 和正文。再运行：</p>
+<pre><code class="hljs language-bash">claude plugin validate .claude/agents --strict
+claude doctor
+</code></pre><p>当前 <code>plugin validate</code> 除了插件与 marketplace，也能严格校验目录中的 Skills、Agents 和 Commands；<code>claude doctor</code> 还能发现同一 Agent 目录里的重复名称。两者通过后，仍要人工核对工具范围和正文意图。</p>
+<p>若 <code>.claude/agents/</code> 在会话启动时已经存在，新增或修改文件通常会在数秒内被检测；如果是本次会话才第一次创建该目录，或目录来自 <code>--add-dir</code>，请重启会话。使用显式 <code>@agent-&lt;name&gt;</code>，再用 <code>/tasks</code> 确认实际启动项、模型和状态。当前 <code>/agents</code> 不再是旧版创建向导。</p>
+<p>若 Agent 使用了不应出现的工具，检查真正加载的是不是同名用户级 Agent，以及 <code>tools</code> 白名单是否正确。Plan 权限模式不能替代工具白名单。</p>
+<h3 id="wiki-h-31">症状：Subagent 没更快，反而更贵</h3>
+<p>常见原因是任务太小、多个 Agent 重复读相同文件，或结果仍需主 Agent 全部重做。只把独立、只读、信息量大的假设或调查分出去，并限制每个 Agent 的范围和输出。第 17 篇展示了两个互斥假设；不需要为同一小问题派三四个 Agent。</p>
+<h3 id="wiki-h-32">症状：后台会话不知道是否还在运行</h3>
+<p>普通终端中：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">claude agents --json
+claude logs &lt;会话ID&gt;
+</code></pre><p>需要接管时：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">claude attach &lt;会话ID&gt;
+</code></pre><p>需要停止时：</p>
+<p>以下为参数模板，执行前先将尖括号占位符替换为实际值：</p>
+<pre><code class="hljs language-text">claude stop &lt;会话ID&gt;
+</code></pre><p><code>stop</code> 保留对话，之后仍可 attach。不要直接删除后台 worktree 或进程目录；先查看状态、日志、Git 提交与未跟踪文件。完整后台流程回到第 10 篇。</p>
+<h2 id="wiki-h-33"><code>claude -p</code> 与自动化</h2>
+<h3 id="wiki-h-34">症状：Print Mode 一直等待权限，或无人值守任务停住</h3>
+<p>不要用 <code>--allowedTools</code> 冒充白名单。按四层检查：</p>
+<ol>
+<li><code>--tools</code>：只暴露任务需要的内置工具；</li>
+<li><code>--disallowedTools "mcp__*"</code>：任务不需要 MCP 时移除；</li>
+<li><code>--permission-mode dontAsk</code>：自动拒绝本来要问的调用；</li>
+<li><code>--permission-prompts none</code>：明确没有人回答审批。</li>
+</ol>
+<p>如果任务只处理 stdin，使用 <code>--tools ""</code>。权限被拒后仍失败，应缩小任务或补齐输入，不要改成 bypassPermissions。</p>
+<h3 id="wiki-h-35">症状：<code>--output-format json</code> 里仍有自然语言，字段不稳定</h3>
+<p>JSON output format 只定义 Claude Code 的传输外壳；业务结果通常在 <code>result</code>。需要固定业务结构时同时使用 <code>--json-schema</code>，从 <code>structured_output</code> 读取，再由下游程序做语义验证。</p>
+<p>无效 Schema 会在请求前非零退出。Schema 只能检查形状，不能证明模型值与真实测试、Git 或文件一致。</p>
+<h3 id="wiki-h-36">症状：脚本只看 stdout，失败原因却找不到</h3>
+<p>同时保存 stdout、stderr 和退出码。参数错误通常在请求前写 stderr；认证等运行内失败可能出现在 JSON result 中。成功为退出码 0，失败非零；不要仅用关键词“success”判断。</p>
+<p>管道 stdin 当前上限为 10 MB。先本地脱敏和汇总；大输入不要直接把私人日志或整个仓库塞进管道。</p>
+<h3 id="wiki-h-37">症状：预算或轮次耗尽</h3>
+<p><code>--max-turns</code> 限制 Agentic turns，不是 Token 数；<code>--max-budget-usd</code> 是 API 调用的客户端估算上限，不是最终账单保证。先检查任务是否因权限拒绝、模糊 prompt 或工具缺失而循环，再决定是否调整小幅上限。</p>
+<p><code>--no-session-persistence</code> 会让会话无法 resume；这是无状态自动化的预期。需要恢复时必须有意移除它，并保存 session ID。</p>
+<h2 id="wiki-h-38">会话、上下文、性能与搜索</h2>
+<h3 id="wiki-h-39">症状：Claude 看起来卡住</h3>
+<p>按一次 <code>Ctrl+C</code> 尝试取消当前操作。仍无响应时关闭终端，在同一目录运行：</p>
+<pre><code class="hljs language-bash">claude --resume
+</code></pre><p>恢复后先读 Git 状态、磁盘计划和测试结果，不要只说“继续”。若当时有后台 Bash、Subagent 或 workflow，先用 <code>/tasks</code> 或后台命令确认它们的真实状态。</p>
+<h3 id="wiki-h-40">症状：上下文很满、压缩后马上又满</h3>
+<p>运行 <code>/context</code> 找最大来源。常见恢复：</p>
+<ul>
+<li>只读大文件的相关行或函数，不整份粘贴；</li>
+<li><code>/compact keep only the plan, decisions, and current diff</code>；</li>
+<li>把大量只读调查交给窄 Subagent；</li>
+<li>完全不同的任务用 <code>/clear</code> 或新会话；</li>
+<li>把关键状态写进项目文件，不依赖聊天记忆。</li>
+</ul>
+<p>出现 <code>Autocompact is thrashing</code> 表示压缩后内容又连续填满，继续自动重试只会浪费用量。</p>
+<h3 id="wiki-h-41">症状：CPU/内存高</h3>
+<p>先 <code>/compact</code> 或重启后 <code>claude --continue</code>。再用 <code>claude --safe-mode</code> 比较自定义项是否是原因。官方在进程堆内存超过 2.5 GB 时会给出严重警告。</p>
+<p><code>/heapdump</code> 生成的 heap snapshot 可能包含完整对话和凭据，绝不能直接公开；需要上报时优先使用不含会话内容的 diagnostics JSON，并在分享前检查。</p>
+<h3 id="wiki-h-42">症状：搜索、<code>@file</code>、Skills 或 Agents 找不到文件</h3>
+<p>运行 <code>claude doctor</code>，看 Search 是否使用 bundled ripgrep。若 bundled binary 无法运行，按官方排障页安装系统 ripgrep，并将 <code>USE_BUILTIN_RIPGREP=0</code> 配到可信设置后重启。</p>
+<p>WSL 项目位于 <code>/mnt/c/...</code> 时，跨文件系统读盘可能明显变慢并导致搜索结果不完整。优先把 Linux 工作流项目放在 <code>/home/...</code>，或改用原生 Windows；不要让两套 Claude 同时写同一仓库。</p>
+<h2 id="wiki-h-43">课程练习偏离时怎样回到固定状态</h2>
+<p>先保存你要保留的工作。以下命令只适用于课程练习副本，不应指向真实项目。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>练习</th>
+<th>判断状态</th>
+<th>恢复入口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MealCraft 2.0</td>
+<td><code>python3 scripts/verify_2_0.py --stage complete</code></td>
+<td>回到第 10 篇按 reference overlay 重建副本</td>
+</tr>
+<tr>
+<td>博客竞态</td>
+<td><code>python3 -B scripts/verify_blog_lab.py --expect-bug</code> 或 <code>--expect-fixed</code></td>
+<td><code>python3 -B scripts/reset_blog_lab.py</code></td>
+</tr>
+<tr>
+<td>旅行笔记</td>
+<td><code>python3 -B scripts/verify_travel_lab.py --expect-original</code>（按阶段改成 <code>--expect-batch1</code> 或 <code>--expect-complete</code>）</td>
+<td><code>python3 -B scripts/reset_travel_lab.py</code></td>
+</tr>
+<tr>
+<td>偶发测试</td>
+<td><code>python3 -B scripts/verify_flaky_lab.py --expect-bug</code> 或 <code>--expect-fixed</code></td>
+<td><code>python3 -B scripts/reset_flaky_lab.py</code></td>
+</tr>
+</tbody></table></div>
+<p>Windows 把 <code>python3</code> 换成 <code>py</code>。重置脚本会覆盖练习的目标文件或目录；先看 <code>git status --short</code> 和 Diff，确认没有要保留的个人修改。原教程目录始终是只读参考，不要把恢复动作指向它。</p>
+<h2 id="wiki-h-44">怎样提交一份能继续处理的故障描述</h2>
+<p>复制下面模板，删除不适用项并脱敏：</p>
+<pre><code class="hljs language-text">操作系统与版本：
+Shell（PowerShell / Bash / Zsh / WSL）：
+Claude Code 版本：
+安装方式：
+认证类型（不要提供凭据）：
+当前目录及是否 Git 仓库：
+启动命令或会话模式：
+预期结果：
+实际结果：
+完整错误文本与退出码（已脱敏）：
+git status --short：
+claude doctor 的相关行：
+最小复现：
+已经尝试及其结果：
+最近一次正常工作的版本或提交：
+</code></pre><p>不要只写“不能用”。也不要发送 API Key、完整 <code>.env</code>、OAuth 文件、私人仓库、heap snapshot 或未经授权的调试日志。</p>
+<p>以下情况应停止本地试错并升级处理：</p>
+<ul>
+<li>组织策略明确禁止某种认证、模型或权限模式：联系管理员；</li>
+<li>账号、计费、订阅或组织被禁用：联系相应官方支持；</li>
+<li>Anthropic 服务持续异常：附时间、状态码和脱敏请求上下文；</li>
+<li>第三方网关认证或路由错误：联系服务商；</li>
+<li>怀疑密钥泄露：立即撤销/轮换，不等待排障完成；</li>
+<li>仓库出现无法解释的大范围写入：停止 Agent，备份现状，由人审查 Diff。</li>
+</ul>
+<h2 id="wiki-h-45">文章级自检</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">能先保留错误、版本、目录、退出码和 Git 状态；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能区分安装、认证、模型、服务端、权限和配置问题；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">不把 <code>--allowedTools</code> 当工具白名单；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">不把 Bare Mode 当只读或排障万能模式；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">知道用 Safe Mode 隔离普通自定义项；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能分别检查 Skills、Hooks、MCP、插件和项目 Agent；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能用 <code>agents --json / logs / attach / stop</code> 查看后台会话；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能为 <code>claude -p</code> 同时处理工具、审批、输出和退出码；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">不把 <code>/rewind</code>、重复测试或 Claude 自报成功当作唯一恢复/验收证据；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">分享信息前会脱敏，知道何时停止并升级给管理员或支持。</li>
+</ul>
+<p>官方入口：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/troubleshooting">Troubleshooting</a></li>
+<li><a href="https://code.claude.com/docs/en/setup#troubleshooting">Troubleshoot installation and login</a></li>
+<li><a href="https://code.claude.com/docs/en/errors">Error reference</a></li>
+<li><a href="https://code.claude.com/docs/en/debug-your-config">Debug configuration</a></li>
+<li><a href="https://code.claude.com/docs/en/cli-reference">CLI reference</a></li>
+<li><a href="https://code.claude.com/docs/en/commands">Commands</a></li>
+</ul>
+</article>

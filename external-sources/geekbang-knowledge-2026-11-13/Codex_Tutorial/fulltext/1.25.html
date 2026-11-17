@@ -1,0 +1,77 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">开始任务前</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">当前目录是正确项目，不是主目录或磁盘根目录</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>git status</code> 已检查，知道哪些改动原本就存在</li>
+<li class="task-list-item"><input disabled="" type="checkbox">重要文件已有版本控制或备份</li>
+<li class="task-list-item"><input disabled="" type="checkbox">任务目标、范围外事项和完成标准清楚</li>
+<li class="task-list-item"><input disabled="" type="checkbox">使用完成任务所需的最小权限</li>
+<li class="task-list-item"><input disabled="" type="checkbox">不需要联网时，网络保持关闭</li>
+<li class="task-list-item"><input disabled="" type="checkbox">密钥、客户数据和生产数据不进入提示词</li>
+</ul>
+<h2 id="wiki-h-1">批准命令前</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">看清完整命令，不只看解释</li>
+<li class="task-list-item"><input disabled="" type="checkbox">读写路径属于本次任务范围</li>
+<li class="task-list-item"><input disabled="" type="checkbox">网络目标和用途明确</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有递归删除、覆盖或大范围移动风险</li>
+<li class="task-list-item"><input disabled="" type="checkbox">安装的依赖来源可信且确有必要</li>
+<li class="task-list-item"><input disabled="" type="checkbox">不会把凭据写入日志或构建产物</li>
+<li class="task-list-item"><input disabled="" type="checkbox">高风险动作有预览和回滚办法</li>
+</ul>
+<h2 id="wiki-h-2">代码实现验收</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">修改范围与任务一致</li>
+<li class="task-list-item"><input disabled="" type="checkbox">新行为有测试</li>
+<li class="task-list-item"><input disabled="" type="checkbox">缺陷修复的回归测试曾在修复前失败</li>
+<li class="task-list-item"><input disabled="" type="checkbox">错误输入和边界情况有覆盖</li>
+<li class="task-list-item"><input disabled="" type="checkbox">先跑局部测试，再跑完整测试</li>
+<li class="task-list-item"><input disabled="" type="checkbox">实际入口至少手动运行一次</li>
+<li class="task-list-item"><input disabled="" type="checkbox">旧数据或旧接口兼容性已验证</li>
+<li class="task-list-item"><input disabled="" type="checkbox">README 与真实命令一致</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>/diff</code> 中没有无关重构</li>
+</ul>
+<h2 id="wiki-h-3">数据与文件操作验收</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">操作前有原文件清单</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有直接处理唯一原件</li>
+<li class="task-list-item"><input disabled="" type="checkbox">重名和覆盖策略明确</li>
+<li class="task-list-item"><input disabled="" type="checkbox">无法判断的文件保留在待确认区</li>
+<li class="task-list-item"><input disabled="" type="checkbox">执行前生成移动或修改预览</li>
+<li class="task-list-item"><input disabled="" type="checkbox">执行后文件数量与完整性已核对</li>
+<li class="task-list-item"><input disabled="" type="checkbox">记录了原路径、目标路径和失败项</li>
+<li class="task-list-item"><input disabled="" type="checkbox">删除操作经过单独确认</li>
+</ul>
+<h2 id="wiki-h-4">数据分析验收</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">字段、行数、日期范围已确认</li>
+<li class="task-list-item"><input disabled="" type="checkbox">空值、重复和异常值处理口径明确</li>
+<li class="task-list-item"><input disabled="" type="checkbox">指标公式与单位明确</li>
+<li class="task-list-item"><input disabled="" type="checkbox">至少抽查一组原始数据和计算结果</li>
+<li class="task-list-item"><input disabled="" type="checkbox">图表标题、单位、时间范围完整</li>
+<li class="task-list-item"><input disabled="" type="checkbox">事实、推断和建议清楚区分</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有把相关性表述成因果关系</li>
+<li class="task-list-item"><input disabled="" type="checkbox">引用数字能追溯到数据范围</li>
+</ul>
+<h2 id="wiki-h-5">发布前</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">工作区状态符合预期</li>
+<li class="task-list-item"><input disabled="" type="checkbox">完整测试通过并记录命令与结果</li>
+<li class="task-list-item"><input disabled="" type="checkbox">安装、升级和核心路径实际验证</li>
+<li class="task-list-item"><input disabled="" type="checkbox">旧版本数据或配置可兼容</li>
+<li class="task-list-item"><input disabled="" type="checkbox">README、CHANGELOG 和实现一致</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有 <code>.env</code>、API Key、令牌和客户数据</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有运行数据、缓存、临时报告和个人绝对路径</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已知限制已记录</li>
+<li class="task-list-item"><input disabled="" type="checkbox">提交、标签、推送和发布由人明确确认</li>
+</ul>
+<h2 id="wiki-h-6">Agent 最终汇报应包含</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">修改了哪些文件</li>
+<li class="task-list-item"><input disabled="" type="checkbox">为什么修改</li>
+<li class="task-list-item"><input disabled="" type="checkbox">实际执行了哪些验证</li>
+<li class="task-list-item"><input disabled="" type="checkbox">测试数量、结果或退出码</li>
+<li class="task-list-item"><input disabled="" type="checkbox">哪些内容没有验证</li>
+<li class="task-list-item"><input disabled="" type="checkbox">仍然存在什么风险或限制</li>
+<li class="task-list-item"><input disabled="" type="checkbox">是否执行了外部写入、提交或发布</li>
+</ul>
+</article>

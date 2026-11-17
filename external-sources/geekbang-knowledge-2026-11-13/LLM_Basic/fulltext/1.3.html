@@ -1,0 +1,229 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你把这样一段笔记交给复习助手：</p>
+<blockquote>
+<p>我把新买的词典放进书包。它很厚，翻起来却很方便。</p>
+</blockquote>
+<p>如果助手要围绕“它”生成一道题，就不能只知道“它”这个字的含义，还得把它与前面的“词典”联系起来。换成“它的肩带断了”，指向的对象又很可能变成书包。</p>
+<p>上一篇讲到，文字会变成 Token，再变成向量。但是，仅仅给每个 Token 配上一串数字，还不足以处理这些关系。模型还需要一种计算，让某个位置的表示吸收其他位置的信息。</p>
+<p><strong>注意力机制，就是完成这种信息汇集的一种办法。</strong>本篇会把它拆成三个动作：计算匹配分数、分配权重、汇集内容。读完后，你应该能解释 Query、Key、Value 的分工，并亲手核对一次极小的注意力计算。</p>
+<p>这里只需要向量是“一串数字”、加权平均是“按比例混合”这两个基础。所有句子、向量和权重示例均为教学构造，不是从某个大模型内部提取的结果，也不需要安装软件。</p>
+<h2 id="wiki-h-0">先看清问题：同一个位置，为什么需要其他位置的信息</h2>
+<p>在词典的例子里，有几种信息会一起影响我们的判断：前文出现了什么对象，“厚”常用来描述什么，“翻”与什么活动有关。</p>
+<p>注意力并没有内置一条规则，规定“看到‘它’，就去找最近的名词”。它提供的是计算结构；能否从数据中学到有用的关联，还要看模型的训练以及其他计算环节。</p>
+<p>还有一个时序细节。对常见的从左向右生成的语言模型而言，当它只读到“它”这个位置时，后面的“很厚”还不能参与该位置的计算；读完整句话后，后面位置的表示才可以综合这些线索。把整句交给模型再问“它指什么”，与要求模型仅凭“它”之前的前缀判断，是两个不同任务。</p>
+<p>因此，我们不能画一条“它 → 词典”的箭头，就宣称模型内部一定这样运作。这个句子只是说明：<strong>语言任务需要根据上下文建立关联，而且可用的上下文受计算规则限制。</strong></p>
+<p>在自注意力中，同一段序列内的各个位置可以通过这种机制交换信息；允许建立哪些连接，则由具体结构决定。<a href="https://d2l.ai/chapter_attention-mechanisms-and-transformers/self-attention-and-positional-encoding.html">《动手学深度学习》：自注意力</a></p>
+<h2 id="wiki-h-1">Query、Key、Value 各自负责什么</h2>
+<p>先暂时离开模型。假设你在自己的笔记库里找“解释梯度下降的小例子”。你可能先看笔记标题与标签，判断哪些条目有关，再阅读其中的内容。</p>
+<p>这个过程可以帮助我们理解三个名字：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>中文与缩写</th>
+<th>在注意力计算里的分工</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Query</td>
+<td>查询，Q</td>
+<td>当前这个位置用什么向量去匹配其他位置</td>
+</tr>
+<tr>
+<td>Key</td>
+<td>键，K</td>
+<td>每个候选位置拿什么向量参与匹配</td>
+</tr>
+<tr>
+<td>Value</td>
+<td>值，V</td>
+<td>匹配完成后，实际参与汇集的内容向量</td>
+</tr>
+</tbody></table></div>
+<p>Q 与 K 决定“从各处取多少”，V 决定“取回什么”。注意力通常不是只选一个条目，而是把多个 Value 按权重组合起来。<a href="https://d2l.ai/chapter_attention-mechanisms-and-transformers/queries-keys-values.html">《动手学深度学习》：查询、键和值</a></p>
+<p>不过，笔记检索只是类比。模型内部的 Q 不是用户写下的整句问题，K 不一定对应可读的标签，V 也不是原文字符串。它们都是数字向量。即使用户没有提出问题，模型在处理普通陈述句时，也能为各位置计算 Query。</p>
+<h3 id="wiki-h-2">这些向量从哪里来</h3>
+<p>以标准自注意力的一种写法为例，设当前层某个位置的表示为 <code>x</code>。模型用三组参数分别变换它：</p>
+<pre><code class="hljs language-text">q = x × WQ
+k = x × WK
+v = x × WV
+</code></pre><p>这里的乘号表示向量与矩阵的乘法。你不必现在学会矩阵运算，只需把它理解为：<strong>同一份输入，经过三套不同的加权组合，得到三个不同用途的向量。</strong>为简化，本篇省略可能存在的偏置及其他实现细节。</p>
+<p><code>WQ、WK、WV</code> 是训练得到的参数矩阵；<code>q、k、v</code> 是用这些参数处理本次输入后产生的中间值。标准做法是在同一层、同一注意力头内，对不同位置使用相同的一组投影参数；不同输入仍会产生不同结果。<a href="https://d2l.ai/chapter_attention-mechanisms-and-transformers/multihead-attention.html">《动手学深度学习》：注意力中的可学习投影</a></p>
+<p>这也解释了为什么“自注意力”不等于 <code>Q = K = V</code>。它们可以来自同一份序列表示，却经过不同变换。后面的层接收到的表示还已经混入了前文信息，不再只是最初从词表中查到的那一行嵌入。</p>
+<p>普通推理时，输入改变，Q/K/V 和注意力权重会跟着变；这不代表模型的参数刚刚被重新训练了。</p>
+<h2 id="wiki-h-3">用一组数字，完整算一次注意力</h2>
+<p>下面只观察<strong>一个查询位置，对三个允许访问的位置 A、B、C 进行汇集</strong>。这些位置标签没有固定语言含义；不把它们硬说成“词典”“书包”，是为了避免用我们手工填的数字冒充模型学到的语义。</p>
+<p>我们直接给出投影之后的向量，不演示前面的参数训练。查询向量是：</p>
+<pre><code class="hljs language-text">q = [1, 0, 0, 0]
+</code></pre><p>候选位置的 Key 和 Value 如下：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th>Key，4 维</th>
+<th>Value，2 维</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td>[4, 0, 0, 0]</td>
+<td>[2, 0]</td>
+</tr>
+<tr>
+<td>B</td>
+<td>[2, 0, 0, 0]</td>
+<td>[0, 2]</td>
+</tr>
+<tr>
+<td>C</td>
+<td>[0, 0, 0, 0]</td>
+<td>[1, 1]</td>
+</tr>
+</tbody></table></div>
+<p>Q 与 K 在这里都必须有 4 个分量，才能直接计算点积；V 可以有不同的维数。这个例子中的输出会是 2 维向量，而不是 4 维。</p>
+<h3 id="wiki-h-4">第一步：用 Q 与每个 K 算匹配分数</h3>
+<p><strong>点积</strong>就是对应数字相乘，再相加。比如：</p>
+<pre><code class="hljs language-text">q · kA = 1×4 + 0×0 + 0×0 + 0×0 = 4
+q · kB = 2
+q · kC = 0
+</code></pre><p>标准的<strong>缩放点积注意力</strong>还会除以 Q/K 维数的平方根。这里维数是 4，平方根是 2，因此得到分数：</p>
+<pre><code class="hljs language-text">A：4 ÷ 2 = 2
+B：2 ÷ 2 = 1
+C：0 ÷ 2 = 0
+</code></pre><p>缩放是为了控制分数的尺度：维数增大时，点积的波动可能增大，过大的分数差会让后面的权重分配过于集中，影响训练。它不是根据句子长度随意设定的折扣。<a href="https://arxiv.org/html/1706.03762v7">《Attention Is All You Need》§3.2.1</a></p>
+<p>注意，“匹配分数高”只是当前这组向量计算的结果，不等于候选内容更真实，也不一定等于日常语言中“两个词意思更相近”。Q 和 K 可以学到适合任务的不同关系。</p>
+<h3 id="wiki-h-5">第二步：把分数变成权重</h3>
+<p>还记得第一部分的 Softmax 吗？它把一组分数转换成非负、总和为 1 的数。在这里，这组数表示各个 Value 的混合比例。</p>
+<p>计算方法是：先对每个分数取指数，再除以所有指数的总和。<code>e</code> 是约等于 2.718 的数学常数；无需记忆，下面直接给出近似值。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th align="right">缩放后分数</th>
+<th align="right">指数近似值</th>
+<th align="right">除以总和后得到的权重</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td align="right">2</td>
+<td align="right">7.389</td>
+<td align="right">0.665</td>
+</tr>
+<tr>
+<td>B</td>
+<td align="right">1</td>
+<td align="right">2.718</td>
+<td align="right">0.245</td>
+</tr>
+<tr>
+<td>C</td>
+<td align="right">0</td>
+<td align="right">1.000</td>
+<td align="right">0.090</td>
+</tr>
+</tbody></table></div>
+<p>分母约为 <code>7.389 + 2.718 + 1 = 11.107</code>。例如，A 的权重约为 <code>7.389 ÷ 11.107 = 0.665</code>。</p>
+<p>这里有两个可独立核对的结果：权重之和约为 1；分数最高的 A 获得最大权重。C 的分数虽然是 0，权重却<strong>不是 0</strong>，因为 <code>e⁰ = 1</code>。</p>
+<p>这一做法及下一步的向量汇集，就是缩放点积注意力的核心计算。<a href="https://d2l.ai/chapter_attention-mechanisms-and-transformers/attention-scoring-functions.html">《动手学深度学习》：注意力评分函数</a></p>
+<h3 id="wiki-h-6">第三步：按权重组合 Value</h3>
+<pre><code class="hljs language-text">输出 z ≈ 0.665×[2,0] + 0.245×[0,2] + 0.090×[1,1]
+       ≈ [1.420, 0.580]
+</code></pre><p>第一维是 <code>0.665×2 + 0.245×0 + 0.090×1</code>；第二维按同样方式计算。使用未四舍五入的权重时，结果约为 <code>[1.421, 0.579]</code>。</p>
+<p>这就是本次注意力汇集的结果：<strong>一个新的内容向量。</strong>它既不是“选择了 A”这个文字结论，也不是已经生成好的回答。A 的信息占比最大，但 B、C 仍有贡献。</p>
+<p>现在做两个小改动，看看你是否真的理解了分工：</p>
+<ul>
+<li>如果保持 Q、K 不变，只把 A 的 Value 从 <code>[2,0]</code> 改为 <code>[0,0]</code>，权重仍然不变，输出却会变成约 <code>[0.090,0.579]</code>。</li>
+<li>如果保持三个 Value 不变，让三个匹配分数完全相同，权重就都是 <code>1/3</code>，输出为 <code>[1,1]</code>。</li>
+</ul>
+<p>第一个改动说明：<strong>权重不是被传递的内容本身。</strong>第二个改动说明：权重决定了怎样混合已有的内容。实际模型修改输入时，往往会同时影响 Q、K、V；这里把它们单独固定，是为了做教学对照。</p>
+<h2 id="wiki-h-7">从一个查询，扩展到一整段文字</h2>
+<p>真实计算通常会把多个位置的查询向量叠在一起，组成矩阵 Q；K、V 也各自组成矩阵。你可能会在论文里见到：</p>
+<p>$$<br>\operatorname{Attention}(Q,K,V)<br>=\operatorname{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right)V<br>$$</p>
+<p>这是上面三步的批量写法：<code>QKᵀ</code> 算出各查询与各 Key 的点积分数，<code>d_k</code> 是 Q/K 的维数，Softmax 对<strong>每个查询对应的一行</strong>分别分配权重，最后乘 V 汇集内容。上式暂不包含掩码。</p>
+<p>不必背公式，可以沿着下面的图读：</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-1" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1320px;" viewBox="4 4 1320 219.6666717529297" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-1{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-1 .error-icon{fill:#552222;}#wiki-mermaid-1 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-1 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-1 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-1 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-1 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-1 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-1 .marker{fill:#666;stroke:#666;}#wiki-mermaid-1 .marker.cross{stroke:#666;}#wiki-mermaid-1 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-1 p{margin:0;}#wiki-mermaid-1 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-1 .cluster-label text{fill:#333;}#wiki-mermaid-1 .cluster-label span{color:#333;}#wiki-mermaid-1 .cluster-label span p{background-color:transparent;}#wiki-mermaid-1 .label text,#wiki-mermaid-1 span{fill:#000000;color:#000000;}#wiki-mermaid-1 .node rect,#wiki-mermaid-1 .node circle,#wiki-mermaid-1 .node ellipse,#wiki-mermaid-1 .node polygon,#wiki-mermaid-1 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-1 .rough-node .label text,#wiki-mermaid-1 .node .label text,#wiki-mermaid-1 .image-shape .label,#wiki-mermaid-1 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-1 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-1 .rough-node .label,#wiki-mermaid-1 .node .label,#wiki-mermaid-1 .image-shape .label,#wiki-mermaid-1 .icon-shape .label{text-align:center;}#wiki-mermaid-1 .node.clickable{cursor:pointer;}#wiki-mermaid-1 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-1 .arrowheadPath{fill:#333333;}#wiki-mermaid-1 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-1 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-1 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-1 .edgeLabel p{background-color:white;}#wiki-mermaid-1 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-1 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-1 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-1 .cluster text{fill:#333;}#wiki-mermaid-1 .cluster span{color:#333;}#wiki-mermaid-1 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-1 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-1 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-1 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-1 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-1 .icon-shape,#wiki-mermaid-1 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-1 .icon-shape p,#wiki-mermaid-1 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-1 .icon-shape .label rect,#wiki-mermaid-1 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-1 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-1 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-1 .node .neo-node{stroke:#999;}#wiki-mermaid-1 [data-look="neo"].node rect,#wiki-mermaid-1 [data-look="neo"].cluster rect,#wiki-mermaid-1 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-1 [data-look="neo"].node path{stroke:url(#wiki-mermaid-1-gradient);stroke-width:1px;}#wiki-mermaid-1 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-1 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-1 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-1-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-1 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-1_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-1_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-1_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-1_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,111L176.92893218813452,111Q184,111 184,103.92893218813452L184,43.071067811865476Q184,36 191.07106781186548,36L200,36" id="wiki-mermaid-1-L_X_Q_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 101.67164611816406 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_X_Q_0" data-points="W3sieCI6MTY0LCJ5IjoxMTF9LHsieCI6MTg0LCJ5IjoxMTF9LHsieCI6MTg0LCJ5IjozNn0seyJ4IjoyMDQsInkiOjM2fV0=" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M164,124L200,124" id="wiki-mermaid-1-L_X_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_X_K_0" data-points="W3sieCI6MTY0LCJ5IjoxMjR9LHsieCI6MjA0LCJ5IjoxMjR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M164,137L176.92893218813452,137Q184,137 184,144.07106781186548L184,184.59559885480118Q184,191.66666666666666 191.07106781186548,191.66666666666666L280,191.66666666666666L392,191.66666666666666" id="wiki-mermaid-1-L_X_V_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 273.3383483886719 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_X_V_0" data-points="W3sieCI6MTY0LCJ5IjoxMzd9LHsieCI6MTg0LCJ5IjoxMzd9LHsieCI6MTg0LCJ5IjoxOTEuNjY2NjY2NjY2NjY2NjZ9LHsieCI6MjgwLCJ5IjoxOTEuNjY2NjY2NjY2NjY2NjZ9LHsieCI6Mzk2LCJ5IjoxOTEuNjY2NjY2NjY2NjY2NjZ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M356,36L368.9289321881345,36Q376,36 376,43.071067811865476L376,64.26226552146787Q376,71.33333333333334 383.0710678118655,71.33333333333334L392,71.33333333333334" id="wiki-mermaid-1-L_Q_S_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 62.00505828857422 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_Q_S_0" data-points="W3sieCI6MzU2LCJ5IjozNn0seyJ4IjozNzYsInkiOjM2fSx7IngiOjM3NiwieSI6NzEuMzMzMzMzMzMzMzMzMzR9LHsieCI6Mzk2LCJ5Ijo3MS4zMzMzMzMzMzMzMzMzNH1d" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M356,124L368.9289321881345,124Q376,124 376,116.92893218813452L376,95.73773447853215Q376,88.66666666666667 383.0710678118655,88.66666666666667L392,88.66666666666667" id="wiki-mermaid-1-L_K_S_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 62.00505065917969 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_K_S_0" data-points="W3sieCI6MzU2LCJ5IjoxMjR9LHsieCI6Mzc2LCJ5IjoxMjR9LHsieCI6Mzc2LCJ5Ijo4OC42NjY2NjY2NjY2NjY2N30seyJ4IjozOTYsInkiOjg4LjY2NjY2NjY2NjY2NjY3fV0=" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M548,80L584,80" id="wiki-mermaid-1-L_S_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_S_M_0" data-points="W3sieCI6NTQ4LCJ5Ijo4MH0seyJ4Ijo1ODgsInkiOjgwfV0=" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M740,80L776,80" id="wiki-mermaid-1-L_M_A_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_M_A_0" data-points="W3sieCI6NzQwLCJ5Ijo4MH0seyJ4Ijo3ODAsInkiOjgwfV0=" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M932,80L944.9289321881345,80Q952,80 952,87.07106781186548L952,114.26226552146787Q952,121.33333333333334 959.0710678118655,121.33333333333334L968,121.33333333333334" id="wiki-mermaid-1-L_A_Z_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 68.00506591796875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_Z_0" data-points="W3sieCI6OTMyLCJ5Ijo4MH0seyJ4Ijo5NTIsInkiOjgwfSx7IngiOjk1MiwieSI6MTIxLjMzMzMzMzMzMzMzMzM0fSx7IngiOjk3MiwieSI6MTIxLjMzMzMzMzMzMzMzMzM0fV0=" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M548,191.66666666666666L664,191.66666666666666L856,191.66666666666666L944.9289321881345,191.66666666666666Q952,191.66666666666666 952,184.59559885480118L952,145.73773447853216Q952,138.66666666666669 959.0710678118655,138.66666666666669L968,138.66666666666669" id="wiki-mermaid-1-L_V_Z_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 463.6717529296875 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_V_Z_0" data-points="W3sieCI6NTQ4LCJ5IjoxOTEuNjY2NjY2NjY2NjY2NjZ9LHsieCI6NjY0LCJ5IjoxOTEuNjY2NjY2NjY2NjY2NjZ9LHsieCI6ODU2LCJ5IjoxOTEuNjY2NjY2NjY2NjY2NjZ9LHsieCI6OTUyLCJ5IjoxOTEuNjY2NjY2NjY2NjY2NjZ9LHsieCI6OTUyLCJ5IjoxMzguNjY2NjY2NjY2NjY2Njl9LHsieCI6OTcyLCJ5IjoxMzguNjY2NjY2NjY2NjY2Njl9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path><path d="M1124,130.00000000000003L1160,130.00000000000003" id="wiki-mermaid-1-L_Z_N_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_Z_N_0" data-points="W3sieCI6MTEyNCwieSI6MTMwLjAwMDAwMDAwMDAwMDAzfSx7IngiOjExNjQsInkiOjEzMC4wMDAwMDAwMDAwMDAwM31d" data-look="neo" marker-end="url(#wiki-mermaid-1_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"></g><g class="nodes"><g class="node default" id="wiki-mermaid-1-flowchart-X-0" data-look="neo" transform="translate(88, 124)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>当前层的序列表示</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-Q-1" data-look="neo" transform="translate(280, 36)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>生成 Q</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-K-3" data-look="neo" transform="translate(280, 124)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>生成 K</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-V-5" data-look="neo" transform="translate(472, 191.66666666666666)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>生成 V</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-S-7" data-look="neo" transform="translate(472, 80)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>逐个查询与 Key 计算分数</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-M-11" data-look="neo" transform="translate(664, 80)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>按规则屏蔽不可访问的位置</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-A-13" data-look="neo" transform="translate(856, 80)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>每行 Softmax 得到权重</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-Z-15" data-look="neo" transform="translate(1048, 130)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>对 Value 加权汇集</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-1-flowchart-N-19" data-look="neo" transform="translate(1240, 130)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>交给后续网络处理</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-1-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-1-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-1-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>在三位置的自注意力例子中，权重表有三行、三列。行表示“谁在查询”，列表示“从哪里取信息”。<strong>A 取 B 的权重，与 B 取 A 的权重，不需要相等。</strong>方向不同，使用的查询和键也不同。</p>
+<p>这里的“每行总和为 1”指正常有效行的 Softmax 输出；本篇没有加入训练时可能使用的 Dropout，也就是随机丢弃部分数值的正则化操作。</p>
+<h3 id="wiki-h-8">为什么生成模型不能提前看后面的答案</h3>
+<p>假设教学 Token 序列是：</p>
+<pre><code class="hljs language-text">[我] [用] [卡片] [复习]
+</code></pre><p>在标准的因果自注意力中，允许访问的关系是：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>查询位置＼被访问位置</th>
+<th align="right">我</th>
+<th align="right">用</th>
+<th align="right">卡片</th>
+<th align="right">复习</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>我</td>
+<td align="right">✓</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+</tr>
+<tr>
+<td>用</td>
+<td align="right">✓</td>
+<td align="right">✓</td>
+<td align="right">—</td>
+<td align="right">—</td>
+</tr>
+<tr>
+<td>卡片</td>
+<td align="right">✓</td>
+<td align="right">✓</td>
+<td align="right">✓</td>
+<td align="right">—</td>
+</tr>
+<tr>
+<td>复习</td>
+<td align="right">✓</td>
+<td align="right">✓</td>
+<td align="right">✓</td>
+<td align="right">✓</td>
+</tr>
+</tbody></table></div>
+<p>这叫 <strong>Causal Mask，因果掩码</strong>。计算第三个位置的表示时，可以使用“我、用、卡片”，不能使用第四个位置“复习”。随后用第三个位置的结果预测下一个 Token，才不会直接看到目标答案。训练中即使整句话已经放进计算设备，也要遵守这一限制。<a href="https://arxiv.org/html/1706.03762v7">《Attention Is All You Need》§3.1、§3.2.3</a></p>
+<p>被屏蔽的位置，要在 Softmax 之前排除。数学上常把其分数设为负无穷，使相应权重为 0；<strong>把分数改成 0 并不能屏蔽它</strong>，前面的 C 已经展示了原因。</p>
+<p>自注意力本身不强制只能向左看。用于整段文本理解的结构可以采用双向访问；生成模型则通常需要因果限制。也存在 Q 来自一组表示、K/V 来自另一组表示的<strong>交叉注意力</strong>，例如翻译时生成端查询源文的表示。不要把所有“看上下文”都理解成同一种连接方式。</p>
+<h2 id="wiki-h-9">多头注意力：同时保留不同的汇集方式</h2>
+<p>对于一句话，只形成一种混合结果，可能不足以承载不同关系。模型可能既需要关联对象与代词，又需要关联动作与对象，还要利用代码里的变量或括号关系。</p>
+<p><strong>多头注意力，Multi-Head Attention</strong>，让模型使用多组投影，分别计算注意力，再把各头的结果拼接、变换后交给后续网络。<a href="https://d2l.ai/chapter_attention-mechanisms-and-transformers/multihead-attention.html">《动手学深度学习》：多头注意力</a></p>
+<p>你可以把它理解成允许几种不同的信息汇集方式并行存在。但不要给它硬贴标签，说“第一个头负责语法，第二个头负责逻辑”。这些分工不是程序员必须预先规定的，学到的模式也不保证这么整齐。</p>
+<p>“多头”也不是多个完整大模型开会投票。它是同一个网络内部的一组计算。多层则意味着：前一层更新表示后，后一层在新的表示上继续计算。注意力之外还有哪些部件、这些结果如何组合，下一篇 Transformer 再展开。</p>
+<p>另一个相关问题是顺序。单看“逐个比较内容并加权”的操作，并没有完整说明“前一个词”“第几个位置”如何表示；模型还需要位置相关的设计。否则，只知道有哪些内容，不足以区分“小林帮助小周”与“小周帮助小林”。我们也把具体的位置处理方法留到下一篇。</p>
+<h2 id="wiki-h-10">理解注意力之后，怎样改进你的复习助手</h2>
+<p>注意力让模型有机会利用上下文，但没有替应用完成所有工作。下面三类错误尤其值得区分。</p>
+<h3 id="wiki-h-11">资料没有进入输入，注意力无从读取</h3>
+<p>你电脑里保存着一本教材，不代表本次模型调用已经拿到它。应用需要先读取或检索相关内容，再把内容送入模型，模型才能通过上下文计算使用这些材料。</p>
+<p>这也是内部注意力与外部检索的区别：前者处理已有表示，后者决定哪些资料能进入这次任务。两者可以配合；注意力不是自动搜索整个硬盘或互联网的功能。</p>
+<h3 id="wiki-h-12">资料进入输入，也不保证被正确利用</h3>
+<p>例如，两份笔记都叫“复习安排”，一份说周三复习，一份说周五复习。如果没有日期、版本或适用对象，模型可能缺少判断依据。</p>
+<p>对这个项目，一个可操作的做法是：保留标题、来源和版本，把“参考资料”与“这次要求”写清楚；遇到相互冲突的材料，允许助手指出冲突。这是减少任务歧义的设计建议，效果仍需要用你自己的案例检验。</p>
+<p>也不要把“上下文能装下很多 Token”直接理解成“任何位置的信息都会用得同样好”。《Lost in the Middle》在其测试模型和任务中发现，相关信息所处的位置会影响表现。它提示我们测试信息利用能力，而不能据此断言所有新模型永远都会出现相同程度的问题。<a href="https://arxiv.org/abs/2307.03172">原始论文</a></p>
+<h3 id="wiki-h-13">注意力权重高，不代表内容可靠</h3>
+<p>刚才 A 的权重约为 0.665，并不意味着“A 有 66.5% 的概率是真的”。那只是一个查询、一个计算环节中的混合系数，不能代替事实校验。</p>
+<p>即使你看到了漂亮的注意力热力图，也不能直接把最深的色块当成“模型得出最终答案的完整原因”。后续层、Value 的具体数值以及其他计算路径都会影响结果。Jain 与 Wallace 的研究在所考察的 NLP 模型和任务中展示了注意力权重作为解释的局限；这不是说权重毫无研究价值，而是不能仅凭它认定因果贡献。<a href="https://arxiv.org/abs/1902.10186">《Attention is not Explanation》</a></p>
+<p>对复习助手，更直接的验证仍然是：生成的题目和答案是否得到原文支持，换一个对象或版本后是否相应改变，缺少资料时是否会承认无法判断。</p>
+<h2 id="wiki-h-14">理解检查：不用运行模型，也能检验自己</h2>
+<p>先作答，再看下面的解释。</p>
+<p><strong>1. 用户只输入“今天复习概率”，没有问号，模型就不需要 Query 吗？</strong></p>
+<p>不对。Query 是内部参与匹配的向量，不是“自然语言问句”的别名。普通陈述句的各个位置同样可以产生 Query。</p>
+<p><strong>2. 三个未被屏蔽的位置，匹配分数都是 0，权重和输出分别是什么？</strong></p>
+<p>每个指数都是 1，因此权重各为 <code>1/3</code>。使用本篇的三个 Value，输出为 <code>[1,1]</code>。分数为 0 不等于禁止访问。</p>
+<p><strong>3. 某次汇集的权重为 <code>[0.5,0.25,0.25]</code>，Value 仍是 <code>[2,0]、[0,2]、[1,1]</code>，结果是多少？</strong></p>
+<p>第一维为 <code>0.5×2 + 0.25×0 + 0.25×1 = 1.25</code>；第二维为 <code>0.5×0 + 0.25×2 + 0.25×1 = 0.75</code>，得到 <code>[1.25,0.75]</code>。这仍是向量，不是生成的两个词。</p>
+<p><strong>4. 在上面的四 Token 因果掩码中，“卡片”位置能读取“复习”吗？如果不能，模型如何学习预测“复习”？</strong></p>
+<p>不能在前向计算这个位置的表示时读取它。但训练程序知道正确的下一个 Token 是“复习”，可以在模型给出预测后计算损失，再据此更新参数。作为监督目标，与作为当前预测的输入，是两种不同用途。</p>
+<p><strong>5. 用户换了一段笔记，Q/K/V 和注意力权重全变了，是否说明模型学会了这段笔记，以后不传也能记住？</strong></p>
+<p>不能这样推断。变化的是本次输入产生的中间结果；普通推理没有因此更新参数，也不能保证跨请求保存内容。长期记忆需要另行设计。</p>
+<p><strong>6. 某个注意力头给旧版笔记 90% 的权重，是否可以据此认定旧版安排更正确？</strong></p>
+<p>不可以。权重不是正确率，注意力也没有自动承担版本裁决。应用应提供版本信息，并根据可核对的来源检查回答。</p>
+<hr>
+<p>回到开头的“它”：现在你已经知道，模型不是只拿一个固定词义去查答案。它会在允许访问的范围内，通过 Q/K 的匹配计算汇集 V，让各位置的表示携带更多上下文信息。能否把这些信息转化成正确回答，还取决于整个网络和任务设计。</p>
+<p>下一篇《Transformer：大模型怎样组织这些计算》，我们把注意力放回完整网络，看看位置、前馈网络以及其他部件怎样一起工作。</p>
+<p>上一篇：文字怎样进入模型 · 返回第二部分大纲</p>
+</article>

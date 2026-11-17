@@ -1,0 +1,213 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读与练习时间：45～60 分钟<br>本篇目标：建立 Issue Garden 实验副本，读懂并验证 <code>loop.yaml</code>，让缺少预算、验证器或停止条件的循环在第一次调用 Agent 之前就被拒绝。</p>
+</blockquote>
+<p>上一篇，我们用 Loop 候选卡回答了“这个任务值不值得循环化”。但卡片仍然只是给人看的说明。真正开始运行后，如果每一轮都靠提示词临时重申边界，迟早会漏掉一句。</p>
+<p>这一篇先不调用 Agent。我们要把任务队列、单轮范围、可写路径、验证器、预算和停止条件写进一份机器可检查的契约。这样，后面的 Runner 不是“尽量遵守约定”，而是在契约无效时根本不启动。</p>
+<h2 id="wiki-h-0">准备独立实验副本</h2>
+<p>课程提供的起始快照位于：</p>
+<pre><code class="hljs language-text">assets/issue-garden-starter/
+</code></pre><p>它同时包含两部分：一个很小的 ShelfCare 搜索模块，以及我们即将搭建的 Loop 控制面。请从课程根目录复制它，不要直接修改起始快照。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> -R assets/issue-garden-starter issue-garden-lab
+<span class="hljs-built_in">cd</span> issue-garden-lab
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-literal">-Recurse</span> <span class="hljs-literal">-Force</span> assets/issue<span class="hljs-literal">-garden-starter</span> issue<span class="hljs-literal">-garden-lab</span>
+<span class="hljs-built_in">Set-Location</span> issue<span class="hljs-literal">-garden-lab</span>
+</code></pre><p>确认当前位置和关键文件。macOS、Linux 运行：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">pwd</span>
+python3 --version
+node --version
+git --version
+</code></pre><p>Windows PowerShell 运行：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Location</span>
+py <span class="hljs-literal">-3</span>.<span class="hljs-number">11</span> <span class="hljs-literal">--version</span>
+node <span class="hljs-literal">--version</span>
+git <span class="hljs-literal">--version</span>
+</code></pre><p>你应该看到 <code>loop.yaml</code>、<code>requirements-loop.txt</code>、<code>src/</code>、<code>test/</code> 和 <code>tools/</code>，Python 版本至少为 3.11，Node.js 至少为 20。具体小版本不必和示例相同。</p>
+<p>如果 <code>py -3.11</code> 不存在，但 <code>python --version</code> 显示 3.11 或更高，后续把 Windows 命令里的 <code>py -3.11</code> 换成 <code>python</code> 即可。若 Node 或 Git 命令不存在，先补齐课程 Brief 约定的环境；它们分别用于运行被维护项目的验证器和检查真实 Diff，不能用 Agent 的口头报告代替。</p>
+<h3 id="wiki-h-1">建立 Python 虚拟环境</h3>
+<p><code>loop.yaml</code> 使用 YAML，是因为它比纯 JSON 更适合人手工审阅。Python 标准库不解析 YAML，因此项目把唯一的 Python 依赖锁定在 <code>requirements-loop.txt</code> 中。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+<span class="hljs-built_in">source</span> .venv/bin/activate
+python -m pip install -r requirements-loop.txt
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span>.<span class="hljs-number">11</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\Activate.ps1
+python <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements<span class="hljs-literal">-loop</span>.txt
+</code></pre><p>成功后，下面的命令应该打印 PyYAML 的版本号：</p>
+<pre><code class="hljs language-bash">python -c <span class="hljs-string">"import yaml; print(yaml.__version__)"</span>
+</code></pre><p>如果 PowerShell 拒绝执行激活脚本，不必修改整台电脑的执行策略。可以直接使用虚拟环境里的解释器：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements<span class="hljs-literal">-loop</span>.txt
+.\.venv\Scripts\python.exe <span class="hljs-literal">-c</span> <span class="hljs-string">"import yaml; print(yaml.__version__)"</span>
+</code></pre><p>此后把文中的 <code>python</code> 换成 <code>.\.venv\Scripts\python.exe</code> 即可。若安装阶段提示无法连接软件源，先检查网络或公司的 Python 软件源配置；不要从不明网站下载同名安装包。</p>
+<h3 id="wiki-h-2">保存一个干净基线</h3>
+<p>后面我们会用 Git 判断 Agent 究竟改了什么。现在先建立本地仓库和基线提交：</p>
+<pre><code class="hljs language-bash">git init
+git add .
+git commit -m <span class="hljs-string">"chore: start issue garden lab"</span>
+git status --short
+</code></pre><p>最后一条命令没有输出，表示工作区与基线一致。这个仓库只在本地使用，不需要添加远程地址。</p>
+<p>如果 Git 因作者身份为空而拒绝提交，只为当前实验仓库设置一个占位身份，再重试提交：</p>
+<pre><code class="hljs language-bash">git config user.name <span class="hljs-string">"Issue Garden Learner"</span>
+git config user.email <span class="hljs-string">"learner@example.invalid"</span>
+git commit -m <span class="hljs-string">"chore: start issue garden lab"</span>
+</code></pre><p>这里没有使用 <code>--global</code>，不会改动你其他仓库的身份配置。</p>
+<h2 id="wiki-h-3">契约与 Prompt 解决的是两件事</h2>
+<p>Prompt 会告诉一次 Agent 运行“这次要做什么”，例如：</p>
+<pre><code class="hljs language-text">修复全角空格导致图书搜索失败的问题，只修改 src/，完成后运行测试。
+</code></pre><p><code>loop.yaml</code> 则约束多次运行共同遵守的控制规则：一次最多跑多久、最多尝试几轮、哪些路径永远不能写、谁负责验证、出现什么情况必须结束。</p>
+<p>两者的区别可以压缩成一句话：</p>
+<blockquote>
+<p>Prompt 是本轮工作说明，循环契约是 Runner 的准入条件和裁决依据。</p>
+</blockquote>
+<p>因此，不要把 API Key、Cookie 或一次任务的长篇背景写进 <code>loop.yaml</code>。它会进入版本控制，适合保存稳定、可审阅的规则，不适合保存秘密和易变的会话内容。</p>
+<h2 id="wiki-h-4">读懂 <code>loop.yaml</code> 的八组边界</h2>
+<p>先打开实验目录里的 <code>loop.yaml</code>。你会看到八个顶层部分。</p>
+<h3 id="wiki-h-5">1. <code>schema_version</code>：先声明解释方式</h3>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">schema_version:</span> <span class="hljs-number">1</span>
+</code></pre><p>配置会随课程演进。显式版本号让 Runner 遇到未知格式时停止，而不是猜测新字段的含义。当前验证器只接受整数 <code>1</code>。</p>
+<h3 id="wiki-h-6">2. <code>project</code>：所有相对路径从哪里计算</h3>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">project:</span>
+  <span class="hljs-attr">root:</span> <span class="hljs-string">.</span>
+</code></pre><p><code>.</code> 表示实验仓库根目录。验证器拒绝绝对路径和包含 <code>..</code> 的路径，避免一个错误配置把队列或状态写到项目之外。</p>
+<p>这仍然不等于操作系统级沙箱。路径检查是第一层防误操作，后面还会加入 Git 工作区隔离和命令边界。</p>
+<h3 id="wiki-h-7">3. <code>queue</code>：任务在不同终态之间怎样移动</h3>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">queue:</span>
+  <span class="hljs-attr">inbox:</span> <span class="hljs-string">tasks/inbox</span>
+  <span class="hljs-attr">processing:</span> <span class="hljs-string">tasks/processing</span>
+  <span class="hljs-attr">completed:</span> <span class="hljs-string">tasks/done</span>
+  <span class="hljs-attr">needs_input:</span> <span class="hljs-string">tasks/needs-input</span>
+  <span class="hljs-attr">blocked:</span> <span class="hljs-string">tasks/blocked</span>
+</code></pre><p>任务不会只有“未完成”和“完成”两种状态：</p>
+<ul>
+<li><code>inbox</code> 是尚未领取的任务；</li>
+<li><code>processing</code> 表示某个 Runner 已经领取；</li>
+<li><code>completed</code> 保存验证通过的任务；</li>
+<li><code>needs_input</code> 表示缺少必要信息，等待人补充；</li>
+<li><code>blocked</code> 表示触碰权限或其他不可自动跨越的边界。</li>
+</ul>
+<p>把后两种状态分开很重要。缺少验收样例可以补充后重开；要求读取真实密钥则不是“多试一次”能解决的问题。</p>
+<h3 id="wiki-h-8">4. <code>runner</code>：一轮允许占用多久</h3>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">runner:</span>
+  <span class="hljs-attr">agent_adapter:</span> <span class="hljs-string">mock</span>
+  <span class="hljs-attr">max_rounds_per_task:</span> <span class="hljs-number">3</span>
+  <span class="hljs-attr">round_timeout_seconds:</span> <span class="hljs-number">600</span>
+  <span class="hljs-attr">cooldown_seconds:</span> <span class="hljs-number">2</span>
+</code></pre><p>课程先使用 <code>mock</code> 适配器，让同一输入得到可重复结果。<code>max_rounds_per_task</code> 限制一个任务最多经历三轮；每轮超过 600 秒就终止；两轮之间短暂停顿，避免失败后立即高速重启。</p>
+<p>注意，<code>cooldown_seconds</code> 不是失败策略。它只能降低重启频率，不能说明下一轮为何值得执行。第 6 篇会为重试增加“必须有新证据或新计划”的条件。</p>
+<h3 id="wiki-h-9">5. <code>budgets</code>：把“别消耗太多”改成可计算上限</h3>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">budgets:</span>
+  <span class="hljs-attr">max_agent_runs_per_task:</span> <span class="hljs-number">3</span>
+  <span class="hljs-attr">max_wall_seconds_per_task:</span> <span class="hljs-number">1800</span>
+  <span class="hljs-attr">max_changed_files_per_round:</span> <span class="hljs-number">8</span>
+  <span class="hljs-attr">max_diff_lines_per_round:</span> <span class="hljs-number">200</span>
+</code></pre><p>这四个数字分别限制 Agent 运行次数、任务总耗时、单轮修改文件数和单轮 Diff 行数。</p>
+<p>它们不是普适最佳值，只是适合这个小项目的保守起点。真实项目应根据任务粒度和失败代价调整。一个两行缺陷突然改动 60 个文件，即使测试通过，也更像任务失控而不是效率很高。</p>
+<p>课程不把 Token 数作为唯一预算，因为不同 CLI 是否暴露精确用量并不一致。运行次数、墙钟时间和改动规模是 Runner 一定能够观察到的本地指标；第 8 篇再把可获得的费用或 Token 信息作为可选预算加入。</p>
+<h3 id="wiki-h-10">6. <code>permissions</code>：白名单与保护区同时存在</h3>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">permissions:</span>
+  <span class="hljs-attr">allowed_write_paths:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">src/</span>
+  <span class="hljs-attr">protected_paths:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">test/</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">acceptance/</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">tasks/</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">.git/</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">.env</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">loop.yaml</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">.loop/</span>
+</code></pre><p>Agent 在本课程里只能修改 <code>src/</code>。测试、验收样例、任务本身、Git 元数据、潜在密钥、循环契约和 Runner 状态都属于保护区。</p>
+<p>为什么既要白名单，又要保护名单？白名单回答“通常允许写哪里”，保护名单强调“即使以后扩大白名单，这些地方仍需额外审查”。后面的验证器会以真实 Diff 为准，而不是相信 Agent 声称自己只改了 <code>src/</code>。</p>
+<h3 id="wiki-h-11">7. <code>verification</code>：成功必须有外部证据</h3>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">verification:</span>
+  <span class="hljs-attr">require_clean_baseline:</span> <span class="hljs-literal">true</span>
+  <span class="hljs-attr">baseline_commands:</span>
+    <span class="hljs-bullet">-</span> [<span class="hljs-string">npm</span>, <span class="hljs-string">test</span>]
+    <span class="hljs-bullet">-</span> [<span class="hljs-string">npm</span>, <span class="hljs-string">run</span>, <span class="hljs-string">check</span>]
+  <span class="hljs-attr">allow_task_verification_command:</span> <span class="hljs-literal">true</span>
+  <span class="hljs-attr">allow_test_changes:</span> <span class="hljs-literal">false</span>
+</code></pre><p>命令故意写成参数列表，而不是一整段 Shell 字符串。Runner 后续会直接传递参数，不经 Shell 展开，从而减少 <code>&amp;&amp;</code>、重定向和命令替换带来的意外执行面。</p>
+<p><code>require_clean_baseline</code> 要求处理任务前，项目自身的基础检查已经通过；否则 Loop 无法区分旧故障与本轮新故障。任务还可以附带一条额外验收命令，但必须经过允许列表检查。Agent 不得通过修改测试让结果“变绿”。</p>
+<p>参数列表只减少 Shell 解析风险，并不会自动让任意程序变安全。哪些可执行文件和参数可以进入验证器，仍要由 Runner 审核，第 5 篇会真正实现这道门。</p>
+<h3 id="wiki-h-12">8. <code>stop</code> 与 <code>idempotency</code>：结束和去重必须提前定义</h3>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">stop:</span>
+  <span class="hljs-attr">terminal_statuses:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">completed</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">needs_input</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">blocked</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">stopped</span>
+  <span class="hljs-attr">same_failure_limit:</span> <span class="hljs-number">2</span>
+  <span class="hljs-attr">stop_on:</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">budget_exhausted</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">timeout</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">permission_boundary</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">missing_information</span>
+    <span class="hljs-bullet">-</span> <span class="hljs-string">human_cancelled</span>
+
+<span class="hljs-attr">idempotency:</span>
+  <span class="hljs-attr">task_id_field:</span> <span class="hljs-string">id</span>
+  <span class="hljs-attr">claim_dir:</span> <span class="hljs-string">.loop/claims</span>
+  <span class="hljs-attr">result_dir:</span> <span class="hljs-string">.loop/results</span>
+</code></pre><p><code>terminal_statuses</code> 告诉调度器哪些结果不应自动开始下一轮；<code>same_failure_limit</code> 规定相同失败连续出现两次就停止原地重试。预算耗尽、超时、越权、缺少信息和人工取消都是明确停止原因。</p>
+<p>幂等性配置则要求每个任务有稳定 <code>id</code>，并为领取记录和最终结果指定持久目录。以后即使进程重启，Runner 也可以判断任务是否已被领取或完成，避免同一任务被重复处理。</p>
+<p>仅仅创建一个结果文件还不能保证所有副作用幂等。例如重复发送邮件仍可能发出两次。因此本课程默认没有外部写入；第 4 篇会先解决本地状态恢复，再讨论哪些动作根本不该自动重放。</p>
+<h2 id="wiki-h-13">先让机器拒绝不完整契约</h2>
+<p>现在在 <code>issue-garden-lab/</code> 根目录运行：</p>
+<pre><code class="hljs language-bash">python tools/validate_contract.py
+</code></pre><p>预期输出：</p>
+<pre><code class="hljs language-text">[OK] loop.yaml 契约有效
+</code></pre><p>这条命令会检查必填项、正整数预算、安全相对路径、验证命令结构、四种终态和五类停止原因。退出码为 <code>0</code>，后续 Runner 才可以继续。</p>
+<p>课程还准备了一份故意损坏的契约：它把最大轮数设成 <code>0</code>，并删掉了所有基础验证命令。运行：</p>
+<pre><code class="hljs language-bash">python tools/validate_contract.py examples/loop.invalid.yaml
+</code></pre><p>预期会看到类似输出，且进程退出码为 <code>2</code>：</p>
+<pre><code class="hljs language-text">[INVALID] examples/loop.invalid.yaml 有 2 个问题：
+  - runner.max_rounds_per_task 必须是大于等于 1 的整数
+  - verification.baseline_commands 至少要有一条命令
+</code></pre><p>输出行顺序以实际版本为准。关键不是报错文案，而是一个没有轮次上限或没有验证器的配置无法进入运行阶段。</p>
+<p>macOS 或 Linux 可立即查看上一条命令的退出码：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">echo</span> $?
+</code></pre><p>Windows PowerShell 使用：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$LASTEXITCODE</span>
+</code></pre><p>应得到 <code>2</code>。这就是“可执行契约”与说明文档的差别：它不仅写下规则，还能阻止无效状态继续传播。</p>
+<h2 id="wiki-h-14">用自动化测试检查验证器本身</h2>
+<p>契约验证器也可能写错，所以不能只拿一份正确配置跑一次。执行：</p>
+<pre><code class="hljs language-bash">python -m unittest discover -s loop_tests -p <span class="hljs-string">"test_*.py"</span> -v
+</code></pre><p>预期有四项测试通过：有效契约被接受、零轮次与空验证器被拒绝、越出项目的 <code>../</code> 路径被拒绝、Windows 绝对路径被拒绝。结尾类似：</p>
+<pre><code class="hljs language-text">Ran 4 tests in ...s
+
+OK
+</code></pre><p>然后确认契约里写下的两条基础命令在当前机器上确实可执行：</p>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+npm run check
+</code></pre><p>第一条应显示两项搜索测试通过；第二条通常没有正文输出，只要退出码为 <code>0</code> 就表示 JavaScript 语法检查通过。</p>
+<p>最后检查工作区：</p>
+<pre><code class="hljs language-bash">git status --short
+</code></pre><p>它仍应没有输出。虚拟环境、Python 缓存和未来的 <code>.loop/</code> 状态已经被 <code>.gitignore</code> 排除；验证过程不应悄悄改动课程基线。</p>
+<p>这一组检查形成了完整闭环：</p>
+<pre><code class="hljs language-text">写下契约
+  -&gt; 正确配置通过
+  -&gt; 错误配置被拒绝并返回非零退出码
+  -&gt; 单元测试验证拒绝规则
+  -&gt; 契约声明的项目检查真实运行
+  -&gt; Git 证明没有额外修改
+</code></pre><h2 id="wiki-h-15">改配置时先问三个问题</h2>
+<p>以后把这份契约迁移到自己的项目，不要先复制数字。先回答：</p>
+<ol>
+<li><strong>Runner 能否直接观察这个限制？</strong> “质量要高”无法计算，“最多改 8 个文件”可以计算。</li>
+<li><strong>触发边界时应该发生什么？</strong> 是整轮失败、转人工审核，还是允许经过批准后继续？</li>
+<li><strong>证据由谁产生？</strong> 如果成功条件仍然只是 Agent 输出一句 <code>done</code>，配置再详细也没有形成独立验证。</li>
+</ol>
+<p>还有一条容易忽略：契约验证通过，只证明配置结构和最低安全要求成立，不证明任务一定正确，也不证明操作系统权限已经隔离。它是启动前的门卫，不是整个安全系统。</p>
+<h2 id="wiki-h-16">常见阻塞</h2>
+<h3 id="wiki-h-17">YAML 报缩进或类型错误</h3>
+<p>YAML 使用空格表达层级，不要混用 Tab。列表项前的 <code>-</code> 也要和同级元素对齐。若你加入类似 <code>yes</code>、<code>no</code>、<code>on</code>、<code>off</code> 的字符串，建议加引号，避免不同 YAML 解析规则把它们当成布尔值。</p>
+<p>先单独运行 <code>python tools/validate_contract.py</code>，不要让 Runner 在启动后才发现语法问题。</p>
+<h3 id="wiki-h-18">正确配置被提示路径不安全</h3>
+<p>课程只接受项目内相对路径，不接受 <code>/tmp/tasks</code>、<code>C:\tasks</code> 或 <code>../tasks</code>。如果真实系统必须使用外部目录，不应该简单删掉检查；应在设计阶段明确挂载点、访问权限和清理策略，再扩展契约与验证器。</p>
+<h3 id="wiki-h-19"><code>npm test</code> 失败，但契约验证通过</h3>
+<p>这两个检查回答不同问题。契约验证只检查 Loop 规则，<code>npm test</code> 检查被维护项目的基线。如果基线已失败，先修复环境或项目，不要让循环把旧错误当成 Agent 本轮造成的问题。</p>
+<h2 id="wiki-h-20">本篇留下了什么</h2>
+<p>现在，<code>issue-garden-lab/</code> 已经是一个带 Git 基线的独立实验项目。<code>loop.yaml</code> 明确了任务队列、单轮上限、资源预算、可写路径、受保护区域、外部验证、终态和幂等性目录；验证器能接受完整契约，也能在运行前拒绝危险缺口。</p>
+<p>下一篇，我们会实现第一个单轮 Runner。它仍然只使用确定性的模拟 Agent，但会真正完成一次“领取任务—启动运行—收集结果—验证—输出决策”的流程。到那时，<code>loop.yaml</code> 不再只是被单独检查的文件，而会开始控制程序行为。</p>
+</article>

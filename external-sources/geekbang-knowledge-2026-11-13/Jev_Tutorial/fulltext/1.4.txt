@@ -1,0 +1,286 @@
+预计阅读时间：35～45 分钟
+本篇目标：分清 Choice、Score 和 Noul 各自解决什么问题，并能把一个模糊需求拆成适合 Jev 判断的原子问题。
+
+上一篇里，我们用同一条留言同时试了三种问题。代码虽然跑通了，但真正决定判断质量的，并不是会不会调用 system_one()，而是你有没有选对问题类型、写清判断标准。
+
+Jev 不接收一句宽泛的“帮我分析这条消息”，而是要求我们明确：到底要它做选择、打分，还是判断一件事是否成立。这个限制看起来有些不自由，却正是 Jev 能被普通代码稳定消费的原因。
+
+本文核对日期为 2026 年 9 月 23 日。接口细节请以官方的 Primitives、Choice、Score 和 Noul 文档为准。
+
+先用一句话分清三种原语
+
+面对一个判断需求，可以先问自己三个问题：
+
+你真正想知道什么	应使用的原语	典型问题
+它属于哪一种	Choice	这条留言主要在说账单、技术问题还是账号问题？
+它处于哪个有顺序的位置	Score	这件事有多紧急？
+某个命题是否成立	Noul	对方是否明确要求我采取行动？
+
+三者最容易混淆的地方，是同一个业务问题往往可以被写成不同形式。例如，“这条消息紧不紧急”既可以写成二选一，也可以写成三级评分。但它们返回的信息量并不相同：
+
+如果后续只有“进入普通队列”和“进入紧急队列”两个动作，Noul 往往够用；
+如果后续要区分低、中、高三个优先级，就用 Score；
+如果“紧急”只是多种处理类型中的一种，则更像 Choice。
+
+不要先挑一个看起来顺手的 API，再把业务问题硬塞进去。先看后续代码需要哪一种结构化结果。
+
+Choice：从一组明确选项中做选择
+
+Choice 适合互相区分的离散类别。它会返回三个值得关注的字段：
+
+choice：最可能的选项；
+probabilities：每个选项各自的概率；
+confidence：模型对这次选择的总体信心。
+
+上一篇的留言分类就是一个典型例子：
+
+Choice(
+    instructions="What is the main topic of `message`?",
+    criteria={
+        "billing": "Charges, invoices, payments, or refunds.",
+        "technical": "A product feature is broken or unavailable.",
+        "account": "Login, profile, or account access.",
+        "other": "None of the other options fits.",
+    },
+)
+
+
+这里有两个细节。
+
+第一，键名是给代码看的，描述才是给模型判断用的。billing、technical 这些短名字应该稳定、便于程序处理；真正的分类边界要写在后面的描述中。不要只写：
+
+criteria={
+    "billing": "Billing",
+    "technical": "Technical",
+}
+
+
+这样的描述只是重复标签，没有解释两类的边界。
+
+第二，如果现实中的情况不一定能被现有类别完整覆盖，就要提供 other 或 none。否则，模型即使认为所有选项都不合适，也只能被迫挑一个“最不离谱”的答案。
+
+让类别尽量互斥
+
+假设你要判断一条留言来自“客户”“朋友”还是“紧急联系人”，这三个选项并不互斥：朋友也可能是紧急联系人。更合理的拆法是：
+
+用 Choice 判断关系类型：家人、朋友、同事、服务机构、其他；
+再用 Noul 判断：这是否是一位需要优先响应的联系人。
+
+一个 Choice 最好只回答一个维度。类别边界越清楚，返回的概率分布才越有解释价值。
+
+Score：在有顺序的描述之间评分
+
+Score 适合有高低、轻重或先后顺序的判断。它的 criteria 是一个按顺序排列的列表：
+
+Score(
+    instructions="How urgent is the situation described in `message`?",
+    criteria=[
+        "No time pressure is expressed.",
+        "A reasonably prompt response would be helpful.",
+        "Immediate harm or a strict deadline is described.",
+    ],
+)
+
+
+三个等级对应的位置是 0、1、2，但返回的 score 不一定是整数。假如模型认为某条消息有六成接近等级 1、四成接近等级 2，最终分数可能落在 1 和 2 之间。这不是异常，而是概率加权后的结果。
+
+因此，1.4 不应被读成“模型偷偷创造了第四个等级”，它只是说明这条消息位于两个描述之间。业务代码可以再决定：1.5 以上是否进入高优先级队列。
+
+写“可观察情形”，不要只写程度词
+
+下面这种等级很常见，但不够好：
+
+criteria=["Low", "Medium", "High"]
+
+
+“低、中、高”的含义完全依赖每个人的直觉。更好的写法是描述可以从消息中观察到的情况：
+
+没有表达时间压力；
+希望尽快处理，但没有明确截止时间或损失；
+存在明确截止时间、正在发生的损失或安全风险。
+
+此外，一个 Score 只衡量一个维度。不要把“紧急且重要”合在同一组等级里，否则一件“不紧急但很重要”的事情没有合适位置。应分别设计 urgency 和 importance，再由代码组合。
+
+官方当前允许 2～10 个等级。等级并不是越多越精确：如果相邻描述没有清楚区别，增加等级只会制造虚假的精细感。
+
+Noul：判断一个命题是否成立
+
+Noul 可以把它理解成“带概率的是否判断”：
+
+Noul(
+    instructions="Does `message` explicitly ask the recipient to take an action?",
+)
+
+
+返回的 noul 在 0 到 1 之间：越接近 1，越倾向于“是”；越接近 0，越倾向于“否”。它没有单独的 confidence 字段，因为这个概率本身就表达了对两种答案的倾向。
+
+最容易误读的是 0.5。它并不表示“对方提出了一半的请求”，而是模型无法明确判断命题为真还是为假。比如：
+
+有空的时候帮我看一下也行，我还没想好要不要现在处理。
+
+
+这句话对“是否明确要求收件人采取行动”来说就可能处于中间地带。后续不应该武断地把它解释为“中等程度的行动请求”，而应把它当成不确定判断。
+
+如果简单的一句话不足以说明正反边界，可以补充 NoulCriteria：
+
+from typesafe_sdk import Noul, NoulCriteria
+
+Noul(
+    instructions="Does `message` explicitly ask the recipient to take an action?",
+    criteria=NoulCriteria(
+        true=(
+            "The sender directly asks the recipient to reply, check, send, "
+            "change, schedule, or complete something."
+        ),
+        false=(
+            "The message only shares information, emotion, or status and does "
+            "not request an action."
+        ),
+    ),
+)
+
+
+至于 0.6 能不能算“是”，并没有通用答案。如果误判为“是”只会多显示一个提醒，阈值可以相对宽松；如果误判会触发付款、删文件或对外发送消息，就不能只靠一个较低阈值自动执行。第 6 篇会专门处理这个问题。
+
+问题说明必须自包含
+
+在 questions 字典中，category、urgency 这样的 ID 只用于代码索引，不会代替问题说明告诉模型“你想判断什么”。所以这段写法有问题：
+
+questions = {
+    "urgency": Score(
+        instructions="Evaluate it.",
+        criteria=["Low", "Medium", "High"],
+    )
+}
+
+
+模型看见的不是你的变量命名习惯。应该明确写出：判断对象是什么、判断维度是什么、各等级如何区分。
+
+同一次请求中的多个问题会共享同一份 state，但各自独立判断。不要让第二个问题依赖第一个问题的答案，例如：
+
+如果上一个问题选了 billing，再判断是否退款。
+
+
+正确做法是让每个问题都能只根据 state 独立回答；如果确实存在先后依赖，就分成两次调用，或者先用普通代码组织流程。
+
+做一个三原语实验台
+
+在课程项目目录中新建 primitives_lab.py：
+
+from typesafe_sdk import Choice, Noul, NoulCriteria, Score, TypeSafeClient
+
+
+MESSAGES = [
+    "The app crashes every time I upload a photo.",
+    "Could you send me the revised itinerary before 3 PM today?",
+    "I enjoyed the workshop. No reply needed.",
+    "I am not sure who handles this, but something seems wrong.",
+]
+
+QUESTIONS = {
+    "category": Choice(
+        instructions="What is the main topic of `message`?",
+        criteria={
+            "billing": "Charges, invoices, payments, refunds, or subscriptions.",
+            "technical": "Software or hardware is broken or unavailable.",
+            "scheduling": "Dates, times, appointments, or travel plans.",
+            "feedback": "An opinion or experience without a concrete request.",
+            "other": "None of the other options clearly fits.",
+        },
+    ),
+    "urgency": Score(
+        instructions="How urgent is the situation in `message`?",
+        criteria=[
+            "No time pressure or active harm is expressed.",
+            "A prompt response would help, but no strict deadline or active harm exists.",
+            "A strict deadline, ongoing loss, or immediate harm is described.",
+        ],
+    ),
+    "action_requested": Noul(
+        instructions="Does `message` explicitly ask the recipient to take an action?",
+        criteria=NoulCriteria(
+            true="The sender directly asks the recipient to do or provide something.",
+            false="The sender only shares information, emotion, or status.",
+        ),
+    ),
+}
+
+
+def evaluate(client: TypeSafeClient, message: str) -> None:
+    response = client.system_one(
+        state={"message": message},
+        questions=QUESTIONS,
+    )
+
+    category = response.answers["category"]
+    urgency = response.answers["urgency"]
+    action_requested = response.answers["action_requested"]
+
+    assert category.choice in {
+        "billing", "technical", "scheduling", "feedback", "other"
+    }
+    assert 0 <= urgency.score <= 2
+    assert 0 <= action_requested.noul <= 1
+
+    print(f"\nMessage: {message}")
+    print("  category:", category.choice)
+    print("  category probabilities:", category.probabilities)
+    print("  category confidence:", category.confidence)
+    print("  urgency:", urgency.score)
+    print("  urgency confidence:", urgency.confidence)
+    print("  action requested:", action_requested.noul)
+
+
+with TypeSafeClient() as client:
+    for item in MESSAGES:
+        evaluate(client, item)
+
+
+运行方式与上一篇相同。
+
+macOS 或 Linux：
+
+python primitives_lab.py
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe primitives_lab.py
+
+
+你不需要得到与别人完全相同的小数。请逐条观察：
+
+明确的技术故障是否倾向于 technical；
+带有具体截止时间的消息，紧急分数是否高于普通反馈；
+“No reply needed”是否让 action_requested 更接近 0；
+模糊消息的概率是否更分散、置信度是否更低。
+
+第四条尤其重要。概率分布不是为了装饰输出，它能提醒你：虽然 choice 必须给出一个第一名，但第一名未必赢得很明显。
+
+故意改坏一次，体会边界
+
+把 category 暂时改成下面这组类别：
+
+criteria={
+    "work": "Work-related.",
+    "important": "Important.",
+    "urgent": "Urgent.",
+}
+
+
+再次运行实验台。你会发现这三个选项可以同时成立，它们其实分别描述主题、重要性和紧迫性。无论模型选哪一个，后续程序都很难解释。
+
+做完实验后把它恢复。这个小练习比记住一串“提示词技巧”更有用：Jev 的问题设计，本质上是在设计程序可以依赖的数据类型。
+
+完成本篇的验收
+
+确认你已经做到：
+
+能用一句话说明 Choice、Score、Noul 的区别；
+知道 Choice 需要清楚、尽量互斥的选项，并在必要时保留 other；
+知道 Score 的等级必须有顺序，返回值可以是小数；
+不会把 Noul 的 0.5 解释成“中等程度”；
+能读出概率和置信度，而不是只拿最终标签；
+已运行 primitives_lab.py，并比较过至少四条不同消息。
+
+下一篇，我们不再停留在实验脚本里。会把三种判断放进一个完整的小项目：从 JSON 文件读取个人留言，交给 Jev 判断，再由普通 Python 代码生成可供处理的收件箱结果。

@@ -1,0 +1,241 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你准备检查笔记助手的下一次迭代。历史搜索需要核对“第51条记录”这样的边界，复习资料导出需要检查卡片、引用与文件内容。两件事都重要，但搜索检查不必等待导出结果，导出也不需要先知道搜索是否通过。</p>
+<p>这时，分给两个助手似乎很自然。可如果它们同时修改 <code>storage.py</code>，或者都把结果写进同一个 <code>report.json</code>，省下的等待时间很快就会变成排查时间：到底检查了哪个版本？后写入的结果有没有盖掉前一个？谁负责判断整个任务完成？</p>
+<p>上一篇解决了“另一个会话怎样接着干”。这一篇解决“两个工作者怎样同时干”。我们先用可运行的离线实验观察分工与集成，再把这些规则用到 Kimi Code。你不需要为实验开通模型服务。</p>
+<h2 id="wiki-h-0">先区分多 Agent 与并行</h2>
+<p>多 Agent 指多个具有各自任务和上下文的模型助手参与工作；并行指多个工作在时间上重叠。两者可以结合，也可以分开：一个主助手先让审查助手返回意见，再自己修改，是多 Agent 协作，但主要步骤仍然串行；同时跑两个固定测试脚本，则有并行，却没有模型助手。</p>
+<p>本篇配套实验属于后一种。代码是作者参考实现，两个工作项实际运行 Python 子进程，既不冒充 Kimi 的生成记录，也不把普通脚本包装成“自主智能体”。这样做，是为了让你先看清版本、目录、交付和验收这些可以检查的事实。</p>
+<p>当前项目保留第三部分以来的分工：笔记助手在线运行时仍使用 DeepSeek 官方 API，Kimi Code 用来辅助开发。增加开发助手数量，不会自动改变应用的模型供应商。</p>
+<h2 id="wiki-h-1">先画依赖，再决定人数</h2>
+<p>本轮的目标是“在同一个正确版本上，完成搜索边界与导出产物的机械检查”。它的依赖关系如下：</p>
+<pre><code class="hljs language-text">确认输入版本，创建本次运行目录
+               │
+       ┌───────┴────────┐
+       │                │
+A：搜索边界测试     B：导出复习资料
+       │                │
+       │            验证导出产物
+       │                │
+       └───────┬────────┘
+               │
+    收齐证据，复核版本，判断整轮状态
+               │
+          人工核对语义
+</code></pre><p>A 与 B 可以同时开始，B 内部却必须先导出、后验证。把所有箭头都去掉并不会更快，只会让验证器读到尚未生成的文件。</p>
+<p>判断能否拆分，可以先问三个具体问题：这个工作项是否需要另一个工作项尚未产出的结果？是否会修改同一份状态？完成后能否用清楚的接口交回结果？</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>项目中的情况</th>
+<th>更合适的安排</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>搜索测试与固定导出检查</td>
+<td>有限并行</td>
+<td>输入已确定，输出可分开</td>
+</tr>
+<tr>
+<td>两人同时修改搜索函数</td>
+<td>先确定唯一负责人</td>
+<td>共享修改容易覆盖，测试版本难确认</td>
+</tr>
+<tr>
+<td>改数据库字段，再改依赖字段的页面</td>
+<td>先定接口，再按依赖推进</td>
+<td>下游不能猜上游最后会采用哪个字段</td>
+</tr>
+<tr>
+<td>从功能和权限两个角度只读审查同一差异</td>
+<td>可以并行</td>
+<td>可以共享读取，但意见仍需统一核对</td>
+</tr>
+<tr>
+<td>修复一个明显拼写错误</td>
+<td>单助手串行</td>
+<td>分派和收集可能比修改本身还费事</td>
+</tr>
+</tbody></table></div>
+<p>这些是本项目的安排建议，不是“复杂任务必须多 Agent”的定律。任务边界越模糊，增加助手越容易放大模糊。</p>
+<h2 id="wiki-h-2">起点：使用本篇独立快照</h2>
+<p>下载完整练习包，解压到新的练习目录。也可以查看材料说明。使用 Python 3.11 或更高版本；本篇只需要标准库，不安装 SDK、不配置 Key。</p>
+<p>所有命令都在解压后的 <code>lesson-16</code> 目录运行，不是在内层 <code>project</code> 中。先确认这里有 <code>parallel_lab.py</code>、<code>verify_parallel.py</code> 和 <code>project</code>。项目的38个交付文件与第15篇相同，搜索功能已经正确实现。</p>
+<p>不要覆盖自己原来的项目、Git 历史或运行数据。快照内也保留了前几篇的 Harness、Loop 和接手工具，供对照阅读；本次只运行下面的新实验。第15篇的接手脚本仍要求单人串行，本篇不会自动让它具备并发能力。</p>
+<p>使用前先看当前任务。它把职责写成了可以执行的规则：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>角色</th>
+<th>负责什么</th>
+<th>可以写哪里</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>协调器</td>
+<td>记录输入、分派、等候、汇总</td>
+<td>新运行目录的 <code>context.json</code>、<code>integration.json</code>，并创建子目录</td>
+</tr>
+<tr>
+<td>A：<code>search</code></td>
+<td>运行四项搜索边界测试</td>
+<td>本次 <code>search</code> 目录；测试另有自己的临时 SQLite</td>
+</tr>
+<tr>
+<td>B：<code>export</code></td>
+<td>导出三张样例卡片，再验证</td>
+<td>本次 <code>export</code> 目录，包括 <code>artifact</code></td>
+</tr>
+</tbody></table></div>
+<p>共享源码只读。每个工作项都知道自己的输出位置，协调器承担最终集成责任。</p>
+<p>这里的文件归属由可信脚本实现，也要求操作者遵守；目录划分不是操作系统沙箱。运行期间不要编辑输入，也不要让另一个工具修改同一工作区。开始和结束时核对指纹，可以发现最终版本变化，却不能证明运行中从未发生过“修改后又改回来”。</p>
+<h2 id="wiki-h-3">运行一次正常并行</h2>
+<p>macOS/Linux 终端执行：</p>
+<pre><code class="hljs language-bash">python3 parallel_lab.py --run parallel-01
+python3 verify_parallel.py --run parallel-01
+</code></pre><p>Windows PowerShell 执行：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> parallel_lab.py <span class="hljs-literal">--run</span> parallel<span class="hljs-literal">-01</span>
+py <span class="hljs-literal">-3</span> verify_parallel.py <span class="hljs-literal">--run</span> parallel<span class="hljs-literal">-01</span>
+</code></pre><p>后续命令继续以 <code>python3</code> 展示；Windows 使用同样的参数，将解释器替换为 <code>py -3</code>。每次尝试使用新名称；已有目录会被拒绝覆盖。</p>
+<p>第一条命令正常输出如下。JSON 会显示在一行，这里仅为阅读排版：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"mode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"offline_script_workers"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"schedule"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"parallel"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"fixture"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"valid"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"worker_limit"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"needs_review"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"inputs_unchanged"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"workers"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-attr">"search"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"passed"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"export"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"passed"</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"commands_executed"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"actual_api_calls"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>两个工作项为什么执行了三条命令？A 运行一次搜索测试；B 先运行导出器，再运行导出验证器。工作项数量、命令数量和模型请求数量是三种不同的统计，不能混在一起。</p>
+<p>第二条命令应输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"result"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"workers_checked"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"needs_review"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">}</span>
+</code></pre><p><code>needs_review</code> 表示本轮机械检查已满足要求，还有人工语义核对。<code>pending</code> 没有因为工作者变多就消失。固定样例的引用和文件结构通过，不代表真实模型面对任意笔记都能答对。</p>
+<p>打开 <code>parallel-runs/parallel-01</code>，你会看到：</p>
+<pre><code class="hljs language-text">context.json                 本轮输入指纹
+search/
+  result.json                A的结果和命令回执
+  search.stdout.log
+  search.stderr.log          unittest四项结果
+export/
+  result.json                B的结果和两条命令回执
+  export.stdout.log
+  export.stderr.log
+  verify.stdout.log
+  verify.stderr.log
+  artifact/
+    review.md
+    manifest.json
+integration.json             协调器最后形成的结论
+</code></pre><p>先看 <code>search/search.stderr.log</code>：应包含四项测试、<code>Ran 4 tests</code> 和末尾的 <code>OK</code>。测试覆盖空历史、恰好50个命中、51个命中、位于旧记录中的唯一命中。正常的测试报告写在 stderr 并不等于失败，要结合退出码和测试结果判断。</p>
+<p>再打开 <code>export/artifact/review.md</code>，检查三张卡片及“作者构造的固定样例”“语义审核：待人工核对”等标记。没有 Key 也能完成，是因为它读取教学样例，而没有现场生成模型答案。</p>
+<h2 id="wiki-h-4">收到“完成”以后，协调器还要检查什么</h2>
+<p>每个 <code>result.json</code> 都包含工作项身份、输入指纹、命令参数、退出码及日志指纹。这里的“交付接口”就是双方事先约定的这些字段及产物位置，不必一开始就搭建消息队列。</p>
+<p>本课有两层检查。<code>parallel_lab.py</code> 等待两个工作项结束，确认返回状态和输入前后指纹，再写汇总；<code>verify_parallel.py</code> 则从文件重新核对证据，没有导入协调器的完成判断逻辑。它会检查工作项是否齐全、身份是否正确、命令顺序和退出码是否符合预期、日志是否匹配，并重新检验真实导出文件。</p>
+<p>因此，“汇总里有一个绿色字段”还不够。缺失导出文件时，整套证据仍然不合格。</p>
+<p>验证器检查的是本地教学记录的一致性。哈希可以帮助发现改动，不是数字签名；能同时改源码、日志和回执的人也可能伪造一整套材料。它不证明模型回答质量，更不是对恶意助手的隔离机制。</p>
+<p>如果迁移到真实开发任务，协调者还要看最终差异：A 修了一个函数，B 的测试却基于旧函数运行，即使两份报告都说通过，也不能推导出集成后的版本通过。把改动组合起来以后，必须针对组合后的状态运行相关检查。</p>
+<h2 id="wiki-h-5">故意让一个工作项失败</h2>
+<p>执行新的反例：</p>
+<pre><code class="hljs language-bash">python3 parallel_lab.py --run failed-01 --fixture bad-quote
+python3 verify_parallel.py --run failed-01
+</code></pre><p>第一条命令退出码为1。摘要中的关键字段应为：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"blocked"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"workers"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-attr">"search"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"passed"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"export"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"failed"</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"commands_executed"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"actual_api_calls"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>这是特意选择的错误引文样例。导出器会拒绝不在对应笔记原文中的引用，B 不再执行下一步验证，也不生成完整产物目录。A 仍然完成搜索检查；失败不会抹掉已经取得的另一份证据。</p>
+<p>第二条命令同样应退出1，拒绝把反例当作一次完成的正常运行。要查看上一条退出码，macOS/Linux 使用 <code>echo $?</code>，PowerShell 使用 <code>$LASTEXITCODE</code>；必须紧接需要检查的命令查看。</p>
+<p>读 <code>export/export.stderr.log</code>，定位具体引用错误。这里不需要重跑已经通过的搜索，也不应该为了获得“全绿”放宽引文规则。真实任务中，先确认导出失败的原因和修复范围，再决定开启新一轮工作。</p>
+<p>本实验选择“让另一项独立工作收尾，再汇总阻塞”。如果两项会产生相互依赖的外部副作用，这个策略就不一定适合。取消一个等待中的任务，也不等于撤销已经执行的写入；退出或超时后都要依据实际现场判断。</p>
+<h2 id="wiki-h-6">实现里真正限制了什么</h2>
+<p>可以打开协调器源码，找到这段：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">with</span> ThreadPoolExecutor(max_workers=<span class="hljs-number">2</span>) <span class="hljs-keyword">as</span> pool:
+    jobs = [pool.submit(worker, n, run, fixture, baseline)
+            <span class="hljs-keyword">for</span> n <span class="hljs-keyword">in</span> (<span class="hljs-string">'search'</span>, <span class="hljs-string">'export'</span>)]
+    results = [job.result() <span class="hljs-keyword">for</span> job <span class="hljs-keyword">in</span> jobs]
+</code></pre><p>两个任务先提交，然后收集结果。代码没有“提交A、等A完成、再提交B”。线程在这里主要负责等候各自的 Python 子进程；它不意味着给同一个模型开两个思考线程。<a href="https://docs.python.org/3.11/library/concurrent.futures.html">Python 的执行器文档</a>说明了工作线程上限与等待结束的行为。</p>
+<p>固定工作项最多两个，正常最多三条子命令，没有递归分派，没有失败重试。每条子命令设置30秒超时；超时会阻止该工作项继续。这不是整轮严格30秒的承诺：B 有顺序步骤，启动和收尾也需要时间。当前子命令不再创建进程树；不要直接把此超时处理当成任意外部工具的全进程清理方案。<a href="https://docs.python.org/3.11/library/subprocess.html">Python subprocess 文档</a>说明了 <code>run</code> 的超时与子进程处理范围。</p>
+<p>如果进程被中断、磁盘写入失败，可能只留下部分记录，没有 <code>integration.json</code>。缺失最终记录就没有完整完成证据。本脚本不负责自动续跑；保留现场，确认旧进程结束，再按第15篇的方法判断下一步。</p>
+<p>还可以用新名称改为串行：</p>
+<pre><code class="hljs language-bash">python3 parallel_lab.py --run serial-01 --serial
+python3 verify_parallel.py --run serial-01
+</code></pre><p>正常业务结果应一致，<code>schedule</code> 变成 <code>serial</code>。这组任务很小，进程启动和协调本身可能占去不少时间，作者没有据此给出加速倍数。选择并行要看真实任务耗时和协调成本，而不是看屏幕上出现几个工作者。</p>
+<h2 id="wiki-h-7">在 Kimi Code 中试一次受限的分工</h2>
+<p>截至2026年10月4日，官方文档区分主 Agent 与子 Agent：子 Agent 使用独立上下文，任务描述需要明确传入；<code>explore</code> 用于只读探索，<code>coder</code> 可以执行开发操作，<code>plan</code> 侧重规划。子 Agent 会独立消耗模型 token。具体能力与权限以安装版本为准。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/agents.html">Kimi Code 的 Agent 文档</a></p>
+<p>本机只核实了 <code>kimi --version</code> 为2.0.2及帮助信息，没有实际发起这段练习。以下是给读者选择的开发服务操作，会消耗 Kimi 服务额度；它不需要调用笔记助手的 DeepSeek API。</p>
+<p>如果你已有可用的 Kimi Code，在本篇目录先执行：</p>
+<pre><code class="hljs language-bash">kimi --version
+kimi --<span class="hljs-built_in">help</span>
+kimi --plan
+</code></pre><p>帮助中应有 <code>--plan</code>。它让会话先从计划开始，本课先讨论如何分派，不据此承诺任何版本都完全不能写文件。向主助手提供下面的任务，再查看它提出的安排：</p>
+<pre><code class="hljs language-text">当前只做第16篇的只读审查。先读AGENTS.md和docs/parallel/TASK.md。
+请先给出分工方案，不立刻执行。拟使用最多两个explore子Agent：
+
+A：读docs/specs/search.md、project/storage.py、verify_search_boundary.py，
+核对“先过滤全部历史再取50条”的规格、实现与测试预期。
+
+B：读export_review.py、verify_export.py、project/study_task.py、
+project/fixtures/valid.json，核对导出与独立验证之间的对应关系。
+
+给每个子Agent完整的文件路径、单一问题和只读约束，
+不要假定它们看得到本会话前面的讨论。
+两项都不得写文件、执行shell、调用应用模型或继续转派。
+每项只返回：结论、代码依据、尚未验证的事项。
+主会话负责核对冲突，不把静态阅读写成测试已经通过。
+完成这一轮后停止，不自行开始修复。
+</code></pre><p>注意这里使用的是 <code>docs/specs/search.md</code>，不是旧归档规格。先核对工作卡中的路径是否存在，再决定是否让主助手按方案分派。不要把旧会话的默认任务混进来。</p>
+<p>若方案符合范围，可以继续发：“按上述两项只读任务执行，收齐后汇总，保持全部限制。”这一步才是实际模型协作。返回后，把其判断与前面的本地命令结果比较：阅读发现“测试缺少某个边界”，不等于现有测试失败；运行通过，也不能自动反驳它指出的未覆盖场景。</p>
+<p><code>--agent</code> 在本机帮助中用于选择新会话的主 Agent 配置，不是“开几个助手”的数量开关。本课通过任务说明限制分派范围，不发明一个 <code>--agents 2</code> 参数。若你安装的版本没有文档描述的子 Agent 行为，保留同样的工作卡，由一个主助手分两次审查也能练习接口与验收。</p>
+<h2 id="wiki-h-8">真正并行修改代码，还要多一道隔离</h2>
+<p>本课特意从共享只读输入开始。如果今后让两个助手改代码，仅给它们起不同名字远远不够。</p>
+<p>至少应先确定文件负责人和公共接口，让每个助手在自己的工作副本中修改。可以用独立副本或 Git worktree 承载不同分支；仅在同一目录创建两个分支名，并不会得到两份可同时修改的磁盘文件。临时数据库、端口和测试输出也要分开，不能只隔离源码。<a href="https://git-scm.com/docs/git-worktree">Git 官方文档</a>介绍了同一仓库下多个工作树的机制。</p>
+<p>假设 A 改导出返回结构，B 改页面消费这个结构，双方必须先约定字段及错误行为；或者先让 A 完成，再让 B 跟进。协调者按依赖顺序集成，查看冲突与最终差异，再运行组合版本的相关测试。两个助手对各自副本都说“完成”，还只是两份局部交付。</p>
+<p>也不要把多数投票当成事实验证。三个助手读了同一份过时规格，完全可能得出同一个错误结论。意见分歧应回到规格、源码、可复现输入和实验结果，而不是按票数决定业务行为。</p>
+<h2 id="wiki-h-9">成本应该算整轮</h2>
+<p>并行可能缩短等待，但通常仍要支付两份输入和输出，以及主助手分派、阅读、核对结果的成本。独立上下文能隔开讨论，也意味着必要材料可能被重复传入。</p>
+<p>比较方案时至少记录完成时间、总用量、集成返工和结果质量。两项各需要十分钟的工作，在没有依赖、资源充足时，核心执行时间可以重叠；但加上分派和集成，不应把总耗时直接承诺为十分钟。这只是估算思路，不是本课测速结果。</p>
+<p>给自己的第一次模型协作定一个小范围：最多两个子任务，每项一个明确问题，只返回必要证据，禁止自行扩大任务，遇到缺信息就报告，主助手汇总一轮后停止。先从服务界面确认自己的可用额度；人数上限只是结构约束，不是金额硬上限。</p>
+<p>配套分工工作卡可以用于下一次任务。若你填不出“允许写哪里”或“完成后交什么”，先完善任务，再增加助手。</p>
+<h2 id="wiki-h-10">卡住时按证据查</h2>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>检查与处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>提示运行目录已存在</td>
+<td>使用新名称，不删旧证据后假装首次执行</td>
+</tr>
+<tr>
+<td>A 通过、B 失败</td>
+<td>看B的第一条失败回执与日志；整轮保持阻塞</td>
+</tr>
+<tr>
+<td>汇总正常、独立验证失败</td>
+<td>检查缺失文件、输入指纹、工作项身份与日志；不要只改状态字段</td>
+</tr>
+<tr>
+<td>超时或没有最终汇总</td>
+<td>保留现场，确认进程结束；不假定已经回滚或可以盲目重放</td>
+</tr>
+<tr>
+<td>Kimi 返回了源码分析，但没有测试记录</td>
+<td>如实记为静态审查，另运行本地验证</td>
+</tr>
+<tr>
+<td>并行没有更快</td>
+<td>检查任务是否太小、存在隐藏依赖或共享资源竞争，必要时回到串行</td>
+</tr>
+</tbody></table></div>
+<p>作者实际在 macOS、Python 3.11 环境运行了并行、串行、错误引文和多种证据损坏检查；还通过同步屏障确认两个工作函数可以同时处于执行状态。超时分支和执行期间的版本变化使用了测试注入，没有冒称真实服务故障。没有做真实 Kimi/DeepSeek 请求、Windows 实机或性能基准测试。</p>
+<p>现在试着回答：A 的检查通过，B 的产物丢了，能不能交付？不能。两个助手都分析出了同一问题，是否已经证明问题存在？还需要代码或实验依据。两项都通过以后，是否可以跳过人工语义核对？本轮仍然是 <code>pending</code>。</p>
+<p>本篇结束时，业务源码保持原来的正确状态，你新增的是一套能分工、收证据和拒绝虚假完成的工作方式。下一篇会把视角移到集成之后：怎样把验证过的修改整理成可以交付、检查兼容性并在必要时回滚的版本。</p>
+</article>

@@ -1,0 +1,26 @@
+4.1 准备一个独立副本
+
+安装 Python 3.10+ 和 Git，确认 python --version（macOS/Linux 可用 python3）和 git --version。把 materials-cbc/01-legacy-repo 复制到新的 playground/legacy-repo，后面的命令在该副本根目录执行。目录已有文件时另取名字，不覆盖。git init -b main 后先检查 git status，再 git add main.py 并提交初始快照；Git 要求身份时先配置自己的 user.name 和 user.email。
+
+这份素材只有 main.py，使用 Python 标准库，没有 Flask，也不需要 pip install。它故意把端口保存成字符串。
+
+4.2 先复现，再交给助手
+
+运行 python main.py，应在绑定端口时出现类型错误。保留完整错误、Python 版本和运行目录。让 CodeBuddy 先读取源码，说明启动入口、HTTP 路由和错误触发位置，暂不修改。检查它是否指向 HTTPServer 的端口类型，而不是建议安装无关依赖。
+
+4.3 一次只修启动问题
+
+创建 docs/onboarding 分支，请它只修端口类型并补 README：启动命令、默认端口、健康检查、停止方式。退出 Plan 模式后才执行。不要同时重构路由或升级依赖。
+
+启动修复后的服务，另开终端执行：
+
+python -c "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:5000/health',timeout=5); print(r.status,r.read().decode())"
+
+
+应为 HTTP 200，JSON 中 status 为 ok。服务终端 Ctrl+C 停止；5000 被占用时先识别占用进程，或明确同时修改启动端口和检查地址。
+
+4.4 验收并交接
+
+运行 git status --short --untracked-files=all 和 git diff，确认仅有端口修复与 README；复核 README 命令可以从新终端运行，再提交。记录：原错误、根因、改动、验证输出。不能仅凭助手说“启动成功”验收。
+
+下一章使用另一个独立项目 02-billkit，不在本目录继续加账单逻辑。

@@ -1,0 +1,198 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>本文属于《DeepSeek Harness 入门教程（实战版）》· 第四部分 · 沿着项目掌握核心能力</p>
+</blockquote>
+<h1>第 14 章　案例五：让 Agent 持续推进一个长目标</h1>
+<p>上一章的两个子智能体适合同时完成两项独立审查。如果任务不是“分给两个人”，而是“同一个 Agent 要经过实现、测试、文档和验收，可能一轮做不完”，更合适的机制是 <strong>Goal（目标）</strong>。</p>
+<p>本章会给日报助手增加一个离线配置检查命令 <code>npm run check</code>。它需要改 CLI、补测试、更新文档并完成最终验收，规模足以观察 Goal 如何跨 Round（轮次）继续，又不会大到失去控制。</p>
+<p>完成后，你应该能做到：</p>
+<ul>
+<li>创建一个带明确边界和 Round 上限的 Goal；</li>
+<li>从界面或 <code>/goal</code> 查看真实状态，暂停并由用户恢复；</li>
+<li>分清 Goal、后台任务、定时任务和普通长提示词；</li>
+<li>用系统终端独立验收 Agent 的成果，而不是看到 <code>complete</code> 就算完成。</li>
+</ul>
+<h2 id="wiki-h-0">14.1 Goal 到底保存了什么</h2>
+<p>Goal 不是一个“更努力地回答”的提示词。DSH 会在当前 Session 中持久保存一项目标，以及它的阶段、修订号、已经开始的 Round 数和上限。配套的续行驱动器会在 Agent 空闲、目标仍为 active、续行已启用且还有 Round 额度时，再发起下一轮推进。</p>
+<p>可以把它理解为：</p>
+<pre><code class="hljs language-text">持久目标状态 + 顺序续行的多个模型轮次
+</code></pre><p>它不等于下面几件事：</p>
+<ul>
+<li><strong>不是后台进程</strong>：每个 Goal Round 仍在同一 Agent 会话中依次执行；</li>
+<li><strong>不是定时任务</strong>：它不会约定“明早八点再做”，定时能力在后面的章节介绍；</li>
+<li><strong>不是并行执行</strong>：要把独立任务同时扇出，应使用上一章的 Subagent 或 Workflow；</li>
+<li><strong>不是权限豁免</strong>：文件、Shell、网络和审批仍受当前 Session 权限约束；</li>
+<li><strong>不是完成证明</strong>：模型可以标记完成，但你仍需独立运行测试和检查产物。</li>
+</ul>
+<p>官方 Goal 服务每个 Session 只保留一个当前目标。目标状态可以跨恢复和进程重启保留，但自动续行的启用状态不会悄悄复活；恢复会话后，需要用户显式恢复才继续。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/goal/goal/README.zh.md">官方 Goal 服务说明</a></p>
+<h2 id="wiki-h-1">14.2 确认项目起点</h2>
+<p>回到 <code>daily-report</code> 工作区。本章假设第 13 章已经生成 <code>AUDIT.md</code>，但不会重复审查其中的问题，也不会使用第 12 章的 MCP 实验 Profile。</p>
+<p>先在系统终端进入项目目录，运行：</p>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+</code></pre><p>测试应全部通过。再确认当前还没有 <code>check</code> 脚本：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"const p=require('./package.json'); console.log(p.scripts?.check ?? 'check script not created')"</span>
+</code></pre><p>预期看到：</p>
+<pre><code class="hljs language-text">check script not created
+</code></pre><p>如果已经存在，请先打开 <code>package.json</code> 核对来源。本章的目标不是覆盖你已有的同名能力。</p>
+<p>接着记录现有日报文件的哈希，稍后用它证明离线检查没有重写报告。</p>
+<p>macOS、Linux 与 Windows PowerShell 都可执行：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"const fs=require('node:fs'),c=require('node:crypto'); const p='daily-report.md'; console.log(c.createHash('sha256').update(fs.readFileSync(p)).digest('hex'))"</span>
+</code></pre><p>把这串值临时记在别处，不要写进项目文件。</p>
+<h2 id="wiki-h-2">14.3 选择一个适合 Goal 的任务</h2>
+<p>这次要做的不是“把项目全面优化一下”，而是一个边界清楚的完整能力：</p>
+<pre><code class="hljs language-text">npm run check
+  ├─ 只读取 sources.json
+  ├─ 按现有配置格式做离线校验
+  ├─ 有效时输出数据源数量并以 0 退出
+  ├─ 无效时给出可读错误并以非 0 退出
+  └─ 不访问网络，不修改 daily-report.md
+</code></pre><p>它适合 Goal，因为要跨越实现、失败路径测试、文档和验收几个阶段；它又足够聚焦，能够写出明确的“完成”标准。</p>
+<p>反过来，以下任务不值得创建 Goal：</p>
+<ul>
+<li>改一行文案；</li>
+<li>只解释一个错误；</li>
+<li>单次运行 <code>npm test</code>；</li>
+<li>等待一个后台下载结束。</li>
+</ul>
+<p>Goal 的判断标准不是“听起来很重要”，而是：<strong>一个明确结果是否很可能需要多个顺序轮次才能可靠完成。</strong></p>
+<h2 id="wiki-h-3">14.4 新建任务并确认 Goal 能力存在</h2>
+<p>在 <code>daily-report</code> 工作区新建一个<strong>标准模式</strong>任务，权限选择 <strong>Workspace Write（工作区内修改）</strong>。先输入：</p>
+<pre><code class="hljs language-text">/goal
+</code></pre><p>如果当前没有目标，界面会显示用法；这条命令直接由命令层处理，不消耗一次模型请求。Web 中的 Goal 状态条位于输入框上方的上下文区域，存在目标后会显示目标文本、阶段和可用操作。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/goal/command-goal/README.zh.md">官方 <code>/goal</code> 命令说明</a> · <a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-goal/README.zh.md">官方 Goal 界面说明</a></p>
+<p>如果 <code>/goal</code> 被当成普通聊天文字，先检查“设置 → 插件 → 插件列表”中的 Goal service、Goal tool、Goal round driver 和 Goal command 是否正常加载。极简模式不提供完整 Goal 体验，因此本章固定用标准模式。</p>
+<h2 id="wiki-h-4">14.5 创建一个有上限的真实 Goal</h2>
+<p><code>/goal &lt;objective&gt;</code> 可以直接创建目标，但会采用部署的默认 Round 上限。为了让练习成本可控，我们让模型显式调用 <code>create_goal</code>，并把上限设为 <code>8</code>。</p>
+<p>发送下面这条消息：</p>
+<pre><code class="hljs language-text">请调用 create_goal 创建一个长期目标，max_goal_rounds 设为 8。目标内容如下：
+
+为当前 daily-report 项目实现一个完全离线的配置健康检查命令 npm run check。
+
+完成标准：
+1. 先读取 PROJECT.md、README.md、package.json、sources.json、相关 src 和 test 文件，以现有配置格式为准，不猜字段；
+2. npm run check 只校验默认 sources.json，不访问 GitHub 或其他网络，不生成或修改 daily-report.md；
+3. 有效配置时打印明确成功信息和数据源数量，进程退出码为 0；
+4. 至少覆盖 JSON 语法错误、顶层类型错误、缺少当前实现所需字段三类失败，错误应可读且退出码非 0；
+5. 复用或抽取现有配置解析逻辑，避免 check 与 npm start 各维护一套冲突规则；
+6. 使用 node:test 和临时目录完成离线测试，不安装第三方依赖；
+7. 更新 README.md，说明用途、用法、成功与失败示例；
+8. 最终运行相关测试、npm test 和 npm run check，并重新核对 daily-report.md 未被修改。
+
+边界：
+- 不运行 npm start，不访问网络，不修改 sources.json；
+- 不处理 AUDIT.md 中与本目标无关的建议；
+- 不使用 Subagent、Workflow、后台 job 或 MCP；
+- 每轮以当前工作区和实际测试结果为准；
+- 只有所有完成标准都被实际验证后才能把目标标记为 complete；遇到需要我选择的行为时先暂停，不要自行扩大范围。
+</code></pre><p>执行轨迹中应出现 <code>create_goal</code>，返回状态里能看到目标为 active、Round 上限为 <code>8</code>、续行已启用。Goal 工具允许模型读取、创建和更新目标；模型自主标记 blocked 前，默认还要求同一阻塞条件持续多个 Round，避免第一次遇到困难就草率停工。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/goal/tool-goal/README.zh.md">官方 Goal 工具说明</a></p>
+<p>这里的 <code>8</code> 是<strong>最多允许的 Round 数</strong>，不是要求必须跑满 8 轮，也不是 token、时间或费用预算。任务两轮完成就应停止；把轮数跑满并不代表做得更好。</p>
+<h2 id="wiki-h-5">14.6 观察自动续行，而不是不停追加提示词</h2>
+<p>目标建立后，先不要连续发送“继续”。当当前轮结束且目标仍然 active 时，Goal round driver 会在 Agent 空闲后安排下一轮。每个被正式接纳的 Goal Round 才计入上限，普通的人类消息不计入。</p>
+<p>观察三个位置：</p>
+<ol>
+<li>输入框上方的 Goal 状态条是否仍显示 active；</li>
+<li>对话中是否出现新的 Goal Round 请求头，而不是你手动发送的“继续”；</li>
+<li><code>/goal</code> 输出中的 <code>roundsStarted</code> 是否递增，并且没有超过 <code>maxGoalRounds</code>。</li>
+</ol>
+<p>官方续行驱动器只在整个 Agent 处于 idle 时启动下一轮，并在 complete、paused、blocked、取消、插件卸载或轮数耗尽时停止。<a href="https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/goal/goal-round-driver/README.zh.md">官方 Goal Round Driver 说明</a></p>
+<p>实际轮数会受模型、项目结构和单轮输出长度影响。若 Agent 在一轮内完成全部工作并通过验证，它可以直接标记 complete；不要为了“看到多轮”而要求它把一个动作拆成几轮。反过来，如果每轮都重复运行同一条命令却没有新进展，应暂停检查，而不是让它继续消耗额度。</p>
+<h2 id="wiki-h-6">14.7 练习一次暂停与恢复</h2>
+<p>在目标仍为 active 时，等 Agent 完成一个自然步骤或刚进入下一轮，然后点击 Goal 状态条上的“暂停”，也可以输入：</p>
+<pre><code class="hljs language-text">/goal pause
+</code></pre><p>Web 中暂停会立即停止正在运行的模型轮次，目标本身仍保留。因为停止可能发生在一次文件修改或测试之间，暂停后先不要立刻恢复，先做三件事：</p>
+<ol>
+<li>查看改动列表，确认没有半截文件或大范围无关改写；</li>
+<li>在系统终端运行 <code>npm test</code>；</li>
+<li>输入裸 <code>/goal</code>，确认 phase 为 paused，Round 数不再增长。</li>
+</ol>
+<p>如果测试失败，把失败现象作为恢复后的第一条补充要求；不要在暂停期间另开一个 Agent 同时修改同一项目。</p>
+<p>恢复只能由用户发起。点击状态条中的“恢复”，或输入：</p>
+<pre><code class="hljs language-text">/goal resume
+</code></pre><p>恢复后，续行驱动器会从当前项目状态和同一个目标继续，而不是回滚到暂停前。Goal 的状态会持久化，但如果你关闭应用、重启或恢复会话，自动续行会保持停用，仍需显式 <code>/goal resume</code>。这个设计避免一个旧目标在你重新打开 DSH 时自行运行。</p>
+<h2 id="wiki-h-7">14.8 什么情况下应该编辑、暂停或清除</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>你的意图</th>
+<th>操作</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>目标没变，只是临时停下</td>
+<td><code>/goal pause</code></td>
+<td>保留目标和进度，停止续行</td>
+</tr>
+<tr>
+<td>继续已暂停或恢复后的目标</td>
+<td><code>/goal resume</code></td>
+<td>在剩余 Round 额度内继续</td>
+</tr>
+<tr>
+<td>目标文字需要收紧</td>
+<td><code>/goal edit &lt;新目标&gt;</code></td>
+<td>更新目标，不自动改变当前 phase</td>
+</tr>
+<tr>
+<td>彻底放弃这项工作</td>
+<td><code>/goal clear</code></td>
+<td>移除当前目标，历史仍留在会话日志</td>
+</tr>
+</tbody></table></div>
+<p>如果只是 Agent 走偏，优先暂停、检查，再编辑目标。不要用“再发一条相反指令”让旧目标与新要求长期并存。</p>
+<p>一个 Session 只有一个当前 Goal。需要并行推进两个独立长期任务时，应拆成不同任务或重新设计工作流，而不是把两个目标挤进一段含糊文字。</p>
+<h2 id="wiki-h-8">14.9 完成状态不是验收结果</h2>
+<p>当 Agent 认为所有条件已满足，会调用 Goal 工具把状态标记为 complete，自动续行随即停止。此时先输入：</p>
+<pre><code class="hljs language-text">/goal
+</code></pre><p>确认状态确实是 complete，并记录实际使用的 Round 数。然后回到系统终端，独立执行：</p>
+<pre><code class="hljs language-bash">npm run check
+npm <span class="hljs-built_in">test</span>
+</code></pre><p>预期 <code>npm run check</code> 打印成功信息和当前数据源数量，两条命令都以退出码 <code>0</code> 结束。</p>
+<p>再重新计算 <code>daily-report.md</code> 的哈希：</p>
+<pre><code class="hljs language-bash">node -e <span class="hljs-string">"const fs=require('node:fs'),c=require('node:crypto'); const p='daily-report.md'; console.log(c.createHash('sha256').update(fs.readFileSync(p)).digest('hex'))"</span>
+</code></pre><p>它应与 14.2 记录的值一致。最后检查代码差异：</p>
+<ul>
+<li><code>package.json</code> 新增了 <code>check</code> 脚本；</li>
+<li>配置校验逻辑被复用，而不是出现两套互相矛盾的规则；</li>
+<li>测试确实覆盖失败退出码和不联网行为；</li>
+<li>README 的命令、输出与实际运行一致；</li>
+<li><code>sources.json</code>、<code>daily-report.md</code>、MCP patch 和 <code>AUDIT.md</code> 没有被目标无关地修改。</li>
+</ul>
+<p>如果任何一项不成立，complete 只是模型的判断，不是交付通过。你可以直接指出失败证据并要求修复；若当前 Goal 已完成，可以创建一个范围更小的新 Goal，或用普通一轮任务收尾，不要为了保留“完成”标签而接受错误结果。</p>
+<h2 id="wiki-h-9">14.10 Goal 遇到等待任务时要谨慎</h2>
+<p>本章明确禁止后台 job、子智能体和网络请求，因为 Goal driver 会在 Agent 空闲时尝试继续。若 Agent 实际是在等待一个已经发起的外部任务，盲目续行可能产生没有新信息的 Round。</p>
+<p>实际项目中，看到下面这些状态时应先暂停 Goal：</p>
+<ul>
+<li>正在等待人工审批或必要选择；</li>
+<li>后台命令还没有结束；</li>
+<li>子智能体尚未返回；</li>
+<li>外部服务暂时不可用，只能稍后再试。</li>
+</ul>
+<p>暂停表示“保留目标，暂不继续”，blocked 则表示目标遇到持续阻塞，含义不同。不要让模型因为一次暂时网络错误就立即宣布 blocked，也不要让它在没有新状态时反复声称“继续等待”。</p>
+<h2 id="wiki-h-10">14.11 常见问题</h2>
+<h3 id="wiki-h-11">创建 Goal 后没有自动继续</h3>
+<p>输入 <code>/goal</code>，依次看 phase、续行启用状态和 Round 余量。目标若为 paused、blocked、complete，或恢复会话后处于 active 但续行未启用，都不会自动推进。需要继续时由用户执行 <code>/goal resume</code>。</p>
+<h3 id="wiki-h-12">很快触发 round-limit</h3>
+<p>这表示目标在允许的 Round 内没有完成，系统应把它记为带 <code>round-limit</code> 原因的 blocked，而不是无限循环。先检查是否每轮都在重复同一动作、是否等待外部状态、目标是否过大。收紧范围后再决定恢复或新建目标，不要只把上限改得更高。</p>
+<h3 id="wiki-h-13">暂停后测试失败</h3>
+<p>暂停会停止当前模型轮次，不保证恰好停在提交边界。先查看实际差异和失败测试；确认没有危险改动后，再恢复并把失败输出交给 Agent。必要时撤销本轮局部改动，但不要删除整个工作区。</p>
+<h3 id="wiki-h-14">Goal 已完成，界面仍看不到状态条</h3>
+<p>当前 Web 界面不渲染已完成 Goal 的上下文条。输入 <code>/goal</code> 查看持久状态即可。目标完成后可以创建新目标；不需要为了让卡片出现而把旧目标恢复。</p>
+<h3 id="wiki-h-15">Agent 没有调用 <code>create_goal</code></h3>
+<p>确认你是在顶层标准模式任务中直接提出请求。创建、编辑、暂停和恢复需要当前顶层轮次中有用户直接输入，子智能体或定时触发不能替你偷偷创建 Goal。再检查 Goal tool 是否正常加载。</p>
+<h2 id="wiki-h-16">14.12 本章验收</h2>
+<p>进入下一章前，请确认：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">能解释 Goal 是持久状态加顺序续行，不是后台、定时或并行机制；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已在新的标准模式任务中创建 Round 上限为 <code>8</code> 的 Goal；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能用 <code>/goal</code> 查看 phase、Round 进度和续行状态；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已暂停一次，检查项目与测试后再由用户恢复；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>npm run check</code> 完全离线，成功时退出码为 <code>0</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">配置失败路径有离线测试，README 与实际行为一致；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>npm test</code> 通过，<code>daily-report.md</code> 哈希未变化；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">能区分 pause、blocked、complete 和 clear；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">知道应用重启或会话恢复后，必须显式恢复才会继续；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有把 Goal 的 complete 当成独立验收。</li>
+</ul>
+<p>日报助手现在多了一条可脚本化的离线健康检查命令，也经过了一次完整的 Goal 生命周期：创建、自动推进、暂停、检查、恢复、完成和独立验收。下一章会离开交互界面，用 Headless 入口从系统命令行运行 DSH；<code>npm run check</code> 正好可以先成为一个安全、无网络的自动化任务。</p>
+<hr>
+<p>← 上一章：案例四：把两项审查交给子智能体　|　回目录　|　下一章：案例六：定时任务与 Headless 自动化 →</p>
+</article>

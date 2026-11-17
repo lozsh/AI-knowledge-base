@@ -1,0 +1,261 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>上一课的助手终于能在429之后稍等，再次尝试。有了最终答案，你可能顺手打开最后一份响应，看到输出只有几百个Token，便觉得这次任务“就花了这么一点”。但前面的失败、重复送入的笔记、输入中的缓存部分，都还没有进入这笔计算。</p>
+<p>本篇给项目增加一个本地费用查看工具：读取已有卡片记录，按明确选择的价格计算已知用量；发现未知的尝试，就把任务总估算留空。读完后，你还应能解释为什么聊天越长可能越贵，以及为什么缓存命中不等于免费回答。</p>
+<p>前置是第08篇的独立代码快照。仍用 Python 3.11+、<code>openai==3.24.0</code>、DeepSeek 官方 API；资料核实于 <strong>2026年10月4日</strong>。本篇全部必做操作都离线，不需要Key或充值。价格是当日资料快照，样例用量由作者构造，不是实际账单。</p>
+<h2 id="wiki-h-0">先分清三个数字</h2>
+<p>你会遇到三个看起来相近、实际上不同的数字：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>数字</th>
+<th>从哪里来</th>
+<th>能回答什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>本次响应的用量</td>
+<td>API返回的usage</td>
+<td>这份响应报告了多少输入、输出Token</td>
+</tr>
+<tr>
+<td>本地任务费用估算</td>
+<td>已保存的各次用量 × 指定单价</td>
+<td>按这些记录和价格假设，任务大约花多少</td>
+</tr>
+<tr>
+<td>账户实际扣费</td>
+<td>服务平台账户记录</td>
+<td>平台实际怎样扣费，包括本地遗漏的调用</td>
+</tr>
+</tbody></table></div>
+<p>本课做第二项。它不能凭最后一份成功响应还原丢失的用量，也无法知道你在另一台电脑上发了哪些请求。</p>
+<p>Token也不等于汉字。文字、代码和标点经模型的分词方式转换后，数量才确定。<code>len(text)</code> 得到的是Python字符串长度，不能直接乘单价当账单；“大概一个汉字几个Token”的经验值也只适合粗略规划。</p>
+<p>我们优先使用API的用量字段，缺少必要数据时明确说明，避免用一个看起来精确的小数掩盖猜测。</p>
+<h2 id="wiki-h-1">读懂usage，先别急着乘价格</h2>
+<p>当前 Chat Completions 文档将输入拆成命中与未命中两部分，并提供输出总量与思考细分。<code>total_tokens</code> 是输入加输出，不是第三份额外消费。<a href="https://api-docs.deepseek.com/api/create-chat-completion/">DeepSeek：Chat Completions用量字段</a></p>
+<p>以下是<strong>人为构造的算术样例</strong>：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"prompt_tokens"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"prompt_cache_hit_tokens"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">800</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"prompt_cache_miss_tokens"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">200</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"completion_tokens"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">200</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"total_tokens"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1200</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"completion_tokens_details"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"reasoning_tokens"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">50</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>输入1000，其中800命中缓存、200没有命中。输出200，其中50用于思考。因此计费计算使用800、200、200这三项，而不是再把1200或50加进去。</p>
+<pre><code class="hljs language-text">输入1000 = 缓存命中800 + 未命中200
+输出200  = 思考细分50 + 其余输出部分
+总用量1200 = 输入1000 + 输出200
+</code></pre><p>如果只看到 <code>prompt_tokens: 1000</code>，却没有缓存拆分，本课工具不会默认这1000全部未命中，更不会默认全部命中。它将该次标为不能完整估算。你可以另做最坏情形预算，但那应标明“假设全部未命中”，不能冒充实际用量结算。</p>
+<p>程序同时检查数字为非负整数、两种输入之和等于输入总数，以及存在时的总Token关系。引用错误的卡片也可能带着完全合法的usage：内容质量和调用费用是两个不同维度。</p>
+<h2 id="wiki-h-2">单价带日期，也带时段</h2>
+<p>截至核实日，官方中文价格页中 <code>deepseek-flash</code> 的人民币单价如下，单位都是<strong>元 / 百万Token</strong>，不是元 / 千Token。<a href="https://api-docs.deepseek.com/zh-cn/quick_start/pricing/">DeepSeek：模型与价格</a></p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th align="right">空闲时段 off_peak</th>
+<th align="right">高峰时段 peak</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入：缓存命中</td>
+<td align="right">0.02</td>
+<td align="right">0.04</td>
+</tr>
+<tr>
+<td>输入：缓存未命中</td>
+<td align="right">1</td>
+<td align="right">2</td>
+</tr>
+<tr>
+<td>输出</td>
+<td align="right">4</td>
+<td align="right">8</td>
+</tr>
+</tbody></table></div>
+<p>该页定义的高峰是北京时间周一至周五、不含中国法定节假日的9:00—12:00及14:00—18:00；其他时间属于空闲时段。价格可能调整，实际使用前要重新核实。</p>
+<p>这带来一个容易遗漏的选择：价格与调用发生时的规则有关，不能看现在电脑上的时间，就给上周的请求套价格。本课不内置节假日库，也不猜跨时段长请求的计价边界，因此要求你显式指定 <code>--period off_peak</code> 或 <code>--period peak</code>。报告会显示 <code>assumed_period</code>，提醒这是你选择的假设。</p>
+<p>遇到多个日期、多次价格调整或横跨时段的任务，应先查对应平台规则，再分别核对。这个小工具按所选同一组单价估算一次记录中的各次尝试，适合教学和小项目检查，不承担自动账单对账。</p>
+<p>prices.example.json 保存模型、币种、每百万单位、核实日期、来源，以及上述两组单价。换模型时不能只改请求配置，还要准备匹配的价格表。文件中的单价使用 <code>"0.02"</code> 这样的字符串，交给Python的 <code>Decimal</code> 做十进制计算，减少二进制浮点表示带来的小误差。<a href="https://docs.python.org/3.11/library/decimal.html">Python：decimal</a></p>
+<h2 id="wiki-h-3">先用纸笔算一遍，再让代码算</h2>
+<p>对第二节的样例，选择空闲时段：</p>
+<pre><code class="hljs language-text">命中输入：800 × 0.02 / 1,000,000 = 0.000016元
+未命中输入：200 × 1 / 1,000,000 = 0.000200元
+输出：200 × 4 / 1,000,000 = 0.000800元
+合计：0.001016元
+</code></pre><p>如果同样1000输入、200输出都没有缓存命中，估算为 <code>0.001800元</code>。差额来自输入部分，输出费用没有因为输入缓存而消失。</p>
+<p>不要把这些极小单次金额先四舍五入成两位小数再累加，否则每次都可能显示0.00。本工具保留十进制小数，最后汇总时再决定展示精度；它没有实现平台内部的扣费舍入规则。</p>
+<p>配套 costs.py 在确认用量字段一致后执行这段计算：</p>
+<pre><code class="hljs language-python">    amount = (Decimal(hit) * rates[<span class="hljs-string">"hit"</span>] + Decimal(miss) * rates[<span class="hljs-string">"miss"</span>]
+              + Decimal(output) * rates[<span class="hljs-string">"output"</span>]) / Decimal(<span class="hljs-number">1000000</span>)
+    <span class="hljs-keyword">return</span> amount
+</code></pre><p>公式不复杂，困难在于输入是否完整、单位是否相同、价格是否适用。代码前面的检查，比把这两行写得更短更有价值。</p>
+<h2 id="wiki-h-4">运行独立快照，验证五种情况</h2>
+<p>下载 lesson-09代码包，解压后进入 <code>lesson-09</code> 目录。它完整保留第08篇的卡片、聊天、校验、重试与报告入口，只增加 <code>costs.py</code>、价格样例与 <code>fixtures/cost-cases.json</code>。不会修改旧快照。</p>
+<p>macOS / Linux首次准备与离线演示：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+<span class="hljs-built_in">cp</span> config.example.json config.json
+.venv/bin/python cards.py --dry-run --thinking off --budget 1024 --attempts 1
+.venv/bin/python costs.py --prices prices.example.json --period off_peak --demo
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements.txt
+<span class="hljs-built_in">Copy-Item</span> config.example.json config.json
+.\.venv\Scripts\python.exe cards.py <span class="hljs-literal">--dry-run</span> <span class="hljs-literal">--thinking</span> off <span class="hljs-literal">--budget</span> <span class="hljs-number">1024</span> <span class="hljs-literal">--attempts</span> <span class="hljs-number">1</span>
+.\.venv\Scripts\python.exe costs.py <span class="hljs-literal">--prices</span> prices.example.json <span class="hljs-literal">--period</span> off_peak <span class="hljs-literal">--demo</span>
+</code></pre><p>已有配置不要覆盖；Windows没有 <code>py</code> 时使用已安装Python对应的 <code>python</code>。安装依赖需要网络，两个演示命令本身不联网。环境准备见第02篇。</p>
+<p>预演仍显示两条消息和一次尝试上限。费用演示先打印价格来源与 <code>assumed_period: off_peak</code>，随后输出五个任务：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>样例标签</th>
+<th align="right">已知部分小计 / 元</th>
+<th align="right">任务估算 / 元</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cold</td>
+<td align="right">0.001800</td>
+<td align="right">0.001800</td>
+<td>输入1000全未命中，输出200</td>
+</tr>
+<tr>
+<td>cache_hit</td>
+<td align="right">0.001016</td>
+<td align="right">0.001016</td>
+<td>输入800命中、200未命中，输出200</td>
+</tr>
+<tr>
+<td>retry_unknown</td>
+<td align="right">0.001016</td>
+<td align="right">null</td>
+<td>首次失败用量未知，第二次与上一行相同</td>
+</tr>
+<tr>
+<td>bad_answer</td>
+<td align="right">0.001016</td>
+<td align="right">0.001016</td>
+<td>卡片校验失败，但收到了完整用量</td>
+</tr>
+<tr>
+<td>missing_breakdown</td>
+<td align="right">0</td>
+<td align="right">null</td>
+<td>缺少缓存拆分，没有可完整计价的尝试</td>
+</tr>
+</tbody></table></div>
+<p>小数末尾的零可能被省略，例如0.0018与0.001800相同。最后应出现“可展示任务5；无法估算文件0；排除模拟0”。这里“可展示”包括能展示未知原因，不等于五个任务都有完整价格。</p>
+<p>独立验证时，打开 <code>fixtures/cost-cases.json</code>，找到 <code>cache_hit</code>，检查它的逐次usage是否与第二节相同，再用纸笔结果核对 <code>task_estimate_cny</code>。将命令的 <code>off_peak</code> 换成 <code>peak</code> 再运行，该样例应为 <code>0.002032</code>，其余完整估算也翻倍，未知仍为null。</p>
+<p>此演示读取固定样例，不写入 <code>records</code>，也不会调用 <code>cards.py</code> 生成新答案。样例里的50个思考Token只是验证细分不重复计算，不能推断你的真实卡片会产生相同用量。</p>
+<h2 id="wiki-h-5">任务总成本为什么可能必须留空</h2>
+<p>打开 <code>retry_unknown</code> 的结果，你会看到类似以下关键字段：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"known_subtotal_cny"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"0.001016"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"unknown_attempts"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"task_estimate_cny"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>意思是：一份可计价的响应按所选价格算出0.001016元，另外一次没有充分数据。程序没有证据宣布整个任务只花这么多。</p>
+<p>对于第08篇起的卡片结果，费用工具只从 <code>result.attempts</code> 读取每次用量。顶层 <code>result.usage</code> 是最后正常响应的重复记录，不再额外累加。否则一次成功可能被算两次。</p>
+<p>任务最终是 <code>validation_failed</code> 或 <code>response_rejected</code>，也不抹掉已收到的用量；只有 <code>received</code> 尝试且必要usage合法，才进入已知小计。<code>started</code>、失败、缺字段和矛盾字段都会留下不能估算的原因。<strong>小计0仅表示没有任何已知金额可累加，不能读成免费。</strong></p>
+<p><code>task_estimate_cny</code> 有值，只能说明这份本地记录中的全部尝试都能按所选价格计算。它仍不保证文件完整覆盖账户活动，不考虑未记录请求或平台优惠。程序不会将文件夹里的数字自动合并成账户总账。</p>
+<h2 id="wiki-h-6">查看自己的已有记录</h2>
+<p>完成离线练习后，可以只读已有文件，不必为了这课重新付费调用。</p>
+<p>若第09篇目录已有真实卡片结果，在当前目录运行：</p>
+<pre><code class="hljs language-bash">.venv/bin/python costs.py --prices prices.example.json --period off_peak
+</code></pre><p>PowerShell对应：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe costs.py <span class="hljs-literal">--prices</span> prices.example.json <span class="hljs-literal">--period</span> off_peak
+</code></pre><p>仍要根据要核对的调用选择时段。默认读取脚本旁的 <code>records</code>；没有目录会明确提示没有记录，不显示“账户支出为0”。本地的 <code>cards.py --demo</code>、<code>--demo-retry</code> 记录被自动排除，它们不具有真实用量。</p>
+<p>如果保留了相邻第08篇的记录，可直接只读那个目录，无需复制：</p>
+<pre><code class="hljs language-bash">.venv/bin/python costs.py --prices prices.example.json --period off_peak --records ../lesson-08/records
+</code></pre><p>PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe costs.py <span class="hljs-literal">--prices</span> prices.example.json <span class="hljs-literal">--period</span> off_peak <span class="hljs-literal">--records</span> ..\lesson<span class="hljs-literal">-08</span>\records
+</code></pre><p>这些相对路径假设两个解压目录并列；否则替换为自己的路径，含空格时加引号。<code>--prices</code> 与 <code>--records</code> 显式路径相对当前终端目录解析，省略 <code>--records</code> 才使用脚本旁目录。</p>
+<p>工具不读Key、不访问平台，也不改已有记录。没有result的request会显示在 <code>requests_without_result</code> 中，提醒该任务没有进入估算。旧聊天记录或第07篇及以前缺少attempt的记录不自动猜测转换；坏文件和模型不匹配也会明确列出，存在此类文件时退出码为1。</p>
+<p>核对平台扣费时，应让模型、调用时间范围、币种和价格口径一致。若不一致，先查是否遗漏失败请求、其他入口或跨时段调用，不要为了让数字好看而把差额塞进一个“修正系数”。</p>
+<h2 id="wiki-h-7">上下文越长，为什么输入可能越来越多</h2>
+<p>多轮聊天不是每次只发最新一句。我们的 <code>main.py</code> 会把system消息、此前保留的问答和最新问题一起发送。第1轮答案在第2轮成为输入，以后还可能被反复发送。</p>
+<p>下面只按人为假设的Token数解释增长，不是对本课文字的分词实测。假设固定说明100，每条新问题50，每条答案100：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>调用轮次</th>
+<th>输入组成</th>
+<th align="right">输入Token假设值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>第1轮</td>
+<td>说明 + 问题1</td>
+<td align="right">150</td>
+</tr>
+<tr>
+<td>第2轮</td>
+<td>说明 + 问题1 + 答案1 + 问题2</td>
+<td align="right">300</td>
+</tr>
+<tr>
+<td>第3轮</td>
+<td>再加答案2与问题3</td>
+<td align="right">450</td>
+</tr>
+</tbody></table></div>
+<p>三次累计输入900，而不是最后一次看到的450。部分内容即使命中缓存，仍占输入上下文，并按命中价格计量；长上下文还会影响可容纳材料和处理负担。</p>
+<p>本项目已有两道简单控制：卡片每次只发送两条独立消息，不把上次卡片继续叠进来；聊天最多6轮，单次输入最多2000字符。这些是教学限制，字符数不是精确Token限额。用 <code>cards.py --dry-run</code> 查看messages，确认其中没有无关的历史答案，是现在就能做的成本检查。</p>
+<p>长会话需要新主题时，可先用聊天入口的 <code>/history</code> 查看，再用 <code>/reset</code> 清空内存历史。重置不会删除磁盘记录，也不撤销已产生费用。将来若自动摘要旧历史，要同时考虑摘要调用本身的费用，以及遗漏日期、约束或否定条件的风险。</p>
+<p>控制成本的顺序可以很朴素：不发送无关材料，复习卡维持短答案，输出预算够用即可，重试保留上限。别单纯把预算压到极低，让答案反复截断再重做。</p>
+<h2 id="wiki-h-8">缓存帮助重复输入，但不会替你保存会话</h2>
+<p>当前DeepSeek上下文缓存默认启用，匹配的是已建立的完整前缀单元。公共前缀可以在请求之间被识别并建立缓存；命中是尽力而为，不能保证每次成功。缓存复用输入计算，输出仍要生成。<a href="https://api-docs.deepseek.com/zh-cn/guides/kv_cache/">DeepSeek：上下文缓存</a></p>
+<p>对本项目，固定任务说明和笔记在前、变化的问题在后，是可以尝试的输入组织方式。<code>study_task.py</code> 已先放notes，再放questions；但这不意味着第二次换题时，所有相同文字就必然获得命中折扣。要看实际usage，不能自己按字符串重复率填缓存Token。</p>
+<p>相反，若每次把当前时间、随机编号写在最前面，原本稳定的开头也会变化。可以把纯本地追踪ID保留在记录文件里，只把模型确实需要的信息送入消息。本课的UUID用于文件名，没有为了跟踪任务把它塞进提示词。</p>
+<p>“缓存存在”也不表示下次可以省略笔记。应用仍要发送需要的上下文，由服务判断复用哪些计算；缓存不是我们以后要做的会话数据库，更不是直接返回上一份卡片的答案缓存。</p>
+<p>这里不安排连续发很多次付费请求“刷命中率”。先理解输入顺序，待正常使用积累记录后再观察命中字段。不同样本长度、任务和时间不能随意混在一起，得出缓存节省比例或模型速度结论。</p>
+<h2 id="wiki-h-9">两个小练习与排查方向</h2>
+<p><strong>练习一：</strong>输入1000，其中命中800；输出200，内含思考50。按空闲时段计费，能否用 <code>(1000×1 + 250×4)/1000000</code>？</p>
+<p>不能。输入没有区分缓存，输出又把思考重复加了一次。应使用第二节三项拆分，结果0.001016元。</p>
+<p><strong>练习二：</strong>一次任务有3次attempt，前两次失败没有usage，第三次算出0.001016元。再多给最终金额保留几位小数，能否让总账更准确？</p>
+<p>不能。缺的是数据，不是小数位数。已知小计可以保留，未知尝试数应为2，任务总估算仍应为null。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>症状</th>
+<th>下一步检查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>没有可估算记录</td>
+<td>目录是否正确；是否只有模拟记录；是否从未真实调用</td>
+</tr>
+<tr>
+<td>缺少缓存拆分</td>
+<td>打开原始SDK响应核对字段；不自行假定全命中或全未命中</td>
+</tr>
+<tr>
+<td>数字大了很多</td>
+<td>单价单位是否把百万误读成千，或忘记除以一百万</td>
+</tr>
+<tr>
+<td>任务总估算为null</td>
+<td>查看逐次reason与unknown_attempts，别仅看最终成功</td>
+</tr>
+<tr>
+<td>模型不匹配</td>
+<td>核对请求与返回模型，再准备适用价格文件，不强行套价</td>
+</tr>
+<tr>
+<td>总是没有命中</td>
+<td>检查稳定前缀；也可能尚未建立或已失效，不能据此断言接口坏了</td>
+</tr>
+<tr>
+<td>估算与扣费不同</td>
+<td>检查时段、价格日期、其他请求及本地遗漏，再核对平台记录</td>
+</tr>
+</tbody></table></div>
+<p>现在助手保留了用量、每次尝试和明确价格假设，你能解释一份估算的来源，也能知道哪些地方暂时算不出来。下一篇将让模型提出受控的工具调用；那时一次用户任务可能包含多次模型请求，费用与执行边界都需要继续保留。</p>
+<hr>
+<p>上一篇：错误与有限重试 · 本部分大纲 · 代码包 · 运行说明</p>
+<p>验证范围：32项离线测试通过，包含第08篇回归与费用算术、未知用量、错误价格、重复计数和只读行为检查。Python3.11.8实际运行；无真实API或账户账单核验，Windows/Linux命令未实机执行。</p>
+</article>

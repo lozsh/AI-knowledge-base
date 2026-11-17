@@ -1,0 +1,258 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>设想上一轮的循环执行到一半，终端关闭了。第二天，你重新打开项目，看见运行状态写着 <code>interrupted</code>，输出目录却已经有一份复习资料。</p>
+<p>这时直接说“继续刚才的任务”，可能产生两种错误：助手以为文件尚未生成，又导出一次；或者看到文件存在，就把整个任务标为完成，跳过了验证。</p>
+<p>长任务能接着做，靠的是把已发生的事实、尚未确认的部分和下一步动作保存下来，并在接手时重新核对。<strong>恢复会话可以找回讨论，恢复工作则必须面对当前文件与真实执行结果。</strong></p>
+<p>本篇会构造一次明确的教学中断：导出已经写出文件，但成功回执尚未保存。然后用一个新的执行过程检查现场，只补做产物核验，另存交接记录。原有文件和中断状态都保留，不重跑导出。</p>
+<p>配套：工作区说明 · 完整 ZIP。Python 3.11 或更高版本、标准库即可；不需要 API Key、SDK 或模型账户。候选与中断情景由作者准备，不是 Kimi 实际会话，不代表真实服务事故。</p>
+<h2 id="wiki-h-0">三个“接着干”，其实不是一件事</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>你想恢复什么</th>
+<th>需要找回什么</th>
+<th>不能仅靠它保证什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>聊天会话</td>
+<td>过去的讨论、工具记录、任务意图</td>
+<td>当前工作目录没有变化</td>
+</tr>
+<tr>
+<td>开发工作</td>
+<td>代码版本、未提交修改、测试和未完成事项</td>
+<td>上次启动的动作没有产生副作用</td>
+</tr>
+<tr>
+<td>程序执行</td>
+<td>已持久化状态、实际产物、外部回执</td>
+<td>可以从任意一行原封不动继续</td>
+</tr>
+</tbody></table></div>
+<p>例如，Kimi 的旧会话记得“下一步运行导出”，但那次导出可能已经完成，只是会话未能拿到最终结果。另一方面，即使保存着完整聊天，代码也可能被你手动修改过，过去通过的测试不能自动覆盖今天的版本。</p>
+<p>因此，接手时先问“现在有什么证据”，再问“聊天里上次说要做什么”。二者有冲突时，要把差异写出来，不要默默选一个听起来顺畅的故事。</p>
+<p>Anthropic 关于长任务的工程实践也把进度文件、Git 历史、逐步工作和接手时的验证放在一起。其核心用途是让新的上下文尽快了解项目现状，而不只是延长聊天记录。<a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">参考：Effective harnesses for long-running agents</a>。</p>
+<h2 id="wiki-h-1">明确本篇的起点和接手范围</h2>
+<p>解压后进入 <code>lesson-15</code> 根目录。原笔记助手、导出器、Harness 和 Loop 都与第14篇保持一致。应用仍以 DeepSeek 为模型服务，Kimi 是辅助开发工具。</p>
+<p>新增的主要文件是：</p>
+<pre><code class="hljs language-text">prepare_handoff.py          # 在新目录构造教学中断
+recover_export.py           # 检查现场，必要时另存接手记录
+verify_recovery.py          # 独立核对接手结果
+docs/recovery/TASK.md       # 当前任务范围
+docs/recovery/HANDOFF_TEMPLATE.md
+</code></pre><p>先读当前任务。它只允许处理本课的固定 <code>valid</code> 导出样例，以及特定的中断状态。它不是通用恢复工具，也不会恢复上一篇的整个 Loop。</p>
+<p>还有一个容易漏掉的前提：<strong>先确认旧执行过程已经结束，当前只有一个人在操作这些目录。</strong> 如果旧进程还在写文件，你的新会话同时开始“恢复”，两个执行者会对同一份现场作出不同判断。</p>
+<p>本课的准备命令是同步执行的，返回以后再运行下一条就可以。真实任务则要确认原终端任务或服务的状态，不能只凭聊天页面没动静判断进程已停止。这里没有提供分布式锁或自动进程探测。</p>
+<h2 id="wiki-h-2">构造“文件已经写好，回执还没保存”的现场</h2>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 prepare_handoff.py --run resume-01 --<span class="hljs-keyword">case</span> exported
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> prepare_handoff.py <span class="hljs-literal">--run</span> <span class="hljs-built_in">resume-01</span> <span class="hljs-literal">--case</span> exported
+</code></pre><p>预期输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"interrupted"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"case"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"exported"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"simulated"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"actual_api_calls"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">}</span>
+</code></pre><p>命令退出0，表示教学场景准备成功；不代表导出流程正常结束。</p>
+<p>这个脚本先调用原来的本地导出器，真正写出资料和清单，再注入一个 <code>KeyboardInterrupt</code>。Harness 捕获中断、保存状态，但没有机会写出导出成功回执。随后准备脚本添加 <code>SIMULATION.json</code>，明确标记这是作者构造的情景。</p>
+<p>你不需要自己抢时间按 Ctrl+C，更不要为了这个练习强制关闭应用或拔电。作者也没有把这次注入测试宣称为真实断电、进程强杀或模型故障测试。</p>
+<p>打开 <code>runs/resume-01</code>：</p>
+<pre><code class="hljs language-text">runs/resume-01/
+├── context.json
+├── state.json
+├── SIMULATION.json
+└── artifact/
+    ├── review.md
+    └── manifest.json
+</code></pre><p>这里应该没有 <code>01-export.json</code> 和 <code>02-verify.json</code>。<code>state.json</code> 中整个运行是 <code>interrupted</code>，而导出步骤停留在 <code>running</code>。</p>
+<p>这个现场说明：<strong>状态没有更新为成功，不能反推出动作没有发生。</strong> 程序在写文件与保存回执之间，总可能有一个时间间隔。接手者需要同时看意图、状态和产物。</p>
+<h2 id="wiki-h-3">第一步只检查，不急着重新执行</h2>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 recover_export.py --run resume-01
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> recover_export.py <span class="hljs-literal">--run</span> <span class="hljs-built_in">resume-01</span>
+</code></pre><p>预期结果：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"reuse_existing_artifact"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"artifact_verified"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"export_replayed"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">}</span>
+</code></pre><p>默认模式只读，不创建接手目录。脚本依次确认：</p>
+<ol>
+<li>来源是允许的本地运行名，记录中没有本课不支持的符号链接。</li>
+<li>当前资料与原 <code>context.json</code> 的文件指纹一致。</li>
+<li>原任务、样例、运行名和中断位置符合本课预期。</li>
+<li>现有 <code>review.md</code> 和 <code>manifest.json</code> 通过原来的独立产物验证。</li>
+<li>核对期间原记录的文件内容没有变化。</li>
+</ol>
+<p>所以 <code>reuse_existing_artifact</code> 是依据现有证据作出的判断，不是“看见一个 Markdown 文件就当它没问题”。它会核对清单、来源、卡片内容和指纹，也会拒绝只有半套文件的目录。</p>
+<p>检查仍没有给内容打出语义合格证。<code>pending</code> 继续保留，读者还要对照问题、答案和原文。这里解决的是“能否复用已存在的产物”，不是自动替人决定是否可以发布。</p>
+<h2 id="wiki-h-4">续做剩余步骤，另存一份新的判断</h2>
+<p>确认只读检查结果后，保存本次核验与交接说明。</p>
+<p>macOS / Linux：</p>
+<pre><code class="hljs language-bash">python3 recover_export.py --run resume-01 --record review-01
+python3 verify_recovery.py recovery-records/review-01
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> recover_export.py <span class="hljs-literal">--run</span> <span class="hljs-built_in">resume-01</span> <span class="hljs-literal">--record</span> review<span class="hljs-literal">-01</span>
+py <span class="hljs-literal">-3</span> verify_recovery.py recovery<span class="hljs-literal">-records</span>/review<span class="hljs-literal">-01</span>
+</code></pre><p>第一条会重新检查现场，不会拿上一条命令的旧判断直接写结果。终端输出与只读检查相同，但这次新增：</p>
+<pre><code class="hljs language-text">recovery-records/review-01/
+├── recovery.json
+└── HANDOFF.md
+</code></pre><p>第二条独立验证应输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"result"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"needs_review"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"original_status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"interrupted"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">}</span>
+</code></pre><p>打开 <code>recovery.json</code>，其中应有 <code>action=verification_only</code>、<code>export_replayed=false</code>，以及原记录中各文件的指纹。再打开 <code>HANDOFF.md</code>，能读到已确认事实、没有做的动作、未解决事项和下一步。</p>
+<p>有读者会觉得奇怪：为什么原状态还写着中断，新记录却说可以待审？</p>
+<p>因为它们在回答不同问题。原记录描述上次流程在什么位置停了；新记录描述这次接手者重新核对后得到了什么结论。<strong>没有必要把旧事故记录改写成一次顺利完成的历史。</strong></p>
+<p>本篇也没有补造缺失的旧 <code>01-export.json</code>，仿佛它在中断之前已经存在。补做的是新的验证，不是补写虚假的过去。原运行目录所有文件保持原样，独立验证器会再次核对这些文件与新记录中保存的指纹。</p>
+<p>这样，你已经完成了一次有用的续做：复用完成的工作，只做尚需确认的部分，留下新的证据。它没有恢复 Python 当时的内存、调用栈或下一条指令，也没有重新运行导出。</p>
+<h2 id="wiki-h-5">不完整的现场，不能靠“应该没问题”通过</h2>
+<p>再准备两个对照情景。以下为 macOS / Linux 命令；Windows PowerShell 将每行开头的 <code>python3</code> 换成 <code>py -3</code>，其他参数相同。</p>
+<pre><code class="hljs language-bash">python3 prepare_handoff.py --run partial-01 --<span class="hljs-keyword">case</span> partial
+python3 recover_export.py --run partial-01 --record partial-review
+python3 prepare_handoff.py --run empty-01 --<span class="hljs-keyword">case</span> empty
+python3 recover_export.py --run empty-01
+</code></pre><p><code>partial</code> 会在本次新建的教学产物中移除 <code>manifest.json</code>，然后注入中断；<code>empty</code> 则在实际导出前注入中断。两种情况都必须标注为模拟，不能冒充真实事故样本。</p>
+<p>两次核查的预期都是：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"decision"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"needs_human"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"reason"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"evidence_incomplete_or_invalid"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"export_replayed"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">}</span>
+</code></pre><p>核查命令退出1，而且 <code>recovery-records/partial-review</code> 不应被创建。原来的不完整现场保留，不会被清空后重新导出。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>当前证据</th>
+<th>本课决定</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>产物完整、版本吻合、符合固定预期</td>
+<td>只补核验并另存记录</td>
+<td>已完成的工作可以复用</td>
+</tr>
+<tr>
+<td>只有资料，没有有效清单</td>
+<td>交人核查</td>
+<td>无法按本课标准确认完整性</td>
+</tr>
+<tr>
+<td>没有产物，但记录有执行意图</td>
+<td>交人核查</td>
+<td>无法仅凭状态批准自动重放</td>
+</tr>
+<tr>
+<td>输入或代码版本变化</td>
+<td>停止，比较版本</td>
+<td>过去的证据不自动适用于现在</td>
+</tr>
+<tr>
+<td>状态不属于本课固定中断模式</td>
+<td>停止，说明不支持</td>
+<td>不把一个小示例当通用恢复器</td>
+</tr>
+</tbody></table></div>
+<p>在 <code>empty</code> 教学场景中，我们作为构造者知道没有导出。但接手算法故意不把作者的场景标签当完成证据，它依据文件和约定判断。面对真实外部动作，尤其不能把“本地没看到文件”推导为“服务器没执行”。</p>
+<p>如果人工最终决定重新开展一次本地导出，应作为明确的新尝试，重新确认输入、范围和预算，使用新运行名并关联旧记录。本篇不会替你自动作这个决定。</p>
+<h2 id="wiki-h-6">重复执行和幂等，不要只看命令名称</h2>
+<p>“再执行一遍应该也没事”有时成立，有时不成立。</p>
+<p>读取同一份文件、在稳定版本上重新检查产物，通常适合作为接手的第一步。本篇核验就是这种操作：它不再次创建复习资料，也不改变业务数据。</p>
+<p>但保存学习计划、发消息、发布资料等动作，可能每调用一次就产生一个新结果。失败消息还可能发生在动作之后。第11篇中“保存已经成功，后续总结失败”的例子，就属于这种情况。</p>
+<p>幂等可以理解为：针对同一个逻辑操作重复执行，最终效果与执行一次相同。给请求起一个新名字并不会自动实现幂等；每次都换一个 ID，反而可能被系统认为是不同任务。</p>
+<p>本篇使用独占新目录来拒绝覆盖，用指纹检查现场是否变化。这些有助于保留证据，但不等于给所有外部服务实现了“只执行一次”。真实写操作需要具体系统支持，例如可查询的业务结果、稳定的操作标识、唯一约束或事务；方案要根据动作来设计。<a href="https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/">参考：AWS 关于幂等 API 与安全重试的工程说明</a>。</p>
+<p>不要把恢复流程写成“捕获所有异常，然后从头再来”。越靠近外部副作用，越需要先确认上一次的结果，再决定是否允许重试。</p>
+<h2 id="wiki-h-7">一份能交接的记录，应该让下一位少猜什么</h2>
+<p>打开交接模板。它不是把整段聊天搬进文件，而是整理几类能指导行动的信息。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>内容</th>
+<th>应写什么</th>
+<th>避免怎样写</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>当前目标与范围</td>
+<td>只补验证，不重新导出或发布</td>
+<td>“继续完善项目”</td>
+</tr>
+<tr>
+<td>版本与入口</td>
+<td>工作目录、提交或快照、未提交修改、关键路径</td>
+<td>只写“最新版”</td>
+</tr>
+<tr>
+<td>已确认事实</td>
+<td>实际命令、结果、证据文件和适用版本</td>
+<td>“感觉已经差不多”</td>
+</tr>
+<tr>
+<td>不确定事项</td>
+<td>哪个动作未确认、哪些验证未做</td>
+<td>把未知写成未执行</td>
+</tr>
+<tr>
+<td>下一步与停止条件</td>
+<td>先检查什么，只允许补哪一步，何时停</td>
+<td>“一直干到完成”</td>
+</tr>
+</tbody></table></div>
+<p>本课生成的 <code>HANDOFF.md</code> 是一份具体例子。拿它对照原文件，看每句话能否找到证据：旧状态确实是中断；产物已重新验证；没有再次导出；内容仍需人工审阅。</p>
+<p>如果换成实际代码开发，还要补充当前分支、提交和未提交差异。在你自己的已初始化 Git 仓库中，可以用 <code>git status --short</code>、<code>git diff --stat</code> 和 <code>git log -1 --oneline</code> 定位现状。不要在未建仓的练习包里虚构一个提交号，也不要为了让目录“看起来干净”丢掉未提交修改。</p>
+<p>测试证据也要带范围：某个提交上的离线测试通过，不代表后续修改也通过；本机通过，不代表已经做过 Windows 或线上验证。交接记录必须让下一位知道哪些结论可以沿用，哪些需要重做。</p>
+<p>最后记下预算。换一个聊天不等于任务预算重新满额，旧循环已消耗的尝试、实际调用和未知费用不能被清零。本课续做不调用模型，也不恢复旧 Loop；将来若需要新尝试，应明确剩余额度或新的授权。</p>
+<h2 id="wiki-h-8">在 Kimi 中续旧会话，或者用新会话接手</h2>
+<p>如果你原来就在 Kimi 中工作，可在<strong>同一个真实项目目录</strong>续最近的会话：</p>
+<pre><code class="hljs language-bash">kimi --<span class="hljs-built_in">continue</span>
+</code></pre><p>想自己选择旧会话：</p>
+<pre><code class="hljs language-bash">kimi --session
+</code></pre><p>已有明确会话 ID 时，<code>--session</code> 也支持传入 ID。它与 <code>--continue</code> 是两种选择方式，不要一起使用。以上按2026年10月4日官方文档与本机 Kimi Code 2.0.2 的帮助核对。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html">参考：Kimi CLI 会话参数</a>。</p>
+<p>本篇新解压目录不一定存在旧 Kimi 会话。没有旧会话、换了工具，或者想让一个全新会话检查交接质量时，可以从计划模式开始：</p>
+<pre><code class="hljs language-bash">kimi --plan
+</code></pre><p>给新会话的说明可以是：</p>
+<blockquote>
+<p>先读 AGENTS.md、docs/recovery/TASK.md、recovery-records/review-01/HANDOFF.md 和 recovery-records/review-01/recovery.json，再核对其中引用的 runs/resume-01。先判断当前证据是否支持交接说明，指出尚未确认的事项。不要运行 prepare_handoff，不重放导出或 Loop，不修改旧记录，不读取个人资料、不调用真实应用 API。若证据一致，只提出人工核查内容的下一步；不把待审说成完成。若不一致，说明差异和停止原因。</p>
+</blockquote>
+<p>这里引用的路径以你已完成前面 <code>review-01</code> 练习为前提；换了运行名，要同步修改路径。</p>
+<p>旧会话可以提供上下文，新会话可以帮助检验文档是否足够自洽。但两个会话都不应同时修改同一现场。真实 Kimi 交互可能消耗开发额度，作者只核对了文档和帮助，没有启动或读取你的真实会话。</p>
+<h2 id="wiki-h-9">完成检查与常见故障</h2>
+<p>完成本篇后，你应当能自己确认：</p>
+<ul>
+<li>原 <code>runs/resume-01/state.json</code> 仍是 <code>interrupted</code>，没有伪造成功回执。</li>
+<li>原导出仍可读，新 <code>recovery.json</code> 明确只补验证，语义仍为 <code>pending</code>。</li>
+<li>独立 <code>verify_recovery.py</code> 通过，部分产物和无产物情景都停止。</li>
+<li>交接说明能指向具体证据，而不是要求下一位相信一句“已经做好”。</li>
+</ul>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>优先检查</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>运行名或记录名已存在</td>
+<td>是否重复执行了练习</td>
+<td>保留旧目录，使用新名称；不覆盖</td>
+</tr>
+<tr>
+<td><code>context_changed</code></td>
+<td>README、任务或源码是否被编辑</td>
+<td>对照对应版本，不刷新旧指纹掩盖变化</td>
+</tr>
+<tr>
+<td><code>unsupported_state</code></td>
+<td>是否拿了其他运行状态来测试</td>
+<td>本工具只处理指定中断，其他情况人工判断</td>
+</tr>
+<tr>
+<td><code>evidence_incomplete_or_invalid</code></td>
+<td>清单、产物或原记录是否缺失</td>
+<td>保留现场，不凭猜测补齐</td>
+</tr>
+<tr>
+<td>新记录验证失败</td>
+<td>原文件是否在接手后改变</td>
+<td>对比差异，避免沿用过时结论</td>
+</tr>
+<tr>
+<td>续会话找不到预期记录</td>
+<td>工作目录或选中会话是否正确</td>
+<td>选择正确会话，或用交接文件开新会话</td>
+</tr>
+</tbody></table></div>
+<p>作者验证了三个注入情景、版本变化、未知状态、产物篡改、重名、非法名称和伪造接手结论等边界。测试还把导出函数替换成“一旦被调用就失败”，证明核查和另存记录没有重放它，并逐字节检查原运行不变。网络连接被阻断，没有真实 Kimi / DeepSeek 调用；没有 Windows 实机、浏览器视觉或真实崩溃恢复测试。</p>
+<p>自检：为什么一份新的 <code>needs_review</code> 记录可以与旧 <code>interrupted</code> 同时存在？因为前者是本次基于证据作出的新判断，后者保留上次执行事实。为什么不能靠保存聊天保证任务恢复？因为聊天无法代替当前版本、文件完整性与副作用结果的核查。</p>
+<p>下一篇并行与多 Agent会把“接手”扩展成“分工”：多个助手各自负责什么，怎样避免互相覆盖，以及如何把结果集成回来。当前练习仍保持单人串行，不提前让多个执行者争用现场。</p>
+</article>

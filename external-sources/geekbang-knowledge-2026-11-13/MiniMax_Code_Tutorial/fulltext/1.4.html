@@ -1,0 +1,183 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>这一章只做一件事：在你的电脑上把 MiniMax Code CLI 装好，并跑通第一条命令。<br>四种系统分别讲：macOS、Linux、Windows WSL2、Windows PowerShell。</p>
+</blockquote>
+<h2 id="wiki-h-0">3.1 安装前要知道的</h2>
+<h3 id="wiki-h-1">CLI 命令叫什么</h3>
+<p>公开的终端命令是 <strong><code>mcode</code></strong>，全小写。后续所有章节里说的 <code>mcode xxx</code> 就是这条命令。</p>
+<h3 id="wiki-h-2">需要 Node.js，但通常不用自己装</h3>
+<p>官方安装器会在需要时准备好兼容的 Node.js，所以<strong>大多数人直接跑安装器就行</strong>。只有当你想自己用 npm（Node.js 包管理工具）装、或者你的机器已经有 Node 时才需要关心版本。</p>
+<p>如果需要确认，Node.js 版本要求是：</p>
+<ul>
+<li><code>22.19.0</code> 及以上的 22.x 版本</li>
+<li>或 24 / 25 / 26 中的任意一个</li>
+</ul>
+<h3 id="wiki-h-3">不需要管理员权限</h3>
+<p>官方安装器会把 CLI 装到当前用户的全局目录，不需要 <code>sudo</code>，也不会动系统目录。</p>
+<h3 id="wiki-h-4">当前章节无法覆盖的特例</h3>
+<ul>
+<li><strong>Alpine Linux</strong> 当前不在官方一键安装器支持范围。如果你用 Alpine，需要先手动装 Node.js，再用 npm 装 CLI</li>
+<li><strong>musl libc</strong>（一种 Linux 系统调用库，与常见的 glibc 不同）同上</li>
+</ul>
+<h2 id="wiki-h-5">3.2 在 macOS 上安装</h2>
+<p>打开"终端"应用（在 Spotlight 里搜 Terminal 就行）。</p>
+<h3 id="wiki-h-6">方式一：官方一键安装器（推荐）</h3>
+<pre><code class="hljs language-bash">curl -fsSL https://filecdn.minimax.chat/public/install.sh | bash
+</code></pre><p>执行过程解释：</p>
+<ul>
+<li><code>curl</code> 是下载工具；<code>-fsSL</code> 让它在出错时安静退出、显示错误信息、自动跟随跳转</li>
+<li><code>|</code> 是管道符，把下载到的脚本内容传给 <code>bash</code> 执行</li>
+<li><code>bash</code> 是脚本解释器</li>
+</ul>
+<p>等待几秒到十几秒，你会看到一串安装日志。最后如果看到类似 "Installed mcode x.y.z" 字样就是成功了。</p>
+<h3 id="wiki-h-7">方式二：用 npm 装（仅当你已经装了 Node.js）</h3>
+<pre><code class="hljs language-bash">npm install -g @minimax-ai/code
+</code></pre><p><code>@minimax-ai/code</code> 是 CLI 在 npm 上的官方包名；<code>-g</code> 表示全局安装。</p>
+<h3 id="wiki-h-8">验证安装</h3>
+<pre><code class="hljs language-bash">mcode --version
+mcode --<span class="hljs-built_in">help</span>
+</code></pre><p>预期看到版本号和帮助列表。如果你看到的是 <code>-bash: mcode: command not found</code>，通常是 PATH（终端搜索命令的目录列表）还没刷新，重新打开一个终端窗口再试。</p>
+<h3 id="wiki-h-9">验证完就可以登录了</h3>
+<pre><code class="hljs language-bash">mcode login
+</code></pre><p>按提示在浏览器里完成授权，回到终端后看到 "Logged in" 字样就 OK 了。</p>
+<h2 id="wiki-h-10">3.3 在 Linux 上安装</h2>
+<p>打开你常用的终端（GNOME Terminal、Konsole、xterm 都行）。</p>
+<h3 id="wiki-h-11">方式一：官方一键安装器（推荐）</h3>
+<pre><code class="hljs language-bash">curl -fsSL https://filecdn.minimax.chat/public/install.sh | bash
+</code></pre><p>如果是 Debian/Ubuntu，<code>curl</code> 通常自带。如果是 Alpine、Arch、Minimal 镜像，确认 <code>curl</code> 已装；如果没有，先用包管理器装：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># Debian / Ubuntu</span>
+<span class="hljs-built_in">sudo</span> apt update &amp;&amp; <span class="hljs-built_in">sudo</span> apt install -y curl
+
+<span class="hljs-comment"># Fedora / RHEL</span>
+<span class="hljs-built_in">sudo</span> dnf install -y curl
+
+<span class="hljs-comment"># Arch</span>
+<span class="hljs-built_in">sudo</span> pacman -S --noconfirm curl
+</code></pre><h3 id="wiki-h-12">方式二：用 npm 装</h3>
+<pre><code class="hljs language-bash">npm install -g @minimax-ai/code
+</code></pre><h3 id="wiki-h-13">验证与登录</h3>
+<pre><code class="hljs language-bash">mcode --version
+mcode --<span class="hljs-built_in">help</span>
+mcode login
+</code></pre><p>登录流程同 macOS：浏览器授权 → 回到终端。</p>
+<h2 id="wiki-h-14">3.4 在 Windows WSL 2 上安装</h2>
+<p>WSL（Windows Subsystem for Linux，Windows 上的 Linux 子系统）2 是 Windows 上跑 Linux 的官方方案。对程序员来说，在 WSL 里装 CLI 比在原生 Windows 里更接近 macOS/Linux 体验，强烈推荐。</p>
+<h3 id="wiki-h-15">第一步：确认你已经有 WSL 2 + Ubuntu</h3>
+<p>打开 PowerShell（普通用户即可，不需要管理员），执行：</p>
+<pre><code class="hljs language-powershell">wsl <span class="hljs-literal">-l</span> <span class="hljs-literal">-v</span>
+</code></pre><p>预期看到你已安装的 Linux 发行版（比如 Ubuntu），VERSION 列显示 2。如果没装过：</p>
+<pre><code class="hljs language-powershell">wsl <span class="hljs-literal">--install</span>
+</code></pre><p>这条会自动启用 WSL 功能并装好 Ubuntu 默认发行版。装完后<strong>重启电脑</strong>，再打开 Ubuntu 终端。</p>
+<blockquote>
+<p>在开始菜单搜 "Ubuntu" 就能找到它的终端。第一次打开会要求你设置 Linux 用户名和密码。</p>
+</blockquote>
+<h3 id="wiki-h-16">第二步：在 WSL 内的 Ubuntu 终端里执行</h3>
+<p>从这一步开始，你就当自己用的是 macOS / Linux。安装命令一模一样：</p>
+<pre><code class="hljs language-bash">curl -fsSL https://filecdn.minimax.chat/public/install.sh | bash
+mcode --version
+mcode login
+</code></pre><p>如果你以后想从 Windows 的 PowerShell 调用 WSL 里的 <code>mcode</code>，可以这样：</p>
+<pre><code class="hljs language-powershell">wsl mcode <span class="hljs-literal">--version</span>
+wsl mcode exec <span class="hljs-string">"跑测试"</span>
+</code></pre><h3 id="wiki-h-17">第三步：把 WSL 里的项目目录指到 Windows 文件系统</h3>
+<p>默认情况下，WSL 访问 Windows 文件系统的路径是 <code>/mnt/c/...</code>（C 盘）。<strong>但是把项目放在 <code>/mnt/c</code> 下会很慢</strong>，所以推荐：</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># 在 WSL 内的家目录下建项目目录</span>
+<span class="hljs-built_in">mkdir</span> -p ~/projects
+<span class="hljs-built_in">cd</span> ~/projects
+</code></pre><p>VS Code 用户可以装一个 "Remote - WSL" 扩展，直接在 Windows 上的 VS Code 里编辑 WSL 里的文件。</p>
+<h2 id="wiki-h-18">3.5 在 Windows PowerShell 上安装</h2>
+<p>如果你不想用 WSL，也可以直接在原生 Windows 的 PowerShell 里装。</p>
+<h3 id="wiki-h-19">第一步：打开 PowerShell</h3>
+<p>按 <code>Win + X</code>，选 <code>Windows PowerShell</code>（或 <code>终端</code>）。普通用户即可，不需要"以管理员身份运行"。</p>
+<h3 id="wiki-h-20">第二步：执行官方安装器</h3>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">irm</span> https://filecdn.minimax.chat/public/install.ps1 | <span class="hljs-built_in">iex</span>
+</code></pre><p>执行过程解释：</p>
+<ul>
+<li><code>irm</code>（<code>Invoke-RestMethod</code> 的别名）从 URL 下载内容</li>
+<li><code>|</code> 把内容传给 <code>iex</code>（<code>Invoke-Expression</code> 的别名）执行</li>
+</ul>
+<blockquote>
+<p>早期教程习惯写 <code>Invoke-WebRequest ... | Invoke-Expression</code>，效果一样，但 <code>irm | iex</code> 更短。</p>
+</blockquote>
+<h3 id="wiki-h-21">第三步：处理执行策略拦截</h3>
+<p>PowerShell 默认的执行策略可能不允许运行下载的脚本。如果你看到红色报错提到 "running scripts is disabled"，先放宽当前用户的策略：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-ExecutionPolicy</span> <span class="hljs-literal">-Scope</span> CurrentUser RemoteSigned
+</code></pre><p>参数解释：</p>
+<ul>
+<li><code>-Scope CurrentUser</code>：只对当前用户生效，不动系统全局</li>
+<li><code>RemoteSigned</code>：本地脚本可直接运行，从互联网下载的脚本需要签名才放行（放宽后常见安装脚本能跑）</li>
+</ul>
+<p>改完后再跑一遍安装器：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">irm</span> https://filecdn.minimax.chat/public/install.ps1 | <span class="hljs-built_in">iex</span>
+</code></pre><h3 id="wiki-h-22">第四步：验证与登录</h3>
+<pre><code class="hljs language-powershell">mcode <span class="hljs-literal">--version</span>
+mcode <span class="hljs-literal">--help</span>
+mcode login
+</code></pre><p>如果 <code>mcode</code> 命令仍然 "不是内部或外部命令"，关闭当前 PowerShell 重新打开一次 —— 第一次安装完后，环境变量可能要重开终端才生效。</p>
+<h2 id="wiki-h-23">3.6 登录与账号</h2>
+<p>不管哪种系统，登录都是同一条命令（中国大陆账号）：</p>
+<pre><code class="hljs language-bash">mcode login
+</code></pre><p>执行后会发生的事：</p>
+<ol>
+<li>CLI 在终端打印一个一次性授权链接和一个短码</li>
+<li>在浏览器里打开链接，输入短码，确认授权</li>
+<li>回到终端，看到 "Logged in" 字样</li>
+</ol>
+<p>Global 账号：</p>
+<pre><code class="hljs language-bash">mcode login --region global
+</code></pre><h3 id="wiki-h-24">登录后立刻确认状态</h3>
+<p>进入交互式 TUI：</p>
+<pre><code class="hljs language-bash">mcode
+</code></pre><p>启动后在输入框里输入：</p>
+<pre><code>/status
+</code></pre><p>你应该能看到类似这样的状态面板：</p>
+<ul>
+<li>账号与套餐（已登录 / Token Plan）</li>
+<li>当前模型</li>
+<li>权限模式（默认 Ask）</li>
+<li>指令文件来源（决定 Agent 是否读 <code>AGENTS.md</code>）</li>
+</ul>
+<p>如果看不到模型列表，说明账号未订阅或网络受限。</p>
+<h3 id="wiki-h-25">退出登录</h3>
+<pre><code class="hljs language-bash">mcode <span class="hljs-built_in">logout</span>
+</code></pre><h2 id="wiki-h-26">3.7 三种入口速览</h2>
+<p>CLI 有三种入口，本教程都会用到，但用得最多的是第一种：</p>
+<h3 id="wiki-h-27">交互式 TUI</h3>
+<pre><code class="hljs language-bash">mcode             <span class="hljs-comment"># 不带参数直接进 TUI</span>
+mcode <span class="hljs-string">"你好"</span>      <span class="hljs-comment"># 启动并提交第一条任务</span>
+</code></pre><p>适合探索仓库、持续对话、审阅修改和处理权限确认。本教程前 10 章基本都在这个模式下完成。</p>
+<h3 id="wiki-h-28">Headless（无交互）</h3>
+<pre><code class="hljs language-bash">mcode <span class="hljs-built_in">exec</span> <span class="hljs-string">"运行 pytest 并总结失败"</span>
+mcode <span class="hljs-built_in">exec</span> --output-format json <span class="hljs-string">"运行 pytest"</span>   <span class="hljs-comment"># 拿 JSON 输出</span>
+</code></pre><p>不启动 TUI，适合 Shell 脚本、CI（持续集成）、批处理、评测。第 11 章会深入。</p>
+<h3 id="wiki-h-29">ACP（编辑器协议）</h3>
+<pre><code class="hljs language-bash">mcode acp
+</code></pre><p>通过 stdin/stdout 运行 Agent Client Protocol server（Agent 客户端协议服务）。编辑器负责显示回复、工具状态、权限请求。第 12 章会深入。</p>
+<h2 id="wiki-h-30">3.8 安装后常见问题</h2>
+<h3 id="wiki-h-31"><code>mcode: command not found</code></h3>
+<ul>
+<li>关闭终端，重新打开一次（PATH 没刷新）</li>
+<li>macOS / Linux 上，确认安装器输出末尾没有 ERROR 字样</li>
+<li>Windows PowerShell 上，重新打开 PowerShell 窗口</li>
+<li>Linux 上确认你的用户主目录下 <code>~/.local/bin</code> 在 PATH 里（官方安装器会把 <code>mcode</code> 装到这里）</li>
+</ul>
+<h3 id="wiki-h-32">安装器卡住</h3>
+<ul>
+<li>检查网络能否打开 <code>https://filecdn.minimax.chat/</code></li>
+<li>关闭代理或 VPN 再试一次</li>
+<li>用方式二 <code>npm install -g @minimax-ai/code</code> 作为备选</li>
+</ul>
+<h3 id="wiki-h-33">登录后 <code>/status</code> 看不到模型</h3>
+<ul>
+<li>账号需要先在网页端订阅 Token Plan 或绑定 API Key</li>
+<li>浏览器里的授权可能没完成，回到终端重新跑 <code>mcode login</code></li>
+</ul>
+<h2 id="wiki-h-34">3.9 本章小结</h2>
+<ul>
+<li>命令名是 <code>mcode</code>，安装不需要管理员权限</li>
+<li>macOS / Linux / WSL2 用 <code>curl ... | bash</code> 装；Windows PowerShell 用 <code>irm ... | iex</code> 装</li>
+<li>安装后 <code>mcode --version</code>、<code>mcode --help</code>、<code>mcode login</code> 三步走</li>
+<li>CLI 有三种入口：交互 TUI、Headless、ACP，后续章节都会用到</li>
+<li>Node.js 22.19.0+ 是官方版本要求；安装器通常会自动准备</li>
+</ul>
+<p>下一章我们会在项目目录里跑 <code>mcode init .</code>，让 Agent 帮我们生成 <code>AGENTS.md</code>，正式进入 habitlog 的开发。</p>
+</article>

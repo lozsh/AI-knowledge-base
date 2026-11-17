@@ -1,0 +1,303 @@
+这一章做两件事：在分支上写 list / streak / summary 三个子命令，把"分支开发 + 一次提交一个功能 + 提交前自审"这套规范完整走一遍。
+学完这一章，你会习惯"任何大改动都开分支、每个子功能一次 commit、自己审一遍再合并"的工作方式。
+
+6.1 这一章要达成什么
+在新分支 feat/list-streak-summary 上完成三个新子命令
+每个子命令一次 commit（feat: / test:）
+用 /code-review 自审每次改动
+合回 main 分支，保留 merge commit
+
+完成后你可以从命令行执行：
+
+python -m habitlog list
+python -m habitlog streak 读书
+python -m habitlog summary
+
+
+并且 git log 会看到一串规范的 commit 历史。
+
+6.2 准备点测试数据
+
+在分支开发前，先在本地塞几条数据，让新子命令有东西可显示。TUI 里问 Agent：
+
+请帮我往 ~/.habitlog/data.json 里塞几条历史数据用于测试，覆盖最近 7 天，包含"读书"和"跑步"两个习惯
+
+
+Agent 会用类似 Python 的方式构造几条记录写进 JSON。完成后你可以看一下：
+
+macOS / Linux / WSL2：
+
+cat ~/.habitlog/data.json
+
+
+Windows PowerShell：
+
+Get-Content $env:USERPROFILE\.habitlog\data.json
+
+
+预期看到类似：
+
+{
+  "entries": [
+    {"date": "2026-09-22", "habit": "读书", "note": "第一章"},
+    {"date": "2026-09-23", "habit": "跑步", "note": "5 公里"},
+    {"date": "2026-09-24", "habit": "读书", "note": "第二章"},
+    {"date": "2026-09-25", "habit": "读书"},
+    {"date": "2026-09-26", "habit": "跑步", "note": "3 公里"},
+    {"date": "2026-09-27", "habit": "读书", "note": "第三章"}
+  ]
+}
+
+6.3 建分支
+
+确认在 main（或 master）分支：
+
+git branch
+git status
+
+
+预期 git branch 输出里有 * main（星号表示当前分支）。
+
+新建并切换到工作分支：
+
+git checkout -b feat/list-streak-summary
+
+
+git checkout -b <branch-name> 表示"创建分支并切换过去"。
+
+在比较新的 git 版本（2.23+）也可以用 git switch -c feat/list-streak-summary，效果一样。
+
+确认：
+
+git branch
+
+
+现在应该看到 * feat/list-streak-summary 和 main 两个分支，星号在新分支上。
+
+6.4 在 TUI 里实现 list
+
+进 TUI：
+
+mcode
+
+
+切 Plan Mode（/plan on），然后输入：
+
+请在 habitlog 里实现 list 子命令：
+
+- 命令格式：habitlog list
+- 行为：列出今天的所有打卡记录
+  - 没打卡时输出 "No check-ins today"
+  - 有打卡时按时间顺序输出，每条一行：<habit> (YYYY-MM-DD) [note]
+- 测试：用 pytest，覆盖空列表、单条、多条三种场景
+- 约束：复用 habitlog/cli.py 里已有的存储函数，不要重复实现
+
+
+Agent 给方案 → 你确认 → 让它开始实现（可以临时按 Alt+M 切到 Auto）。
+
+实现完成后退出 TUI，跑测试：
+
+python -m pytest -v
+
+
+预期新增的几个测试用例都通过。手工验证：
+
+python -m habitlog list
+
+
+预期列出今天（2026-09-28）的打卡记录。
+
+6.5 让 Agent 写 commit message 并提交
+
+回到 TUI，输入：
+
+请给这次 list 子命令的改动写一个 conventional commit message，然后告诉我怎么提交
+
+
+Agent 通常会输出：
+
+feat: implement list subcommand for today's check-ins
+
+
+把它用进命令：
+
+git status
+git diff
+git add habitlog/ tests/
+git commit -m "feat: implement list subcommand for today's check-ins"
+
+
+习惯做法：让 Agent 起草 commit message，但提交动作自己敲。这样既能利用 Agent 的总结能力，又能保证 review 过程自己掌控。
+
+确认 commit 成功：
+
+git log --oneline
+
+
+预期看到刚才的 commit 出现在最上面。
+
+6.6 实现 streak
+
+重新进 TUI（mcode），重复 6.4 / 6.5 的流程。
+
+提示词：
+
+请实现 streak 子命令：
+
+- 命令格式：habitlog streak <habit>
+- 行为：计算并打印指定习惯的"连续天数"
+  - 连续天数的定义：从今天往回数，直到有一天没打卡为止
+  - 举例：今天、昨天、前天都打卡 → 连续 3 天；今天没打卡但昨天、前天打卡 → 连续 0 天
+  - 输出格式："<habit>: <N> day streak"
+- 测试：覆盖连续 0 天、连续 3 天、断了一天的情况
+
+
+提交：
+
+git status
+git diff
+git add habitlog/ tests/
+git commit -m "feat: implement streak subcommand with consecutive day calculation"
+
+6.7 实现 summary
+
+提示词：
+
+请实现 summary 子命令：
+
+- 命令格式：habitlog summary
+- 行为：列出所有习惯的总打卡次数和最近一次打卡日期
+  - 按习惯名排序
+  - 输出格式：
+    <habit>: <count> times, last on <YYYY-MM-DD>
+- 测试：覆盖空数据、单习惯多记录、多习惯
+
+
+提交：
+
+git add habitlog/ tests/
+git commit -m "feat: implement summary subcommand with habit statistics"
+
+6.8 提交前自审
+
+回到 TUI（mcode），输入：
+
+/code-review
+
+
+Agent 会读最近几次改动（list / streak / summary 三个子命令的实现）。评审意见里常见的问题：
+
+重复代码：三个子命令都从 data.json 读数据，是否可以抽到一个共用函数？
+错误处理：data.json 文件损坏怎么办？
+测试覆盖：边界条件（空数据、空字符串习惯名）有没有覆盖？
+
+如果 Agent 提了好建议，挑几个采纳让它改。改完跑一遍 pytest：
+
+python -m pytest -v
+
+
+再做一次"重构 commit"。如果重构里没有功能变化，按 conventional commit 用 refactor:：
+
+git add habitlog/ tests/
+git commit -m "refactor: extract shared storage helper for list/streak/summary"
+
+6.9 切回 main，合并分支
+
+切回 main 分支：
+
+git checkout main
+
+
+确认在新分支上的 commit 都在：
+
+git log --oneline
+
+
+合并（保留 merge commit，方便回溯）：
+
+git merge --no-ff feat/list-streak-summary
+
+
+--no-ff 强制生成一个 merge commit（即使可以 fast-forward），这样分支历史看得清楚。
+
+如果提示要写 merge message，可以接受默认或者写一句：
+
+Merge branch 'feat/list-streak-summary' into main
+
+
+合并完成后：
+
+git log --oneline --graph
+
+
+--graph 画 ASCII 图，能看到分支合并的形状：
+
+*   <merge-commit> Merge branch 'feat/list-streak-summary' into main
+|\
+| * feat: implement summary subcommand with habit statistics
+| * refactor: extract shared storage helper for list/streak/summary
+| * feat: implement streak subcommand with consecutive day calculation
+| * feat: implement list subcommand for today's check-ins
+|/
+* chore: initialize habitlog project with AGENTS.md
+
+
+干净的小项目历史。
+
+6.10 跑一次冒烟测试
+
+合并后，再做一次端到端验证：
+
+python -m habitlog add 读书 "新加一条"
+python -m habitlog list
+python -m habitlog streak 读书
+python -m habitlog summary
+
+
+四条命令都跑一遍，确认行为符合预期。
+
+6.11 这一章做了什么、留下了什么
+三个新子命令 list / streak / summary 全部实现
+每次提交都用 feat: / refactor: 前缀
+在分支上开发、用 --no-ff 合回 main
+
+当前仓库结构：
+
+habitlog/
+├── .git/
+├── .gitignore
+├── AGENTS.md
+├── habitlog/
+│   ├── __init__.py
+│   └── cli.py
+└── tests/
+    ├── test_add.py
+    ├── test_list.py
+    ├── test_streak.py
+    └── test_summary.py
+
+
+git 历史：
+
+<merge> Merge branch 'feat/list-streak-summary' into main
+<feat> implement summary subcommand with habit statistics
+<refactor> extract shared storage helper for list/streak/summary
+<feat> implement streak subcommand with consecutive day calculation
+<feat> implement list subcommand for today's check-ins
+<chore> initialize habitlog project with AGENTS.md
+
+6.12 这一章的常见问题
+合并时冲突了
+通常是因为 main 分支后来又改了相同的地方
+用编辑器打开冲突文件，按 <<<<<<< / ======= / >>>>>>> 标记手动解决
+解决后 git add 标记解决完成，再 git commit
+git log --graph 画线丑
+教程项目小，所以图简单。等你项目大了，可能需要工具辅助（git log --oneline --graph --all）
+Agent 写的 commit message 我不喜欢
+改写一遍就行。git commit -m "你的 message"
+或者让 Agent 重写：请改得更具体，强调 xxx
+想撤销某个 commit
+git revert <commit-id> 会创建一个"反向 commit"，不丢历史
+git reset --hard <commit-id> 会真正删除历史（危险，慎用）
+
+下一章我们会故意制造一个 bug，让 Agent 用"读 traceback + 写回归测试"的流程修掉，把调试能力练一遍。

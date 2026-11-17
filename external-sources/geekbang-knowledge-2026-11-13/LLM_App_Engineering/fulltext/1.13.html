@@ -1,0 +1,137 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你已经能让助手修改代码、运行检查，也知道不能把一句“完成了”当成执行证据。但做过几次之后，会遇到另一个问题：每次都要重新解释同一套步骤。</p>
+<p>例如，把笔记助手生成的卡片整理成复习资料。你希望保留问题、答案、引用和原始笔记；缺少资料的回答不能被偷偷补全；导出后还要核对文件。若每次都让模型“自行整理一下”，格式和遗漏项可能每次不同。若只记住一条命令，又容易忘记导出后的审核。</p>
+<p>本篇把这件事分成三个位置：确定的转换交给脚本，如何完成任务写进Skill，需要跨工具连接时再考虑MCP。你会实际导出一份Markdown复习资料，读懂一个可以交给Kimi使用的Skill，并完成一次MCP接口取舍练习。</p>
+<p>应用仍使用DeepSeek。本篇新增的是外层开发材料，不修改模型配置，也不增加网页按钮。</p>
+<h2 id="wiki-h-0">三者解决的是不同问题</h2>
+<p>先看同一个任务的三种需求。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>当前需要</th>
+<th>适合放在哪里</th>
+<th>在本项目中的例子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>按明确规则反复转换数据</td>
+<td>脚本</td>
+<td>JSON卡片转Markdown，保留引文和状态</td>
+</tr>
+<tr>
+<td>让助手知道何时做、怎样查、失败怎么办</td>
+<td>Skill</td>
+<td>导出前核对输入，导出后检查并交付</td>
+</tr>
+<tr>
+<td>让不同助手通过统一接口访问某个服务</td>
+<td>MCP</td>
+<td>未来从资料归档服务读取指定导出记录</td>
+</tr>
+</tbody></table></div>
+<p>脚本是可以由Python等程序直接执行的代码。Skill在这里是一份供Agent理解的工作说明，可以配脚本和参考资料。MCP，全称Model Context Protocol，是应用之间交换上下文和调用能力的协议。</p>
+<p>它们可以组合。Skill指导助手运行脚本；MCP服务器内部也可以复用某段转换代码。不过，组合不是必需动作。一个本地脚本已经能解决的事情，并不因为再包一层协议就更可靠。</p>
+<p>我们先做最小的那一部分：<strong>已有卡片按固定规则导出，不请模型重新生成答案。</strong></p>
+<h2 id="wiki-h-1">起点和交付物先说清楚</h2>
+<p>下载并解压第12篇材料包，终端进入其中的<code>lesson-12</code>目录。该目录包含README、<code>export_review.py</code>、<code>verify_export.py</code>和<code>project</code>。</p>
+<p><code>project</code>里的38个应用文件与上一篇相同。新导出脚本放在外层，因此不会改变已有网页和数据库。前面各篇的评测、追踪、权限练习也保留，当前任务入口换成了<code>docs/tasks/012-reusable-capabilities.md</code>。</p>
+<p>本篇输入是项目原有的三张<strong>作者构造卡片样例</strong>。它们回答RAG流程、为什么仍需核查，以及资料未提供的响应时间。使用公开固定样例，可以先验证转换规则，不读取你的真实记录，也不产生模型费用。</p>
+<p>导出目录里只有两个文件：</p>
+<ul>
+<li><code>review.md</code>：供人阅读的问题、答案、依据和原始笔记。</li>
+<li><code>manifest.json</code>：记录样例名、卡片数、输入与产物的指纹、待审核状态。</li>
+</ul>
+<p>这不是已经接上真实历史问答的完整导出功能。本篇先建立可以单独验证的转换入口，后续集成时才有稳定的基础。</p>
+<h2 id="wiki-h-2">先把脚本单独跑通</h2>
+<p>需要Python 3.11或更高版本。新脚本只使用标准库及本地的<code>study_task.py</code>、<code>validation.py</code>，不需要安装SDK、配置Key或登录Kimi。上一篇权限脚本的导入链需要SDK，不能把那个前提机械搬到这里。</p>
+<p>macOS/Linux，工作目录为<code>lesson-12</code>：</p>
+<pre><code class="hljs language-bash">python3 export_review.py --fixture valid --out export-01
+python3 verify_export.py export-01
+</code></pre><p>Windows PowerShell，同样在<code>lesson-12</code>：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> export_review.py <span class="hljs-literal">--fixture</span> valid <span class="hljs-literal">--out</span> <span class="hljs-built_in">export-01</span>
+py <span class="hljs-literal">-3</span> verify_export.py <span class="hljs-built_in">export-01</span>
+</code></pre><p><code>--fixture valid</code>选择本课的固定正常样例；<code>--out export-01</code>指定一个尚不存在的新目录，不是文件名。父目录必须已经存在。两条命令正常结束后，分别输出：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"result"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"exported"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"cards"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"actual_api_calls"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">}</span>
+</code></pre><pre><code class="hljs language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"result"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pass"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"cards"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"semantic_review"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"pending"</span><span class="hljs-punctuation">}</span>
+</code></pre><p>第一条说转换结束，第二条才是独立核对。这里的<code>pending</code>表示语义仍待人工检查，不能理解为导出失败。</p>
+<p>用编辑器打开<code>export-01/review.md</code>。你应看到Q1、Q2、Q3三张卡，以及N1—N3原始笔记。Q3仍回答“笔记未提供，无法判断”，没有为了版面完整而编造毫秒数。顶部明确写着作者构造样例和待人工核对。</p>
+<p>再打开<code>manifest.json</code>。其中的SHA256是一种内容指纹：相同字节得到相同指纹，文件发生变化时可以用它发现不一致。本篇分别记录卡片输入、笔记与问题、导出文件的指纹。<strong>指纹不判断事实真假，也不是谁审核过这份资料的签名。</strong></p>
+<p><code>verify_export.py</code>不调用导出函数来生成自己的预期；它另行检查三张卡的固定内容、状态、来源、原文和指纹。因此，“导出器和验证器都运行成功”比只看导出器打印成功多了一层独立证据，但验证范围仍是本课这些固定样例。</p>
+<h2 id="wiki-h-3">脚本里的边界，比提示词里的要求更稳定</h2>
+<p>导出函数依次做三件事：读取允许的样例、调用应用已有的<code>validate_cards</code>检查、写入新目录。创建目录发生在校验通过之后。坏输入不会先留下一个看似成功的资料目录。</p>
+<p>这里没有把“检查一下”重新交给模型判断。格式、问题对应关系、状态取值、引文是否在原文中，都是已有程序规则。输出文字直接来自输入，不由Agent改写。</p>
+<p>为了在Markdown里按文字显示卡片内容，脚本把这些段落作为缩进代码块写入。它不是HTML发布系统；本篇只处理提供的教学样例，不声称已经适配任意用户文件、复杂富文本或超大资料。</p>
+<p>现有输出目录会被拒绝，退出码为2。复跑时用<code>export-02</code>，不清空旧目录。写盘中途失败则可能留下部分文件，此时需要保留错误和残留文件排查，不能把“目录存在”当作成功。</p>
+<p>同一份输入导出到两个新目录，当前脚本产生的文件字节相同。因为它没有在正文中混入随机措辞、时间戳或模型补写。这种可预测性适合交给代码维护：格式变更后，可以直接比较前后差异。</p>
+<h2 id="wiki-h-4">两个反例：复用不能掩盖原来的错误</h2>
+<p>接下来使用已经提供的坏样例，不修改正常输入。</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 export_review.py --fixture bad-quote --out rejected-01
+python3 export_review.py --fixture semantic-wrong --out wrong-01
+python3 verify_export.py wrong-01 --fixture semantic-wrong
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> export_review.py <span class="hljs-literal">--fixture</span> bad<span class="hljs-literal">-quote</span> <span class="hljs-literal">--out</span> rejected<span class="hljs-literal">-01</span>
+py <span class="hljs-literal">-3</span> export_review.py <span class="hljs-literal">--fixture</span> semantic<span class="hljs-literal">-wrong</span> <span class="hljs-literal">--out</span> wrong<span class="hljs-literal">-01</span>
+py <span class="hljs-literal">-3</span> verify_export.py wrong<span class="hljs-literal">-01</span> <span class="hljs-literal">--fixture</span> semantic<span class="hljs-literal">-wrong</span>
+</code></pre><p>第一条应失败，退出码为1，提示引文不在对应笔记原文中；新的<code>rejected-01</code>目录不会被创建。说明规则检查阻止了不合格输入进入导出。</p>
+<p>后两条却会成功。打开<code>wrong-01/review.md</code>，Q1写的是“先生成回答，再检索资料”，与原文顺序相反。为什么仍然通过？因为这个样例引用的原文是真的，结构也合法；脚本准确复制了错误答案，验证器也确认它没有擅自改写。</p>
+<p>这延续了第9篇的区别：转换正确、机械校验通过，与答案语义正确，是不同的结论。你需要对照原文发现这个错误。导出文件保留<code>pending</code>，正是为了不让成功的程序执行伪装成内容审核。</p>
+<p>以后把流程写成Skill时，不能删掉这一层阅读步骤。否则只是把遗漏更高效地重复了很多次。</p>
+<h2 id="wiki-h-5">把稳定的做法写进Skill</h2>
+<p>本课已经提供：</p>
+<pre><code class="hljs language-text">skills/
+└── export-review/
+    ├── SKILL.md
+    └── references/
+        └── review-checklist.md
+</code></pre><p>打开SKILL.md。文件前面的两道<code>---</code>之间是元数据，后面才是给Agent的工作说明。Kimi官方当前支持这样的目录结构，目录形式要求提供<code>name</code>和<code>description</code>。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html">Kimi Agent Skills文档</a></p>
+<p>本课元数据是：</p>
+<pre><code class="hljs language-yaml"><span class="hljs-attr">name:</span> <span class="hljs-string">export-review</span>
+<span class="hljs-attr">description:</span> <span class="hljs-string">将本课固定复习卡样例导出为带来源和待审标记的本地Markdown；不生成答案、不发布资料。</span>
+<span class="hljs-attr">type:</span> <span class="hljs-string">prompt</span>
+<span class="hljs-attr">disableModelInvocation:</span> <span class="hljs-literal">true</span>
+</code></pre><p><code>description</code>说明适用任务，范围刻意写得很窄：它只导出本课样例。<code>disableModelInvocation: true</code>关闭模型自动选用这个Skill的方式，保留手动调用；它<strong>不表示调用Skill时不使用模型</strong>。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html">Kimi Skill字段说明</a></p>
+<p>真正有用的是正文里的流程。它要求先确认工作目录和输入，选新的输出目录，调用脚本，执行独立检查，阅读三张卡，最后交付文件。导出或检查失败时停止，不修改验证器，也不请模型“顺手修好”答案。</p>
+<p>这与把命令写到聊天里有两个差别。第一，说明可以随项目保存、审查和修改，不必依靠会话记忆。第二，失败条件和交付标准随操作一起复用，减少只记住“运行脚本”却忘记检查的情况。</p>
+<p>但Skill仍然需要Agent理解并选择动作，不能保证每次执行都完全一致。确定的转换由脚本承担；Skill负责衔接任务与判断，执行结果仍以命令、退出状态和文件为准。</p>
+<p>读完文件后，自己核对三个问题：如果用户要求导出真实私人历史，它是否仍然适用？如果目录已存在，是否会删除旧文件？如果Q1错误，它是否有权重新生成答案？本课Skill的答案分别是：不适用、保留旧目录、无权擅自生成。这些限制能在文件中找到，不只存在于教程的叙述里。</p>
+<h2 id="wiki-h-6">在Kimi里手动调用一次</h2>
+<p>这一步可选。没有Kimi账户，也已经可以完成离线导出与Skill阅读。有现成环境时，调用会消耗Kimi开发服务额度；导出脚本本身仍不调用DeepSeek或Kimi API。</p>
+<p>2026年10月4日本机核查版本为Kimi 2.0.2。先在<code>lesson-12</code>检查帮助，再显式加载本课的<code>skills</code>目录：</p>
+<pre><code class="hljs language-bash">kimi --version
+kimi --<span class="hljs-built_in">help</span>
+kimi --skills-dir ./skills
+</code></pre><p>Windows PowerShell的Kimi命令相同。<code>--skills-dir</code>让本次启动使用指定的Skill目录，避免依赖你把练习放在了哪个Git根目录下面；它改变发现范围，不是文件访问沙箱。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html">Kimi命令参考</a></p>
+<p>在新会话输入：</p>
+<pre><code class="hljs language-text">/skill:export-review
+</code></pre><p>这是Kimi当前的手动Skill调用形式。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html">Kimi Skill调用说明</a></p>
+<p>预期助手按Skill核对目录，准备导出到新的<code>skill-export-01</code>；已有同名目录时选择新编号。批准界面出现时检查实际命令与目标。完成后，它应交付<code>review.md</code>和<code>manifest.json</code>，说明固定样例、检查结果和待审核状态。你仍然可以在终端独立运行<code>python3 verify_export.py skill-export-01</code>（Windows用<code>py -3 verify_export.py skill-export-01</code>），确认它交付的文件；若用了新编号，相应替换目录名。</p>
+<p>以上是读者操作路径和预期，不是作者已执行的Kimi实录。作者检查了当前帮助、官方文档、Skill结构和配套路径，没有发起真实Kimi请求。</p>
+<p>如果命令菜单里找不到这个Skill，依次核对启动目录、<code>--skills-dir</code>是否受当前版本支持、<code>skills/export-review/SKILL.md</code>是否存在，以及元数据的名称和描述。修改文件后重新开启一个会话，再尝试手动调用。不要通过全局安装另一套旧版工具来碰运气。</p>
+<h2 id="wiki-h-7">MCP什么时候才值得接进来</h2>
+<p>到这里，Kimi已有执行本地脚本的能力，导出也只服务当前工作区。因此当前任务不需要MCP。</p>
+<p>假设以后你有一个统一的复习资料归档，希望Kimi、另一个桌面助手和自己的应用，都能读取同一份已登记资料。这时每个消费者都自行了解归档文件结构，会产生重复适配。一个MCP服务器可以向这些支持MCP的客户端提供约定好的能力。</p>
+<p>在MCP架构中，宿主是使用AI的应用，客户端负责与服务器交互，服务器提供能力或上下文。服务器可以运行在本机，也可以是远程服务。协议不仅涉及工具，还包括资源和提示模板；本篇只围绕一个读取工具解释。<a href="https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture">MCP官方架构说明</a></p>
+<pre><code class="hljs language-text">Kimi中的MCP客户端 ─┐
+                  ├─→ 资料归档MCP服务器 → 已登记的复习资料
+另一个MCP客户端 ──┘
+</code></pre><p>这条连接并不把大模型装进归档服务器，也不会自动替换笔记助手的DeepSeek接口。服务端是否调用模型，取决于服务实现；这里的设想只是读取已有文件。</p>
+<p>打开<code>mcp-design/tool-contract.example.json</code>。它是<strong>作者编写的工具列表设计片段</strong>，不是完整协议报文、Kimi配置或可运行服务器。里面只提出一个工具：<code>read_review_export</code>，只接受逻辑ID <code>demo-001</code>，不接受调用者指定任意本地路径。</p>
+<p>为什么用ID？因为资料归档可以自己维护“这个ID对应哪个文件、谁可以读”的映射。若直接接受任意<code>path</code>，工具的范围就容易从“读取一份资料”扩大成“读取服务器能访问的任何文件”。输入schema是契约，真正的服务端还必须实施校验和权限检查。</p>
+<p>本课的设计练习是：打开接入决策表，对照示例回答以下三项：</p>
+<ol>
+<li>请求<code>demo-001</code>时，应返回什么？</li>
+<li>请求<code>../secrets</code>，或者偷偷多传一个<code>path</code>时，应怎样处理？</li>
+<li>当前只有本地Kimi消费者，是否有必要启动服务？</li>
+</ol>
+<p>核对答案：返回已登记资料的内容、产物指纹与待审状态；越界ID和额外字段应拒绝；当前直接脚本已足够。这里只完成了设计，没有运行服务器，所以不能写成“已经通过MCP越权测试”。</p>
+<p>将来确实选定了服务，Kimi当前提供<code>/mcp-config</code>管理接入、<code>/mcp</code>查看状态。stdio方式会启动本地进程，HTTP方式连接服务地址；因此接入前要核对具体命令或URL、公开的工具和账号范围。连上服务也不等于每项操作都已获用户授权。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/mcp.html">Kimi MCP接入文档</a></p>
+<p>尤其要注意，官方当前说明Ask When Needed模式下MCP调用会自动批准。不要把“本地敏感动作可能会问”推断成“所有外部MCP写入也一定会问”。本课不切换到该模式，也没有添加服务器配置。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/customization/mcp.html">Kimi MCP权限说明</a></p>
+<h2 id="wiki-h-8">维护这套能力时，改哪一层</h2>
+<p>假如以后希望导出时多一个标题，先改输入/输出约定和转换脚本，再更新验证。若只是想在交付时提醒读者先看缺失答案，调整Skill和阅读清单即可。只有出现明确的跨进程或跨助手访问需求，才需要调整MCP服务接口。</p>
+<p>这能避免一种常见返工：转换格式出错，却不断给Skill增加长提示；模型忘记检查，却重写整个导出器；只是本地读文件，却先搭建远程服务。先找到变化发生在哪一层，修改范围就容易控制。</p>
+<p>若本篇导出失败，先读终端错误：坏引文属于预期拒绝；已有目录换新名；文件权限或磁盘问题先解决本地环境。若导出成功但内容错误，回到原卡片和原文审核，不要把<code>semantic_review</code>手改为<code>approved</code>制造已审核的假象。正式审核还需要绑定具体版本和审核记录，本课尚未实现。</p>
+<p>本轮作者在Python 3.11.8下完成了离线验证：正常导出、坏引文拒绝、错误语义原样保留、同输入输出字节一致、拒绝覆盖；即使篡改答案后重新计算文件指纹，独立检查仍能发现不符合固定预期。旧应用38个文件未改。没有真实模型调用、MCP联调或Windows实机验证。</p>
+<p>现在项目多了一个稳定的导出入口，以及一份能指导助手使用它的Skill。下一篇会把需求、上下文、工具、检查与状态组织成最小Harness，让这些已经建立的能力在一次完整任务中协同工作。</p>
+<hr>
+<p>上一篇：11｜工具与权限边界 · 本部分目录 · 代码与工作材料</p>
+</article>

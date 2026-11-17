@@ -1,0 +1,257 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>笔记助手显示“生成失败”。你打开终端，看到一行报错，又发现账户用量似乎增加了。现在有三个问题：它到底有没有找到资料？模型有没有返回内容？既然结果失败，为什么还可能产生消耗？</p>
+<p>只保存最后一句错误，回答不了这些问题。一次操作可能已经完成检索、收到模型响应，却在校验引用时失败；也可能请求超时，客户端不知道远端是否已经处理。两种情况都会让用户觉得“没成功”，后续处理却完全不同。</p>
+<p>上一篇用固定题集区分了检索、引用、语义和缺失行为。这一篇为这些步骤补上可追查的记录：<strong>让你从一次操作出发，找到它经过的阶段、停止的位置，以及哪些费用已知、哪些仍然未知。</strong></p>
+<p>我们继续使用Python笔记助手，Kimi Code辅助开发，应用服务仍是DeepSeek。必做练习完全离线，不需要Key，也不会发生实际API费用。约需40—60分钟。</p>
+<h2 id="wiki-h-0">起点：项目已有记录，但仍需要知道怎样串起来</h2>
+<p>下载第10篇材料，在解压后的<code>lesson-10</code>目录打开终端。当前应用在<code>project/</code>，38个文件与第09篇正确版本一致。上篇题集也保留在<code>eval/</code>，不必重新造一套数据。</p>
+<p>项目并不是从零开始记录。<code>project/card_pipeline.py</code>中的<code>run_task</code>已经用同一个文件名前缀，把几类文件放在一起：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>文件后缀</th>
+<th>能提供的证据</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-request.json</code></td>
+<td>准备发送的请求与实验参数</td>
+</tr>
+<tr>
+<td><code>-sources.json</code></td>
+<td>这次任务使用的资料快照（有资料时）</td>
+</tr>
+<tr>
+<td><code>-attempt-01.json</code>等</td>
+<td>逐次尝试的状态、错误类别、用量与重试决策</td>
+</tr>
+<tr>
+<td><code>-response.json</code></td>
+<td>接收到的原始SDK响应</td>
+</tr>
+<tr>
+<td><code>-result.json</code></td>
+<td>应用最终如何处理该响应</td>
+</tr>
+</tbody></table></div>
+<p>这个公共前缀已经能帮助你把同一任务的资料找齐。相反，只有一个<code>-request.json</code>，没有对应结果，并不能证明请求没发出去：程序也可能在发送后中断，或保存结果时失败。</p>
+<p>本课不读取你的个人运行记录。完整请求和响应可能带有笔记原文；我们用公开小样例学习调查方法，再把它映射回真实项目。</p>
+<p>新加入的<code>trace_lab.py</code>是外层教学脚本：调用应用现有的资料读取、检索、校验和费用计算函数，围绕步骤写事件。模型返回和超时由构造资料代替。<strong>它没有自动改造网页应用的全部日志，也没有安装监控平台。</strong></p>
+<h2 id="wiki-h-1">日志告诉你发生了什么，追踪把它们连成一次操作</h2>
+<p>一条日志可以记录“引用检查失败”。如果同时有三个人操作，你还需要知道它属于哪个问题、哪次执行、哪个阶段。</p>
+<p>本课用四种ID建立关联：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>可以怎样理解</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>operation_id</code></td>
+<td>一次业务操作的编号</td>
+</tr>
+<tr>
+<td><code>trace_id</code></td>
+<td>这一次执行链路的编号</td>
+</tr>
+<tr>
+<td><code>span_id</code></td>
+<td>链路中一个步骤的编号</td>
+</tr>
+<tr>
+<td><code>parent_span_id</code></td>
+<td>这个步骤属于哪个上级步骤</td>
+</tr>
+</tbody></table></div>
+<p>Trace可以理解为一次执行的完整路径，Span就是其中一段工作。OpenTelemetry也使用Trace与Span表达执行关联，并用父子关系组织子操作。本课采用这个思路手写少量JSON事件，不是OpenTelemetry格式的实现，也没有部署它的组件。<a href="https://opentelemetry.io/docs/concepts/signals/traces/">OpenTelemetry追踪概念</a></p>
+<p>一个正常情景大致如下：</p>
+<pre><code class="hljs language-text">operation（一条trace的根步骤）
+  ├─ retrieval：实际执行本地检索
+  ├─ model：注入作者构造的响应
+  └─ validation：实际执行机械校验
+</code></pre><p>本课每次操作对应一条trace，三个子步骤的父ID都指向根步骤。真实系统未必一对一：同一业务操作可能后来恢复执行，形成另一条trace；同一模型步骤也可能有多次尝试。保留业务ID与执行ID的区别，是为了日后能回答“用户做了什么”和“这一次具体怎样执行”。</p>
+<p>实现时，不必把所有函数重写。<code>trace_lab.py</code>只是把记录放在已有函数调用前后，下面这段与配套源码一致：</p>
+<pre><code class="hljs language-python">    step = trace.start(<span class="hljs-string">'retrieval'</span>, parent)
+    report, selected = retrieve(bundle, <span class="hljs-keyword">case</span>[<span class="hljs-string">'terms'</span>], <span class="hljs-keyword">case</span>[<span class="hljs-string">'top_k'</span>])
+    trace.end(step, <span class="hljs-string">'matched'</span> <span class="hljs-keyword">if</span> selected <span class="hljs-keyword">else</span> <span class="hljs-string">'no_matches'</span>,
+              selected_ids=report[<span class="hljs-string">'selected_ids'</span>], selected_count=<span class="hljs-built_in">len</span>(selected),
+              source_text_sha256=bundle[<span class="hljs-string">'sources'</span>][<span class="hljs-number">0</span>][<span class="hljs-string">'text_sha256'</span>])
+</code></pre><p>开始时分配步骤ID，结束时补上结果与必要数量；原始片段不写进事件。这段代码由脚本提供，你无需粘进网页应用。若函数异常或进程中断，开始事件可能没有对应结束，调查时必须保留这种不完整状态。</p>
+<p><code>case_id</code>则是E01、E03等公开题集编号，帮助我们找到对应的教学输入；它不能替代每次运行产生的唯一执行ID。把第二次运行误认为第一次的后续，会让耗时与费用都算错。</p>
+<h2 id="wiki-h-2">第一步：生成四条可以调查的链路</h2>
+<p>新脚本只需要Python3.11或更高，不需安装依赖。从<code>lesson-10</code>执行。</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 trace_lab.py --out trace-run-01
+python3 verify_trace.py trace-run-01
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> trace_lab.py <span class="hljs-literal">--out</span> <span class="hljs-built_in">trace-run</span><span class="hljs-literal">-01</span>
+py <span class="hljs-literal">-3</span> verify_trace.py <span class="hljs-built_in">trace-run</span><span class="hljs-literal">-01</span>
+</code></pre><p>第一条命令新建目录，写入两个文件：<code>trace.jsonl</code>和<code>summary.json</code>。JSONL表示每行一个独立JSON对象，适合逐行写日志；本课不用专门查看器，用编辑器打开就行。</p>
+<p>目录已存在时脚本拒绝覆盖，退出2。要再做一次，换成<code>trace-run-02</code>；父目录要已经存在。若写文件中断，保留已有部分记录，不把这个目录当作完整成功结果。</p>
+<p>第二条命令是独立检查器，预期显示<code>events: 26</code>、<code>operations: 4</code>、<code>result: pass</code>。它检查的是本课固定情景的结构和预期，不是宣称所有业务情景成功。</p>
+<p>四条链路分别是：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>案例</th>
+<th>发生了什么</th>
+<th>最终状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>E01</td>
+<td>检索命中，构造回答14天，机械校验通过</td>
+<td><code>validated_needs_review</code></td>
+</tr>
+<tr>
+<td>E03</td>
+<td>检索命中，构造回答引用了不存在的30天原句</td>
+<td><code>validation_failed</code></td>
+</tr>
+<tr>
+<td>E04</td>
+<td>关键词“贷款”未找到借阅期限片段</td>
+<td><code>stopped_no_context</code></td>
+</tr>
+<tr>
+<td>T01</td>
+<td>使用E01的检索输入，随后注入超时情景</td>
+<td><code>request_uncertain</code></td>
+</tr>
+</tbody></table></div>
+<p>T01没有真的等待网络超时，脚本没有发请求，也没有自动重试。它用来演示：如果真实请求出现这种结果，我们应当保留哪些未知信息。</p>
+<p>E01也没有升级为“答案已审核”。上一课已经说明，机械校验通过后仍需语义核对；日志里的业务状态必须保留这个区别。</p>
+<h2 id="wiki-h-3">第二步：从最后失败的一步往前找证据</h2>
+<p>在编辑器中打开<code>trace.jsonl</code>，搜索<code>"case_id": "E03"</code>。你会找到8行：根操作开始，检索开始与结束，模型步骤开始与结束，校验开始与结束，根操作结束。</p>
+<p>这8行的<code>trace_id</code>和<code>operation_id</code>应一致。<code>span_id</code>区分步骤，同一步的开始和结束共用一个ID。看看最后几行，你应该能得到这样的判断：</p>
+<pre><code class="hljs language-text">模型步骤：received_fixture，已有构造usage。
+校验步骤：failed，error_category为cards_validation。
+根操作：validation_failed。
+</code></pre><p>所以当前证据指向“收到候选之后的内容校验”，而不是检索为空或请求未返回。接着去对应的公开候选和原文，才能定位到假引文。日志先帮你缩小范围，不能替代源文件和响应内容本身的核对。</p>
+<p>再看E04。它只有4行，根操作与检索各一对开始/结束事件，没有<code>model</code>步骤。这说明在本次完整练习链路中，代码没有进入模型阶段。不要只因为最终没有回答，就把它称为“模型拒答”。</p>
+<p>最后看T01。它有6行：检索完成，模型步骤标记<code>timeout_unknown</code>，决策为<code>stop_no_retry</code>，没有校验步骤。此时可以说“未拿到可供校验的响应”；不能进一步断言“服务端一定没有生成”。</p>
+<p>超时后立即连点重试，可能产生重复工作和额外费用。现有项目已经保留生成确认及逐次尝试记录，本课不改变这些规则。真实调查应先结合已有操作、尝试记录和服务侧可核查信息确认状态，再决定是否重新发起。</p>
+<h3 id="wiki-h-4">时间戳和耗时也要写清范围</h3>
+<p><code>timestamp_utc</code>记录本地写下事件的时间。跨机器比较时间先看时区与时钟；同一程序衡量经过时间，则可使用不随系统时间校准回退的计时器。本课用<code>perf_counter</code>测量本地步骤耗时，取前后两次读数之差。<a href="https://docs.python.org/3.11/library/time.html#time.perf_counter">Python计时文档</a></p>
+<p><code>model</code>步骤的<code>duration_ms</code>是<code>null</code>，<code>timing_scope</code>为<code>not_measured_provider</code>。读出一个构造响应花了多少微秒，不能拿来代表DeepSeek响应速度。</p>
+<p>根操作的耗时也只是<code>run_case</code>中的本地执行，包含本地记录等开销，不包含此前加载整套练习资料的时间。更不能称为用户从点击到看到页面的端到端耗时。没有写清测量范围的“平均耗时”，往往比没有数字更容易误导。</p>
+<h2 id="wiki-h-5">第三步：让残缺日志暴露出来</h2>
+<p>把整个<code>trace-run-01</code>目录复制为<code>trace-run-broken</code>。只在副本中用编辑器删掉<code>trace.jsonl</code>最后一行，然后运行：</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 verify_trace.py trace-run-broken
+python3 verify_trace.py trace-run-01
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> verify_trace.py <span class="hljs-built_in">trace-run</span><span class="hljs-literal">-broken</span>
+py <span class="hljs-literal">-3</span> verify_trace.py <span class="hljs-built_in">trace-run</span><span class="hljs-literal">-01</span>
+</code></pre><p>第一条应失败、退出1；第二条仍通过。被删掉的是T01根操作的结束事件。检查器不会因为前面的子步骤看起来合理，就补出一个“已经完成”。</p>
+<p>这个反例说明，日志也需要检查完整性。但不要反过来认为真实日志缺少结束，就能证明业务一定失败：程序可能完成业务后没来得及落盘。正确结论是“这份证据不完整，需要进一步核对”。</p>
+<p>配套检查器只认识本课四个情景。如果将来增加第五个案例，它会拒绝，因为固定预期已经改变。这时应审查新场景并更新检查规则，而不是把它当成适用于所有生产追踪的通用工具。</p>
+<h2 id="wiki-h-6">成本要从逐次尝试算，失败也可能有消耗</h2>
+<p>现在打开<code>summary.json</code>。里面刻意分了两类数字：真实练习执行，以及假设服务请求发生后的费用情景。</p>
+<p>真实练习没有网络请求，所以<code>actual_network_calls</code>为0，<code>actual_api_charge_cny</code>为<code>"0"</code>。这只描述本脚本的API调用，不描述你整个电脑或账户的费用。</p>
+<p>费用情景使用作者构造的用量，以及<strong>虚构的人民币单价</strong>，目的是让你手算并检查遗漏。下面这些数字不是DeepSeek当前报价：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>类别</th>
+<th align="right">构造用量</th>
+<th align="right">虚构每百万Token单价</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入缓存命中</td>
+<td align="right">800</td>
+<td align="right">0.1元</td>
+</tr>
+<tr>
+<td>输入缓存未命中</td>
+<td align="right">200</td>
+<td align="right">1元</td>
+</tr>
+<tr>
+<td>输出</td>
+<td align="right">100</td>
+<td align="right">2元</td>
+</tr>
+</tbody></table></div>
+<p>DeepSeek当前Chat Completions文档把<code>prompt_tokens</code>定义为命中与未命中输入之和，并分别提供缓存计数和<code>completion_tokens</code>。实际估算要读取返回的用量，不能拿字符数或<code>max_tokens</code>上限当成实耗。<a href="https://api-docs.deepseek.com/api/create-chat-completion/">DeepSeek响应字段</a></p>
+<p>在本课虚构条件下，一次已知用量的费用是：</p>
+<pre><code class="hljs language-text">(800 × 0.1 + 200 × 1 + 100 × 2) ÷ 1,000,000
+= 0.00048 元
+</code></pre><p>代码复用<code>project/costs.py</code>的<code>estimate_usage</code>，用十进制数计算。不要把<code>prompt_tokens=1000</code>再加到800与200上，输入会被算两次；输出细项也不能未经核对再叠加到输出总量上。</p>
+<p>E01得到0.00048元，E03同样得到0.00048元。E03最后校验失败，不会让情景中已经生成的内容变成“从没消耗过”。这也是为什么成本记录不能只筛选最终成功的操作。</p>
+<p>E04根本没有进入模型步骤，所以在本课完整链路下，其情景模型费用可记为0。T01不一样：模型步骤已经进入模拟超时状态，<code>usage</code>未知，因此情景费用为<code>null</code>。</p>
+<p>汇总于是得到：</p>
+<pre><code class="hljs language-text">情景已知小计：0.00096元
+情景未知尝试：1次
+情景完整总额：null（未知）
+实际练习API费用：0元（全程离线）
+</code></pre><p>已知小计与未知次数应该一起展示。把<code>null</code>转成0，会悄悄把“没有证据”改成“确定没花钱”。把已知小计叫完整账单，也会造成同样误导。</p>
+<p>真实项目中，<code>result</code>顶层的<code>usage</code>只代表最后一次收到的响应。若发生多次尝试，应查看逐次<code>attempt</code>，不要既加顶层又加attempt而重复计费，也不要只算最后一次成功。请求有记录、结果缺失的任务还要另外列为待核查；本地文件不等于平台完整账单。</p>
+<p>本篇不使用继承的<code>prices.example.json</code>报价。真实调用前应重新确认模型、币种、价格生效日期及适用时段，再保存当次估算依据；本课虚构单价不能直接拿来做预算。</p>
+<h2 id="wiki-h-7">把开发工具费用与应用费用分开</h2>
+<p>用Kimi Code改代码，是开发过程；用户运行笔记助手调用DeepSeek，是应用过程。二者即使围绕同一项目，也不是同一账户、同一记录口径。</p>
+<p>建议你的项目记录至少分清：</p>
+<ul>
+<li><strong>开发工具消耗</strong>：哪次Kimi任务、做了什么开发工作，服务提供的是额度还是可核查金额。</li>
+<li><strong>应用模型消耗</strong>：哪个业务操作、哪个模型、几次尝试、哪些usage已知。</li>
+<li><strong>其他资源费用</strong>：如果以后接入外部搜索、云主机或存储，再单独列对应来源。</li>
+</ul>
+<p>这不是要求你现在做财务系统。一张明确口径的表，就比把所有Token加在一起更有意义。订阅额度不能直接当成逐请求人民币账单，不同供应商的Token也不能在没有模型单价的情况下换算成钱。</p>
+<p>预算同样要落到实际动作：一次任务最多尝试几次、允许输出多长、是否存在未知状态后重复发送。<code>max_tokens</code>有助于限制输出，却不限制全部输入成本，更不会自动限制Agent执行多少轮。当前离线脚本没有服务循环，后面的Loop章节才会把终止与预算控制组合起来。</p>
+<h2 id="wiki-h-8">让Kimi读诊断摘要，不要直接倒出所有记录</h2>
+<p>本课新事件只记录必要的ID、阶段、数量、状态、用量和错误类别，没有题目原文、笔记、完整响应、凭据或会话owner。它使用有限字段，而不是把异常对象或请求体整个写进日志。</p>
+<p>这不意味着“只要用了这个类，所有内容都会自动脱敏”。<code>Trace</code>是教学用的内部记录器，调用者仍需控制传入字段。资料hash可以核对版本，也不等于加密或自动匿名化。已有<code>-request</code>、<code>-response</code>等原始文件更需要单独保护。</p>
+<p>已经配置Kimi Code、愿意消耗开发额度的读者，可以在本课目录可选执行一轮：</p>
+<pre><code class="hljs language-bash">kimi --plan
+</code></pre><p>2026年10月4日本机版本为2.0.2，帮助确认<code>--plan</code>，官方文档说明<code>/plan</code>切换。作者本轮只运行了help/version，没有提交真实请求。<a href="https://www.kimi.com/code/docs/en/kimi-code-cli/guides/interaction.html">Kimi交互说明</a></p>
+<p>可使用这段请求：</p>
+<pre><code class="hljs language-text">请阅读docs/tasks/010-observability.md和trace-run-01中的两份文件。
+它们来自公开离线练习，模型事件、usage和单价均是构造数据。
+请分别解释E03与T01停止在哪一层，列出证据和仍未知的事实。
+说明为什么0.00096只是情景已知小计，不是完整费用。
+只给调查建议，不修改文件、不读取个人records/config/密钥，
+不发真实请求、不自动重试，不把构造耗时写成模型实测。
+</code></pre><p>若Agent回答“T01没收到结果，所以没有费用”，就拿<code>usage: null</code>要求它重新区分未知与零。若它建议立即批量重发，让它先解释如何避免重复调用。工具的价值是帮助组织证据，最终判断仍要能回到记录上。</p>
+<h2 id="wiki-h-9">完成检查与常见卡点</h2>
+<p>在<code>docs/TRACE_REVIEW.md</code>中另存一份自己的调查记录，填入E03、T01的trace ID、失败阶段、费用证据与下一步。先自己写，再看模板末尾的参考答案。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>先做什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输出目录已存在</td>
+<td>使用新名称，保留原调查记录</td>
+</tr>
+<tr>
+<td>JSONL打不开或解析失败</td>
+<td>核对是否逐行读取；整个文件不是一个JSON数组，也可能中断残缺</td>
+</tr>
+<tr>
+<td>每次trace ID、时间不同</td>
+<td>正常，比较业务状态与关联是否正确，不要求整文件字节相等</td>
+</tr>
+<tr>
+<td>本地耗时很短或为0.0</td>
+<td>测量的是短小本地工作且经过舍入，不代表服务性能</td>
+</tr>
+<tr>
+<td>没有model步骤</td>
+<td>查前置阶段是否停止；不要虚构一次模型拒答</td>
+</tr>
+<tr>
+<td>有开始没有结束</td>
+<td>保留不完整状态，结合其他证据调查，不自行补成功</td>
+</tr>
+<tr>
+<td>有已知小计但总额为null</td>
+<td>检查未知尝试；不要为凑总数填0</td>
+</tr>
+</tbody></table></div>
+<p>作者实际运行了四情景与26事件检查，验证了错误父ID、缺结束、伪造服务耗时、把未知费用改成总额等反例会被拒绝；新目录重复运行不会覆盖旧记录。应用38文件及第09篇评测基准字节不变。没有真实Kimi或DeepSeek调用，没有Windows实机、浏览器视觉或服务性能验证。</p>
+<p>完成后，项目多了一套可运行的追踪练习和调查模板，真实应用仍保留原有行为。下一篇将进一步处理记录里会出现的“动作”：哪些读取、修改和执行可以自动进行，哪些需要明确边界与人的决定。</p>
+<p>返回第四部分大纲 · 上一篇：AI应用评测</p>
+</article>

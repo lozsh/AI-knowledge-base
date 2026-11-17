@@ -1,0 +1,239 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你的笔记助手终于能稳定提取复习安排了。接下来出现三个问题：本地模型装不进显存；一次整理很多笔记时，等待时间太长；换用更强的 API 后，每月花费又高了。</p>
+<p>搜索解决办法，会看到“蒸馏版”“4 位量化”“高吞吐推理引擎”等词。它们都与降低成本有关，却在改变不同的东西。把其中任何一个理解成“性能不变，免费加速”，都会误判。</p>
+<p>这一篇沿着三个问题展开：能否训练一个更合适的小模型？能否用更少的位数表示权重？能否更有效地安排已有模型的计算？读完后，你可以看懂这些优化的主要取舍，并为自己的项目设计比较方法。</p>
+<p>本篇数字、模型配置和调度示例均为教学构造，没有运行真实模型或测量硬件性能。资料观察基准为 2026 年 10 月 3 日。</p>
+<h2 id="wiki-h-0">三条路线，改变的对象不同</h2>
+<p>先把几种容易混淆的做法放在一起：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>路线</th>
+<th>主要改变什么</th>
+<th>需要检查什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>蒸馏</td>
+<td>用教师模型提供的信号训练学生模型</td>
+<td>学生在目标任务上学到了多少，哪些能力丢失了</td>
+</tr>
+<tr>
+<td>量化</td>
+<td>用有限、通常更低位的数值表示权重或中间数据</td>
+<td>误差、存储、计算格式及硬件支持</td>
+</tr>
+<tr>
+<td>推理服务优化</td>
+<td>计算实现、缓存布局与请求调度等</td>
+<td>延迟、吞吐、内存和运行条件</td>
+</tr>
+</tbody></table></div>
+<p>它们可以组合：先得到一个蒸馏学生，再量化它，最后放进适合的推理引擎。但每一步都要单独检查，最后还要检查组合效果。不能把分别宣称的节省比例简单相乘，就当成自己的收益。</p>
+<p>上一篇的 MoE 属于架构设计；本篇的方法可以作用于不同架构。第 12 篇的 LoRA 则主要回答怎样减少微调时的可训练参数。减少训练开销，也不自动代表生成回答一定更快。</p>
+<h2 id="wiki-h-1">蒸馏：让学生从教师的行为中学习</h2>
+<p><strong>知识蒸馏，Knowledge Distillation</strong>，用一个模型或模型集合产生的信号，指导另一个模型学习。提供信号的叫教师，接受训练的叫学生。为降低部署成本，学生常被设计得更小，但“小”并不是蒸馏概念的唯一条件。</p>
+<p>这不是把教师的权重文件切掉一半，也不是把文件压缩后原样解压。学生有自己的参数，需要经过训练；它可以与教师采用不同规模或结构。经典蒸馏研究的重要做法，是让学生学习教师给出的概率分布，而不只学习一个最终标签。<a href="https://arxiv.org/html/1503.02531v1">《Distilling the Knowledge in a Neural Network》</a></p>
+<h3 id="wiki-h-2">1. 一个标签与一组概率，信息不同</h3>
+<p>继续使用复习安排的四种状态。假设我们构造了一个四分类教学模型，教师对某条笔记给出：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>状态</th>
+<th align="right">教师分布 A</th>
+<th align="right">教师分布 B</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>已安排</td>
+<td align="right">0.70</td>
+<td align="right">0.70</td>
+</tr>
+<tr>
+<td>未安排</td>
+<td align="right">0.20</td>
+<td align="right">0.02</td>
+</tr>
+<tr>
+<td>已取消</td>
+<td align="right">0.08</td>
+<td align="right">0.08</td>
+</tr>
+<tr>
+<td>待澄清</td>
+<td align="right">0.02</td>
+<td align="right">0.20</td>
+</tr>
+</tbody></table></div>
+<p>如果只取最高项，两者都提供“已安排”这个硬标签。如果保留分布，学生还能学习教师怎样分配其余可能性：A 更倾向于把“未安排”作为次选，B 的次选则是“待澄清”。</p>
+<p>这些数值是构造的分类输出，不是聊天模型直接返回的 Token 概率，也不是人工确认的真实正确率。学生拟合教师分布，学习的是教师的行为；教师的误判也可能被传递。</p>
+<p>蒸馏训练还可以用温度让概率分布更平缓，使较小概率之间的差别更容易参与学习。这里的温度用于构造训练目标、比较教师与学生，与第 04 篇生成时调节采样分布的使用环节不同。调高聊天接口的 Temperature，本身不会发生蒸馏。</p>
+<h3 id="wiki-h-3">2. 只拿得到教师的回答，也能提供训练材料</h3>
+<p>对于生成任务，可以收集教师给出的完整输出序列，让学生学习。序列级知识蒸馏已有专门研究；它与逐位置匹配完整概率分布的做法不同，不要求把这两种方式混为一谈。<a href="https://arxiv.org/abs/1606.07947">《Sequence-Level Knowledge Distillation》</a></p>
+<p>例如，教师读到“第二章原定周五，现改为周六”，生成约定的状态、日期和证据字段。经过检查，这份输出可以成为学生的训练目标。课堂上可把流程理解为：</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-13" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1128px;" viewBox="4 4 1128 88" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-13{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-13 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-13 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-13 .error-icon{fill:#552222;}#wiki-mermaid-13 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-13 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-13 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-13 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-13 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-13 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-13 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-13 .marker{fill:#666;stroke:#666;}#wiki-mermaid-13 .marker.cross{stroke:#666;}#wiki-mermaid-13 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-13 p{margin:0;}#wiki-mermaid-13 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-13 .cluster-label text{fill:#333;}#wiki-mermaid-13 .cluster-label span{color:#333;}#wiki-mermaid-13 .cluster-label span p{background-color:transparent;}#wiki-mermaid-13 .label text,#wiki-mermaid-13 span{fill:#000000;color:#000000;}#wiki-mermaid-13 .node rect,#wiki-mermaid-13 .node circle,#wiki-mermaid-13 .node ellipse,#wiki-mermaid-13 .node polygon,#wiki-mermaid-13 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-13 .rough-node .label text,#wiki-mermaid-13 .node .label text,#wiki-mermaid-13 .image-shape .label,#wiki-mermaid-13 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-13 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-13 .rough-node .label,#wiki-mermaid-13 .node .label,#wiki-mermaid-13 .image-shape .label,#wiki-mermaid-13 .icon-shape .label{text-align:center;}#wiki-mermaid-13 .node.clickable{cursor:pointer;}#wiki-mermaid-13 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-13 .arrowheadPath{fill:#333333;}#wiki-mermaid-13 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-13 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-13 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-13 .edgeLabel p{background-color:white;}#wiki-mermaid-13 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-13 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-13 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-13 .cluster text{fill:#333;}#wiki-mermaid-13 .cluster span{color:#333;}#wiki-mermaid-13 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-13 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-13 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-13 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-13 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-13 .icon-shape,#wiki-mermaid-13 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-13 .icon-shape p,#wiki-mermaid-13 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-13 .icon-shape .label rect,#wiki-mermaid-13 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-13 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-13 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-13 .node .neo-node{stroke:#999;}#wiki-mermaid-13 [data-look="neo"].node rect,#wiki-mermaid-13 [data-look="neo"].cluster rect,#wiki-mermaid-13 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-13-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-13 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-13 [data-look="neo"].node path{stroke:url(#wiki-mermaid-13-gradient);stroke-width:1px;}#wiki-mermaid-13 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-13 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-13 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-13-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-13 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-13 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-13-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-13 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-13-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-13 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-13_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-13_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-13_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-13_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-13_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-13_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-13_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-13_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-13_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-13_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-13_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-13_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,48L200,48" id="wiki-mermaid-13-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MTY0LCJ5Ijo0OH0seyJ4IjoyMDQsInkiOjQ4fV0=" data-look="neo" marker-end="url(#wiki-mermaid-13_flowchart-v2-pointEnd-margin)"></path><path d="M356,48L392,48" id="wiki-mermaid-13-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzU2LCJ5Ijo0OH0seyJ4IjozOTYsInkiOjQ4fV0=" data-look="neo" marker-end="url(#wiki-mermaid-13_flowchart-v2-pointEnd-margin)"></path><path d="M548,48L584,48" id="wiki-mermaid-13-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ4LCJ5Ijo0OH0seyJ4Ijo1ODgsInkiOjQ4fV0=" data-look="neo" marker-end="url(#wiki-mermaid-13_flowchart-v2-pointEnd-margin)"></path><path d="M740,48L776,48" id="wiki-mermaid-13-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6NzQwLCJ5Ijo0OH0seyJ4Ijo3ODAsInkiOjQ4fV0=" data-look="neo" marker-end="url(#wiki-mermaid-13_flowchart-v2-pointEnd-margin)"></path><path d="M932,48L968,48" id="wiki-mermaid-13-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6OTMyLCJ5Ijo0OH0seyJ4Ijo5NzIsInkiOjQ4fV0=" data-look="neo" marker-end="url(#wiki-mermaid-13_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"></g><g class="nodes"><g class="node default" id="wiki-mermaid-13-flowchart-A-0" data-look="neo" transform="translate(88, 48)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>准备任务输入</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-13-flowchart-B-1" data-look="neo" transform="translate(280, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>教师生成候选示范</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-13-flowchart-C-3" data-look="neo" transform="translate(472, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>核对日期 证据 格式</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-13-flowchart-D-5" data-look="neo" transform="translate(664, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>保留合格训练材料</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-13-flowchart-E-7" data-look="neo" transform="translate(856, 48)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>训练学生模型</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-13-flowchart-F-9" data-look="neo" transform="translate(1048, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>用独立案例检查学生</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-13-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-13-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-13-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>关键是中间的检查。教师若漏读“取消”二字，产生的错误不能因为来自强模型就自动成为标准答案。学生只见过“已安排”的漂亮示范，也不会因此学会处理缺失和冲突资料。</p>
+<p>如果只是让小模型在一次请求里读教师的答案再改写，那属于这次调用的输入处理。只有真正用这些信号更新学生参数，才是在这里讨论的训练意义上进行蒸馏。</p>
+<p>教师与学生也应读取任务所需的资料。教师看过完整笔记，却只给学生一个没有资料的问题，可能让学生被迫记忆答案；这种训练未必适合每天变化的私人笔记。</p>
+<h3 id="wiki-h-4">3. 学会特定任务，不等于完整复制教师</h3>
+<p>复习状态提取的输出范围较窄，学生可能足以承担它；这并不保证学生同时继承教师的长文分析、复杂代码或多模态能力。能力取决于学生容量、已有基础、训练材料覆盖和学习方法。</p>
+<p>也不能反过来说学生在任何任务上都必然比教师差。专门训练和数据选择可能改善某个任务，但必须用独立材料确认，不能把“蒸馏”当成能力保留或提升的证明。</p>
+<p>对个人项目，蒸馏还意味着教师生成、数据检查、训练和维护成本。调用量很少时，直接使用合适模型，可能比自行训练更省总投入。</p>
+<h2 id="wiki-h-5">量化：用较少的数值刻度表示模型</h2>
+<p>量化的直觉类似把连续刻度放到有限的格点上。原来的数值不一定正好落在格点上，因此通常要近似表示。位数越少，可用编码越少，但具体怎样分配这些编码，取决于量化格式。</p>
+<p>一个常见思路是保存整数编码，再用缩放系数和零点解释它代表的数值。实际方法还可以使用不同分组、非均匀刻度或低位浮点；不能把所有“4 位”看成同一种算法。<a href="https://arxiv.org/html/1712.05877v1">Jacob 等：量化与整数推理</a></p>
+<h3 id="wiki-h-6">1. 手算一次量化与重建</h3>
+<p>下面故意选一个容易看见误差的简化方案：使用有符号 4 位整数，编码范围为 −8 到 7；缩放系数为 0.1，零点为 0，也就是用编码 0 表示数值 0。</p>
+<pre><code class="hljs language-text">编码 q = 把 w÷0.1 四舍五入，再限制到 [-8,7]
+重建值 ŵ = 0.1×q
+</code></pre><p>“限制到范围内”叫截断：超过上界就取上界，低于下界就取下界。本例没有恰好位于舍入中点的数值，因此不涉及不同中点舍入规则。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>原权重 w</th>
+<th align="right">w÷0.1</th>
+<th align="right">最终编码 q</th>
+<th align="right">重建值 ŵ</th>
+<th align="right">重建值减原值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>−0.93</td>
+<td align="right">−9.3</td>
+<td align="right">−8</td>
+<td align="right">−0.80</td>
+<td align="right">+0.13</td>
+</tr>
+<tr>
+<td>−0.21</td>
+<td align="right">−2.1</td>
+<td align="right">−2</td>
+<td align="right">−0.20</td>
+<td align="right">+0.01</td>
+</tr>
+<tr>
+<td>0.18</td>
+<td align="right">1.8</td>
+<td align="right">2</td>
+<td align="right">0.20</td>
+<td align="right">+0.02</td>
+</tr>
+<tr>
+<td>0.76</td>
+<td align="right">7.6</td>
+<td align="right">7</td>
+<td align="right">0.70</td>
+<td align="right">−0.06</td>
+</tr>
+</tbody></table></div>
+<p>第一项和最后一项发生了截断，其余两项主要来自舍入。把这些编码重新展开为浮点数，也只能得到表中的重建值，不能恢复已经丢掉的精度。</p>
+<p>取输入向量 <code>[1,2,-1,1]</code>，原权重与它的点积为：</p>
+<pre><code class="hljs language-text">−0.93×1 −0.21×2 +0.18×(−1) +0.76×1 = −0.77
+</code></pre><p>用重建权重计算，得到 −0.70，相差 0.07。这个误差会参与后续网络运算，但不能直接翻译成“正确率下降 7%”。</p>
+<p>缩放系数也有取舍。改成 0.15，表示范围扩大，四个重建值变成 <code>[-0.90,-0.15,0.15,0.75]</code>，最大权重绝对误差从 0.13 降到 0.06。然而，同一输入的点积变成 −0.60，反而离 −0.77 更远。</p>
+<p>这说明只看某个权重误差指标还不够，还要看误差怎样与实际输入共同影响输出。实际量化方法会针对误差作更细致的设计；本例只是帮助你理解选择刻度的困难。</p>
+<h3 id="wiki-h-7">2. PTQ 与 QAT：什么时候考虑这些误差</h3>
+<p><strong>训练后量化，PTQ</strong>，是在已有模型基础上量化。一些方法会使用具有代表性的校准输入，观察数据分布或层输出，选择量化设置、补偿误差；它不等于重新做一轮完整预训练。GPTQ 是面向生成式 Transformer 的训练后权重量化研究之一。<a href="https://arxiv.org/abs/2210.17323">《GPTQ》</a></p>
+<p><strong>量化感知训练，QAT</strong>，则在训练过程中考虑量化效应，例如在前向计算里模拟舍入、截断造成的变化，让参数有机会适应。它通常需要额外训练投入，也不是无误差保证。<a href="https://arxiv.org/html/1712.05877v1">量化感知训练的原始方案</a></p>
+<p>校准材料应覆盖准备服务的输入类型。如果量化后主要用于中文笔记和 JSON 提取，只用完全不同的短文本检查，很难发现目标场景的问题。留出测试也不能被反复用于挑选量化配置，否则仍会遇到第一部分讲过的评估泄漏。</p>
+<h2 id="wiki-h-8">4 位权重，不等于整个程序都只用 4 位</h2>
+<p>以一个有 80 亿参数的构造模型为例，先忽略所有辅助信息：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>每参数位数</th>
+<th align="right">纯权重载荷，十进制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>16 位</td>
+<td align="right">80 亿×16÷8 = 16 GB</td>
+</tr>
+<tr>
+<td>8 位</td>
+<td align="right">8 GB</td>
+</tr>
+<tr>
+<td>4 位</td>
+<td align="right">4 GB</td>
+</tr>
+</tbody></table></div>
+<p>这张表解释了降低位数为什么能节省存储，但真实文件还可能保存缩放系数、零点、分组信息，以及保留高精度的部分权重。运行时还要加上 KV cache、激活、临时工作区和服务开销。</p>
+<p>例如，假想所有权重每 128 个一组、每组另存一个 2 字节缩放系数，光这项信息就增加 <code>80 亿÷128×2=1.25 亿字节</code>，也就是 0.125 GB。这仍是简化账目，不是任何真实格式的完整容量公式。</p>
+<p>还要分开看<strong>存储位数和计算位数</strong>。权重可以低位保存，在运算时重建到较高精度参与计算；激活、乘积累加及缓存也可能使用各自的格式。Hugging Face 的 bitsandbytes 文档就把 4 位加载与计算数据类型分开配置。<a href="https://huggingface.co/docs/transformers/quantization/bitsandbytes">bitsandbytes 量化文档</a></p>
+<p>所以，看到 W4A16，可以先理解为权重（Weight）4 位、激活（Activation）16 位的描述，但仍要检查具体实现，不能推定所有算术或缓存都遵循一个数字。</p>
+<p>低位通常减少权重数据量；速度收益还取决于硬件是否擅长这种格式、算子如何实现，以及解包和转换的开销。有的场景主要受内存读写限制，有的主要受计算限制。文件缩小四倍，不代表延迟必然降到四分之一。</p>
+<h2 id="wiki-h-9">推理优化：让计算和请求安排得更有效</h2>
+<p>模型不变，执行方式也能产生差别。先区分两个阶段：<strong>Prefill，预填充</strong>，处理输入提示并建立相应状态；<strong>Decode，解码</strong>，接着逐步生成。长笔记输入和长回答，分别可能把压力放在不同阶段。</p>
+<p>服务还可能有排队、网络传输和输出缓冲。因此用户等得久，并不必然是模型参数太多。</p>
+<h3 id="wiki-h-10">1. 少搬运数据：FlashAttention</h3>
+<p>注意力不只是乘加，还要读取和写入中间结果。FlashAttention 通过分块计算等方式减少 GPU 不同层次存储之间的数据读写，避免按朴素方式完整保存大型注意力中间矩阵。<a href="https://arxiv.org/abs/2205.14135">《FlashAttention》</a></p>
+<p>这里说的是论文中的精确注意力路径：优化计算组织，不靠随意丢弃一部分注意力关系换速度。“精确”指所计算的数学目标，浮点运算的舍入差异仍可能存在；它也没有让普通全注意力的序列长度代价自动变成线性。</p>
+<h3 id="wiki-h-11">2. 更合理地放缓存：PagedAttention</h3>
+<p>不同请求的 KV cache 长度不同，还会随生成增长。若总是为每条请求预留很大的连续空间，容易留下空闲或碎片。</p>
+<p>PagedAttention 借鉴分页思想，把缓存组织成块并维护映射，改进动态分配，也支持适当的缓存共享。它是 vLLM 原始研究中的关键设计。<a href="https://arxiv.org/abs/2309.06180">《Efficient Memory Management for Large Language Model Serving with PagedAttention》</a></p>
+<p>这主要改善缓存管理，不等于把模型权重量化了，也不代表上下文可以无限增长。有效内容对应的缓存仍要占空间。</p>
+<h3 id="wiki-h-12">3. 请求结束后补进新请求：连续批处理</h3>
+<p>假设只有两个处理槽位，A、B、C 三个请求都已经到达；它们分别需要 2、5、2 个生成步骤。为便于理解，忽略预填充，并假设每一步等时长。这里记录计算完成的步骤，不讨论服务何时把结果返回客户端。</p>
+<p>如果先固定处理 A、B，等整个批次结束才处理 C：A 结束后的槽位暂时空着，C 到第 6 步才能开始，第 7 步完成。</p>
+<p>如果允许在步骤之间换入请求：A 在第 2 步结束，第 3 步就可以补入 C；C 在第 4 步结束，B 在第 5 步结束。系统更早完成全部工作。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>调度示意</th>
+<th align="right">A 完成步</th>
+<th align="right">B 完成步</th>
+<th align="right">C 完成步</th>
+<th align="right">全部完成步</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>固定批次，整批结束再补入</td>
+<td align="right">2</td>
+<td align="right">5</td>
+<td align="right">7</td>
+<td align="right">7</td>
+</tr>
+<tr>
+<td>每步之间允许补入</td>
+<td align="right">2</td>
+<td align="right">5</td>
+<td align="right">4</td>
+<td align="right">5</td>
+</tr>
+</tbody></table></div>
+<p>这是调度直觉，不是实际提速比例：真实步骤耗时会受批量、输入长度、硬件和资源限制影响。Orca 研究了迭代粒度的调度，让生成请求不必始终绑定在一个不变批次中。<a href="https://www.usenix.org/conference/osdi22/presentation/yu">Orca 原始论文与介绍</a></p>
+<p>第 08 篇的前缀缓存也属于减少重复工作的路线。它是否命中取决于实际输入与服务实现；不能把对话内容“意思相近”当作计算状态可直接复用。</p>
+<h2 id="wiki-h-13">推测解码：先草拟，再由目标模型验证</h2>
+<p>还有一种看似反常的方法：增加一个较便宜的草稿模型，可能让目标大模型整体生成更快。</p>
+<p><strong>推测解码，Speculative Decoding</strong>，让草稿模型先提出若干候选 Token，再由目标模型并行计算相关位置，并按规则接受或修正。它利用的是：一次处理多个已知候选位置，可能比反复进行多个目标模型串行步骤更高效。<a href="https://arxiv.org/abs/2211.17192">《Fast Inference from Transformers via Speculative Decoding》</a></p>
+<p>用贪心解码作示意：草稿提出 <code>[a,b,c]</code>。目标模型在相应前缀下前两步也选 a、b，第三步却选 d，那么可以接受 a、b，在第三步改用 d，不能把基于错误前缀形成的后续草稿直接保留。这里的字母只是抽象 Token 编号。</p>
+<p>采样时，规则比“与最高概率 Token 相同就通过”复杂，需要根据目标模型与草稿模型的概率分布作接受和修正。原始方法在其算法条件下保持目标模型的输出分布；这不表示两个随机运行一定逐字相同，也不是所有冠以“推测”的实现都具有同样保证。</p>
+<p>这里的“验证”检查的是目标模型会怎样生成，不是外部事实审查。目标模型会编造的内容，仍可能通过。草稿接受率低、草拟成本高，或系统处于不同负载时，也可能没有加速收益。</p>
+<p>它与蒸馏的区别是：蒸馏训练完学生后，可以让学生独立服务；上述推测解码在生成时仍使用目标模型。两者也可组合，例如用经过蒸馏的小模型承担草拟，但不能把这两个环节当成同一个过程。</p>
+<h2 id="wiki-h-14">回到项目：你究竟想省哪一种成本</h2>
+<p>“更快”至少有三种常用观察角度：首个输出出现的时间、单条请求全部完成的时间，以及单位时间内整个服务处理的工作量。最后一种通常叫吞吐量。</p>
+<p>假设某次请求生成 101 个输出 Token，首个 Token 在 0.8 秒出现，其后每个间隔 0.02 秒：</p>
+<pre><code class="hljs language-text">完成时间 ≈ 0.8 + (101−1)×0.02 = 2.8 秒
+</code></pre><p>换一种配置，首个 Token 提前到 0.4 秒，之后间隔却变成 0.03 秒，完成时间就是 3.4 秒。先看到字更快，完整结果反而更晚。这些时间均为构造，不代表任何引擎。</p>
+<p>吞吐量也不能直接当成单人打字速度。若服务在同一个 5 秒统计窗口内，共生成四条各 100 Token 的回答，总输出吞吐为 80 Token/秒；这不表示每条请求都以 80 Token/秒生成。</p>
+<p>对我们的笔记助手，可先保留一组覆盖日期修改、取消、缺失、冲突、长干扰资料和格式要求的独立案例。然后每次只改变一个主要因素：原模型与学生、高精度与量化版本、原后端与优化后端。</p>
+<p>记录模型版本、权重格式、输入输出长度、并发数、缓存是否命中，以及质量和内存峰值。遇到随机输出，多次比较比单次演示更有意义。不要让优化后的版本通过提前截断答案获得看似更短的完成时间。</p>
+<p>蒸馏还需要算前期投入。假设构造项目有 120 个成本单位的一次性投入，每次调用净省 0.02 个单位，那么需要 <code>120÷0.02=6000</code> 次调用才刚覆盖这笔投入；这还没计后续维护和重新训练。若项目全年只调用几百次，单次便宜未必带来总成本下降。</p>
+<p>这些检查没有要求你现在训练或部署模型。理解原理的直接收益，是读到“压缩”“加速”宣传时，知道要追问它节省的是哪一项、在什么条件下，以及是否仍能完成你的任务。</p>
+<h2 id="wiki-h-15">理解检查</h2>
+<p><strong>1. 让小模型读一遍大模型答案再改写，就是蒸馏吗？</strong></p>
+<p>这一次调用没有更新学生参数，属于输入条件化。训练意义上的蒸馏，需要用教师提供的信号指导学生参数学习。</p>
+<p><strong>2. 教师的最高概率标签相同，分布蒸馏的目标就完全相同吗？</strong></p>
+<p>不一定。第二节两个构造分布的最高项都是“已安排”，但其他状态概率不同；完整分布包含这些差异，也可能包含教师的错误倾向。</p>
+<p><strong>3. 用刻度 0.1、编码范围 −8 到 7，如何表示 −0.93？能原样恢复吗？</strong></p>
+<p>除以 0.1 后为 −9.3，舍入并限制范围得到 −8，重建为 −0.8，误差为 +0.13。不能凭这个编码恢复原来的 −0.93。</p>
+<p><strong>4. 80 亿参数从 16 位变成 4 位，是否表示只需 4 GB 运行内存且快四倍？</strong></p>
+<p>4 GB 只是忽略辅助信息时的十进制权重载荷。运行还需要缓存等空间，速度取决于计算格式、算子和硬件，不保证四倍。</p>
+<p><strong>5. 推测解码保持目标分布，是否意味着答案事实正确？</strong></p>
+<p>不意味着。它保持的是目标模型的生成行为，不是对现实世界作验证；也不能据此保证随机运行的文本逐字一致。</p>
+<p><strong>6. 首个输出由 0.8 秒降到 0.4 秒，能否确定任务更快结束？</strong></p>
+<p>不能。还要看后续生成。按第七节的构造条件，总完成时间从 2.8 秒增加到 3.4 秒。评价必须对应自己关心的体验。</p>
+<hr>
+<p>现在你可以把成本问题拆成学生是否胜任、数值近似是否可接受、服务是否有效利用资源三个层面，并分别检查它们对完整任务的影响。</p>
+<p>下一篇《多模态模型：文字、图片、声音和视频怎样一起参与任务》，会把输入从文字笔记扩展到截图、语音和视频，继续解释能力边界与应用设计。</p>
+<p>上一篇：稠密模型与 MoE · 返回第二部分大纲</p>
+</article>

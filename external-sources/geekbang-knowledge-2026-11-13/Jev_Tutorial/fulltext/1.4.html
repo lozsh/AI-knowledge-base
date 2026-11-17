@@ -1,0 +1,237 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：35～45 分钟<br>本篇目标：分清 Choice、Score 和 Noul 各自解决什么问题，并能把一个模糊需求拆成适合 Jev 判断的原子问题。</p>
+</blockquote>
+<p>上一篇里，我们用同一条留言同时试了三种问题。代码虽然跑通了，但真正决定判断质量的，并不是会不会调用 <code>system_one()</code>，而是你有没有选对问题类型、写清判断标准。</p>
+<p>Jev 不接收一句宽泛的“帮我分析这条消息”，而是要求我们明确：到底要它做选择、打分，还是判断一件事是否成立。这个限制看起来有些不自由，却正是 Jev 能被普通代码稳定消费的原因。</p>
+<blockquote>
+<p>本文核对日期为 2026 年 9 月 23 日。接口细节请以官方的 <a href="https://docs.typesafe.ai/primitives">Primitives</a>、<a href="https://docs.typesafe.ai/primitives/choice">Choice</a>、<a href="https://docs.typesafe.ai/primitives/score">Score</a> 和 <a href="https://docs.typesafe.ai/primitives/noul">Noul</a> 文档为准。</p>
+</blockquote>
+<h2 id="wiki-h-0">先用一句话分清三种原语</h2>
+<p>面对一个判断需求，可以先问自己三个问题：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>你真正想知道什么</th>
+<th>应使用的原语</th>
+<th>典型问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>它属于哪一种</td>
+<td><code>Choice</code></td>
+<td>这条留言主要在说账单、技术问题还是账号问题？</td>
+</tr>
+<tr>
+<td>它处于哪个有顺序的位置</td>
+<td><code>Score</code></td>
+<td>这件事有多紧急？</td>
+</tr>
+<tr>
+<td>某个命题是否成立</td>
+<td><code>Noul</code></td>
+<td>对方是否明确要求我采取行动？</td>
+</tr>
+</tbody></table></div>
+<p>三者最容易混淆的地方，是同一个业务问题往往可以被写成不同形式。例如，“这条消息紧不紧急”既可以写成二选一，也可以写成三级评分。但它们返回的信息量并不相同：</p>
+<ul>
+<li>如果后续只有“进入普通队列”和“进入紧急队列”两个动作，<code>Noul</code> 往往够用；</li>
+<li>如果后续要区分低、中、高三个优先级，就用 <code>Score</code>；</li>
+<li>如果“紧急”只是多种处理类型中的一种，则更像 <code>Choice</code>。</li>
+</ul>
+<p>不要先挑一个看起来顺手的 API，再把业务问题硬塞进去。先看后续代码需要哪一种结构化结果。</p>
+<h2 id="wiki-h-1">Choice：从一组明确选项中做选择</h2>
+<p><code>Choice</code> 适合互相区分的离散类别。它会返回三个值得关注的字段：</p>
+<ul>
+<li><code>choice</code>：最可能的选项；</li>
+<li><code>probabilities</code>：每个选项各自的概率；</li>
+<li><code>confidence</code>：模型对这次选择的总体信心。</li>
+</ul>
+<p>上一篇的留言分类就是一个典型例子：</p>
+<pre><code class="hljs language-python">Choice(
+    instructions=<span class="hljs-string">"What is the main topic of `message`?"</span>,
+    criteria={
+        <span class="hljs-string">"billing"</span>: <span class="hljs-string">"Charges, invoices, payments, or refunds."</span>,
+        <span class="hljs-string">"technical"</span>: <span class="hljs-string">"A product feature is broken or unavailable."</span>,
+        <span class="hljs-string">"account"</span>: <span class="hljs-string">"Login, profile, or account access."</span>,
+        <span class="hljs-string">"other"</span>: <span class="hljs-string">"None of the other options fits."</span>,
+    },
+)
+</code></pre><p>这里有两个细节。</p>
+<p>第一，键名是给代码看的，描述才是给模型判断用的。<code>billing</code>、<code>technical</code> 这些短名字应该稳定、便于程序处理；真正的分类边界要写在后面的描述中。不要只写：</p>
+<pre><code class="hljs language-python">criteria={
+    <span class="hljs-string">"billing"</span>: <span class="hljs-string">"Billing"</span>,
+    <span class="hljs-string">"technical"</span>: <span class="hljs-string">"Technical"</span>,
+}
+</code></pre><p>这样的描述只是重复标签，没有解释两类的边界。</p>
+<p>第二，如果现实中的情况不一定能被现有类别完整覆盖，就要提供 <code>other</code> 或 <code>none</code>。否则，模型即使认为所有选项都不合适，也只能被迫挑一个“最不离谱”的答案。</p>
+<h3 id="wiki-h-2">让类别尽量互斥</h3>
+<p>假设你要判断一条留言来自“客户”“朋友”还是“紧急联系人”，这三个选项并不互斥：朋友也可能是紧急联系人。更合理的拆法是：</p>
+<ul>
+<li>用 <code>Choice</code> 判断关系类型：家人、朋友、同事、服务机构、其他；</li>
+<li>再用 <code>Noul</code> 判断：这是否是一位需要优先响应的联系人。</li>
+</ul>
+<p>一个 <code>Choice</code> 最好只回答一个维度。类别边界越清楚，返回的概率分布才越有解释价值。</p>
+<h2 id="wiki-h-3">Score：在有顺序的描述之间评分</h2>
+<p><code>Score</code> 适合有高低、轻重或先后顺序的判断。它的 <code>criteria</code> 是一个按顺序排列的列表：</p>
+<pre><code class="hljs language-python">Score(
+    instructions=<span class="hljs-string">"How urgent is the situation described in `message`?"</span>,
+    criteria=[
+        <span class="hljs-string">"No time pressure is expressed."</span>,
+        <span class="hljs-string">"A reasonably prompt response would be helpful."</span>,
+        <span class="hljs-string">"Immediate harm or a strict deadline is described."</span>,
+    ],
+)
+</code></pre><p>三个等级对应的位置是 0、1、2，但返回的 <code>score</code> 不一定是整数。假如模型认为某条消息有六成接近等级 1、四成接近等级 2，最终分数可能落在 1 和 2 之间。这不是异常，而是概率加权后的结果。</p>
+<p>因此，<code>1.4</code> 不应被读成“模型偷偷创造了第四个等级”，它只是说明这条消息位于两个描述之间。业务代码可以再决定：<code>1.5</code> 以上是否进入高优先级队列。</p>
+<h3 id="wiki-h-4">写“可观察情形”，不要只写程度词</h3>
+<p>下面这种等级很常见，但不够好：</p>
+<pre><code class="hljs language-python">criteria=[<span class="hljs-string">"Low"</span>, <span class="hljs-string">"Medium"</span>, <span class="hljs-string">"High"</span>]
+</code></pre><p>“低、中、高”的含义完全依赖每个人的直觉。更好的写法是描述可以从消息中观察到的情况：</p>
+<ul>
+<li>没有表达时间压力；</li>
+<li>希望尽快处理，但没有明确截止时间或损失；</li>
+<li>存在明确截止时间、正在发生的损失或安全风险。</li>
+</ul>
+<p>此外，一个 <code>Score</code> 只衡量一个维度。不要把“紧急且重要”合在同一组等级里，否则一件“不紧急但很重要”的事情没有合适位置。应分别设计 <code>urgency</code> 和 <code>importance</code>，再由代码组合。</p>
+<p>官方当前允许 2～10 个等级。等级并不是越多越精确：如果相邻描述没有清楚区别，增加等级只会制造虚假的精细感。</p>
+<h2 id="wiki-h-5">Noul：判断一个命题是否成立</h2>
+<p><code>Noul</code> 可以把它理解成“带概率的是否判断”：</p>
+<pre><code class="hljs language-python">Noul(
+    instructions=<span class="hljs-string">"Does `message` explicitly ask the recipient to take an action?"</span>,
+)
+</code></pre><p>返回的 <code>noul</code> 在 0 到 1 之间：越接近 1，越倾向于“是”；越接近 0，越倾向于“否”。它没有单独的 <code>confidence</code> 字段，因为这个概率本身就表达了对两种答案的倾向。</p>
+<p>最容易误读的是 0.5。它并不表示“对方提出了一半的请求”，而是模型无法明确判断命题为真还是为假。比如：</p>
+<pre><code class="hljs language-text">有空的时候帮我看一下也行，我还没想好要不要现在处理。
+</code></pre><p>这句话对“是否明确要求收件人采取行动”来说就可能处于中间地带。后续不应该武断地把它解释为“中等程度的行动请求”，而应把它当成不确定判断。</p>
+<p>如果简单的一句话不足以说明正反边界，可以补充 <code>NoulCriteria</code>：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">from</span> typesafe_sdk <span class="hljs-keyword">import</span> Noul, NoulCriteria
+
+Noul(
+    instructions=<span class="hljs-string">"Does `message` explicitly ask the recipient to take an action?"</span>,
+    criteria=NoulCriteria(
+        true=(
+            <span class="hljs-string">"The sender directly asks the recipient to reply, check, send, "</span>
+            <span class="hljs-string">"change, schedule, or complete something."</span>
+        ),
+        false=(
+            <span class="hljs-string">"The message only shares information, emotion, or status and does "</span>
+            <span class="hljs-string">"not request an action."</span>
+        ),
+    ),
+)
+</code></pre><p>至于 <code>0.6</code> 能不能算“是”，并没有通用答案。如果误判为“是”只会多显示一个提醒，阈值可以相对宽松；如果误判会触发付款、删文件或对外发送消息，就不能只靠一个较低阈值自动执行。第 6 篇会专门处理这个问题。</p>
+<h2 id="wiki-h-6">问题说明必须自包含</h2>
+<p>在 <code>questions</code> 字典中，<code>category</code>、<code>urgency</code> 这样的 ID 只用于代码索引，不会代替问题说明告诉模型“你想判断什么”。所以这段写法有问题：</p>
+<pre><code class="hljs language-python">questions = {
+    <span class="hljs-string">"urgency"</span>: Score(
+        instructions=<span class="hljs-string">"Evaluate it."</span>,
+        criteria=[<span class="hljs-string">"Low"</span>, <span class="hljs-string">"Medium"</span>, <span class="hljs-string">"High"</span>],
+    )
+}
+</code></pre><p>模型看见的不是你的变量命名习惯。应该明确写出：判断对象是什么、判断维度是什么、各等级如何区分。</p>
+<p>同一次请求中的多个问题会共享同一份 <code>state</code>，但各自独立判断。不要让第二个问题依赖第一个问题的答案，例如：</p>
+<pre><code class="hljs language-text">如果上一个问题选了 billing，再判断是否退款。
+</code></pre><p>正确做法是让每个问题都能只根据 <code>state</code> 独立回答；如果确实存在先后依赖，就分成两次调用，或者先用普通代码组织流程。</p>
+<h2 id="wiki-h-7">做一个三原语实验台</h2>
+<p>在课程项目目录中新建 <code>primitives_lab.py</code>：</p>
+<pre><code class="hljs language-python"><span class="hljs-keyword">from</span> typesafe_sdk <span class="hljs-keyword">import</span> Choice, Noul, NoulCriteria, Score, TypeSafeClient
+
+
+MESSAGES = [
+    <span class="hljs-string">"The app crashes every time I upload a photo."</span>,
+    <span class="hljs-string">"Could you send me the revised itinerary before 3 PM today?"</span>,
+    <span class="hljs-string">"I enjoyed the workshop. No reply needed."</span>,
+    <span class="hljs-string">"I am not sure who handles this, but something seems wrong."</span>,
+]
+
+QUESTIONS = {
+    <span class="hljs-string">"category"</span>: Choice(
+        instructions=<span class="hljs-string">"What is the main topic of `message`?"</span>,
+        criteria={
+            <span class="hljs-string">"billing"</span>: <span class="hljs-string">"Charges, invoices, payments, refunds, or subscriptions."</span>,
+            <span class="hljs-string">"technical"</span>: <span class="hljs-string">"Software or hardware is broken or unavailable."</span>,
+            <span class="hljs-string">"scheduling"</span>: <span class="hljs-string">"Dates, times, appointments, or travel plans."</span>,
+            <span class="hljs-string">"feedback"</span>: <span class="hljs-string">"An opinion or experience without a concrete request."</span>,
+            <span class="hljs-string">"other"</span>: <span class="hljs-string">"None of the other options clearly fits."</span>,
+        },
+    ),
+    <span class="hljs-string">"urgency"</span>: Score(
+        instructions=<span class="hljs-string">"How urgent is the situation in `message`?"</span>,
+        criteria=[
+            <span class="hljs-string">"No time pressure or active harm is expressed."</span>,
+            <span class="hljs-string">"A prompt response would help, but no strict deadline or active harm exists."</span>,
+            <span class="hljs-string">"A strict deadline, ongoing loss, or immediate harm is described."</span>,
+        ],
+    ),
+    <span class="hljs-string">"action_requested"</span>: Noul(
+        instructions=<span class="hljs-string">"Does `message` explicitly ask the recipient to take an action?"</span>,
+        criteria=NoulCriteria(
+            true=<span class="hljs-string">"The sender directly asks the recipient to do or provide something."</span>,
+            false=<span class="hljs-string">"The sender only shares information, emotion, or status."</span>,
+        ),
+    ),
+}
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">evaluate</span>(<span class="hljs-params">client: TypeSafeClient, message: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-literal">None</span>:
+    response = client.system_one(
+        state={<span class="hljs-string">"message"</span>: message},
+        questions=QUESTIONS,
+    )
+
+    category = response.answers[<span class="hljs-string">"category"</span>]
+    urgency = response.answers[<span class="hljs-string">"urgency"</span>]
+    action_requested = response.answers[<span class="hljs-string">"action_requested"</span>]
+
+    <span class="hljs-keyword">assert</span> category.choice <span class="hljs-keyword">in</span> {
+        <span class="hljs-string">"billing"</span>, <span class="hljs-string">"technical"</span>, <span class="hljs-string">"scheduling"</span>, <span class="hljs-string">"feedback"</span>, <span class="hljs-string">"other"</span>
+    }
+    <span class="hljs-keyword">assert</span> <span class="hljs-number">0</span> &lt;= urgency.score &lt;= <span class="hljs-number">2</span>
+    <span class="hljs-keyword">assert</span> <span class="hljs-number">0</span> &lt;= action_requested.noul &lt;= <span class="hljs-number">1</span>
+
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f"\nMessage: <span class="hljs-subst">{message}</span>"</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"  category:"</span>, category.choice)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"  category probabilities:"</span>, category.probabilities)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"  category confidence:"</span>, category.confidence)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"  urgency:"</span>, urgency.score)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"  urgency confidence:"</span>, urgency.confidence)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">"  action requested:"</span>, action_requested.noul)
+
+
+<span class="hljs-keyword">with</span> TypeSafeClient() <span class="hljs-keyword">as</span> client:
+    <span class="hljs-keyword">for</span> item <span class="hljs-keyword">in</span> MESSAGES:
+        evaluate(client, item)
+</code></pre><p>运行方式与上一篇相同。</p>
+<p>macOS 或 Linux：</p>
+<pre><code class="hljs language-bash">python primitives_lab.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe primitives_lab.py
+</code></pre><p>你不需要得到与别人完全相同的小数。请逐条观察：</p>
+<ol>
+<li>明确的技术故障是否倾向于 <code>technical</code>；</li>
+<li>带有具体截止时间的消息，紧急分数是否高于普通反馈；</li>
+<li>“No reply needed”是否让 <code>action_requested</code> 更接近 0；</li>
+<li>模糊消息的概率是否更分散、置信度是否更低。</li>
+</ol>
+<p>第四条尤其重要。概率分布不是为了装饰输出，它能提醒你：虽然 <code>choice</code> 必须给出一个第一名，但第一名未必赢得很明显。</p>
+<h2 id="wiki-h-8">故意改坏一次，体会边界</h2>
+<p>把 <code>category</code> 暂时改成下面这组类别：</p>
+<pre><code class="hljs language-python">criteria={
+    <span class="hljs-string">"work"</span>: <span class="hljs-string">"Work-related."</span>,
+    <span class="hljs-string">"important"</span>: <span class="hljs-string">"Important."</span>,
+    <span class="hljs-string">"urgent"</span>: <span class="hljs-string">"Urgent."</span>,
+}
+</code></pre><p>再次运行实验台。你会发现这三个选项可以同时成立，它们其实分别描述主题、重要性和紧迫性。无论模型选哪一个，后续程序都很难解释。</p>
+<p>做完实验后把它恢复。这个小练习比记住一串“提示词技巧”更有用：Jev 的问题设计，本质上是在设计程序可以依赖的数据类型。</p>
+<h2 id="wiki-h-9">完成本篇的验收</h2>
+<p>确认你已经做到：</p>
+<ul>
+<li>能用一句话说明 Choice、Score、Noul 的区别；</li>
+<li>知道 <code>Choice</code> 需要清楚、尽量互斥的选项，并在必要时保留 <code>other</code>；</li>
+<li>知道 <code>Score</code> 的等级必须有顺序，返回值可以是小数；</li>
+<li>不会把 <code>Noul</code> 的 0.5 解释成“中等程度”；</li>
+<li>能读出概率和置信度，而不是只拿最终标签；</li>
+<li>已运行 <code>primitives_lab.py</code>，并比较过至少四条不同消息。</li>
+</ul>
+<p>下一篇，我们不再停留在实验脚本里。会把三种判断放进一个完整的小项目：从 JSON 文件读取个人留言，交给 Jev 判断，再由普通 Python 代码生成可供处理的收件箱结果。</p>
+</article>

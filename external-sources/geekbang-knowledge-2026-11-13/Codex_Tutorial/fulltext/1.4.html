@@ -1,0 +1,349 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计阅读时间：35 分钟<br>本篇目标：理解模型与 Provider 的关系，接入第三方模型或中转平台，并能够随时恢复 ChatGPT 订阅登录。</p>
+</blockquote>
+<p>完成第二篇后，你已经可以使用 ChatGPT 账号或 OpenAI API Key 启动 Codex。很多读者还会遇到另外几个需求：</p>
+<ul>
+<li>想调用某个第三方模型；</li>
+<li>想通过公司内部网关或中转平台访问模型；</li>
+<li>想在本地运行 Ollama 或 LM Studio；</li>
+<li>想为不同项目准备不同的模型配置；</li>
+<li>试用第三方模型后，想切回 ChatGPT 订阅账号。</li>
+</ul>
+<p>这些需求都与 Provider 配置有关。</p>
+<p>这一篇的配置操作比前两篇多（如果暂时没有第三方平台或模型的配置需求，可以跳过本篇）。请在修改前完整读一遍对应小节，并使用专门的练习目录测试。第三方平台的接口、模型名称和认证方式并不统一，示例中的地址和模型名需要替换为平台实际提供的值。</p>
+<h2 id="wiki-h-0">先分清四个概念</h2>
+<h3 id="wiki-h-1">1. 模型</h3>
+<p>模型负责理解你的任务并决定下一步做什么。例如，它会判断应该读取哪个文件、运行什么命令、怎样修改代码。</p>
+<p>模型名称只是一个标识，而且不同平台的命名方式可能不同。不要根据宣传页面猜模型名，要使用平台文档中明确给出的模型 ID。</p>
+<h3 id="wiki-h-2">2. Provider</h3>
+<p>Provider 负责告诉 Codex：</p>
+<ul>
+<li>请求应该发送到哪个地址；</li>
+<li>用哪个环境变量读取密钥；</li>
+<li>使用什么协议；</li>
+<li>是否需要额外请求头或查询参数。</li>
+</ul>
+<p>同一个模型可能通过不同 Provider 提供。例如，你可以直接访问 OpenAI，也可以通过公司的大模型网关访问同一个 OpenAI 模型。</p>
+<h3 id="wiki-h-3">3. 身份验证</h3>
+<p>身份验证解决的是“你以什么身份使用服务”。</p>
+<p>Codex 使用 OpenAI 模型时，常见方式有两种：</p>
+<ul>
+<li>使用 ChatGPT 账号登录，享用订阅权益；</li>
+<li>使用 OpenAI API Key 登录，按 API 用量计费。</li>
+</ul>
+<p>第三方 Provider 通常要求自己的 API Key。这个密钥一般通过环境变量提供，不应该写死在配置文件中。</p>
+<h3 id="wiki-h-4">4. 配置文件</h3>
+<p>Codex 的个人配置默认保存在：</p>
+<ul>
+<li>macOS、Linux、WSL2：<code>~/.codex/config.toml</code></li>
+<li>Windows：<code>%USERPROFILE%\.codex\config.toml</code></li>
+</ul>
+<p>Provider 和认证路由属于用户级配置，应放在个人配置中。出于安全原因，项目里的 <code>.codex/config.toml</code> 不能覆盖 <code>model_provider</code>、<code>model_providers</code> 和 <code>openai_base_url</code> 等认证或路由配置。项目可以选择模型，但不能悄悄把请求改到另一个服务商。</p>
+<h2 id="wiki-h-5">打开并备份配置文件</h2>
+<h3 id="wiki-h-6">macOS、Linux 或 WSL2</h3>
+<p>先创建配置目录：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> -p ~/.codex
+</code></pre><p>如果配置文件已经存在，先备份：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cp</span> ~/.codex/config.toml ~/.codex/config.toml.backup
+</code></pre><p>如果复制时提示文件不存在，说明你还没有创建过配置文件，可以忽略。</p>
+<p>接着使用自己熟悉的编辑器打开：</p>
+<pre><code class="hljs language-bash">nano ~/.codex/config.toml
+</code></pre><p>在 Nano 中，按 <code>Ctrl + O</code> 保存，按回车确认文件名，再按 <code>Ctrl + X</code> 退出。</p>
+<h3 id="wiki-h-7">Windows PowerShell</h3>
+<p>先创建配置目录：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\.codex"</span>
+</code></pre><p>如果配置文件已经存在，运行：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\.codex\config.toml"</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\.codex\config.toml.backup"</span>
+</code></pre><p>如果提示源文件不存在，说明还没有配置文件，可以忽略。</p>
+<p>然后用记事本打开：</p>
+<pre><code class="hljs language-powershell">notepad <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\.codex\config.toml"</span>
+</code></pre><h2 id="wiki-h-8">先认识默认的 OpenAI Provider</h2>
+<p>没有特别配置时，Codex 使用内置的 <code>openai</code> Provider。</p>
+<p>下面是一份最小示例：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">model_provider</span> = <span class="hljs-string">"openai"</span>
+</code></pre><p>使用 ChatGPT 登录时，建议在交互界面中通过 <code>/model</code> 选择账号当前可用的模型。这样可以避免把一个已经下线或当前账号没有权限的模型名称长期写死在配置文件中。</p>
+<p>如果配置文件中已有其他设置，不要直接覆盖整个文件。只调整与模型相关的键，并保留现有的权限、界面或工具配置。</p>
+<p>TOML 有两个容易踩到的规则：</p>
+<ol>
+<li>同一个键不能重复定义。</li>
+<li>顶层键应放在各个 <code>[表格]</code> 之前。</li>
+</ol>
+<p>如果启动时提示配置解析失败，请先检查是否重复写了 <code>model</code> 或 <code>model_provider</code>。</p>
+<h2 id="wiki-h-9">场景一：通过中转平台调用模型</h2>
+<p>中转平台大致分为两类。</p>
+<p>第一类只是把 OpenAI 请求转发到另一个网关，而且仍然使用 OpenAI 身份验证。官方配置为这种情况提供了 <code>openai_base_url</code>。</p>
+<p>第二类平台会发放自己的 API Key，模型名称和接口能力也由平台定义。这种情况更适合配置一个自定义 Provider。</p>
+<h3 id="wiki-h-10">方式 A：修改内置 OpenAI Provider 的访问地址</h3>
+<p>只有当网关明确说明可以使用这种方式，并且它处理的是 OpenAI 身份验证时，才使用下面的配置：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">model_provider</span> = <span class="hljs-string">"openai"</span>
+<span class="hljs-attr">openai_base_url</span> = <span class="hljs-string">"https://你的网关地址/v1"</span>
+</code></pre><p>保存文件，重新启动 Codex。</p>
+<p>如果网关要求它自己发放的 API Key，不要只改 <code>openai_base_url</code>。请使用下一种自定义 Provider 方式。</p>
+<h3 id="wiki-h-11">方式 B：为中转平台创建自定义 Provider</h3>
+<p>假设平台提供了这些信息：</p>
+<ul>
+<li>API 地址：<code>https://relay.example.com/v1</code></li>
+<li>API Key 环境变量：我们自己命名为 <code>RELAY_API_KEY</code></li>
+<li>模型 ID：<code>provider-model-id</code></li>
+<li>协议：Responses API</li>
+</ul>
+<p>先在当前终端中设置密钥。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> RELAY_API_KEY=<span class="hljs-string">"请替换为平台提供的密钥"</span>
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$env:RELAY_API_KEY</span> = <span class="hljs-string">"请替换为平台提供的密钥"</span>
+</code></pre><p>然后在 <code>~/.codex/config.toml</code> 中加入：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">model</span> = <span class="hljs-string">"provider-model-id"</span>
+<span class="hljs-attr">model_provider</span> = <span class="hljs-string">"relay"</span>
+
+<span class="hljs-section">[model_providers.relay]</span>
+<span class="hljs-attr">name</span> = <span class="hljs-string">"My Relay"</span>
+<span class="hljs-attr">base_url</span> = <span class="hljs-string">"https://relay.example.com/v1"</span>
+<span class="hljs-attr">env_key</span> = <span class="hljs-string">"RELAY_API_KEY"</span>
+<span class="hljs-attr">wire_api</span> = <span class="hljs-string">"responses"</span>
+</code></pre><p>需要替换的内容有三个：</p>
+<ul>
+<li><code>provider-model-id</code>：平台文档给出的准确模型 ID；</li>
+<li><code>https://relay.example.com/v1</code>：平台给出的 API 基础地址；</li>
+<li><code>RELAY_API_KEY</code>：你为密钥选择的环境变量名。</li>
+</ul>
+<p><code>relay</code> 是这个 Provider 在本机配置里的 ID，你可以换成更容易识别的英文名称，但不要使用保留的内置 ID，例如 <code>openai</code>、<code>ollama</code> 或 <code>lmstudio</code>。</p>
+<p>保存配置后，从同一个终端窗口启动：</p>
+<pre><code class="hljs language-bash">codex
+</code></pre><p>必须从刚才设置环境变量的终端启动，否则 Codex 读不到密钥。</p>
+<h2 id="wiki-h-12">场景二：接入第三方模型 API</h2>
+<p>第三方模型的配置方法与中转平台相似。区别主要在于模型名称、接口地址以及支持的能力。</p>
+<p>假设第三方平台提供了一个兼容 Responses API 的端点：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">model</span> = <span class="hljs-string">"third-party-model-id"</span>
+<span class="hljs-attr">model_provider</span> = <span class="hljs-string">"thirdparty"</span>
+
+<span class="hljs-section">[model_providers.thirdparty]</span>
+<span class="hljs-attr">name</span> = <span class="hljs-string">"Third-party Model Platform"</span>
+<span class="hljs-attr">base_url</span> = <span class="hljs-string">"https://api.example.com/v1"</span>
+<span class="hljs-attr">env_key</span> = <span class="hljs-string">"THIRD_PARTY_API_KEY"</span>
+<span class="hljs-attr">wire_api</span> = <span class="hljs-string">"responses"</span>
+</code></pre><p>在启动 Codex 之前设置密钥。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> THIRD_PARTY_API_KEY=<span class="hljs-string">"请替换为第三方平台密钥"</span>
+codex
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$env:THIRD_PARTY_API_KEY</span> = <span class="hljs-string">"请替换为第三方平台密钥"</span>
+codex
+</code></pre><h3 id="wiki-h-13">API 兼容不等于 Codex 能力完整</h3>
+<p>一个平台能够回答普通聊天问题，只能证明最基础的文本请求可用。Codex 还依赖模型和接口正确处理工具调用、流式事件、长上下文和错误反馈。</p>
+<p>因此，接入第三方 Provider 后，至少测试下面四项：</p>
+<ol>
+<li>能否正常回答一个简单问题。</li>
+<li>能否列出当前目录的文件。</li>
+<li>能否读取指定文件并总结内容。</li>
+<li>能否在练习目录中创建文件并正确报告修改。</li>
+</ol>
+<p>某些平台还可能不支持图片输入、网页搜索或完整的工具调用。教程后面使用到这些能力时，如果第三方 Provider 表现异常，先切回内置 OpenAI Provider 进行对照。</p>
+<p>目前 Codex 对 Chat Completions 的兼容属于逐步淘汰方向。准备长期使用的第三方平台时，优先选择明确支持 Responses API 的服务。</p>
+<h2 id="wiki-h-14">需要额外请求头时怎么配置</h2>
+<p>部分企业网关或平台除了 API Key，还要求额外请求头。</p>
+<p>固定且不敏感的请求头可以写在 <code>http_headers</code> 中：</p>
+<pre><code class="hljs language-toml"><span class="hljs-section">[model_providers.company]</span>
+<span class="hljs-attr">name</span> = <span class="hljs-string">"Company Gateway"</span>
+<span class="hljs-attr">base_url</span> = <span class="hljs-string">"https://gateway.example.com/v1"</span>
+<span class="hljs-attr">env_key</span> = <span class="hljs-string">"COMPANY_MODEL_API_KEY"</span>
+<span class="hljs-attr">wire_api</span> = <span class="hljs-string">"responses"</span>
+<span class="hljs-attr">http_headers</span> = { <span class="hljs-string">"X-Client-Name"</span> = <span class="hljs-string">"codex-course"</span> }
+</code></pre><p>如果请求头的值本身是敏感信息，应该从环境变量读取：</p>
+<pre><code class="hljs language-toml"><span class="hljs-section">[model_providers.company]</span>
+<span class="hljs-attr">name</span> = <span class="hljs-string">"Company Gateway"</span>
+<span class="hljs-attr">base_url</span> = <span class="hljs-string">"https://gateway.example.com/v1"</span>
+<span class="hljs-attr">env_key</span> = <span class="hljs-string">"COMPANY_MODEL_API_KEY"</span>
+<span class="hljs-attr">wire_api</span> = <span class="hljs-string">"responses"</span>
+<span class="hljs-attr">env_http_headers</span> = { <span class="hljs-string">"X-Company-Token"</span> = <span class="hljs-string">"COMPANY_EXTRA_TOKEN"</span> }
+</code></pre><p>这里的 <code>COMPANY_EXTRA_TOKEN</code> 是另一个环境变量名，而不是 Token 本身。</p>
+<h2 id="wiki-h-15">临时切换 Provider，避免频繁修改配置文件</h2>
+<p>你可以用 <code>-c</code> 临时覆盖当前运行的 Provider，并用 <code>-m</code> 指定模型。</p>
+<p>假设 <code>relay</code> 已经在配置文件中定义：</p>
+<pre><code class="hljs language-bash">codex -c <span class="hljs-string">'model_provider="relay"'</span> -m <span class="hljs-string">"provider-model-id"</span>
+</code></pre><p>这条命令只影响本次启动，不会修改 <code>config.toml</code>。</p>
+<p>进入 Codex 后输入：</p>
+<pre><code class="hljs language-text">/status
+</code></pre><p>检查当前模型是否已经变化。</p>
+<p>注意：<code>/model</code> 主要用于选择当前 Provider 提供的模型。切换到另一个 Provider 时，更稳妥的方式是重新启动 Codex，并通过配置或启动参数指定 Provider。</p>
+<h2 id="wiki-h-16">使用 Profile 保存多套配置</h2>
+<p>如果你经常在 ChatGPT 登录和第三方 Provider 之间切换，建议使用 Profile。</p>
+<p>Codex 的 Profile 是单独的配置文件，放在 <code>~/.codex</code> 目录下，文件名格式为：</p>
+<pre><code class="hljs language-text">配置名.config.toml
+</code></pre><h3 id="wiki-h-17">1. 保持默认配置使用 ChatGPT</h3>
+<p>在 <code>~/.codex/config.toml</code> 中保留：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">model_provider</span> = <span class="hljs-string">"openai"</span>
+
+<span class="hljs-section">[model_providers.relay]</span>
+<span class="hljs-attr">name</span> = <span class="hljs-string">"My Relay"</span>
+<span class="hljs-attr">base_url</span> = <span class="hljs-string">"https://relay.example.com/v1"</span>
+<span class="hljs-attr">env_key</span> = <span class="hljs-string">"RELAY_API_KEY"</span>
+<span class="hljs-attr">wire_api</span> = <span class="hljs-string">"responses"</span>
+</code></pre><p>这里先定义 <code>relay</code>，但不把它设为默认 Provider。</p>
+<h3 id="wiki-h-18">2. 创建第三方 Profile</h3>
+<p>创建 <code>~/.codex/relay.config.toml</code>：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">model_provider</span> = <span class="hljs-string">"relay"</span>
+<span class="hljs-attr">model</span> = <span class="hljs-string">"provider-model-id"</span>
+</code></pre><h3 id="wiki-h-19">3. 启动不同配置</h3>
+<p>默认使用 ChatGPT 登录：</p>
+<pre><code class="hljs language-bash">codex
+</code></pre><p>使用中转平台：</p>
+<pre><code class="hljs language-bash">codex --profile relay
+</code></pre><p>这种方式的优点是，退出当前会话后再次运行普通的 <code>codex</code>，就会回到默认 OpenAI Provider，不需要反复编辑配置文件。</p>
+<h2 id="wiki-h-20">使用本地模型</h2>
+<p>Codex 内置了针对 Ollama 和 LM Studio 的本地 OSS 模式。</p>
+<p>先确保本地模型服务已经安装、启动，并下载了适合工具调用的模型。然后运行：</p>
+<pre><code class="hljs language-bash">codex --oss --local-provider ollama
+</code></pre><p>或者：</p>
+<pre><code class="hljs language-bash">codex --oss --local-provider lmstudio
+</code></pre><p>也可以在 <code>config.toml</code> 中设置默认本地 Provider：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">oss_provider</span> = <span class="hljs-string">"ollama"</span>
+</code></pre><p>本地模型的效果取决于模型能力、上下文长度、工具调用支持和电脑性能。能在本地聊天，不代表能够稳定完成多步骤代码任务。</p>
+<h2 id="wiki-h-21">从第三方 Provider 切回 ChatGPT 订阅</h2>
+<p>如果你使用了 Profile，并且默认配置一直是 <code>openai</code>，退出第三方会话后直接运行：</p>
+<pre><code class="hljs language-bash">codex
+</code></pre><p>通常就能回到 ChatGPT 登录对应的 OpenAI Provider。</p>
+<p>如果之前直接修改了默认配置，按照下面的步骤彻底恢复。</p>
+<h3 id="wiki-h-22">第 1 步：恢复 Provider 配置</h3>
+<p>打开 <code>~/.codex/config.toml</code>，将顶层配置恢复为：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">model_provider</span> = <span class="hljs-string">"openai"</span>
+</code></pre><p>删除或注释掉顶层的自定义 <code>model = "..."</code>，之后进入 Codex 使用 <code>/model</code> 选择账号实际可用的模型。</p>
+<p>如果配置中存在为了中转平台添加的：</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">openai_base_url</span> = <span class="hljs-string">"https://某个中转地址/v1"</span>
+</code></pre><p>也要删除或注释掉。定义在 <code>[model_providers.relay]</code> 下的第三方 Provider 可以保留，只要没有把它设置为默认 Provider，就不会自动使用。</p>
+<h3 id="wiki-h-23">第 2 步：清除旧登录状态</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash">codex <span class="hljs-built_in">logout</span>
+</code></pre><p>如果当前本来就是有效的 ChatGPT 登录，这一步不一定必需。但当你无法确认以前使用的是 ChatGPT 账号还是 OpenAI API Key 时，重新登录最容易排除身份残留。</p>
+<h3 id="wiki-h-24">第 3 步：重新使用 ChatGPT 登录</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash">codex login
+</code></pre><p>在浏览器中选择正确的 ChatGPT 账号和工作空间。</p>
+<h3 id="wiki-h-25">第 4 步：检查登录方式</h3>
+<p>运行：</p>
+<pre><code class="hljs language-bash">codex login status
+</code></pre><p>确认当前身份验证方式是 ChatGPT 登录。</p>
+<h3 id="wiki-h-26">第 5 步：检查运行配置</h3>
+<p>启动：</p>
+<pre><code class="hljs language-bash">codex
+</code></pre><p>进入后输入：</p>
+<pre><code class="hljs language-text">/status
+</code></pre><p>确认当前 Provider 已恢复为 OpenAI，并检查模型是否符合预期。</p>
+<h2 id="wiki-h-27">用同一个任务测试不同 Provider</h2>
+<p>为了减少变量，请回到第二篇创建的 <code>taskflow</code> 空目录。为每个 Provider 使用完全相同的任务：</p>
+<pre><code class="hljs language-text">请检查当前目录。不要修改现有文件。创建一个名为 provider-test.md 的文件，
+写入当前时间、你观察到的目录内容，以及本次调用是否成功使用了文件工具。
+完成后重新读取该文件，确认内容已经写入。
+</code></pre><p>每次测试前，把上一轮生成的文件移动到单独的测试子目录，或者换一个新的空目录，避免不同 Provider 互相看到之前的结果。</p>
+<p>记录下面几项：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>检查项</th>
+<th>ChatGPT 登录</th>
+<th>第三方模型</th>
+<th>中转平台</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>能否正常启动</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>能否读取目录</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>能否创建文件</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>能否重新读取并验证</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>工具调用是否稳定</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>响应速度</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>错误信息是否清晰</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody></table></div>
+<p>这张表比单独问模型“你支持什么能力”更可信，因为它记录的是当前环境中的实际表现。</p>
+<h2 id="wiki-h-28">常见错误与排查</h2>
+<h3 id="wiki-h-29">1. 401 Unauthorized</h3>
+<p>通常表示密钥缺失、错误或已经失效。</p>
+<p>先检查环境变量是否存在。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">test</span> -n <span class="hljs-string">"<span class="hljs-variable">$RELAY_API_KEY</span>"</span> &amp;&amp; <span class="hljs-built_in">echo</span> <span class="hljs-built_in">set</span> || <span class="hljs-built_in">echo</span> missing
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Test-Path</span> Env:RELAY_API_KEY
+</code></pre><p>为了避免泄露密钥，不要把完整值截图或发到聊天中。</p>
+<h3 id="wiki-h-30">2. 404 Not Found</h3>
+<p>常见原因包括：</p>
+<ul>
+<li><code>base_url</code> 路径多写或少写了 <code>/v1</code>；</li>
+<li>平台不提供 Responses API；</li>
+<li>模型 ID 不正确；</li>
+<li>账号没有对应模型权限。</li>
+</ul>
+<p>对照平台文档检查完整请求地址和模型 ID，不要仅凭控制台中的展示名称猜测。</p>
+<h3 id="wiki-h-31">3. 429 Too Many Requests</h3>
+<p>这可能代表余额不足、并发过高、触发分钟限额或模型暂时拥堵。查看平台控制台中的余额、速率限制和错误日志。</p>
+<h3 id="wiki-h-32">4. 可以回答问题，但不会操作文件</h3>
+<p>这通常说明文本请求可用，但模型或平台没有正确实现工具调用。先切回 OpenAI Provider 运行同一个任务进行对照，再向第三方平台确认是否完整支持 Responses API 和工具调用事件。</p>
+<h3 id="wiki-h-33">5. 关闭终端后又提示缺少密钥</h3>
+<p>本篇用 <code>export</code> 或 <code>$env:</code> 设置的是当前会话变量，关闭终端后会消失。这是正常现象。</p>
+<p>如果要长期使用，选择操作系统的凭据管理方式、启动脚本或团队统一的密钥工具。无论使用哪种方式，都不要把真实密钥提交进 Git。</p>
+<h3 id="wiki-h-34">6. 明明已经切换，仍然走旧平台</h3>
+<p>依次检查：</p>
+<ol>
+<li>启动命令里是否带有 <code>--profile</code> 或 <code>-c</code>。</li>
+<li><code>~/.codex/config.toml</code> 中是否仍设置了旧 <code>model_provider</code>。</li>
+<li>是否仍然存在 <code>openai_base_url</code>。</li>
+<li>当前会话是否在修改配置前就已经启动。</li>
+</ol>
+<p>修改配置后，退出旧会话并重新启动 Codex，再通过 <code>/status</code> 检查。</p>
+<h2 id="wiki-h-35">本篇完成检查</h2>
+<p>继续学习之前，请确认你已经理解并完成这些内容：</p>
+<ul>
+<li>能说明模型、Provider、API Key 和 ChatGPT 登录的区别；</li>
+<li>知道用户级 <code>config.toml</code> 的位置；</li>
+<li>知道 Provider 配置不能依赖项目级配置覆盖；</li>
+<li>能使用环境变量提供第三方密钥；</li>
+<li>能配置一个自定义 Provider；</li>
+<li>能使用 Profile 在不同 Provider 之间切换；</li>
+<li>能通过 <code>codex login status</code> 和 <code>/status</code> 检查当前状态；</li>
+<li>能从第三方 Provider 恢复到 ChatGPT 订阅登录；</li>
+<li>知道 API 兼容不代表所有 Codex 功能都能正常工作。</li>
+</ul>
+<p>下一篇，我们会正式进入 Codex CLI 的交互界面，学习权限、状态、文件修改和结果检查，并让它完成 TaskFlow 项目的第一次真实操作。</p>
+<h2 id="wiki-h-36">参考资料</h2>
+<ul>
+<li><a href="https://learn.chatgpt.com/docs/config-file/config-advanced#custom-model-providers">Codex 高级配置：自定义模型 Provider</a></li>
+<li><a href="https://learn.chatgpt.com/docs/auth">Codex 身份验证</a></li>
+<li><a href="https://learn.chatgpt.com/docs/config-file/config-basic">Codex 配置基础</a></li>
+<li><a href="https://learn.chatgpt.com/docs/config-file/config-sample">Codex 配置示例</a></li>
+<li><a href="https://learn.chatgpt.com/docs/models">Codex 模型说明</a></li>
+<li><a href="https://learn.chatgpt.com/docs/web-search">Codex 网页搜索</a></li>
+</ul>
+</article>

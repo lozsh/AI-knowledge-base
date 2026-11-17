@@ -1,0 +1,181 @@
+上一章我们认识了 Kimi Code，这一章就动手把它装到你的电脑上，完成登录，并和它进行第一次对话。
+
+本章的路线是：先做一点准备（2.1 节），然后根据你的操作系统跳到对应的小节安装（2.2～2.5 节，你只需要读其中一节），最后验证安装、登录、开始对话（2.6～2.8 节）。全程大约 15～30 分钟，主要取决于网速。
+
+2.1 安装前的准备
+
+第一件事：找到你的终端。 Kimi Code CLI 是一个运行在终端里的程序，后面的所有操作都在终端中完成。打开终端的方法：
+
+macOS：按 Cmd + 空格 打开聚焦搜索，输入"终端"（或 Terminal），回车。
+Linux：大多数发行版可以按 Ctrl + Alt + T，或者在应用菜单里搜索"终端"。
+Windows：点击开始菜单，搜索 "PowerShell"，回车打开。
+
+系统自带的终端就够用。多说一句：官方建议在对真彩色和连字支持更好的终端（比如 Kitty、Ghostty）里使用，视觉效果最佳——Windows 用户用免费的 Windows Terminal 体验也不错。但这只影响好不好看，不影响功能，不必为此折腾。
+
+第二件事：确认 Git 已安装。 在终端里输入下面这行命令，回车：
+
+git --version
+
+
+如果显示类似 git version 2.39.0 的版本号，说明已安装。如果提示"找不到命令"：
+
+Windows：必须安装 Git for Windows——Kimi Code CLI 需要它自带的 Git Bash 作为 shell 环境，这是硬性要求。打开浏览器访问 https://git-scm.com/download/win，下载安装包，安装向导一路保持默认选项点"Next"即可。装完后关掉终端窗口重新打开，再运行一次 git --version 验证。
+macOS：第一次运行 git 时，系统可能弹出窗口提示"需要安装 Xcode 命令行工具"，点"安装"等它装完即可。
+Linux：Debian / Ubuntu 用 sudo apt install git，Fedora / RHEL 用 sudo dnf install git。
+
+就算你的操作系统不强制要求 Git，从下一章开始我们也会用它管理项目代码，所以这一步迟早要做。
+
+2.2 macOS 安装
+
+在终端里粘贴下面这行命令，回车：
+
+curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash
+
+
+这是官方安装脚本，它会自动完成三件事：下载最新版本的 Kimi Code、校验文件完整性、把 kimi 命令放到系统 PATH 里（这样你在任何目录都能直接运行它）。等待几秒到几十秒，看到输出结束、没有出现红色报错，就装好了。
+
+首次启动会慢一点，属正常现象。 macOS 的 Gatekeeper 安全机制会对新下载的程序做一次检查，导致第一次运行 kimi 时启动较慢，耐心等待即可，之后就恢复正常了。如果你嫌每次检查麻烦，可以在"系统设置 → 隐私与安全性 → 开发者工具"里把你的终端应用加进去。
+
+备选方案（npm 安装）：如果你本来就有 Node.js 环境，也可以走 npm 路线。先运行 node --version 确认版本不低于 22.19.0，然后执行：
+
+npm install -g @moonshot-ai/kimi-code
+
+
+两种方式装出来的东西一样，任选其一。没有 Node.js 环境的话，用上面的官方脚本最省事，不需要先装任何依赖。
+
+2.3 Linux 安装
+
+Linux 的安装命令和 macOS 完全相同：
+
+curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash
+
+
+如果提示 curl: command not found，先用包管理器装上 curl 再重试——Debian / Ubuntu 执行 sudo apt install curl，Fedora / RHEL 执行 sudo dnf install curl。
+
+备选方案同样是 npm（要求 Node.js ≥ 22.19.0）：npm install -g @moonshot-ai/kimi-code。
+
+2.4 Windows：用 WSL2 安装
+
+Windows 有两条路线，先想清楚选哪条：
+
+WSL2 路线（本节）：在 Windows 里跑一个完整的 Linux 环境，然后在 Linux 环境里装 Kimi Code。适合打算认真做开发、或者目标环境是 Linux 服务器的用户——教程里的大部分命令你都可以原样照抄 macOS/Linux 的部分。
+PowerShell 原生路线（2.5 节）：直接装在 Windows 上。适合只想快速试试、不打算折腾 Linux 环境的用户。
+
+选 WSL2 的话，按下面的步骤来：
+
+第 1 步：用管理员身份打开 PowerShell。 右键点击开始菜单按钮，在弹出的菜单里选择"终端管理员"（或"Windows PowerShell (管理员)"）。注意一定要选带"管理员"字样的，普通权限装不了 WSL。
+
+第 2 步：安装 WSL2。 在打开的蓝色（或黑色）窗口里输入：
+
+wsl --install
+
+
+回车后它会自动下载并安装 WSL2 和默认的 Ubuntu 系统，耐心等进度走完。（这条命令需要 Windows 10 2004 版以上或 Windows 11；如果报错，先检查系统更新，或试试 wsl --install -d Ubuntu。）
+
+第 3 步：重启电脑。 安装完成后按提示重启。
+
+第 4 步：创建 Linux 用户。 重启后，一个 Ubuntu 窗口通常会自动打开（没有的话，去开始菜单搜索 "Ubuntu" 打开它）。第一次启动要花一两分钟初始化，然后窗口里会提示你创建用户：
+
+先让你输入用户名：用小写字母或数字，输入后回车；
+然后让你设置密码。这里有个大坑要提前告诉你：输入密码时屏幕上什么都不显示，没有星号、没有圆点，光标也不动——这不是卡死了，是 Linux 的传统设计，你正常输入然后回车就行。接着它会要求再输一遍确认。
+
+当看到类似 你的用户名@电脑名:~$ 的提示符时，说明你已经进入 Linux 世界了。
+
+第 5 步：在 Ubuntu 里安装 Kimi Code。 回到 2.3 节，照做即可——就是那条 curl 命令。
+
+以后怎么用： 每次想用 Kimi Code，从开始菜单打开 "Ubuntu"（或者在 Windows Terminal 里新建一个 Ubuntu 标签页），cd 到项目目录后运行 kimi。
+
+WSL 里怎么访问 Windows 的文件？ Windows 的 C 盘被挂载在 /mnt/c，比如 Windows 桌面上的文件在 WSL 里的路径是 /mnt/c/Users/你的用户名/Desktop/...。能用，但读写速度比 Linux 自己的目录（~，即 /home/你的用户名）慢不少，所以正式项目建议放在 Linux 主目录下。
+
+2.5 Windows：用 PowerShell 安装（原生路线）
+
+走这条路线有一个硬性前提：先装好 Git for Windows（见 2.1 节），因为 CLI 在 Windows 上依赖它自带的 Git Bash 作为 shell 环境。装好 Git 后，在 PowerShell 里粘贴下面这行命令，回车：
+
+irm https://code.kimi.com/kimi-code/install.ps1 | iex
+
+
+同样，等输出走完、没有报错就是装好了。
+
+一般来说，安装程序能自动找到 Git Bash。但如果你把 Git 装在了自定义位置，首次运行 kimi 时可能会报找不到 shell 环境。解决办法是设置一个环境变量 KIMI_SHELL_PATH，指向 bash.exe 的绝对路径。图形界面操作路径是：设置 → 系统 → 关于 → 高级系统设置 → 环境变量 → 在"用户变量"里点"新建"——变量名填 KIMI_SHELL_PATH，变量值填 bash.exe 的完整路径（默认安装位置是 C:\Program Files\Git\bin\bash.exe），确定后重新打开 PowerShell。
+
+2.6 验证、升级与卸载
+
+不管走哪条路线，装完后都做同一件事：关掉终端窗口，重新打开一个（让 PATH 生效），然后输入：
+
+kimi --version
+
+
+显示出版本号（比如 1.x.x），恭喜，安装成功。
+
+如果提示 command not found（Windows 上是"不是内部或外部命令"），先确认你确实重开了终端窗口；还不行的话，重新运行一遍安装脚本，仔细看输出末尾——它会告诉你 kimi 被装到了哪个目录，检查那个目录是否在 PATH 里。
+
+以后升级：在终端里运行 kimi upgrade，它会检查最新版本并给出更新选项，选择"Install update now"即可。npm 安装的用户也可以直接运行 npm install -g @moonshot-ai/kimi-code@latest。
+
+卸载：脚本安装的，删掉 kimi 可执行文件即可（安装路径在当初脚本的输出里）；npm 安装的，运行 npm uninstall -g @moonshot-ai/kimi-code。另外，Kimi Code 的本地数据（配置、会话记录、日志）统一存放在 ~/.kimi-code/ 目录下（Windows 原生路线是 C:\Users\你的用户名\.kimi-code\），想彻底清理就把它一起删掉。
+
+2.7 登录：把 CLI 和你的 Kimi 账号连起来
+
+装好了，先来登录。为了不弄乱你现有的任何文件，我们建一个专门的练习目录：
+
+# macOS / Linux / WSL2
+mkdir ~/kimi-playground
+cd ~/kimi-playground
+
+# Windows PowerShell
+mkdir ~\kimi-playground
+cd ~\kimi-playground
+
+
+然后输入 kimi，回车。第一次启动时，界面会提示你配置 API 来源。在输入框里输入：
+
+/login
+
+
+注意斜杠不能少。回车后会出现一个平台选择器，提供两个选项：
+
+Kimi Code (OAuth)——推荐，用 Kimi 会员账号直接授权，就是第 1 章说的会员权益路线；
+Kimi Platform API key——用开放平台（platform.kimi.com / platform.kimi.ai）的 API Key 登录，那是按量计费的另一套体系。本教程全程用不上它。
+
+用方向键选中 Kimi Code (OAuth)，回车。接下来是设备授权流程：终端里会显示一个链接，你用任意设备的浏览器打开它（手机浏览器也行），登录你的 Kimi 账号，然后按页面提示输入或确认授权码。授权成功后回到终端，CLI 会自动感知到，直接就能用了——不需要重启。
+
+以后想退出登录或换账号，输入 /logout 即可，它会清除当前保存的凭证。
+
+2.8 第一次对话
+
+登录成功后，先认识一下你眼前的界面。Kimi Code 的界面（术语叫 TUI，终端用户界面）由三部分组成：
+
+对话区（占绝大部分空间）：你和 Kimi 的聊天记录、它的工具调用过程都显示在这里；
+输入框（底部）：你打字提需求的地方；
+状态栏（最底下一行）：显示当前模型、目录、会话状态等信息。
+
+现在，在输入框里输入你的第一句话，比如：
+
+看一下这个项目的目录结构，简单介绍一下每个目录是干什么的
+
+
+回车发送。因为练习目录是空的，它大概率会如实告诉你"这是个空目录"，并主动提议可以做点什么。注意观察对话区：它在回答之前会调用工具去真实地查看目录——它不是凭空想象，是真的去看了。
+
+接着，试试让它动手：
+
+帮我写一个 Python 的 Hello World 程序并运行一下
+
+
+这次你会看到一个新东西：审批面板。当它要创建文件、运行命令这类"有副作用"的操作时，会停下来弹出选项征求你的同意，用方向键选择、回车确认（拒绝可以按 Esc）。而纯粹的只读操作（看文件、搜内容）默认是直接执行的，不会打扰你。这套审批机制是 Kimi Code 的重要安全设计，第 4 章我们会详细展开，现在先混个脸熟。
+
+两个小提示：
+
+任何时候输入 /help 可以打开内置的帮助面板，查看全部命令和快捷键，用 ↑/↓ 浏览，按 Esc 关闭。忘了什么就翻它。
+想退出程序：输入 /exit，或者在空闲时连按两次 Ctrl-C，或者在输入框为空时按 Ctrl-D。
+
+退出后如果想接着刚才的聊，在同一个目录里运行 kimi -c 就能恢复上次的会话。会话管理是第 5 章的主题，这里先知道有这回事。
+
+本章小结
+
+这一章我们完成了从零到手：
+
+安装：macOS / Linux / WSL2 用一行官方脚本，Windows 原生用 PowerShell 命令（前提是先装 Git for Windows）；
+验证与维护：kimi --version 验证，kimi upgrade 升级，本地数据都在 ~/.kimi-code/；
+登录：/login 选择 Kimi Code (OAuth)，浏览器里完成授权即可；
+第一次对话：认识了对话区、输入框、状态栏，体验了审批面板，学会用 /help 自助和正确退出。
+
+环境已经就位，下一章我们正式开始实战项目：从零创建"体重管理小助手"，完成项目初始化、第一次提交，顺便把"动手先 git init"的习惯立起来。

@@ -1,0 +1,506 @@
+预计阅读时间：35 分钟
+本篇目标：理解模型与 Provider 的关系，接入第三方模型或中转平台，并能够随时恢复 ChatGPT 订阅登录。
+
+完成第二篇后，你已经可以使用 ChatGPT 账号或 OpenAI API Key 启动 Codex。很多读者还会遇到另外几个需求：
+
+想调用某个第三方模型；
+想通过公司内部网关或中转平台访问模型；
+想在本地运行 Ollama 或 LM Studio；
+想为不同项目准备不同的模型配置；
+试用第三方模型后，想切回 ChatGPT 订阅账号。
+
+这些需求都与 Provider 配置有关。
+
+这一篇的配置操作比前两篇多（如果暂时没有第三方平台或模型的配置需求，可以跳过本篇）。请在修改前完整读一遍对应小节，并使用专门的练习目录测试。第三方平台的接口、模型名称和认证方式并不统一，示例中的地址和模型名需要替换为平台实际提供的值。
+
+先分清四个概念
+1. 模型
+
+模型负责理解你的任务并决定下一步做什么。例如，它会判断应该读取哪个文件、运行什么命令、怎样修改代码。
+
+模型名称只是一个标识，而且不同平台的命名方式可能不同。不要根据宣传页面猜模型名，要使用平台文档中明确给出的模型 ID。
+
+2. Provider
+
+Provider 负责告诉 Codex：
+
+请求应该发送到哪个地址；
+用哪个环境变量读取密钥；
+使用什么协议；
+是否需要额外请求头或查询参数。
+
+同一个模型可能通过不同 Provider 提供。例如，你可以直接访问 OpenAI，也可以通过公司的大模型网关访问同一个 OpenAI 模型。
+
+3. 身份验证
+
+身份验证解决的是“你以什么身份使用服务”。
+
+Codex 使用 OpenAI 模型时，常见方式有两种：
+
+使用 ChatGPT 账号登录，享用订阅权益；
+使用 OpenAI API Key 登录，按 API 用量计费。
+
+第三方 Provider 通常要求自己的 API Key。这个密钥一般通过环境变量提供，不应该写死在配置文件中。
+
+4. 配置文件
+
+Codex 的个人配置默认保存在：
+
+macOS、Linux、WSL2：~/.codex/config.toml
+Windows：%USERPROFILE%\.codex\config.toml
+
+Provider 和认证路由属于用户级配置，应放在个人配置中。出于安全原因，项目里的 .codex/config.toml 不能覆盖 model_provider、model_providers 和 openai_base_url 等认证或路由配置。项目可以选择模型，但不能悄悄把请求改到另一个服务商。
+
+打开并备份配置文件
+macOS、Linux 或 WSL2
+
+先创建配置目录：
+
+mkdir -p ~/.codex
+
+
+如果配置文件已经存在，先备份：
+
+cp ~/.codex/config.toml ~/.codex/config.toml.backup
+
+
+如果复制时提示文件不存在，说明你还没有创建过配置文件，可以忽略。
+
+接着使用自己熟悉的编辑器打开：
+
+nano ~/.codex/config.toml
+
+
+在 Nano 中，按 Ctrl + O 保存，按回车确认文件名，再按 Ctrl + X 退出。
+
+Windows PowerShell
+
+先创建配置目录：
+
+New-Item -ItemType Directory -Force "$HOME\.codex"
+
+
+如果配置文件已经存在，运行：
+
+Copy-Item "$HOME\.codex\config.toml" "$HOME\.codex\config.toml.backup"
+
+
+如果提示源文件不存在，说明还没有配置文件，可以忽略。
+
+然后用记事本打开：
+
+notepad "$HOME\.codex\config.toml"
+
+先认识默认的 OpenAI Provider
+
+没有特别配置时，Codex 使用内置的 openai Provider。
+
+下面是一份最小示例：
+
+model_provider = "openai"
+
+
+使用 ChatGPT 登录时，建议在交互界面中通过 /model 选择账号当前可用的模型。这样可以避免把一个已经下线或当前账号没有权限的模型名称长期写死在配置文件中。
+
+如果配置文件中已有其他设置，不要直接覆盖整个文件。只调整与模型相关的键，并保留现有的权限、界面或工具配置。
+
+TOML 有两个容易踩到的规则：
+
+同一个键不能重复定义。
+顶层键应放在各个 [表格] 之前。
+
+如果启动时提示配置解析失败，请先检查是否重复写了 model 或 model_provider。
+
+场景一：通过中转平台调用模型
+
+中转平台大致分为两类。
+
+第一类只是把 OpenAI 请求转发到另一个网关，而且仍然使用 OpenAI 身份验证。官方配置为这种情况提供了 openai_base_url。
+
+第二类平台会发放自己的 API Key，模型名称和接口能力也由平台定义。这种情况更适合配置一个自定义 Provider。
+
+方式 A：修改内置 OpenAI Provider 的访问地址
+
+只有当网关明确说明可以使用这种方式，并且它处理的是 OpenAI 身份验证时，才使用下面的配置：
+
+model_provider = "openai"
+openai_base_url = "https://你的网关地址/v1"
+
+
+保存文件，重新启动 Codex。
+
+如果网关要求它自己发放的 API Key，不要只改 openai_base_url。请使用下一种自定义 Provider 方式。
+
+方式 B：为中转平台创建自定义 Provider
+
+假设平台提供了这些信息：
+
+API 地址：https://relay.example.com/v1
+API Key 环境变量：我们自己命名为 RELAY_API_KEY
+模型 ID：provider-model-id
+协议：Responses API
+
+先在当前终端中设置密钥。
+
+macOS、Linux 或 WSL2：
+
+export RELAY_API_KEY="请替换为平台提供的密钥"
+
+
+Windows PowerShell：
+
+$env:RELAY_API_KEY = "请替换为平台提供的密钥"
+
+
+然后在 ~/.codex/config.toml 中加入：
+
+model = "provider-model-id"
+model_provider = "relay"
+
+[model_providers.relay]
+name = "My Relay"
+base_url = "https://relay.example.com/v1"
+env_key = "RELAY_API_KEY"
+wire_api = "responses"
+
+
+需要替换的内容有三个：
+
+provider-model-id：平台文档给出的准确模型 ID；
+https://relay.example.com/v1：平台给出的 API 基础地址；
+RELAY_API_KEY：你为密钥选择的环境变量名。
+
+relay 是这个 Provider 在本机配置里的 ID，你可以换成更容易识别的英文名称，但不要使用保留的内置 ID，例如 openai、ollama 或 lmstudio。
+
+保存配置后，从同一个终端窗口启动：
+
+codex
+
+
+必须从刚才设置环境变量的终端启动，否则 Codex 读不到密钥。
+
+场景二：接入第三方模型 API
+
+第三方模型的配置方法与中转平台相似。区别主要在于模型名称、接口地址以及支持的能力。
+
+假设第三方平台提供了一个兼容 Responses API 的端点：
+
+model = "third-party-model-id"
+model_provider = "thirdparty"
+
+[model_providers.thirdparty]
+name = "Third-party Model Platform"
+base_url = "https://api.example.com/v1"
+env_key = "THIRD_PARTY_API_KEY"
+wire_api = "responses"
+
+
+在启动 Codex 之前设置密钥。
+
+macOS、Linux 或 WSL2：
+
+export THIRD_PARTY_API_KEY="请替换为第三方平台密钥"
+codex
+
+
+Windows PowerShell：
+
+$env:THIRD_PARTY_API_KEY = "请替换为第三方平台密钥"
+codex
+
+API 兼容不等于 Codex 能力完整
+
+一个平台能够回答普通聊天问题，只能证明最基础的文本请求可用。Codex 还依赖模型和接口正确处理工具调用、流式事件、长上下文和错误反馈。
+
+因此，接入第三方 Provider 后，至少测试下面四项：
+
+能否正常回答一个简单问题。
+能否列出当前目录的文件。
+能否读取指定文件并总结内容。
+能否在练习目录中创建文件并正确报告修改。
+
+某些平台还可能不支持图片输入、网页搜索或完整的工具调用。教程后面使用到这些能力时，如果第三方 Provider 表现异常，先切回内置 OpenAI Provider 进行对照。
+
+目前 Codex 对 Chat Completions 的兼容属于逐步淘汰方向。准备长期使用的第三方平台时，优先选择明确支持 Responses API 的服务。
+
+需要额外请求头时怎么配置
+
+部分企业网关或平台除了 API Key，还要求额外请求头。
+
+固定且不敏感的请求头可以写在 http_headers 中：
+
+[model_providers.company]
+name = "Company Gateway"
+base_url = "https://gateway.example.com/v1"
+env_key = "COMPANY_MODEL_API_KEY"
+wire_api = "responses"
+http_headers = { "X-Client-Name" = "codex-course" }
+
+
+如果请求头的值本身是敏感信息，应该从环境变量读取：
+
+[model_providers.company]
+name = "Company Gateway"
+base_url = "https://gateway.example.com/v1"
+env_key = "COMPANY_MODEL_API_KEY"
+wire_api = "responses"
+env_http_headers = { "X-Company-Token" = "COMPANY_EXTRA_TOKEN" }
+
+
+这里的 COMPANY_EXTRA_TOKEN 是另一个环境变量名，而不是 Token 本身。
+
+临时切换 Provider，避免频繁修改配置文件
+
+你可以用 -c 临时覆盖当前运行的 Provider，并用 -m 指定模型。
+
+假设 relay 已经在配置文件中定义：
+
+codex -c 'model_provider="relay"' -m "provider-model-id"
+
+
+这条命令只影响本次启动，不会修改 config.toml。
+
+进入 Codex 后输入：
+
+/status
+
+
+检查当前模型是否已经变化。
+
+注意：/model 主要用于选择当前 Provider 提供的模型。切换到另一个 Provider 时，更稳妥的方式是重新启动 Codex，并通过配置或启动参数指定 Provider。
+
+使用 Profile 保存多套配置
+
+如果你经常在 ChatGPT 登录和第三方 Provider 之间切换，建议使用 Profile。
+
+Codex 的 Profile 是单独的配置文件，放在 ~/.codex 目录下，文件名格式为：
+
+配置名.config.toml
+
+1. 保持默认配置使用 ChatGPT
+
+在 ~/.codex/config.toml 中保留：
+
+model_provider = "openai"
+
+[model_providers.relay]
+name = "My Relay"
+base_url = "https://relay.example.com/v1"
+env_key = "RELAY_API_KEY"
+wire_api = "responses"
+
+
+这里先定义 relay，但不把它设为默认 Provider。
+
+2. 创建第三方 Profile
+
+创建 ~/.codex/relay.config.toml：
+
+model_provider = "relay"
+model = "provider-model-id"
+
+3. 启动不同配置
+
+默认使用 ChatGPT 登录：
+
+codex
+
+
+使用中转平台：
+
+codex --profile relay
+
+
+这种方式的优点是，退出当前会话后再次运行普通的 codex，就会回到默认 OpenAI Provider，不需要反复编辑配置文件。
+
+使用本地模型
+
+Codex 内置了针对 Ollama 和 LM Studio 的本地 OSS 模式。
+
+先确保本地模型服务已经安装、启动，并下载了适合工具调用的模型。然后运行：
+
+codex --oss --local-provider ollama
+
+
+或者：
+
+codex --oss --local-provider lmstudio
+
+
+也可以在 config.toml 中设置默认本地 Provider：
+
+oss_provider = "ollama"
+
+
+本地模型的效果取决于模型能力、上下文长度、工具调用支持和电脑性能。能在本地聊天，不代表能够稳定完成多步骤代码任务。
+
+从第三方 Provider 切回 ChatGPT 订阅
+
+如果你使用了 Profile，并且默认配置一直是 openai，退出第三方会话后直接运行：
+
+codex
+
+
+通常就能回到 ChatGPT 登录对应的 OpenAI Provider。
+
+如果之前直接修改了默认配置，按照下面的步骤彻底恢复。
+
+第 1 步：恢复 Provider 配置
+
+打开 ~/.codex/config.toml，将顶层配置恢复为：
+
+model_provider = "openai"
+
+
+删除或注释掉顶层的自定义 model = "..."，之后进入 Codex 使用 /model 选择账号实际可用的模型。
+
+如果配置中存在为了中转平台添加的：
+
+openai_base_url = "https://某个中转地址/v1"
+
+
+也要删除或注释掉。定义在 [model_providers.relay] 下的第三方 Provider 可以保留，只要没有把它设置为默认 Provider，就不会自动使用。
+
+第 2 步：清除旧登录状态
+
+运行：
+
+codex logout
+
+
+如果当前本来就是有效的 ChatGPT 登录，这一步不一定必需。但当你无法确认以前使用的是 ChatGPT 账号还是 OpenAI API Key 时，重新登录最容易排除身份残留。
+
+第 3 步：重新使用 ChatGPT 登录
+
+运行：
+
+codex login
+
+
+在浏览器中选择正确的 ChatGPT 账号和工作空间。
+
+第 4 步：检查登录方式
+
+运行：
+
+codex login status
+
+
+确认当前身份验证方式是 ChatGPT 登录。
+
+第 5 步：检查运行配置
+
+启动：
+
+codex
+
+
+进入后输入：
+
+/status
+
+
+确认当前 Provider 已恢复为 OpenAI，并检查模型是否符合预期。
+
+用同一个任务测试不同 Provider
+
+为了减少变量，请回到第二篇创建的 taskflow 空目录。为每个 Provider 使用完全相同的任务：
+
+请检查当前目录。不要修改现有文件。创建一个名为 provider-test.md 的文件，
+写入当前时间、你观察到的目录内容，以及本次调用是否成功使用了文件工具。
+完成后重新读取该文件，确认内容已经写入。
+
+
+每次测试前，把上一轮生成的文件移动到单独的测试子目录，或者换一个新的空目录，避免不同 Provider 互相看到之前的结果。
+
+记录下面几项：
+
+检查项	ChatGPT 登录	第三方模型	中转平台
+能否正常启动			
+能否读取目录			
+能否创建文件			
+能否重新读取并验证			
+工具调用是否稳定			
+响应速度			
+错误信息是否清晰			
+
+这张表比单独问模型“你支持什么能力”更可信，因为它记录的是当前环境中的实际表现。
+
+常见错误与排查
+1. 401 Unauthorized
+
+通常表示密钥缺失、错误或已经失效。
+
+先检查环境变量是否存在。
+
+macOS、Linux 或 WSL2：
+
+test -n "$RELAY_API_KEY" && echo set || echo missing
+
+
+Windows PowerShell：
+
+Test-Path Env:RELAY_API_KEY
+
+
+为了避免泄露密钥，不要把完整值截图或发到聊天中。
+
+2. 404 Not Found
+
+常见原因包括：
+
+base_url 路径多写或少写了 /v1；
+平台不提供 Responses API；
+模型 ID 不正确；
+账号没有对应模型权限。
+
+对照平台文档检查完整请求地址和模型 ID，不要仅凭控制台中的展示名称猜测。
+
+3. 429 Too Many Requests
+
+这可能代表余额不足、并发过高、触发分钟限额或模型暂时拥堵。查看平台控制台中的余额、速率限制和错误日志。
+
+4. 可以回答问题，但不会操作文件
+
+这通常说明文本请求可用，但模型或平台没有正确实现工具调用。先切回 OpenAI Provider 运行同一个任务进行对照，再向第三方平台确认是否完整支持 Responses API 和工具调用事件。
+
+5. 关闭终端后又提示缺少密钥
+
+本篇用 export 或 $env: 设置的是当前会话变量，关闭终端后会消失。这是正常现象。
+
+如果要长期使用，选择操作系统的凭据管理方式、启动脚本或团队统一的密钥工具。无论使用哪种方式，都不要把真实密钥提交进 Git。
+
+6. 明明已经切换，仍然走旧平台
+
+依次检查：
+
+启动命令里是否带有 --profile 或 -c。
+~/.codex/config.toml 中是否仍设置了旧 model_provider。
+是否仍然存在 openai_base_url。
+当前会话是否在修改配置前就已经启动。
+
+修改配置后，退出旧会话并重新启动 Codex，再通过 /status 检查。
+
+本篇完成检查
+
+继续学习之前，请确认你已经理解并完成这些内容：
+
+能说明模型、Provider、API Key 和 ChatGPT 登录的区别；
+知道用户级 config.toml 的位置；
+知道 Provider 配置不能依赖项目级配置覆盖；
+能使用环境变量提供第三方密钥；
+能配置一个自定义 Provider；
+能使用 Profile 在不同 Provider 之间切换；
+能通过 codex login status 和 /status 检查当前状态；
+能从第三方 Provider 恢复到 ChatGPT 订阅登录；
+知道 API 兼容不代表所有 Codex 功能都能正常工作。
+
+下一篇，我们会正式进入 Codex CLI 的交互界面，学习权限、状态、文件修改和结果检查，并让它完成 TaskFlow 项目的第一次真实操作。
+
+参考资料
+Codex 高级配置：自定义模型 Provider
+Codex 身份验证
+Codex 配置基础
+Codex 配置示例
+Codex 模型说明
+Codex 网页搜索

@@ -1,0 +1,149 @@
+<!DOCTYPE html><meta charset="utf-8"><article><div class="wiki-callout"><strong>一句话成果</strong>：目前，柯南 AI 在快手内部大前端研发中的用户渗透率已接近 60%，根因分析结果的完整采纳率稳定在 50% 左右。在一个只有系统堆栈的鸿蒙 C++ Crash 案例中，它通过寄存器、业务日志和源码构建证据链，约 10 分钟便定位到内部基础组件触发的纯系统堆栈 Use-After-Free 问题，并帮助团队找到止损开关。围绕这一案例，王泽锋进一步拆解了柯南 AI 的五层架构，以及稳定性专家如何从“前线救火员”转变为“消防系统设计师”。</div><hr>
+<blockquote>
+<p>AI Coding 正在显著提升代码生产效率，但线上告警、根因定位、止损和修复等稳定性环节并未同步提速。更值得警惕的是，缺乏全局上下文的 AI 可能沿着“最小阻力路径”消除表面现象，却留下跨工程、跨系统的稳定性隐患。<strong>当 AI 开始规模化生产代码，谁来承接随之增长的线上问题，正成为 AI Native 研发体系必须补上的“最后一公里”。</strong></p>
+<p>在 AICon 全球人工智能开发与应用大会（上海站）2026 上，快手主站技术稳定性专家王泽锋分享了“柯南 AI”的工程实践。这次分享的核心并不是简单地“让 Agent 代替人排障”，而是重新设计稳定性研发中的人机分工：<strong>确定性的流程交给代码，概率性的推理交给模型；通过 Skill 沉淀专家经验，以源码服务和端侧基建提供有效上下文，再用 Bad Case 驱动系统持续进化。</strong></p>
+<p>目前，柯南 AI 在快手内部大前端研发中的用户渗透率已接近 <strong>60%</strong>，根因分析结果的完整采纳率稳定在 <strong>50% 左右</strong>。在一个只有系统堆栈的鸿蒙 C++ Crash 案例中，它通过寄存器、业务日志和源码构建证据链，约 <strong>10 分钟</strong>便定位到内部基础组件触发的纯系统堆栈 Use-After-Free 问题，并帮助团队找到止损开关。围绕这一案例，王泽锋进一步拆解了柯南 AI 的五层架构，以及稳定性专家如何从“前线救火员”转变为“消防系统设计师”。</p>
+</blockquote>
+<p><img class="wiki-lazy-img" alt="王泽锋在 AICon 大会现场做分享，身着浅色外套，手持麦克风与演示器，背景为印有“CLI”字样的展台面板。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-speaker.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<h2 id="wiki-h-0">AI Coding 提速之后，稳定性成为“最后一公里”</h2>
+<p>AI 浪潮给稳定性带来了什么影响？</p>
+<p>如今，Cursor、Claude Code、Codex 等 AI Coding 工具已成为行业主流。上游研发吞吐显著提升，需求到代码的转化成本大幅降低。与之相比，线上告警、根因定位、止损决策、修复回归和经验沉淀等下游处置链路，几乎没有得到同等加速。</p>
+<p>当代码生产与稳定性处置长期速率不对等，线上 Case 的数量、严重程度和处置时延都可能全面劣化。更棘手的是，AI 不仅放大研发吞吐，也可能制造新的稳定性问题。由于缺乏全局上下文，AI 往往沿着“最小阻力路径”让问题现象消失，但现象消失不等于问题被真正解决。这就是 AI 普遍存在的<strong>局部最优陷阱</strong>。</p>
+<p>快手内部曾遇到过这样一个案例。</p>
+<p>在 Android 版本发布前的灰度阶段，我们发现 APK 包体突然增加了 <strong>6 MB</strong>。紧急排查后发现，问题来自一个内部 SDK：开发者通过 AI 生成了一段 ProGuard 配置，其中包含 <code>-dontoptimize</code>，并将其写入 <code>consumerProguardFiles</code>。</p>
+<p>从 SDK 自身看，这段配置可以让工程正常运行。但 <code>consumerProguardFiles</code> 会随 AAR 传递到主工程，在构建时与 R8 配置合并，最终关闭主工程的 R8 全局优化，导致 DEX 体积膨胀，APK 增加 6 MB。</p>
+<p>从 AI 的视角看，这个结果有其“合理性”：它只看到了 SDK 能够运行的局部，却没有意识到配置会跨越工程边界。</p>
+<p><img class="wiki-lazy-img" alt="前置拦截消灭不了所有问题：状态空间爆炸 + 不完备性，软件稳定性 = 不完备性证明，线上真实现场永远是稳定性的核心战场。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-incomplete-proven.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>SDD、Coding Harness 以及 Coding、Review 阶段的前置约束，可以提高代码生成质量，拦截一部分问题，但不可能消灭所有稳定性风险。</p>
+<p>大前端领域有一个显著特点：线上状态空间极其庞大。以机型碎片化最严重的 Android 系统为例，线上存在超过 <strong>100 种 OEM ROM、1000 多个适配机型</strong>。对于快手这样的强运营 App，一天内由 A/B 实验、灰度和运营活动带来的变更可能超过 <strong>1 万次</strong>。用户行为路径更是千人千面，无法穷举。</p>
+<p>没有任何测试矩阵能够在线下覆盖所有组合。从更高层面看，软件稳定性本身就是一个“不完备性证明”问题：我们无法证明所有场景都绝对稳定，只能不断加深防御纵深。</p>
+<p><strong>线上真实现场永远是稳定性的核心战场。</strong></p>
+<p>研发吞吐被 AI 拉快，稳定性处置没有跟上；AI 会陷入局部最优，而前置拦截又无法消灭所有问题。这些因素共同指向一个结论：<strong>线上稳定性处置，是完整落地 AI Native 的最后一公里。</strong>这也是我们建设柯南 AI 的出发点——聚焦稳定性领域，“用 AI 打败 AI”。</p>
+<h2 id="wiki-h-1">柯南 AI：嵌入工作流的稳定性数字同事</h2>
+<p><img class="wiki-lazy-img" alt="柯南 AI 定位说明图：覆盖报警处置、根因分析、修复建议、治理初检四类场景，聚焦问题处置环节。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-konan-positioning.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>“柯南”这个名字来自《名侦探柯南》——“真相只有一个”。我们的愿景，是让柯南 AI 成为所有 Bug 的最终归宿。</p>
+<p>完整的稳定性生命周期通常包括拦截、监控、排障和止损。现阶段，柯南 AI 主要聚焦排障与止损，也就是问题处置环节，覆盖四类场景：</p>
+<ul>
+<li>报警处置，包括问题解释、影响面判断和 SOP 执行；</li>
+<li>根因分析，包括线索发现、假设提出和证据链构建；</li>
+<li>修复建议，包括修复方向、风险和验证方式；</li>
+<li>治理初检，包括优先级判断与问题分发。</li>
+</ul>
+<p>我们选择问题处置环节，首先是因为它最消耗业务研发时间，建设 ROI 较高；其次，这些任务需要聚合信息并进行多步推理，适合 AI；同时，这也是稳定性专家经验能够发挥较高杠杆的地方。</p>
+<p>在产品形态上，我们有一条原则：<strong>不额外创造孤立的交互方式，而是把柯南 AI 嵌入开发者已有的工作流。</strong></p>
+<p>目前主要有三种产品形态。</p>
+<p>第一种是 IM 机器人，服务于报警处置、指标巡检和问题分发。这些任务原本就需要多人协作，通常发生在 IM 群聊中，机器人可以直接进入原有协作场景。</p>
+<p>第二种是监控平台侧边栏。研发打开崩溃详情页后，可以拉起柯南 AI。系统会自动携带当前崩溃的上下文，触发根因分析。</p>
+<p>第三种是 CLI。它与侧边栏都覆盖根因分析和修复建议，但主要解决监控平台信息不足的问题。有些问题需要连接手机，拉取设备上的 so 文件或其他现场信息。此时，研发可以将问题上下文从监控平台流转到 CLI，继续本地排查。</p>
+<p>目前，柯南 AI 在内部大前端研发中的用户渗透率接近 <strong>60%</strong>，根因分析结果的完整采纳率稳定在 <strong>50% 左右</strong>。</p>
+<h2 id="wiki-h-2">柯南 AI 的五层工程架构</h2>
+<p><img class="wiki-lazy-img" alt="快手柯南 AI 五层工程架构：应用层、Agent 编排层、Agent Harness 层、数据服务层、端侧基建层，右侧贯穿“反馈迭代·可观测”。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-five-layer-arch.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>柯南 AI 的整体架构分为五层：最上层是应用层，对应 IM 机器人、监控平台侧边栏和 CLI；下面依次是 Agent 编排层、Agent Harness 层、数据服务层和端侧基建层。另有一套可观测与反馈迭代机制纵向贯穿整个系统。</p>
+<h3 id="wiki-h-3">编排层：确定性的归代码，概率性的归模型</h3>
+<p>Agent 编排层主要回答一个问题：什么任务应该由什么形态承载？</p>
+<p>我们的核心原则是：<strong>确定性的归代码，概率性的归模型。</strong></p>
+<p>对于流程清晰、规则明确、答案相对唯一的确定性问题，我们使用代码实现；只有涉及理解、推理和判断的部分，才让模型介入。把大模型放在它擅长的位置，才能兼顾效果稳定与成本可控。</p>
+<p>报警处置是柯南 AI 的重要场景。在 AI 时代之前，快手已基于大量经验沉淀出一套完整 SOP：从报警发生、拉群，到多人分工排查，再到止损和复盘，包含一套严肃而复杂的协作流程。</p>
+<p>这样的流程不适合完全交给 Agent Loop 驱动。Agent 可能遗漏步骤，也可能调用错误工具，这在报警处置中无法接受。因此，我们通过用代码复刻人工 SOP，只在部分子环节引入模型。</p>
+<p>进入概率性任务后，我们还有一条原则：<strong>单次 LLM 请求能够解决的问题，就不使用 Agent。</strong></p>
+<p>任何任务都使用 Agent，是一种过度工程化。Agent Loop 每增加一轮，就会增加一次 LLM 请求，带来额外时延和 Token 消耗；Tool Call 可能失败，Agent 的自主决策也可能跑偏。如果任务确实需要长链推理，这些代价值得付出。但如果一次 LLM 请求已经能够解决问题，强行使用 Agent 反而可能成为负优化。</p>
+<p><img class="wiki-lazy-img" alt="单 LLM 报警快速分析：APM 维度聚合数据一次性放入 Prompt，LLM 单次请求输出结构化结论，整体耗时约 60 秒。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-quick-analysis.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>报警处置中的“快速分析”就是一个例子。它的目标是汇总各类维度数据，提炼关键线索。我们先通过代码聚合数据，再将上下文一次性放入 Prompt，要求模型按预设的结构化模板输出结论。</p>
+<p>这种方式最大的优势是快。从获取 API 数据到 LLM 返回结果，整体耗时可以稳定控制在 <strong>1 分钟以内</strong>。</p>
+<p>例如，WWDC 之后 iOS 27 开始向用户推送，我们曾遇到一个小规模堆栈报警。快速分析发现，问题百分之百集中在 iOS 27，很快便将范围收敛到某个内部工具在新系统上的兼容性问题。</p>
+<p>真正适合 Agent 的场景是根因分析。一个复杂问题可能需要结合堆栈、源码、代码变更、聚合特征和历史相似 Case 才能找到根因。整个过程横跨多个数据源，涉及多次 Tool Call，通常也不存在固定的线性推理流程。这类任务需要长链推理、跨工具调用和自主编排能力，也需要动态扩展上下文、按需加载 Skill。只有遇到某类问题时，才加载相应知识，可以避免上下文一次性膨胀。</p>
+<p>因此，我们在编排层组合使用三种形态：<strong>确定流程使用 Workflow，简单概率性任务使用单次 LLM 请求，复杂非线性推理任务使用 Agent。</strong></p>
+<h3 id="wiki-h-4">Agent Harness：基于成熟底座，用 Skill 承载专家经验</h3>
+<p>在 Agent Harness 层，我们没有从头搭建通用框架，而是直接使用 Claude Agent SDK（前期原型探索，经历过从 AutoGen 框架编排到基于 OpenAI Agent SDK 的自研 Workflow 框架，再到最终敲定使用 Claude Agent SDK）。这一选择有三个好处。</p>
+<p>首先是工程红利，可以直接继承在生产环境中经过打磨的上下文管理、工具使用等 Agent Harness 能力；其次是迭代同步。SDK 会随 Claude 系列产品持续演进，我们可以较快使用新的 Harness 能力；最后是适配深度。Claude Agent SDK 对 Claude 模型有较好的适配，国内主流开源模型也可以通过兼容协议接入。</p>
+<p><img class="wiki-lazy-img" alt="为适配稳定性根因分析对 Claude Agent SDK 的轻量化定制：精简 System Prompt 注入领域硬规则，Tool 精简 + Permission 沙箱锁定 cwd。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-agent-sdk-custom.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>不过，Claude Agent SDK 面向通用 Coding 环境，并不完全适合稳定性根因分析，因此我们做了两方面的轻量化定制。</p>
+<p>一方面，我们围绕领域诉求精简 System Prompt。通用 Agent 的 System Prompt 中存在不少与稳定性分析无关的内容。我们剥离通用 Coding 约束、Auto Memory 机制和通用 Skill 清单等噪声，同时注入稳定性领域的硬规则，例如明确区分推测与确定性结论、标注结论置信度，以及禁止跨问题类型进行无关联想。</p>
+<p>另一方面，我们精简 Tool 并设置 Permission 沙箱，确保 Agent 即使失控，影响半径也能被控制。对于计划、工作树等不需要的通用工具，我们直接关闭。对于确实需要的 Read、Write、Edit 等 Bash 类工具，则将访问路径锁定在当前工作目录，即 CWD。绝对路径一旦越界，系统会直接拒绝。</p>
+<p>在外围框架之外，我们投入最多的是<strong>用 Skill 承接稳定性专家经验</strong>。</p>
+<p><img class="wiki-lazy-img" alt="Skill 承接专家经验：按问题类型按需触发、渐进式披露，MD + frontmatter 由领域专家维护，按异常退出类型划分边界。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-skill-experience.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>Skill 具备渐进式披露和按需加载能力，可以根据问题类型，只为 Agent 注入当前需要的知识。目前，我们在客户端领域已经建设了 <strong>30 多个 Skill</strong>，正文与 Reference 文档接近 <strong>2 万行</strong>。如此规模的知识不可能一次性放入上下文。</p>
+<p>Skill 对知识迭代也很友好。它本质上是带有轻量格式约束的 Markdown 文档。维护者不需要理解 Agent Runtime，也不一定需要写代码，只要能把专业知识整理成清晰文档，就可以参与建设。这样，专家经验的维护不再局限于 Agent 工程团队。</p>
+<p>在 Skill 的组织方式上，我们遵循两个原则。第一，Skill 不与 Agent 工程耦合。所有 Skill 通过独立 Git 仓库维护，可以独立发布、灰度和回滚；第二，按照异常退出类型划分 Skill 边界。例如 Android Java Crash、iOS Crash、Android Native Crash 都对应独立的 Skill。虽然不同分析流程存在共性，但我们的判断是：<strong>可以接受适度的重复建设，但必须避免跨端、跨异常类型的上下文干扰。</strong></p>
+<p>对于单个 Skill，最重要的内容首先是私域知识注入。</p>
+<p><img class="wiki-lazy-img" alt="Skill 私域知识注入：APM 定界字段语义已与上报时不一致（如 FD OOM 判定失效），内部框架/SDK 专有知识需显式注入（如 Ekko fake_exception 帧跳过）。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-skill-private-knowledge.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>一种典型情况是，某些字段的实际语义已经与最初上报时不同，本质上是在偿还历史技术债。</p>
+<p>例如，在较低版本的 Android 系统中，每个进程能够使用的文件描述符数量存在较低上限。一旦 FD 数量超过阈值，进程就可能崩溃。为了快速定界，历史上的 APM SDK 会在崩溃时采集 FD 数量，只要超过阈值，就将问题标记为 FD OOM。但这套规则在较高版本的 Android 系统中已经失效。如果 Agent 在高版本系统上看到这个标签，仍按旧规则分析，就可能非常自信地给出错误结论。对此，我们会在 Skill 中明确写成禁止行为。</p>
+<p>另一类私域知识来自内部框架和 SDK，这些内容从未出现在模型训练语料中，只能由团队主动注入。</p>
+<p>例如，Ekko 是内部用于崩溃兜底的安全气垫 SDK。在部分端上，它需要在崩溃链路中执行 Hook，因此某些堆栈会出现 Ekko 栈帧，但这些栈帧与根因没有关系。如果不加约束，Agent 看到 Ekko 栈帧后，可能沿着 Hook 逻辑继续追踪，导致分析方向跑偏。因此，我们会在 Skill 中明确说明 Ekko 栈帧的语义和排除规则。</p>
+<p>除了私域知识，Skill 的另一个重要组成部分是根因分析 SOP。</p>
+<p><img class="wiki-lazy-img" alt="Skill 根因分析 SOP：Case A 鸿蒙 AppFreeze 主线程根因（3S/6S 双采样一致性·阻塞 vs 繁忙），Case B Android Native Crash 信号路由（SIGABRT/SIGTRAP 走 abortMsg、SIGSEGV/SIGBUS 走深度分析）。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-skill-sop.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>以鸿蒙 AppFreeze 为例，这类问题通常意味着主线程长时间卡顿甚至卡死。分析时，我们会先获取卡死前的多次采样堆栈，比较堆栈是否一致，从而判断主线程是真的阻塞，还是因过于繁忙、无法及时处理窗口消息而被识别为 Freeze。</p>
+<p>如果确认主线程确实阻塞，并正在等待某把锁，下一步就要查看全线程堆栈，判断哪个线程持有这把锁并卡住了主线程。</p>
+<p>类似决策树会被完整写入 Skill。我们的鸿蒙 AppFreeze 根因分析 Skill 也参考了华为系统 DFX 团队提供的开源版本，其中通用的主线程根因决策逻辑就来自该版本。</p>
+<p>另一个例子是 Android Native Crash 和鸿蒙 C++ Crash 的信号路由。</p>
+<p>如果问题由 <code>SIGABRT</code> 触发，根因更可能已直接写在 Abort Message 中。典型情况是 Android 的 Java Pending Exception 导致进程 Abort。对于这类问题，Skill 会要求 Agent 优先查看 Abort Message，而不是一开始就进入复杂的内存分析。</p>
+<p>只有遇到 <code>SIGSEGV</code> 这类段错误，才需要继续进行反汇编、寄存器分析等深入排查。</p>
+<p>实践表明，这类核心决策逻辑不仅能提高效果，还能减少耗时和 Token 消耗。不过，这部分知识相对偏向公域，可能只是当前模型尚未很好地内化。随着模型升级，未来某些通用知识未必还需要通过 Skill 注入。</p>
+<p><img class="wiki-lazy-img" alt="Agent Harness 层瓶颈：根因分析卡在思考深度不足与信息缺失，修复效果落后于排障效果，分别对应模型能力 + Agent Loop 工程与 Memory 体系。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-harness-bottlenecks.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>目前，Agent Harness 层仍有两个主要瓶颈。</p>
+<p>首先是思考深度不足。例如遇到 NPE，模型经常只能指出“这里为空”，却无法沿数据流继续追踪，找出什么数据经过什么路径导致对象为空。在信息缺失时，模型还容易产生幻觉，补出一个似是而非的结论。</p>
+<p>短中期内，我们一方面会通过 Skill 和 System Prompt 强化约束，另一方面进行问题分级路由：提前识别问题难度，将复杂问题分配给能力更强的模型。长期来看，则需要探索树形搜索等 Agent 编排方式，让系统围绕多个根因假设并行收集证据。当然，这也会增加 Token 消耗。</p>
+<p>其次是修复效果明显落后于排障效果。一方面，Agent 缺少历史修复经验，不知道相似问题过去如何修复；另一方面，大量业务“暗知识”只存在于人脑中，例如某块代码能不能改、怎样修改才符合业务规范。这些信息既不在堆栈里，也不在文档中。</p>
+<p>我们正在探索通过 Memory 体系承载历史经验和业务暗知识，但前提是业务知识必须持续显性化。<strong>没有被表达和沉淀的知识，就无法成为 Agent 可以使用的上下文。</strong></p>
+<h3 id="wiki-h-5">数据服务与端侧基建：上下文决定 Agent 的效果上限</h3>
+<p>源码是崩溃分析中仅次于堆栈的重要信息。为了让 Agent 高效消费源码，我们建设了独立的源码服务，而不是每次分析时重新克隆代码仓库。原因有两个。</p>
+<p>第一个是解决“仓库找不到”的问题。一个崩溃堆栈可能横跨 <strong>5 到 10 个代码仓库</strong>，崩溃模块名与仓库名往往并不一致。一个包名对应哪个仓库、分支和 Commit，仅靠堆栈通常无法判断。源码服务可以提前完成仓库聚合与索引。</p>
+<p>第二个是解决拉取与检索效率问题。大型客户端主仓规模庞大，一次 <code>git clone</code> 至少需要几十秒，甚至达到分钟级。如果每次分析都重新拉取代码，这种时延无法接受。源码服务预先聚合所有仓库，让搜索过程接近本地 <code>grep</code> 的速度。</p>
+<p><img class="wiki-lazy-img" alt="面向 Agent 的 Bash 接口：把“人+GUI”数据接口重新包装为 git grep、git log、git blame 等 Bash 命令，容器只读挂载、命令超时、完整命令日志保证可控可追溯。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-bash-interface.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>数据准备好后，还要解决如何暴露给 Agent。</p>
+<p>我们的做法是，把原本面向人的 GUI 数据接口，重新包装为面向 Agent 的 Bash 接口。Agent 可以通过 <code>git grep</code>、<code>git blame</code> 等命令，在源码仓库中自由探索。模型训练语料中包含大量 Bash 操作，因此天然熟悉相关语义，也不需要为每种查询重新定义 API Spec。</p>
+<p>Bash 接口给了 Agent 足够的灵活性，但也带来安全风险。为此，源码在服务容器中以只读方式挂载，同时配合完整命令日志和执行超时，确保过程可控、可追溯。</p>
+<p>这一层的原则可以概括为：<strong>提供 Agent 友好的数据接口，让它自由探索，但不能允许它越界。</strong></p>
+<p>源码服务还有两个演进方向。</p>
+<p>第一个是从关键词检索走向语义检索。当前源码服务本质上仍是类似 <code>grep</code> 的全文搜索，但这种方式在部分问题上表现不够好。</p>
+<p>还是以 NPE 为例，我们不仅要知道问题崩在哪一行，还需要跨函数、跨文件追踪对象或变量的生命周期。遇到跨语言问题时，还要理解不同语言之间的桥接关系。<code>grep</code> 或许能完成其中一部分工作，但很难成为最优方案。</p>
+<p>参考研发人员使用 IDE 排查问题的经验，语义检索是一个更可靠的方向。因此，我们正在调研 LSP、Code Graph 等方案。</p>
+<p>第二个方向是从单体架构向分布式架构演进。目前，源码服务每天已经承载数万次调用，逐渐触及单体架构的扩展性瓶颈。随着源码覆盖率和接入场景继续增长，系统必须通过分布式架构满足并发检索需求。</p>
+<p><strong>再向下是端侧基建层</strong>。<strong>上下文才真正决定 Agent 的效果上限。Agent 无法凭空创造信息，更无法凭空创造有价值的信息。</strong></p>
+<p>在稳定性领域，端侧基建就像 Agent 这座冰山位于水面之下的地基。它决定 Agent 能看到什么现场，也决定 Agent 能分析到什么深度。我们目前探索的一个方向，是 Android、iOS、鸿蒙三端的 Core Dump。</p>
+<p><img class="wiki-lazy-img" alt="三端 Core Dump 在 AI 时代的 ROI 重写：过去 Dump 文件几百 MB 且需专家 + lldb/gdb 才能消费，AI 时代 Agent 接管挖掘，端侧基建从“为人优化”转向“为 Agent 优化”。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-coredump-roi.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>对于某些疑难问题，Core Dump 非常有用，甚至可能是唯一解。例如 Android ART 虚拟机中 JIT 机器码的踩内存问题，其 PC 可能直接落在 JIT Code Cache 内存段上。即使有 Tombstone 文件，也只会 Dump 出 PC 附近数百字节的内存，往往不足以覆盖 JIT 机器码的完整内容。</p>
+<p>只有 Core Dump 能够完整保存整个进程的内存快照，为分析提供足够信息。</p>
+<p>过去我们没有大规模建设这项能力，核心原因不是采集端难以实现，而是消费成本过高。Core 文件是纯二进制格式，通常几百 MB 起步，结构复杂。只有少数资深稳定性专家能够结合 LLDB、GDB 等工具，在数小时甚至数天内挖掘出有效信息，整体 ROI 不高。</p>
+<p>AI 改变了这套 ROI 公式。过去难以消费的信息，现在可以交给 Agent 挖掘。Agent 可以自动反汇编关键内存区域，并关联源码、寄存器和其他现场信息。Core Dump 的消费能力由过去“只有少数专家掌握”，转变为“研发人员可以借助 Agent 使用”。</p>
+<p>这带来了端侧基建方向的一次认知升级：<strong>在 AI 时代，端侧基建需要从“为人优化”，转变为“为 Agent 优化”。</strong></p>
+<h3 id="wiki-h-6">反馈迭代：用 Bad Case 驱动长期效果提升</h3>
+<p><img class="wiki-lazy-img" alt="全链路三层观测体系：链路层还原 Agent 调用过程、指标层关注成本性能 Token、运营层从业务视角观察产品健康度。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-observability.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>围绕可观测、可评测和可运营的目标，我们建立了一套从链路层、指标层到运营层的三层观测体系，覆盖从单次调用到整体运营的完整链路。</p>
+<p>链路层用于还原一次 Agent 调用的全部细节，包括思考过程、工具调用和行为轨迹，是分析具体问题、提升效果的重要工具；指标层服务于成本看清和性能优化，关注耗时、Token 消耗和调用成功率等全局指标；运营层通过数据大屏，从业务视角观察产品健康度和使用情况。</p>
+<p>在此基础上，我们通过 Bad Case 驱动持续优化。这里要解决一个矛盾：AI 不知道自己不知道什么，因此容易产生幻觉；人也未必能立即意识到，自己掌握的哪些知识还没有告诉 AI。</p>
+<p>迭代过程主要分为两步。</p>
+<p>第一步是 Case 管理。我们基于观测数据搭建 Case 标注平台，并制定统一的采纳率标准。团队会筛选有效问题、进行用户回访，再结合专业经验对回访结果进行二次确认。经典 Case 会进入评测集，对应缺陷则转化为优化项。</p>
+<p>第二步是 Case 总结。我们通过固定例会，对采纳率和细粒度 Case 进行 Review，持续拉齐采纳标准，共识优化项优先级并推动落地。</p>
+<p>架构、Skill、源码服务和端侧基建都很重要，但它们发挥作用的前提，是团队能够长期落实反馈迭代机制。</p>
+<h3 id="wiki-h-7">一个纯系统堆栈问题，柯南 AI 如何在 10 分钟内完成定位</h3>
+<p><img class="wiki-lazy-img" alt="柯南 AI 针对鸿蒙 C++ Crash 报警的分析界面：标注 10:01 到 11:00 的可疑区间，梳理根因与排查步骤，明确 HiLog 噪声排除。" data-src="https://static001.geekbang.org/static/web/nuxt/space.time.geekbang.com/wiki/AI_Case_Studies/images/7.2-harmony-crash-case.png?v=496f5697-ebe2-4dc2-b029-ada003bd0b1c" data-lazy-armed="1"></p>
+<p>这是一个鸿蒙 C++ Crash 报警。崩溃信号是 <code>SIGSEGV</code>，崩溃地址很大，属于典型的踩内存问题。继续查看堆栈可以发现，每个栈帧都来自系统 so，是一个纯系统堆栈。</p>
+<p>过去，这类问题通常只能由平台型稳定性团队介入。柯南 AI 接入工作流后，报警发生时会先由 IM 机器人串联处置流程。</p>
+<p>从开始分析到定位问题，柯南 AI 大约用了 <strong>10 分钟</strong>。团队随后根据分析结果讨论止损方案，最终通过关闭一个开关完成止损。柯南 AI 给出的底层根因是：系统库 libuv 中某个 Async Handle 发生了 Use-After-Free。但对于止损优先的稳定性处置来说，仅知道底层内存错误还不够。我们更关心哪个业务、哪个动作触发了提前释放。</p>
+<p>柯南 AI 随后给出触发链路：某个内部基础组件加载资源文件失败后，该组件内部执行了一次销毁动作，最终引发崩溃。这个信息帮助我们把问题收敛到内部特定业务，并在其中找到止损开关。</p>
+<p>柯南 AI 整个推理过程分为几个阶段。</p>
+<p>首先，根据 Skill 中的信号路由规则，<code>SIGSEGV</code> 应进入内存分析流程。柯南 AI 通过寄存器分析，判断问题大概率属于 Use-After-Free。随后，它分析业务日志中的共性特征，将范围收敛到某个内部基础组件，并发现关键动作与线程销毁有关。在这个过程中，得益于注入的私域知识，Agent 正确排除了部分日志噪声，没有被无关信息带偏。最后，它根据日志线索定位源码，将寄存器、日志与源码三部分证据组合起来，形成自洽的证据链，并给出高置信度结论。</p>
+<p>这个问题的分析过程并不简单。过去，它需要稳定性专家操作多种工具、反复交叉验证。现在，中等难度的问题可以优先交给柯南 AI，研发人员再根据分析结果完成决策和止损。</p>
+<p>综合整个工程实践，我们沉淀出五点关键认识：</p>
+<ol>
+<li><strong>确定性的归代码，概率性的归模型。</strong> 组合使用 Workflow、单次 LLM 请求和 Agent，避免过度 AI 化，才能保证效果稳定与成本可控。</li>
+<li><strong>Agent Harness 的技术选型应当轻量化、领域化。</strong> 基于成熟可靠的 Agent SDK，通过 Skill 承载专家经验，不必重复建设通用底座。</li>
+<li><strong>数据服务的关键是提供 Agent 友好的接口。</strong> Bash 是一种有效形态，因为大模型天然熟悉其语义，但必须配套权限与安全边界。</li>
+<li><strong>上下文决定 Agent 的效果上限。</strong> 端侧基建决定 Agent 能看到什么，也决定它能够分析到什么程度。</li>
+<li><strong>反馈迭代决定 Agent 的长期表现。</strong> 只有持续运行 Bad Case 驱动的闭环，才能不断提高系统效果。</li>
+</ol>
+<h2 id="wiki-h-8">从“前线救火员”到“消防系统设计师”</h2>
+<p>从人的角色变化来看，稳定性专家正在从亲自处理每个问题，升级为建设一套能够处理问题的系统。这既是机遇，也是挑战。</p>
+<p>排障原本就是一类推理密集型任务。进入 AI 时代后，稳定性专家的经验有机会被规模化放大。专家的工作开始从亲自排查每个问题，转变为沉淀 Skill、共建 Context，并驱动 AI 完成一线工作。</p>
+<p>从角色上看，<strong>稳定性专家正在从前线救火员，转变为消防系统设计师。</strong></p>
+<p>与此同时，Context 才是我们真正的壁垒，也是享受模型升级红利的前提。模型会持续变强，但如果没有 Skill、端侧基建、源码、现场数据和反馈机制打底，模型仍然无法在垂直稳定性领域跑通。</p>
+<p>未来，我们会继续推动 Agent 工程深化与上下文工程复利。</p>
+<p>在 Agent 工程侧，需要探索 Loop Verify、多路径或多 Agent 编排机制，以及 Memory 体系，突破长尾问题的采纳率瓶颈。</p>
+<p>在上下文侧，需要深化端侧基建，建设 Core Dump 等能够提供更完整现场的能力，并持续沉淀私域 SOP 和业务知识，确保系统能够真正获得模型升级带来的收益。</p>
+<p>在这些能力的基础上，柯南 AI 还要从问题处置走向治理优化，反哺稳定性体系建设：让专家投入更系统性的工作，让一线研发完成更深入的优化，最终放大人的影响半径。</p>
+<p><strong>现阶段的柯南 AI 不是终点，而是我们在稳定性领域“用 AI 打败 AI”的新阶段起点。</strong></p>
+<p><strong>嘉宾介绍：</strong></p>
+<p><strong>王泽锋，</strong>快手大前端稳定性方向技术专家。2023 年加入快手，先后参与 Android &amp; 鸿蒙稳定性方向监控报警、排障工具、止损工具等多个领域的建设，目前主要聚焦探索 AI + 稳定性方向。</p>
+</article>

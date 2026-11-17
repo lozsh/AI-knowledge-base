@@ -1,0 +1,308 @@
+预计用时：40～55 分钟
+本篇目标：从固定的个人菜谱素材出发，产出两份可检查的规划文档；不实现程序，不让一次随机对话决定后续课程的目录、接口或缺陷状态。
+
+从这一篇开始，我们制作贯穿课程的 MealCraft。它始终是一个本地、个人化的小项目：浏览自己的菜谱、调整份数，后续再生成一周菜单和购物清单。不会改造成企业系统。
+
+本篇随教程提供 6 份固定菜谱、需求契约和规划检查脚本。Claude 的任务是发现歧义、组织实施步骤并帮助你评审，而不是自由发明产品范围。
+
+开始状态
+
+开始前应满足：
+
+第 4 篇的调查—计划—修改—验证节奏已经练习过；
+claude auth status --text、Git 和 Python 3.11+ 可用；
+~/claude-code-course/mealcraft 尚不存在，或旧目录已由你另行保存；
+你知道修订版教程根目录的位置，其中包含 exercise-assets/mealcraft/plan-starter。
+
+本篇只允许创建规划文档。程序、测试、服务器和网页将在第 6 篇基于固定素材实施。
+
+从课程素材创建项目，不从空白生成
+
+先把教程根目录保存为一个临时 Shell 变量。下面的路径是占位符，必须替换成你实际存放 claude-code-tutorial-v0.2 的位置。
+
+macOS、Linux 或 WSL2：
+
+export COURSE_SOURCE="/替换为实际路径/claude-code-tutorial-v0.2"
+test -f "$COURSE_SOURCE/exercise-assets/mealcraft/plan-starter/REQUIREMENTS.md"
+
+
+Windows PowerShell：
+
+$CourseSource = "C:\替换为实际路径\claude-code-tutorial-v0.2"
+Test-Path "$CourseSource\exercise-assets\mealcraft\plan-starter\REQUIREMENTS.md"
+
+
+预期结果：macOS/Linux/WSL2 的 test 退出码为 0；PowerShell 显示 True。如果失败，先修正路径，不要创建一个同名空目录代替课程素材。
+
+确认目标目录不存在后复制：
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course
+test ! -e mealcraft
+mkdir mealcraft
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/plan-starter/." mealcraft/
+cd mealcraft
+git init
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course"
+if (Test-Path mealcraft) { throw "mealcraft 已存在，请先保存旧目录或换一个练习根目录" }
+New-Item -ItemType Directory mealcraft | Out-Null
+Copy-Item "$CourseSource\exercise-assets\mealcraft\plan-starter\*" -Destination mealcraft -Recurse
+Set-Location mealcraft
+git init
+
+
+复制不会修改教程中的原始素材。项目目录现在应包含：
+
+mealcraft/
+├── REQUIREMENTS.md
+├── data/
+│   └── recipes/
+│       ├── chicken-cucumber-salad.json
+│       ├── curry-rice.json
+│       ├── mushroom-noodles.json
+│       ├── pumpkin-porridge.json
+│       ├── steamed-fish.json
+│       └── tomato-eggs.json
+└── scripts/
+    └── verify_planning_state.py
+
+先验证素材，再让 Claude 阅读
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_planning_state.py --data-only
+
+
+Windows PowerShell：
+
+py scripts/verify_planning_state.py --data-only
+
+
+预期输出：
+
+PASS: 6 份固定菜谱通过契约检查
+
+
+检查脚本会验证菜谱数量、固定 ID、文件名、字段、数据类型和唯一性。它不调用 Claude，也不访问网络。
+
+把固定输入加入 Git 暂存区，作为本篇的比较基线：
+
+git add REQUIREMENTS.md data scripts
+git status --short
+
+
+预期只出现 A 状态的需求、菜谱和检查脚本。此时暂不提交，以免尚未配置 Git 身份的初学者被阻塞。
+
+人工阅读固定需求
+
+先亲自打开 REQUIREMENTS.md。至少确认四件事：
+
+只使用 Python 3.11+ 标准库与原生前端；
+固定 API 为 /api/recipes 和 /api/recipes/<id>；
+份数只能是 1～6，源 JSON 永不因查看或换算而改变；
+登录、数据库、图片上传、推荐、云同步和一周菜单明确不属于 1.0。
+
+数据契约把 amount 保留为字符串，因为它可能是 2、1.5、1/2、1 1/2 或“适量”。显示层可以解析可计算数字，但不能把源文件字段改成浮点数。
+
+这份需求是后续文章的共同事实。Claude 可以指出冲突，却不能静默改写需求来配合自己的实现。
+
+在 Plan Mode 中做差距分析
+
+从 MealCraft 根目录启动：
+
+claude
+
+
+确认工作区路径后，进入 Plan Mode：
+
+/plan 规划 MealCraft 1.0，但不要创建或修改文件
+
+
+发送：
+
+完整阅读 REQUIREMENTS.md、6 个 data/recipes/*.json 和 scripts/verify_planning_state.py。
+
+现在只做规划前调查，不写文件：
+1. 用不超过 10 条概括固定范围；
+2. 列出需求中的歧义、冲突或无法验收的表述；
+3. 提议最小目录结构和模块职责；
+4. 将每条验收标准映射到自动检查或人工步骤；
+5. 指出实现中最可能破坏源 JSON、泄露 Traceback 或扩大范围的风险。
+
+不得增加依赖、数据库、账号、外部 API、部署或 2.0 功能。
+
+
+预期结果：Claude 只读文件并给出分析，git status --short 中不应出现新文件。
+
+在另一个终端运行：
+
+git status --short
+
+
+如果出现未计划的新文件，拒绝继续并用 /diff 查清来源。不要为了“让状态干净”直接删除不明文件。
+
+确认本课程采用的设计决策
+
+Claude 可能提出不同方案。为了让第 6～13 篇可以复现，本课程采用以下固定决策：
+
+app.py 是本地 HTTP 服务入口；
+mealcraft/recipes.py 负责加载、校验和筛选；
+mealcraft/scaling.py 负责解析并缩放食材用量；
+static/index.html、static/app.js、static/style.css 构成原生前端；
+tests/ 使用 unittest，数据错误测试必须使用临时目录或 fixture；
+scripts/verify_release.py 在第 6 篇作为独立发布检查器；
+API 错误使用 JSON 和明确 HTTP 状态码，不显示 Python Traceback；
+不同单位不互相换算，显示值优先保持简洁而可理解。
+
+告诉 Claude：
+
+采用下面的固定目录和职责：
+- app.py：仅负责本地 HTTP 路由和启动；
+- mealcraft/recipes.py：加载、校验和筛选；
+- mealcraft/scaling.py：解析并缩放 amount；
+- static/：原生 HTML/CSS/JavaScript；
+- tests/：unittest、fixture 和临时目录；
+- scripts/verify_release.py：发布级独立检查。
+
+API、字段、范围和验收仍以 REQUIREMENTS.md 为准。请更新你的计划说明，但仍不要写文件。
+
+
+如果 Claude 建议前端框架、数据库或新的 API 路径，要求它说明这些内容解决了哪条 1.0 验收标准。没有直接映射就删除。
+
+只创建两份规划文档
+
+检查计划后，按 Shift+Tab 回到 Manual。确认底部不再显示 Plan，再发送：
+
+现在只创建 PROJECT_BRIEF.md 和 PLAN.md，不修改 REQUIREMENTS.md、data、scripts 或其他文件。
+
+PROJECT_BRIEF.md 必须使用这些原样标题：
+# MealCraft 1.0 项目简报
+## 用户目标
+## 功能范围
+## 明确不做
+## 数据契约
+## 验收标准
+
+它必须明确写出：Python 3.11+、不安装第三方依赖、data/recipes、份数 1～6、不修改源 JSON，以及 REQUIREMENTS.md 中的固定接口与验收标准。
+
+PLAN.md 必须使用这些原样标题：
+# MealCraft 1.0 实施计划
+## 阶段 1
+## 阶段 2
+## 阶段 3
+## 阶段 4
+## 风险与恢复
+
+四个阶段依次是：领域逻辑、HTTP API、浏览器界面、完整验证与文档。每阶段列出预计文件、前置状态、实施动作、局部 unittest、预期结果和停止点。风险部分必须包含临时目录、完整测试、人工验收和不执行 git commit。
+
+不要实现代码，不要创建空占位程序，不要改写固定素材。
+
+
+出现写入确认时，只批准这两个 Markdown 文件。如果请求修改 REQUIREMENTS.md、菜谱或检查脚本，拒绝并附上原因。
+
+用课程检查器验收规划状态
+
+先让 Git 显示两个新文档的正文 Diff：
+
+git add --intent-to-add PROJECT_BRIEF.md PLAN.md
+git diff --check
+git diff -- REQUIREMENTS.md data scripts
+
+
+预期：两条 git diff 检查都没有输出。第一条没有空白错误；第二条证明固定素材相对暂存基线没有被修改。
+
+运行完整规划检查。
+
+macOS、Linux 或 WSL2：
+
+python3 scripts/verify_planning_state.py
+
+
+Windows PowerShell：
+
+py scripts/verify_planning_state.py
+
+
+预期输出：
+
+PASS: MealCraft 规划状态完整，6 份固定菜谱通过契约检查
+
+
+如果检查失败，错误会指出缺少的文件、标题或关键约束。只修复对应规划文档，再从头运行检查；不要降低脚本标准来迁就文档。
+
+做一次人工规划审查
+
+在 Claude Code 中输入：
+
+/diff
+
+
+结合 PROJECT_BRIEF.md 和 PLAN.md 回答：
+
+每个阶段是否都有可观察的停止点？
+自动测试与浏览器人工验收是否各自负责清楚？
+是否有测试会修改真实 data/recipes？
+是否出现 1.0 明确不做的功能？
+是否把“Claude 说完成”当成唯一验收证据？
+
+再让 Claude 做一次只读交叉检查：
+
+只读对照 REQUIREMENTS.md、PROJECT_BRIEF.md 和 PLAN.md。列出遗漏、矛盾和无法验证的条目；每项给出文件名和标题。不要修改文件，也不要建议 1.0 范围外功能。
+
+
+如果发现问题，逐项修订文档并重新运行规划检查器。
+
+留下第 6 篇可用的状态
+
+退出 Claude Code 后运行：
+
+git status --short
+
+
+状态中只能有固定素材、PROJECT_BRIEF.md 和 PLAN.md。不应出现 app.py、mealcraft/、static/、tests/、缓存或依赖锁文件。
+
+如果已配置 Git 身份，可以提交规划基线：
+
+git add PROJECT_BRIEF.md PLAN.md
+git commit -m "plan MealCraft 1.0 from fixed requirements"
+
+
+如果提交因 user.name 或 user.email 缺失而失败，不影响本篇验收；保留当前文件，下一篇仍可继续。不要使用虚假的全局身份只为通过练习。
+
+本篇验收清单
+项目来自 plan-starter，而不是 Claude 临场生成的数据；
+--data-only 检查确认 6 份固定菜谱有效；
+亲自读过 REQUIREMENTS.md 的必做与不做范围；
+Plan Mode 调查期间磁盘没有变化；
+只创建 PROJECT_BRIEF.md 和 PLAN.md；
+固定需求、菜谱和检查脚本相对 Git 基线没有修改；
+完整规划检查输出 PASS；
+两份文档包含分阶段停止点、自动验证、人工验收和风险恢复。
+关键排错
+
+复制后找不到素材：重新检查 $COURSE_SOURCE 或 $CourseSource 是否指向教程根目录；不要把 plan-starter 路径当成 MealCraft 项目根目录直接运行。
+
+检查器提示“还不是 Git 仓库”：确认当前路径最后一级是你复制出的 mealcraft，然后在这里运行 git init。
+
+Claude 在 Plan Mode 创建了文件：立即中断，用 git status --short 和 /diff 确认事实；检查是否真的处于 Plan，以及是否有自定义权限或 Hook 改变行为。
+
+完整检查缺少关键词：回到提示中要求的原样标题和约束。不要向检查脚本添加同义词，也不要把关键词堆在无意义的附录里。
+
+git diff -- REQUIREMENTS.md data scripts 有输出：固定素材被改过。先审查 Diff；如果修改无意发生，从教程的 plan-starter 重新复制对应文件前，确认不会覆盖你自己的规划文档。
+
+本篇小结
+
+这次规划留下了三个层次的事实：不可随意改写的 REQUIREMENTS.md，用于沟通范围的 PROJECT_BRIEF.md，以及带停止点和验证的 PLAN.md。6 份固定菜谱和检查器保证每位读者从同一个可验证状态进入实现。
+
+下一篇会补入固定测试与发布检查素材，再按四个阶段实现 MealCraft 1.0。这样 Claude 仍负责真实编码，但成功标准不会由它临场决定。
+
+官方参考：
+
+Best practices for Claude Code
+Common workflows
+Interactive mode

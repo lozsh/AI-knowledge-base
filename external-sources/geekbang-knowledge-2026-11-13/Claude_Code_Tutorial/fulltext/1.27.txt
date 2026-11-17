@@ -1,0 +1,224 @@
+核对日期：2026-09-30
+范围：Claude Code 命令行；不包含其他客户端或 IDE 操作。
+
+本教程同时支持 macOS、Linux、WSL2 和原生 Windows。不要逐字翻译每条命令：先确定自己在哪个 Shell 中，再使用对应列，并以相同环境完成安装、练习和验收。
+
+安装步骤见第 2 篇，权限和 Sandbox 实操见第 8 篇。本附录只做跨平台查找与排错。
+
+先确认你在哪个环境
+终端外观或检查	环境	本教程使用的命令列
+提示符常见 $ 或 %，uname 可用	macOS / Linux / WSL2	Bash/Zsh 列
+提示符以 PS 开头，$PSVersionTable 可用	Windows PowerShell	PowerShell 列
+提示符类似 C:\>，PowerShell 变量不可用	Windows CMD	建议改用 PowerShell；不要粘贴 Bash 命令
+Windows 中打开的 Linux 发行版，路径类似 /home/name	WSL2	Bash/Zsh 列
+
+运行一个最小环境指纹。
+
+macOS、Linux 或 WSL2：
+
+printf 'shell=%s\n' "$SHELL"
+uname -a
+command -v claude
+claude --version
+python3 --version
+git --version
+
+
+Windows PowerShell：
+
+$PSVersionTable.PSVersion
+Get-Command claude
+claude --version
+py --version
+git --version
+
+
+通过标准：claude --version 输出版本，Python 为 3.11 或更高，Git 可运行。某条命令不存在时，只处理缺失项，不要换一个 Shell 重装整套环境。
+
+需要读取安装和配置诊断时，在当前环境运行：
+
+claude doctor
+
+
+它是只读诊断入口。不要把输出中的本机路径、用户名或认证信息未经检查直接发到公开场合。
+
+原生 Windows 还是 WSL2
+
+两者都能运行 Claude Code，但必须按项目位置和工具链做选择。
+
+选择	适合	Shell 工具	命令 Sandbox
+原生 Windows	Windows 路径、PowerShell 和 Windows 原生工具链	未安装 Git for Windows 时使用 PowerShell；安装后可使用 Git Bash 提供的 Bash 工具	当前不支持
+WSL2	Linux 工具链、项目本来就在 Linux 环境、需要命令 Sandbox	WSL 内的 Bash	支持
+选择原生 Windows
+在 PowerShell 或 CMD 使用对应的官方安装命令，安装后从同一环境运行 claude；
+Git for Windows 是推荐项，不是启动 Claude Code 的硬性依赖；
+如果 Claude Code 找不到 Git Bash，可在设置中配置 CLAUDE_CODE_GIT_BASH_PATH，不要猜可执行文件位置；
+因为没有同等的命令 Sandbox，要更依赖 Manual/Plan、精确权限规则、练习副本和人工审批；
+不要用 bypassPermissions 弥补命令兼容问题。
+选择 WSL2
+在 WSL 发行版终端内安装并运行 Claude Code，不要从 PowerShell 调用一份 WSL 安装；
+项目优先放在 /home/<你的用户名>/...，减少跨文件系统性能、权限和监听问题；
+Python、Git、Claude Code 和项目依赖都在 WSL 内安装、检查和运行；
+PowerShell 的临时环境变量不会自动变成 WSL 环境变量，反向也一样。
+不要混用同一个工作区
+
+不要让原生 Windows 会话和 WSL 会话同时修改同一仓库。否则路径、执行权限、文件锁、换行和大小写行为会交织，Git Diff 也更难判断。
+
+如果必须迁移环境：先停止所有 Claude 会话和开发服务器，提交或备份现状，再在新环境重新运行版本、依赖和完整测试。不要把“能打开文件”当成迁移完成。
+
+Bash/Zsh 与 PowerShell 命令对照
+目的	macOS / Linux / WSL2	Windows PowerShell
+查看当前目录	pwd	Get-Location
+进入目录	cd "$HOME/claude-code-course"	Set-Location "$HOME\claude-code-course"
+列出含隐藏项	ls -la	Get-ChildItem -Force
+创建目录	mkdir -p extensions/mealcraft	New-Item -ItemType Directory -Force extensions\mealcraft
+复制目录	cp -R source target	Copy-Item source target -Recurse
+检查文件存在	test -f path/file.py	Test-Path path\file.py -PathType Leaf
+查找命令	command -v claude	Get-Command claude
+读取文本	cat path/file.txt	Get-Content path\file.txt
+设置当前终端环境变量	export NAME="value"	$env:NAME = "value"
+删除当前终端环境变量	unset NAME	Remove-Item Env:NAME
+运行 Python	python3 -B script.py	py -B script.py
+查看上一命令退出码	echo $?	$LASTEXITCODE
+
+注意：
+
+表格给的是等价意图，不保证所有外部程序参数都能翻译；先看该程序的 --help；
+Bash 用反斜杠 \ 续行，PowerShell 用反引号续行；PowerShell 的反引号后不能有空格；
+初学时，较短命令写成一行通常比续行更可靠；
+PowerShell 的对象管道不同于 Bash 的文本管道，不要把复杂 Bash 管道机械替换成 |；
+课程中的斜杠命令如 /help、/permissions 只在 Claude Code 交互会话内输入，不是在普通 Shell 中执行。
+Python 命令与脚本
+
+本课程素材只依赖 Python 3.11+ 标准库，不要求为教程安装第三方包。
+
+macOS、Linux、WSL2 默认写 python3；
+原生 Windows 默认写 py；若机器没有 Python Launcher，再检查 python --version；
+不要把 python3 不存在误判为素材损坏，也不要在 Windows 为了照抄命令另外装一套 WSL Python；
+文章写 python3 -B path/script.py 时，PowerShell 对应 py -B path\script.py；
+退出码 0 只是脚本正常结束；还要核对文中指定的通过数、摘要或生成文件。
+
+跨平台脚本应使用 Python 的 pathlib、tempfile 和明确 UTF-8 编码，不手工拼接 /、\ 或固定 /tmp 路径。
+
+路径、引号和文件名
+1. 路径含空格或中文
+
+始终加引号：
+
+cd "$HOME/Documents/Claude Code 课程"
+python3 -B "scripts/check notes.py"
+
+Set-Location "$HOME\Documents\Claude Code 课程"
+py -B "scripts\check notes.py"
+
+
+如果外部工具仍不兼容，先把练习副本放到短、纯英文路径，例如 ~/claude-code-course 或 $HOME\claude-code-course；不要移动或改名真实个人项目来绕过问题。
+
+2. 大小写
+
+Linux 通常区分 Recipe.json 与 recipe.json；macOS 和 Windows 的常见文件系统默认不区分。为避免只在 Linux 失败：
+
+import、链接和脚本路径与磁盘文件名逐字符一致；
+不创建只靠大小写区分的两个文件；
+改文件名大小写后检查 git status --short 是否真的记录重命名。
+3. 路径分隔符
+
+终端命令使用当前 Shell 的习惯写法；程序内部使用路径库。JSON 字符串中的 Windows 反斜杠需要转义，例如：
+
+{
+  "path": "C:\\Program Files\\Git\\bin\\bash.exe"
+}
+
+
+不要把 Shell 展示路径直接复制进 JSON 后假定仍有效。
+
+编码与换行
+
+课程 Markdown、JSON、Python 和日志统一使用 UTF-8。遇到乱码或整文件 Diff 时，先诊断，不要立即格式化全部文件。
+
+git diff --stat
+git diff --ignore-space-at-eol
+git config --show-origin --get core.autocrlf
+
+
+以上 Git 命令在四类环境中相同。判断方法：
+
+普通 Diff 显示整文件变化、忽略行尾后变化消失，优先检查 CRLF/LF；
+中文只在某个读取命令中乱码，先检查终端与读取工具编码，不要重写源文件；
+Python 读写文本应显式使用 encoding="utf-8"；
+团队或跨设备项目可按项目需要设置 .gitattributes，但不要为修一个功能顺手统一全仓换行。
+
+Windows PowerShell 5.1 与 PowerShell 7 的默认输出编码不同。创建课程夹具时优先复制提供的文件或使用文章提供的 Python 脚本，不用未经验证的 Out-File 重写源码。
+
+权限与 Sandbox 差异
+
+Claude Code 的权限提示和操作系统级 Sandbox 是两层机制。
+
+环境	权限规则与模式	命令 Sandbox	课程建议
+macOS	支持	支持	用第 8 篇固定探针验证读写和网络边界
+Linux	支持	支持；依赖内核与环境能力	若初始化失败，先看 /sandbox 与诊断，不要跳过权限
+WSL2	支持	支持	在 WSL 文件系统中验证，不从 PowerShell 推断
+原生 Windows	支持	当前不支持	使用精确 Deny/Ask、Manual/Plan、练习副本和人工审批
+
+安全结论必须来自实际探针。仅看到“已批准命令”不代表子进程可以越过 Sandbox；仅写入 Deny 规则也不代表所有等价命令形式都被 OS 阻止。
+
+当前状态用会话内的 /permissions 和 /sandbox 查看。原生 Windows 没有同等 Sandbox 时，不要照抄 macOS/Linux 的越界探针并把不同结果当作故障。
+
+Shell 混用的快速排错
+irm、Get-Command 或 $env:NAME 无法识别
+
+你不在 PowerShell。确认提示符，打开 PowerShell，再使用 PowerShell 列；不要把命令改写成看似相近的 Bash 语法后继续安装。
+
+export、which 或 python3 无法识别
+
+你可能在 PowerShell/CMD，或对应程序未安装。先运行 Get-Command claude、py --version；若本来选择 WSL2，则进入 WSL 终端再检查。
+
+PowerShell 报 && 不是有效分隔符
+
+旧版 Windows PowerShell 不支持该写法。把命令拆开逐条运行，并在每条后检查 $LASTEXITCODE；不要因为一条失败仍继续后续写入。
+
+claude 在一个终端可用，另一个不可用
+
+分别运行 command -v claude 或 Get-Command claude。这通常表示安装位置或 PATH 属于不同环境，而不是需要重复安装。重新打开安装时使用的终端，再运行 claude doctor。
+
+WSL 与 Windows 看到不同文件或环境变量
+
+它们是不同运行环境。用 pwd / Get-Location 和 git rev-parse --show-toplevel 核对真实路径；分别设置环境变量，不在两个环境同时编辑。
+
+测试只在另一个系统失败
+
+保存操作系统、Shell、Python、Claude Code 版本、完整命令、退出码和最小日志，再检查路径大小写、分隔符、时区、区域、换行与文件锁。不要先增加重试或跳过测试。可参考第 17 篇。
+
+官方学习路线
+
+不要从功能清单随机跳读。按当前问题打开最窄的官方页面：
+
+1. 刚开始
+Overview：产品工作方式与入口；
+Advanced setup：系统要求、各平台安装、更新和卸载；
+Troubleshooting：安装、登录和常见环境故障。
+2. 日常命令行工作
+Interactive mode：交互命令、快捷键和会话行为；
+CLI reference：启动参数和 claude -p；
+Settings：设置文件、作用域和优先级。
+3. 安全边界
+Permissions：规则、模式和工作目录；
+Sandbox：文件系统、网络和平台限制。
+4. 扩展与自动化
+扩展能力总览：CLAUDE.md、Skills、Hooks、MCP、Subagents 和插件的选择；
+Programmatic usage：非交互调用、结构化输出和自动化。
+
+课程内查找可从目录进入；高频命令见附录 01，交互命令见附录 02，安全验收见附录 06。
+
+如何处理版本变化
+
+Claude Code 更新较快。教程与本机行为不一致时，按以下顺序核对：
+
+claude --version：记录正在运行的版本；
+claude --help 或 claude <子命令> --help：确认参数是否存在；
+会话内 /help：确认当前交互入口；
+claude doctor：检查安装、更新和配置警告；
+打开与问题直接相关的当前官方页面；
+在练习副本中做最小验证，记录实际结果。
+
+不要只凭搜索摘要、旧截图或第三方文章覆盖本机证据。若官方文档与本机稳定版本暂时不同，在笔记中同时记录版本、日期、文档行为和实测行为，不要猜哪一个“永远正确”。

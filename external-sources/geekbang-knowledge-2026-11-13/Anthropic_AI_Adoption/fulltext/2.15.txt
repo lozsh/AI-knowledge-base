@@ -1,0 +1,201 @@
+原文：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P35-P39
+版本：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成
+译本：v1.0，2026-11
+时效：内容为 2025 年 8 月版本，功能名与命令以官方文档为准
+版权：原文 © Anthropic。非官方中文译本，仅供学习交流。
+
+综合 Claude Code 提示词：构建用户管理 REST API
+
+Bash
+
+claude-code --task "Build a complete REST API for user management with authentication, validation, and comprehensive testing"
+
+
+Project requirements
+
+Tech stack
+
+Runtime: Node.js v18+ with Express.js framework
+Database: PostgreSQL with raw SQL queries (no ORM)
+Authentication: JWT tokens with refresh token support
+Validation: Input validation and sanitization
+Testing: Jest with supertest for API testing
+Security: Rate limiting, password hashing (bcrypt), CORS
+Documentation: OpenAPI/Swagger specification
+
+Functional requirements
+
+Core user operations
+
+Runtime: Node.js v18+ with Express.js framework
+Database: PostgreSQL with raw SQL queries (no ORM)
+Authentication: JWT tokens with refresh token support
+Validation: Input validation and sanitization
+Testing: Jest with supertest for API testing
+Security: Rate limiting, password hashing (bcrypt), CORS
+Documentation: OpenAPI/Swagger specification
+
+Expected API endpoints
+
+POST /api/auth/register       - Register new user
+POST /api/auth/login          - User login
+POST /api/auth/logout         - User logout
+POST /api/auth/refresh        - Refresh JWT token
+POST /api/auth/forgot-password - Request password reset
+POST /api/auth/reset-password - Reset password with token
+
+GET    /api/users/profile        - Get current user profile
+PUT    /api/users/profile        - Update current user profile
+DELETE /api/users/profile        - Delete current user account
+PUT    /api/users/change-password - Change user password
+
+GET    /api/admin/users          - List all users (admin only)
+GET    /api/admin/users/:id      - Get specific user (admin only)
+PUT    /api/admin/users/:id/status - Update user status (admin only)
+DELETE /api/admin/users/:id      - Delete user (admin only)
+
+
+Data model requirements
+
+Javascript
+
+// User entity should include:
+{
+  id: "UUID primary key",
+  email: "unique, validated email address",
+  password_hash: "bcrypt hashed password",
+  first_name: "required string, 2-50 characters",
+  last_name: "required string, 2-50 characters",
+  role: "enum: 'user' | 'admin', default 'user'",
+  status: "enum: 'active' | 'inactive' | 'suspended', default 'active'",
+  email_verified: "boolean, default false",
+  last_login: "timestamp, nullable",
+  created_at: "timestamp, auto-generated",
+  updated_at: "timestamp, auto-updated"
+}
+
+
+Security requirements
+
+Password strength validation (min 8 chars, uppercase, lowercase, number, special char)
+Rate limiting: 5 login attempts per 15 minutes per IP
+JWT tokens expire after 1 hour, refresh tokens after 7 days
+Input sanitization against XSS and SQL injection
+CORS configuration for frontend integration
+Request logging for security auditing
+
+Validation requirements
+
+Email format validation with proper regex
+Required field validation for all inputs
+Data type validation and length constraints
+Duplicate email prevention
+Password confirmation matching during registration
+
+Error handling
+
+Consistent error response format across all endpoints
+Appropriate HTTP status codes (200, 201, 400, 401, 403, 404, 409, 500)
+Detailed error messages for development, generic for production
+Request validation errors with field-specific messages
+
+Expected response formats
+
+Javascript
+
+// Success response format:
+{
+  "success": true,
+  "data": {...},
+  "message": "Operation completed successfully"
+}
+
+// Error response format:
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input provided",
+    "details": [
+      {
+        "field": "email",
+        "message": "Email format is invalid"
+      }
+    ]
+  }
+}
+
+
+Database schema: Create PostgreSQL tables with proper indexing, constraints, and relationships. Include migration scripts for easy setup.
+
+Testing requirements:
+
+Unit tests for all service functions
+Integration tests for all API endpoints
+Test data factories for consistent test setup
+Positive and negative test cases
+Authentication and authorization test scenarios
+Minimum 90% code coverage
+
+Additional features
+
+Environment-based configuration (development, staging, production)
+Request/response logging middleware
+Health check endpoint (GET /api/health)
+API versioning support (/api/v1/..)
+Pagination for user listing endpoints
+Basic search functionality for admin user management
+
+Project structure
+
+Organize code with clean architecture:
+
+/src
+  /controllers - Request handling logic
+  /services    - Business logic layer
+  /models      - Data access layer
+  /middleware  - Custom middleware (auth, validation, etc.)
+  /routes      - API route definitions
+  /utils       - Helper functions
+  /config      - Configuration files
+  /validators  - Input validation schemas
+  /tests       - Test files mirroring src structure
+  /docs        - API documentation
+  /migrations  - Database schema migrations
+
+
+Deliverables Expected
+
+Complete Express.js application with all endpoints implemented
+PostgreSQL database schema with setup scripts
+Comprehensive test suite with high coverage
+API documentation (Swagger/OpenAPI spec)
+README with setup instructions and API usage examples
+Docker configuration for easy deployment
+Example environment configuration files
+Postman collection for API testing
+
+Performance Considerations
+
+Database connection pooling
+Efficient query patterns with proper indexing
+Response caching where appropriate
+Request timeout handling
+Memory usage optimization
+
+Development Standards
+
+ESLint configuration with consistent code style
+Proper error handling throughout the application
+Comprehensive logging for debugging
+Clear code comments and documentation
+Git-ready project with proper .gitignore
+
+Please implement this as a production-ready API that follows Node.js and REST API best practices, with emphasis on security, maintainability, and comprehensive testing.
+
+https://www.anthropic.com/solutions/coding
+
+原文备注：
+
+原文如此，疑似重复：「Functional requirements / Core user operations」下的条目与上面的「Tech stack」完全相同；照录，未删改。
+本页除标题外为示例提示词原文，按原样保留英文，不附中文对照。

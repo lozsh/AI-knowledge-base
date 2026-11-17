@@ -1,0 +1,249 @@
+上一课的复习卡已经有问题、答案和引用，但它仍是一段给人看的文字。如果下一步要做页面，把问题显示在卡片正面、答案放在背面，程序该怎样知道哪一段是答案？遇到模型把“依据”写成“参考资料”，又该怎样处理？
+
+靠搜索几个中文标题来切割文本，很容易把换行和格式变化当成错误。本篇让模型返回固定字段的 JSON，再由 Python 检查这些字段能不能使用。
+
+最后，你会得到一个会拒收错误引用、保留失败记录的复习卡程序。它能确认三张卡是否齐全、引文是否在笔记中，却仍不能自动证明答案正确。我们会专门运行一个“规则全过，答案仍错”的例子，把这个边界看清楚。
+
+沿用上一课三条 RAG 教学笔记与三个问题，Python 3.11+、openai==3.24.0、DeepSeek 官方 API、deepseek-flash，思考模式关闭。接口核实日期为 2026 年 10 月 4 日。本文及代码只有离线验证，没有真实付费调用，也不把预置样例当成模型实测。
+
+JSON 解决的是程序怎样取数据
+
+下面是一张卡的 JSON 对象，取自配套正确样例中的 Q3：
+
+{
+  "question_id": "Q3",
+  "question": "这套 RAG 系统实测平均响应时间是多少毫秒？",
+  "answer": "笔记未提供，无法判断",
+  "evidence": [],
+  "status": "missing"
+}
+
+
+花括号表示对象，里面是字段名与值；方括号表示数组，可以放多个元素。evidence: [] 的意思是依据列表为空，不是字段被遗漏。这里的字段名与字符串都用双引号，不能照搬 Python 的单引号字典写法。
+
+完整输出在外面再包一层对象，只有一个 cards 字段，它的值是三张卡组成的数组。模型返回的仍是文本；json.loads() 解析后，才会变成 Python 字典和列表。例如第一张卡的答案可以通过 data["cards"][0]["answer"] 取得，不必猜测它位于第几行。Python：JSON 编解码
+
+这个约定也可以称为数据结构或结构规范。先把本项目的规则定清楚：
+
+字段	类型与本课要求
+顶层cards	数组，按输入问题顺序放三张卡
+question_id	字符串，必须与对应输入问题ID一致
+question	字符串，保留输入问题原文
+answer	非空字符串
+status	只能为supported或missing
+evidence	数组；supported时非空，missing时必须为空
+evidence中的note_id、quote	均为字符串，ID存在，非空引文出现在对应笔记原文中
+
+missing 时答案固定为“笔记未提供，无法判断”。这让页面以后能把缺少资料的卡片单独提示，而不必识别“这个好像没说”等各种说法。supported 是模型声称有依据，不能直接翻译成“事实已认证”。
+
+不要把三层检查混在一起
+
+假设模型返回下面这段内容：
+
+{"cards": "我已经整理好了三张卡"}
+
+
+它是合法 JSON，Python 可以解析，但 cards 是字符串，不是数组，程序仍然用不了。再假设有三张卡，字段全对，某张却引用了不存在的 N9，这又是另一类错误。
+
+本篇按下面的层次处理：
+
+解析检查：正文能否作为一整份 JSON 读取。
+结构与业务检查：字段、类型、数量、顺序、状态关系、引用编号和原文是否符合本任务。
+语义审核：引文是否真正支持答案，是否遗漏限定条件，资料本身是否可信。
+
+前两层由本篇代码执行，第三层仍由读者判断。不要因为“程序会校验”就把整份输出视为正确；也不要因为不能证明所有事实，就放弃那些可以明确自动检查的错误。
+
+开启 DeepSeek 的 JSON 输出模式
+
+截至写作日，DeepSeek 的 Chat Completions JSON Output 指引要求设置 response_format={"type":"json_object"}，并在提示中包含 json 字样、提供期望格式示例。文档同时提醒合理设置输出预算，也说明偶尔可能出现空正文。DeepSeek：JSON Output
+
+配套新增 structured_client.py，其请求选项如下：
+
+def request_options(settings, messages):
+    return {
+        "model": settings["model"],
+        "messages": messages,
+        "stream": False,
+        "max_tokens": settings["max_tokens"],
+        "response_format": {"type": "json_object"},
+        "extra_body": {"thinking": {"type": "disabled"}},
+    }
+
+
+这次卡片入口使用 stream=False，整份收到后再解析，避免读到半个花括号就尝试使用卡片。非流式是本课简化实现的选择，不是说 JSON 天生不能通过流传输。未来如果采用流式，也应累计完整正文、确认正常结束之后再做整份校验。
+
+上一课的聊天入口 main.py 仍然使用原来的流式 api_client.py。新入口没有 stream_options，也没有直接把旧流式请求偷偷改成非流式。
+
+本篇使用的 json_object 约束输出格式，没有把上面那张字段规则表自动交给服务端执行。我们的字段和业务规则由本地 validation.py 检查。不同接口可能另有 Schema 能力，不能仅凭“兼容 OpenAI”就把其他接口的参数照搬到当前调用。
+
+study_task.py 中的 system 提示也同步改为只输出 JSON，包含一张示例结构，并说明真实输出须覆盖本次全部问题。它不再要求 Markdown 卡片。格式参数与提示必须一致，否则一边让模型返回 JSON，一边又要求 Markdown，自己就在制造冲突。
+
+准备项目，先检查真正发出的请求
+
+下载 lesson-06 完整代码包，解压后将 lesson-06 与旧快照并列保存。进入该目录，确认存在 cards.py、validation.py、structured_client.py、card_pipeline.py 和 fixtures 文件夹。
+
+本篇没有新增第三方依赖。配置模板仍为上一课的三字段：deepseek-flash、输出预算 1024、超时 60 秒。预算不是汉字数；实际回答若被截断，需要先检查任务长度和结束原因，而不是认定 JSON 模式失效。
+
+macOS / Linux，在 lesson-06 目录运行：
+
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cp config.example.json config.json
+.venv/bin/python cards.py --check
+.venv/bin/python cards.py --dry-run
+
+
+Windows PowerShell：
+
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item config.example.json config.json
+.\.venv\Scripts\python.exe cards.py --check
+.\.venv\Scripts\python.exe cards.py --dry-run
+
+
+Windows 只有 python 时，用它替换 py -3。已有 config.json 不要重复覆盖，环境问题参考第 02 篇。上述检查与预演不取密钥、不调用模型；首次安装依赖需要网络。
+
+预演应有两条消息，system 是新的 JSON 要求，user 仍是 N1—N3 与 Q1—Q3。请求中应出现 response_format.type: json_object、stream: false 和关闭思考的设置，不能再有 stream_options。这一步能发现“只改了提示，却运行了旧入口”的问题。
+
+让程序同时演示通过与拒收
+
+fixtures 中有三个作者编写的文件。它们是可重复检查的样例，不来自模型，也不会因你修改笔记而自动变化：
+
+valid.json：字段正确，Q1引用N1、Q2引用N2、Q3明确缺少资料。
+bad-quote.json：把第一张卡的引文改成笔记里不存在的话。
+semantic-wrong.json：引用仍存在，但第一张答案把流程顺序说反。
+
+先运行完整离线演示。
+
+macOS / Linux：
+
+.venv/bin/python cards.py --demo
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe cards.py --demo
+
+
+程序依次处理前两个样例。第一份应显示：
+
+规则检查通过：3 张卡。语义仍待人工审核。
+
+
+第二份应显示：
+
+未通过：第 1 张卡：引文不在对应笔记原文中。
+
+
+最后应提示“演示完成：正确样例通过，错误引文被拦截”。这里第二份被拒绝是预期行为；整个演示按预期完成，退出码为 0。如果修改样例后结果不再符合预期，演示会以退出码 1 结束。
+
+打开脚本旁的 records。本次有两组、每组三个同 ID 文件，前缀为 cards-json-demo-：
+
+文件后缀	保存什么	独立检查
+request.json	本次完整请求，不含密钥	2条消息、非流式、json_object
+response.json	模拟响应，在线时为SDK导出的响应对象	原正文仍在choices[0].message.content中
+result.json	应用的校验结果	正确样例状态validated_needs_review；错误样例validation_failed且cards为null
+
+用同一个 ID 配对，而不是随便打开三份最近文件。正确结果中的 cards 已经是数组，可以直接查看；错误结果不会把没通过检查的数据放进 cards，但原正文仍保存在响应文件里，便于排查。
+
+演示的 usage 是 null，表示没有真实用量。它不构成在线请求免费或调用质量良好的证据。
+
+校验函数具体检查了什么
+
+validation.py 没有额外框架依赖，分为“解析文本”和“核对卡片”两步。入口是 validate_cards(text, notes, questions)，返回检查后的对象；遇到不符合约定的地方，抛出 ValidationError，交给调用方记录。
+
+解析不能直接用 eval()。我们只需要读取数据，不需要执行模型返回的表达式。代码使用 json.loads()，并通过两个回调拒绝重复键和 NaN、Infinity 这类非标准数值。Python 的默认 JSON 解析器对这些情况有一定宽容，不能把默认行为误认为已经执行了我们的严格约定。Python：标准兼容性与解析回调
+
+本课还将正文限制为 20000 个字符；这只是小任务的本地保护限额，不是 DeepSeek 模型上限。解析失败就报告失败，不自动去掉围栏、截取第一个花括号，也不调用模型“修一下”。自动修复也许能让文本可读，却可能掩盖没有遵守输出约定的问题；后续若要增加修复，需要单独设计次数和记录。
+
+结构检查先确认顶层只有 cards，再检查数组长度与输入问题一致。随后按顺序逐张比较 question_id 与 question，因此漏题、重复题目、换题或顺序变化都不会悄悄通过。每张卡只接受约定的五个字段，额外字段也报错，便于发现结构漂移。
+
+对于 missing，核心检查是下面这段源码：
+
+        if card["status"] == "missing":
+            require(card["answer"] == MISSING_ANSWER and evidence == [], label + "missing 必须使用固定答案和空依据。")
+            continue
+
+
+这防止一张卡一边声明“缺少信息”，一边又给出“约500毫秒”和一条引用。对于 supported，程序检查依据数组非空、编号存在、引文非空，并核对：
+
+            require(quote in sources[note_id], label + "引文不在对应笔记原文中。")
+
+
+这里执行的是字符串包含检查。引文中的标点、空格也必须和原文对应，不会把改写自动当成原文；这样的严格要求能暴露来源不一致，但不是语义推理。
+
+提示里的“答案最多两句”在本课仍只是生成要求，代码没有实现中文分句检测。规则表与代码能检查的范围要如实区分，不能把写进提示的每句话都说成程序已经强制执行。
+
+实际跑一次“合法但答错”的样例
+
+现在验证第三份样例。
+
+macOS / Linux：
+
+.venv/bin/python cards.py --validate fixtures/semantic-wrong.json
+
+
+Windows PowerShell：
+
+.\.venv\Scripts\python.exe cards.py --validate fixtures/semantic-wrong.json
+
+
+你会看到“规则检查通过：3 张卡。语义仍待人工审核”。然后用编辑器打开该文件，第一张答案是：
+
+先生成回答，再检索资料。
+
+
+这与 N1 的顺序相反，但引文确实在原文中，字段、类型和问题也都匹配，所以现有校验器会放行。我们故意保留这个样例，是为了让你亲自看到检测能力的边界。
+
+--validate 只检查指定文件中的卡片 JSON，使用当前 study_task.py 的笔记与问题，不联网、不取密钥、不生成新记录，也不要求先读取 config.json。相对路径按当前终端目录解释。它不接受包着 status、usage 等信息的完整 result.json；要复查模型正文，可从响应文件的 message.content 复制其字符串内容，保存成单独 JSON 文件再检查。
+
+还可以拿 valid.json 复制一份 my-cards.json，把第一张的 note_id 改成 N9，运行同样的 --validate my-cards.json。应该拒绝，退出码为 1。macOS / Linux 随后运行 echo $?，PowerShell 运行 $LASTEXITCODE，可以独立确认退出状态。这个练习不用联网，也不会污染原来的正确样例。
+
+真实请求如何保存成功与失败
+
+自行使用 DeepSeek 账户时，macOS / Linux 运行 .venv/bin/python cards.py，Windows PowerShell 运行 .\.venv\Scripts\python.exe cards.py。终端会隐藏输入 API Key；发送后可能计费，不自动重试。由于本次不是流式，等待期间不逐字显示卡片；完成后到打印的结果文件路径查看内容。
+
+card_pipeline.py 的处理顺序是：
+
+保存请求 → 请求模型 → 保存SDK响应 → 检查结束原因
+                                         ↓
+                                解析JSON、检查卡片
+                                         ↓
+                               保存校验结果，报告状态
+
+
+先保存请求，再调用 API；收到响应先落盘，再验证正文。这样一份不合格答案仍有记录可查，不会只剩“失败”两个字。
+
+程序要求单个 index=0 的文本回答，且正常以 stop 结束。即使一段内容碰巧能解析为 JSON，若结束原因是 length，也会拒收：它可能缺少本来还要生成的内容。DeepSeek 的接口文档明确提醒，长度限制可能造成正文截断。DeepSeek：response_format 与 finish_reason
+
+结果状态分别表示：
+
+status	含义与下一步
+request_failed	请求过程抛出异常；看错误类型或HTTP状态，不盲目重发
+interrupted	程序捕获到Ctrl+C并尝试保存；已发送的请求可能计费
+response_rejected	响应数量、结束原因等不符合本课条件；先查response
+validation_failed	已收到正常结束的回答，但正文、字段或业务检查失败
+validated_needs_review	已通过当前规则；打开cards继续人工审核
+
+错误记录不保存整段网络异常消息，避免把额外信息直接写进日志。文件写入本身失败时，程序会停止，不宣布保存成功；结果文件缺失不能证明没有发生费用。正常请求通常有三个文件，网络失败未必有 response.json，强制关闭终端也不保证保存中断状态。
+
+新卡片流程不再调用上一课用于流式历史提交的 perform_turn()，也不把失败卡片送进下一次任务。每次启动仍是独立的 system+user 两条消息；main.py 的聊天历史规则保持原样。原快照完整保留。
+
+从症状定位问题
+现象	建议先查
+仍输出Markdown标题	确认运行lesson-06的cards.py；预演同时检查JSON提示和response_format
+正文为空	查看response中的content；按失败处理，核对提示与官方空正文说明，别把空对象当成功
+JSON末尾缺括号	先查finish_reason和预算，不手工补括号冒充完整结果
+JSON能打开但校验失败	查看result.error；合法语法不保证cards字段、类型或题目正确
+引用看着相似却失败	比对对应原文的标点、空格和编号；quote要求真实原文，不是意思接近即可
+--validate提示顶层字段不对	是否传入了result.json或API响应外壳；命令需要顶层只有cards的卡片数据
+规则通过但答案反了	这是语义层问题，参照semantic-wrong样例人工审核，不能只改状态名称掩盖它
+
+笔记和问题修改后，样例文件也需要重新检查。固定样例不是自动生成的标准答案；与旧笔记匹配的引用，未必与新笔记匹配。
+
+做完本篇，你应该能说清三件事：模型正文为什么还需要解析；JSON 合法为什么仍可能不符合任务；引用存在为什么仍不证明答案。下一篇将沿用这套固定任务与验收规则，讨论思考模式和输出预算。只有先知道怎样判断结果，比较“多想一些”是否值得才有意义。
+
+上一篇：把笔记变成复习卡 · 本部分大纲 · 完整代码包 · 运行说明
+
+验证范围：Python 3.11.8、openai 3.24.0，13项离线测试通过，含真实SDK配合模拟HTTP响应、错误样例、磁盘失败和中断处理。未真实付费调用，未测量在线模型质量。Windows / Linux命令未实机执行。

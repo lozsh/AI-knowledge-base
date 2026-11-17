@@ -1,0 +1,32 @@
+9.1 固定 CLI 2.0 文档基线
+
+本次按 2026-10-02 官方 CLI 2.0 参考修订；本机未安装该产品，产品操作仍需按本机发行版验收。先保存 traecli --version、traecli --help、traecli exec --help。不能把旧使用场景页的 YAML 与 2.0 TOML 混用。
+
+用户配置为 ~/.trae/traecli.toml。日常优先用 /model、/permissions、/login。最小默认策略：
+
+approval_policy = "on-request"
+default_permissions = ":workspace"
+
+
+修改配置前保留自己的备份，重启后核对生效范围；模型名由实际账号列表选择，不复制无权限的占位模型。
+
+9.2 先给分析角色准备可读数据
+
+文本 Read/cat 工具不能把 SQLite 文件当 CSV。主线先用第 5 章 summary 导出结果，再交给只读分析角色：
+
+python -m src.cli_app --data data/ledger.db add --amount 40 --type 支出 --category 餐饮 --date 2026-08-02
+python -m src.cli_app --data data/ledger.db summary --month 2026-08 > august.json
+python -m src.cli_app --data data/ledger.db summary --month 2026-09 > september.json
+
+
+这笔八月数据只在课程数据库中追加一次。另建 budget.json：{"month":"2026-09","expense_budget_cents":4500}。预期八月支出 4000 分，九月 4700 分，环比增加 17.5%，超预算 200 分；这是练习结果，不是个人财务建议。
+
+9.3 限定分析任务
+
+给角色的任务只引用 august.json、september.json、budget.json，要求列数据来源、计算式和未知项。使用只读沙箱，不授权任意 Bash；与第 10 章的数据库 MCP 路线二选一，不同时堆叠配置。没有上月数据时不能编造环比。
+
+9.4 记忆与执行边界
+
+AGENTS.md 记录已验证的入口、整数分单位、数据忽略规则与测试命令。它是上下文约定，不是强制执行测试或数据库权限的机制；结果仍由独立命令验收。
+
+参考：官方配置参考。

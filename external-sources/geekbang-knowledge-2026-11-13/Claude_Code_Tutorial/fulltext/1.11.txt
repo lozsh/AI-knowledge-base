@@ -1,0 +1,378 @@
+预计用时：90～140 分钟，可分两次完成
+本篇目标：用固定规范和测试把 MealCraft 分四阶段升级到 2.0，并实际练习命名、恢复、压缩、对话分支、后台会话和磁盘交接。
+
+长任务的可靠性不来自“一次聊天记住全部细节”，而来自可重复的输入、阶段提交、测试结果和磁盘台账。会话可以退出、压缩甚至更换；MEALCRAFT_2_SPEC.md、UPGRADE_PLAN.md、Git 和测试才是事实来源。
+
+本篇仍是个人本地项目，不引入数据库、账号、云部署或多人协作系统。
+
+开始状态
+
+从完成第 9 篇并已提交的 MealCraft 项目开始。
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course/mealcraft
+git status --short
+python3 scripts/verify_project_instructions.py
+python3 -m unittest discover -s tests -v
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course\mealcraft"
+git status --short
+py scripts/verify_project_instructions.py
+py -m unittest discover -s tests -v
+
+
+预期工作区为空，项目说明检查通过，旧套件 13 项全部通过。若还有未提交修改，先辨认并保存，不要把未知改动混入 2.0。
+
+检查本机能力：
+
+claude --version
+claude --help
+
+
+进入一次会话并运行 /help。本篇会用 /rename、/compact、/branch、/resume、/fork 和 /background，以及外部终端中的 claude agents、attach、logs、stop。命令是否显示取决于版本、平台和环境；若缺少后台会话命令，先按第 2 篇升级并重查。升级后仍不可用时，可以完成 2.0 主线，把后台练习标为“本机不可用”，不要猜旧命令的行为。
+
+复制固定 2.0 输入
+
+先退出 Claude Code，设置教程目录变量并复制素材；占位符必须替换。
+
+macOS、Linux 或 WSL2：
+
+export COURSE_SOURCE="/替换为实际路径/claude-code-tutorial-v0.2"
+test -f "$COURSE_SOURCE/exercise-assets/mealcraft/2.0-kit/MEALCRAFT_2_SPEC.md"
+test ! -e MEALCRAFT_2_SPEC.md
+test ! -e UPGRADE_PLAN.md
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/2.0-kit/." .
+
+
+Windows PowerShell：
+
+$CourseSource = "C:\替换为实际路径\claude-code-tutorial-v0.2"
+if (-not (Test-Path "$CourseSource\exercise-assets\mealcraft\2.0-kit\MEALCRAFT_2_SPEC.md")) { throw "2.0 素材路径错误" }
+if (Test-Path MEALCRAFT_2_SPEC.md) { throw "已有 2.0 规范，请先人工比较" }
+if (Test-Path UPGRADE_PLAN.md) { throw "已有升级台账，请先人工比较" }
+Copy-Item "$CourseSource\exercise-assets\mealcraft\2.0-kit\*" -Destination . -Recurse
+
+
+素材新增：
+
+MEALCRAFT_2_SPEC.md
+UPGRADE_PLAN.md
+scripts/verify_2_0.py
+tests/test_menu.py
+tests/test_shopping.py
+tests/test_report.py
+
+
+先验证固定起点：
+
+python3 scripts/verify_2_0.py --stage starter
+python3 -m unittest discover -s tests -v
+
+
+Windows 把 python3 替换为 py。第一条应输出：
+
+PASS: MealCraft 2.0 固定规范和失败基线已就绪
+
+
+完整套件此时应只有 3 个收集错误，分别缺少 mealcraft.menu、mealcraft.shopping 和 mealcraft.report。这是确定的红灯基线，不是让你删除新测试的理由。若旧的 1.0 测试也失败，先恢复前篇状态。
+
+把 UPGRADE_PLAN.md 的 Stage 0 勾选为已验证，并在 Latest verified state 记录“完整套件只有上述 3 个预期错误”；不要把红灯写成“全部通过”。
+
+提交固定输入：
+
+git add MEALCRAFT_2_SPEC.md UPGRADE_PLAN.md scripts/verify_2_0.py tests/test_menu.py tests/test_shopping.py tests/test_report.py
+git diff --cached --check
+git commit -m "add MealCraft 2.0 acceptance baseline"
+
+先读固定决策，不重新发明需求
+
+打开新会话并命名：
+
+claude
+
+
+输入：
+
+/rename mealcraft-2-upgrade
+
+
+再进入 Plan Mode：
+
+/plan 只读 MEALCRAFT_2_SPEC.md、UPGRADE_PLAN.md 和新增测试，给出四阶段实施顺序。不要修改规范或测试，不要扩大到数据库、账号或云服务。
+
+
+计划必须保留这些固定决定：
+
+3～7 天、1～6 人份；
+相邻两天不重复，非相邻允许复用；
+用局部 random.Random(seed) 保证可复现；
+只合并名称和单位都相同的可计算数量；
+适量、少许逐条保留来源；
+报告拒绝覆盖，源菜谱始终只读；
+每阶段更新 UPGRADE_PLAN.md 中的真实验证记录。
+
+若计划建议改测试、放宽断言或安装第三方库，要求它依据规范修正计划。确认后退出 Plan Mode 再实施。
+
+阶段 1：可复现菜单
+
+发送：
+
+只实施 Stage 1：创建 mealcraft/menu.py，满足固定规范和 test_menu.py。不要实现购物清单或报告，不要修改固定规范和测试。完成后运行菜单阶段检查器，再运行完整套件；把实际命令、结果、剩余失败和下一步写入 UPGRADE_PLAN.md，然后停下。
+
+
+独立验证：
+
+python3 scripts/verify_2_0.py --stage menu
+python3 -m unittest discover -s tests -v
+git diff --check
+git diff -- data/recipes
+
+
+阶段检查应显示 5 项菜单测试通过并输出 PASS。完整套件仍可因 shopping 和 report 尚不存在而失败，但 1.0 与菜单测试必须通过。data/recipes Diff 应为空。
+
+审查 mealcraft/menu.py：它应使用局部随机数生成器，不应调用全局 random.seed()，也不应为第 7 天复制或写回菜谱 JSON。
+
+git add mealcraft/menu.py UPGRADE_PLAN.md
+git diff --cached --check
+git commit -m "add deterministic weekly menu planning"
+
+用 /branch 安全比较一个想法
+
+/branch 会从当前位置创建对话分支，并把当前终端切到新分支；原对话仍保留，可从 /resume 返回。它分的是对话，不自动建立 Git 分支。
+
+/branch report-layout-notes
+
+
+在对话分支里只做讨论：
+
+不要调用工具，也不要修改文件。比较“按天列菜单”和“按食材分类优先”两种个人周菜单版式；依据 MEALCRAFT_2_SPEC.md 说明为什么本练习应保留按天版式，不要新增需求。
+
+
+讨论结束后运行 /resume，在选择器中回到 mealcraft-2-upgrade，再检查：
+
+git status --short
+
+
+应没有由讨论产生的文件修改。若已经编辑文件，先看实际 Diff；不要以为切回原对话会自动还原磁盘。
+
+阶段 2：精确购物清单
+
+回到主对话后发送：
+
+实施 Stage 2：创建 mealcraft/shopping.py。严格按名称和单位合并，使用 Fraction 保持精确数值；不同单位分开，文字用量逐条保留来源。只解决 test_shopping.py，不做报告。完成后运行阶段检查和完整套件，更新 UPGRADE_PLAN.md 后停下。
+
+
+独立验证：
+
+python3 scripts/verify_2_0.py --stage shopping
+python3 -m unittest discover -s tests -v
+git diff --check
+git diff -- data/recipes
+
+
+购物清单阶段应有 3 项测试通过。完整套件此时只应剩 mealcraft.report 的缺失错误。重点核对：番茄 3 个 与 番茄 200 克 是两行，1/2 + 1 1/2 精确得到 2，两种盐没有被合成一个数。
+
+git add mealcraft/shopping.py UPGRADE_PLAN.md
+git diff --cached --check
+git commit -m "build exact shopping list totals"
+
+上下文变长时用 /compact
+
+先运行 /context 看使用情况。需要释放窗口时，带着明确保留项压缩：
+
+/compact 保留 MealCraft 2.0 固定规范、Stage 1 和 Stage 2 的已验证结果、剩余 Stage 3/4、禁止修改测试与源菜谱的约束
+
+
+压缩结束后让 Claude 重新对照磁盘：
+
+只读 MEALCRAFT_2_SPEC.md、UPGRADE_PLAN.md、git status 和最近提交，报告已完成阶段、实际验证、剩余失败和下一步。不要修改文件。
+
+
+将回答与台账和 Git 比较。摘要若遗漏，以磁盘为准。/compact 继续同一会话，/clear 则开启空上下文，不要混用。
+
+中断并从磁盘恢复
+
+在阶段提交后输入 /exit。从同一项目目录恢复最近会话：
+
+claude --continue
+
+
+若目录中有多个会话，使用选择器或名称：
+
+claude --resume
+claude --resume mealcraft-2-upgrade
+
+
+恢复后的第一条任务是核对，不是立刻写代码：
+
+重新读取 MEALCRAFT_2_SPEC.md 和 UPGRADE_PLAN.md，检查 git status 与最近 4 个提交，并运行当前阶段检查。列出磁盘证实的完成项、失败项和唯一下一步；先不要修改。
+
+
+如果 --continue 提示 No conversation found to continue，确认当前目录，再用 --resume。即使会话找不到，固定文件与提交仍足以新开会话继续。
+
+阶段 3：报告与命令行入口
+
+发送：
+
+实施 Stage 3：创建 mealcraft/report.py 和 scripts/generate_week.py，更新 README。报告必须是 UTF-8、包含规范要求的全部字段并拒绝覆盖；命令直接用 python3 scripts/generate_week.py 可运行。不要修改固定测试。完成后运行完整阶段检查并更新 UPGRADE_PLAN.md。
+
+
+运行：
+
+python3 scripts/verify_2_0.py --stage complete
+python3 scripts/generate_week.py --days 3 --servings 2 --seed 17 --exclude 辣 --date 2026-09-29 --output output/week-17.md
+
+
+Windows PowerShell：
+
+py scripts/verify_2_0.py --stage complete
+py scripts/generate_week.py --days 3 --servings 2 --seed 17 --exclude "辣" --date 2026-09-29 --output output/week-17.md
+
+
+预期完整套件 23 项通过，生成命令输出类似：
+
+WROTE: output/week-17.md
+
+
+打开报告，确认日期为 2026-09-29、份数为 2、共有 3 天、没有带“辣”标签的菜谱、食材数量可读。原命令再运行一次应以 FileExistsError 拒绝覆盖；这是预期保护。换文件名才可再次生成。
+
+如果实现偏离太多，可在保留当前提交后使用课程参考覆盖层恢复：
+
+macOS、Linux 或 WSL2：
+
+cp -R "$COURSE_SOURCE/exercise-assets/mealcraft/reference-2.0-overlay/." .
+python3 scripts/verify_2_0.py --stage complete
+
+
+Windows PowerShell：
+
+Copy-Item "$CourseSource\exercise-assets\mealcraft\reference-2.0-overlay\*" -Destination . -Recurse -Force
+py scripts/verify_2_0.py --stage complete
+
+
+参考覆盖层会替换同名 2.0 实现和 README，只在已看懂 Diff、并接受回到课程基准时使用；它不会修改原教程或源菜谱。
+
+用 /fork 启动独立只读审计
+
+当前 /fork 会复制当前对话到新的后台会话，原会话继续留在当前终端；它与 /branch 的“切换到对话分支”不同。输入：
+
+/fork 只读审计 MealCraft 2.0：核对固定规范、测试覆盖、UPGRADE_PLAN.md 和 git diff；运行允许的本地检查，但不要编辑、提交、推送或访问网络。最后列出最多 5 个有证据的问题；没有问题就明确写未发现阻塞项。
+
+
+在另一个终端，从 MealCraft 根目录查看独立会话。
+
+macOS、Linux 或 WSL2：
+
+claude agents --json --cwd "$PWD"
+
+
+Windows PowerShell：
+
+claude agents --json --cwd $PWD.Path
+
+
+输出中的短 id 用于管理。下面的 <id> 必须替换，不能原样执行：
+
+以下为参数模板，执行前先将尖括号占位符替换为实际值：
+
+claude logs <id>
+claude attach <id>
+
+
+附加后可以回复审计问题；输入 /exit 只是再次脱离，后台会话仍可继续。只有明确要终止仍在运行的会话时才执行：
+
+以下为参数模板，执行前先将尖括号占位符替换为实际值：
+
+claude stop <id>
+
+
+claude agents 负责独立后台会话；当前会话内的 /tasks 主要列出该会话自己的后台任务和 Subagent，不是同一个列表。
+
+练习 /background 与 shell 启动方式
+
+/background（别名 /bg）把当前整个会话脱离终端继续运行。选择没有写入需求的停点，输入：
+
+/background 只读检查 Stage 4 验收项和当前 Git Diff；不要修改、提交或推送。检查完等待我的下一条消息。
+
+
+终端返回后，用 claude agents 找到它，再用 attach 回去。这验证了“会话离开终端仍由本机后台服务托管”。后台会话在本机运行、消耗正常用量；电脑关机后不会继续，等待权限确认时也可能停住。
+
+也可以从 shell 直接启动一个新的只读后台会话：
+
+claude --bg --name mealcraft-2-audit "只读运行 MealCraft 2.0 完整测试并报告结果；不要修改、提交、推送或访问网络"
+
+
+提示文本是位置参数，不能把 --bg 与 -p 混用。启动成功会打印短 ID，以及 agents、attach、logs、stop 命令。Git 仓库中的后台会话在需要编辑前通常会进入隔离 worktree；本篇审计明确只读，因此不应产生新代码。不要关闭 worktree 隔离来省步骤。
+
+后台会话是完整、可独立恢复和附加的 Claude Code 会话。第 13 篇的 Subagent 则由主会话为局部任务派生，使用独立上下文，并把结果汇报回主会话。个人项目中，先用单会话分阶段；只有确实可独立的只读审计才值得并行。
+
+Stage 4 总体验收
+
+在普通终端运行所有独立证据：
+
+python3 -m unittest discover -s tests -v
+python3 scripts/verify_2_0.py --stage complete
+python3 scripts/verify_release.py
+git diff --check
+git diff -- data/recipes .claude/settings.json
+git status --short
+
+
+预期：
+
+23 项测试全部通过；
+2.0 检查器输出 PASS，并确认源菜谱哈希未变化；
+1.0 真实 HTTP 发布检查仍通过；
+菜谱和安全设置没有 Diff；
+output/week-17.md 因 .gitignore 不进入提交；
+仅 2.0 模块、命令、README 和已更新台账等待提交。
+
+在 Claude Code 中运行 /diff，人工确认没有改测试来迁就实现。更新 UPGRADE_PLAN.md 的最终状态，只记录实际执行过的命令。然后提交：
+
+git add mealcraft/menu.py mealcraft/shopping.py mealcraft/report.py scripts/generate_week.py README.md UPGRADE_PLAN.md
+git diff --cached --check
+git commit -m "build MealCraft 2.0 weekly planning"
+git status --short
+
+本篇验收清单
+固定起点检查通过，完整套件最初只有 3 个预期缺失模块错误；
+Stage 1、2、3 分别运行了聚焦检查和完整测试；
+每个阶段有 Git 提交，UPGRADE_PLAN.md 记录的是实际证据；
+/branch 只用于方案讨论，回到主会话后磁盘状态明确；
+/compact 后通过磁盘文件和 Git 重新校准，而非相信摘要；
+至少用 --continue 或 --resume 完成一次恢复；
+23 项测试、2.0 检查和 1.0 发布检查全部通过；
+固定命令生成了报告，并证明同名文件不会被覆盖；
+用 /fork 或 claude --bg 完成一次独立只读审计；
+能解释 /tasks、Subagent 与独立后台会话的区别；
+源菜谱、安全配置和原教程均未被改写。
+关键排错
+
+恢复到了错误会话：先退出，确认当前目录，再用 claude --resume 按名称选择。恢复后先查 Git 和台账；不要根据聊天标题判断代码状态。
+
+/branch 后文件也变了：对话分支不是文件快照。查看 git diff，用已提交阶段作为恢复依据；不要盲目回滚用户自己的改动。
+
+后台会话一直 blocked：运行 claude logs <id> 或 attach，通常是权限问题、需要澄清或测试失败。给出最小必要回复，不要改成 bypassPermissions 绕过安全设置。
+
+claude agents 找不到刚启动的会话：去掉 --cwd 查看全部活动会话，核对启动目录；若后台服务无响应，先运行 claude daemon status，再按官方 Agent view 的故障步骤处理。
+
+完整测试数量不是 23：检查三个固定测试文件是否都在 tests/，并确认没有用 -p 过滤完整套件。不要以聚焦测试代替全量回归。
+
+生成命令找不到 mealcraft：必须从项目根目录运行，并确认脚本把项目根目录加入导入路径；参考覆盖层包含这一处理。
+
+本篇小结
+
+MealCraft 2.0 的关键产物不只是菜单和购物清单，而是一条可恢复的工作链：固定输入建立红灯，阶段测试与提交保存进度，磁盘台账跨会话交接，/compact 只压缩聊天，/branch 比较方向，/fork 和后台会话承接真正独立的只读任务。
+
+下一篇会在稳定的 2.0 基线上创建完整 Skill 和 Hook，把“生成周菜单”和提交前检查固化为可重复工作流。
+
+官方参考：
+
+Commands
+CLI reference
+Manage multiple agents with agent view
+Common workflows

@@ -1,0 +1,204 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>昨天，你已经在网页里生成了一张带引用的复习卡。今天重新启动助手，旧结果地址却打不开了。文件夹里明明还有JSON，页面为什么说不存在？</p>
+<p>上一课把“模型请求的记录”和“网页正在使用的状态”分开了：JSON写在磁盘上，预览与结果索引放在Python内存中。退出程序，内存里的索引就没了。本篇把网页状态也保存下来，让你能够重启后继续查看卡片，并为它建立一份需要亲自确认的复习计划。</p>
+<p>我们还要解决一个紧挨着的问题：如果昨天点击生成后电脑突然断电，今天重新打开，程序该继续显示结果、再次调用模型，还是先停下来核对？这不是换一个存储文件就能自动解决的，必须给每次操作一个身份，并记录它走到了哪一步。</p>
+<p>下载完整代码 · 代码说明 · 上一篇：本地网页</p>
+<blockquote>
+<p>核实日期：2026年10月4日。沿用Python 3.11+、openai 3.24.0、Flask 3.1.3；新增Python标准库sqlite3，无须额外安装数据库服务。作者在Python 3.11.8、SQLite 3.45.1上完成97项离线测试，并在浏览器验证保存计划和重启恢复。未使用真实API密钥或发起付费调用；默认卡片仍为作者预置演示。</p>
+</blockquote>
+<h2 id="wiki-h-0">先分清我们要保存的三种东西</h2>
+<p>这里的“会话”指浏览器连续使用这个应用的身份。同一个浏览器配置下，多个标签页通常属于同一会话；另一浏览器或独立的隐私窗口通常是另一会话。它不是第3篇模型请求中的多轮聊天消息列表。</p>
+<p>在这个会话下面，我们保存两类工作记录：一次笔记问答操作，以及依附于这次操作的复习计划。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>对象</th>
+<th>保存什么</th>
+<th>用来回答什么问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>浏览器会话</td>
+<td>随机编号、创建时间</td>
+<td>当前浏览器可以查看哪些工作记录？</td>
+</tr>
+<tr>
+<td>问答操作</td>
+<td>操作编号、所属会话、模式、预览快照、运行状态、结果</td>
+<td>当时用了哪些资料？是否已经请求过？卡片在哪里？</td>
+</tr>
+<tr>
+<td>复习计划</td>
+<td>计划编号、所属会话、关联操作、日期、时长、草稿或已保存状态</td>
+<td>复习哪张卡？用户是否确认？</td>
+</tr>
+</tbody></table></div>
+<p>卡片和完整的来源快照放在操作记录的JSON字段中，本课没有再为每个字段拆一张表。需要搜索大量卡片时，可以再把常用字段拆出来。现在先让身份、关系和状态足够清楚。</p>
+<p>这也意味着：数据库里保留了过去十次问答，不等于下一次请求应该把十次问答全部发送给模型。新建问答仍使用当前问题和选中的片段。<strong>保存历史和选择模型上下文，是两个不同的决定。</strong> 旧命令行聊天入口仍沿用原来的行为，本篇不会自动恢复它的消息列表。</p>
+<h2 id="wiki-h-1">SQLite怎样接进现有项目</h2>
+<p>SQLite把结构化数据保存在本地数据库文件中，不需要另外启动一个数据库服务器；Python提供<code>sqlite3</code>模块访问它。<a href="https://docs.python.org/3.11/library/sqlite3.html">Python sqlite3文档</a></p>
+<p>可以把“表”先理解成有固定列的记录集合。每一行代表一个对象，主键是这一行的唯一编号；外键描述它关联的另一行。例如，一条问答操作属于一个会话，一条复习计划关联一次问答操作。</p>
+<p>本篇保留此前的读取、检索、调用和校验代码，主要新增<code>storage.py</code>，让网页通过它存取数据。<code>inspect_db.py</code>提供独立的只读检查。启动后会逐步出现这样的目录：</p>
+<pre><code class="hljs language-text">lesson-14/
+├── web_app.py
+├── storage.py
+├── inspect_db.py
+├── templates/web.html
+├── sample-notes/
+└── data/
+    ├── assistant.sqlite3       会话、操作和计划
+    ├── session.key             本应用签署会话Cookie的随机密钥
+    └── operations/
+        └── 某个操作编号/
+            └── records/       本次操作的请求、响应、来源和校验JSON
+</code></pre><p><code>data</code>由程序创建，不在下载包里。正常的一次演示生成仍产生五份JSON，只是网页把它们放进对应操作的子目录，方便中断后定位。旧CLI入口的<code>records</code>、<code>tool-records</code>、<code>plans</code>路径不变。</p>
+<p>数据库负责“应用现在如何找回和使用记录”；这些JSON负责“核对一次调用究竟发生了什么”。两者有重叠，是这份教学项目为了便于追踪做出的选择。现阶段不把JSON目录扫描当成自动恢复逻辑，也不自动导入第13篇旧记录。</p>
+<h2 id="wiki-h-2">先跑通“生成—计划—重启”这一圈</h2>
+<p>下载并解压到新的<code>lesson-14</code>目录，保留前一课的文件。从终端进入新目录，再执行以下命令。不要把数据库文件当文本文档打开修改。</p>
+<p>macOS/Linux：</p>
+<pre><code class="hljs language-bash">python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+<span class="hljs-built_in">cp</span> config.example.json config.json
+.venv/bin/python web_app.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py <span class="hljs-literal">-3</span> <span class="hljs-literal">-m</span> venv .venv
+.\.venv\Scripts\python.exe <span class="hljs-literal">-m</span> pip install <span class="hljs-literal">-r</span> requirements.txt
+<span class="hljs-built_in">Copy-Item</span> config.example.json config.json
+.\.venv\Scripts\python.exe web_app.py
+</code></pre><p>已有自己的<code>config.json</code>时保留它，不重复覆盖。示例配置不包含密钥。停止仍在运行的上篇服务，避免占用8765端口；确实需要换端口，可加<code>--port 8766</code>并使用对应浏览器地址。同一时间先只运行这一份教学网页。</p>
+<p>打开<code>http://127.0.0.1:8765</code>。顶部应显示“离线演示 · 不请求模型”。保持默认两份笔记、问题“笔记中的RAG流程是什么？”、关键词“检索 片段”和最多2个片段：</p>
+<ol>
+<li>点击“预览检索证据”，检查选中<code>F1-C2</code>与<code>F1-C3</code>。</li>
+<li>点击“生成演示卡片（离线）”，应看到操作状态<code>done</code>，卡片校验结果<code>validated_needs_review</code>。</li>
+<li>核对答案和引用，然后在“为第一张卡片安排复习”中填写标题、日期和分钟数。例如“复习RAG流程”、<code>2026-10-05</code>、<code>20</code>。这是练习日期，你可换成自己的安排。</li>
+<li>点击“预览复习计划”。此时页面标题是“确认这份复习计划”，还没有把它标记为已确认。</li>
+<li>看清标题、日期、时长与来源卡片，再点“确认保存计划”。页面应变成“计划已保存”。</li>
+</ol>
+<p>当前问答任务只生成一张卡，因此本篇计划关联第1张卡。保存的是本机安排，不会创建日历事件，也不会到点弹出提醒。演示卡片的计划明确标记为“演示卡片”，不能被当作真实模型验证结果。</p>
+<p>现在先把计划页面留着。在终端按<code>Ctrl+C</code>停止服务，然后用相同命令重新启动同一目录。回到原浏览器刷新计划页：标题、日期和分钟数应还在。也可以回到首页，从“本浏览器会话的历史”进入卡片，再点击“查看已有计划”。首页显示最近50次操作，较早记录不会因此被删除，原地址仍可读取。</p>
+<p>本例允许格式正确的过去日期，因为它也可用于记录历史安排；没有实现“到期未完成”或提醒规则。</p>
+<h2 id="wiki-h-3">不要只相信页面显示“已保存”</h2>
+<p>在另一个终端进入同一<code>lesson-14</code>目录，执行只读检查：</p>
+<pre><code class="hljs language-bash">.venv/bin/python inspect_db.py
+</code></pre><p>Windows使用：</p>
+<pre><code class="hljs language-powershell">.\.venv\Scripts\python.exe inspect_db.py
+</code></pre><p>如果是全新目录、仅用一个浏览器做了一次问答和一份计划，输出中的关键值应类似：</p>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"integrity"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"ok"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"foreign_key_errors"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"counts"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"sessions"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"operations"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"plans"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre><p>实际输出还会列出操作和计划的编号、状态及计划内容。编号每次随机，不需要与你看到的示例一致。<code>integrity</code>检查数据库结构是否完整，<code>foreign_key_errors</code>检查关联是否存在；它们不检查模型答案是否正确。</p>
+<p>在计划确认之前执行这个命令，也能看到一行计划，只是状态为<code>draft</code>。因为“把提议保存下来，等用户确认”本身就需要持久化。确认后同一行变成<code>saved</code>，不会额外插入第二行。</p>
+<p>你可以刷新结果页和计划页，再运行检查。<code>operations</code>和<code>plans</code>数量应该不变。再停止、重启服务，数量仍不变。这个验证同时排除了“页面只显示缓存”“刷新又创建了一份计划”两类问题。</p>
+<p>检查工具使用SQLite只读连接，数据库不存在会报错，不会偷偷创建空文件。它供在本机拥有文件权限的本人检查全部会话；网页的会话隔离不会限制你直接读取自己的磁盘文件。</p>
+<h2 id="wiki-h-4">为什么重启后还能认出这个浏览器</h2>
+<p>当浏览器第一次访问，服务器创建一个随机会话编号。后续请求通过Cookie带回这个身份，服务器才知道该查哪组记录。Flask默认会话Cookie经过签名，防止内容被任意修改，但内容并没有被加密。<a href="https://flask.palletsprojects.com/en/stable/quickstart/#sessions">Flask会话说明</a></p>
+<p>所以，本例Cookie只包含随机身份、表单校验标记和有效期相关信息，不包含笔记、卡片或DeepSeek密钥。会话签名密钥保存在<code>data/session.key</code>，首次启动时随机生成，后续启动读取同一份。若每次启动都换一份签名密钥，旧Cookie就无法继续被认可，重启恢复也就断了。</p>
+<p>它与API密钥用途不同：<code>session.key</code>负责本应用的浏览器会话；DeepSeek API Key仍只在自行启动真实模式后，由终端隐藏输入并保留在后端进程内。</p>
+<p>本例把Cookie有效期设为30天，访问时续期，并启用<code>HttpOnly</code>和<code>SameSite=Strict</code>。由于只在本机HTTP演示，没有开启要求HTTPS的<code>Secure</code>属性；这个配置不能直接当作公网配置使用。<a href="https://flask.palletsprojects.com/en/stable/config/">Flask配置文档</a></p>
+<p>更关键的是，数据库查询必须同时检查记录编号和当前会话。<code>storage.py</code>里取问答操作的代码是：</p>
+<pre><code class="hljs language-python">    <span class="hljs-keyword">def</span> <span class="hljs-title function_">operation</span>(<span class="hljs-params">self, owner, ticket</span>):
+        <span class="hljs-keyword">with</span> <span class="hljs-variable language_">self</span>.connection() <span class="hljs-keyword">as</span> db:
+            <span class="hljs-keyword">return</span> <span class="hljs-variable language_">self</span>.unpack(db.execute(<span class="hljs-string">"SELECT * FROM operations WHERE id=? AND owner=?"</span>, (ticket, owner)).fetchone())
+</code></pre><p><code>id=?</code>查的是哪个操作；<code>owner=?</code>检查它属于谁。即使有人把另一个会话的结果地址复制过来，也不能只凭编号读取。问答预览、生成、卡片结果、计划预览和确认都做了所属会话检查。这里的问号是SQL参数占位符，数据作为参数传入，不把浏览器文字拼进SQL语句。<a href="https://docs.python.org/3.11/library/sqlite3.html#how-to-use-placeholders-to-bind-values-in-sql-queries">sqlite3参数绑定说明</a></p>
+<p>你可以做一个可逆的小实验：保持原浏览器正常窗口打开，另开一个独立的隐私窗口访问首页。那里应没有原会话历史；粘贴原结果或计划地址，应得到404。回到原窗口，数据依然可以看到。不要通过清理原窗口Cookie做这个练习，否则会丢掉原会话的访问凭据。</p>
+<p>这仍不是账号系统：同一浏览器配置通常共用会话；丢失Cookie或30天不访问导致过期后，没有用户名密码可帮助找回；其他能读本机数据、会话密钥或浏览器凭据的程序也不在隔离范围内。笔记目录仍由本人管理、所有会话共用，隔离的是工作记录，不是每个浏览器各自的文件仓库。Cookie也不按端口隔离，所以不要把多个使用同一Cookie名称的教学副本并排当成互不影响的应用。</p>
+<h2 id="wiki-h-5">给一次生成操作一个不会随重启消失的身份</h2>
+<p>第13篇用内存里的<code>pop</code>防止同一个预览重复发送。本篇把这件事变成数据库状态变化：</p>
+<pre><code class="hljs language-text">预览保存：ready
+       ↓ 认领并提交数据库事务
+执行中：running
+       ↓ 发出一次模型请求或运行离线演示
+流程结束：done（再查看卡片的校验结果）
+
+异常被捕获：uncertain
+进程突然退出：可能停留在running
+</code></pre><p>每份预览生成一个随机操作编号。生成按钮只提交编号；服务器取回已经冻结的问题、片段与来源快照，不重新接受浏览器指定的答案或文件路径。修改磁盘笔记后，旧预览仍然对应旧内容；需要新内容时再建立预览。</p>
+<p>真正发送前，应用必须先完成<code>ready → running</code>。关键代码如下：</p>
+<pre><code class="hljs language-python">    <span class="hljs-keyword">def</span> <span class="hljs-title function_">claim</span>(<span class="hljs-params">self, owner, ticket, mode</span>):
+        <span class="hljs-keyword">with</span> <span class="hljs-variable language_">self</span>.connection(write=<span class="hljs-literal">True</span>) <span class="hljs-keyword">as</span> db:
+            changed = db.execute(
+                <span class="hljs-string">"UPDATE operations SET state='running' WHERE id=? AND owner=? AND state='ready' AND mode=?"</span>,
+                (ticket, owner, mode)).rowcount
+        <span class="hljs-keyword">return</span> changed == <span class="hljs-number">1</span>  <span class="hljs-comment"># The transaction has committed before the caller sends anything.</span>
+</code></pre><p>这条更新只接受当前会话、当前运行模式、还处于<code>ready</code>状态的操作。数据库实际改动一行才算认领成功。两个相同提交先后到达时，后一个已经找不到<code>ready</code>行，因此不会再次发送。</p>
+<p><code>connection(write=True)</code>使用短事务：先<code>BEGIN IMMEDIATE</code>，写入成功就提交，异常则回滚，最后关闭连接。事务可以把一组本地数据库变化作为整体完成；本例还启用了外键检查。SQLite的写入需要协调锁，不能把它当作任意数量写请求都同时执行的存储。<a href="https://sqlite.org/lang_transaction.html">SQLite事务说明</a></p>
+<p>注意事务在模型请求之前已经结束。不能一边等待模型几十秒，一边占着数据库写事务。模型返回后再用另一个短事务保存结果；这也意味着两次事务之间存在中断窗口。</p>
+<p>同一编号再次提交时，本例会跳转回原结果页，不重做。重新预览则会创建新编号，即使问题文字一样，也属于新操作，仍可能再次计费。我们没有根据问题相似度做去重，更没有保证所有内容相同的请求只收费一次。</p>
+<p><code>done</code>只表示本次调用流程已结束并已存入数据库，并不等于卡片正确。仍要查看内部的<code>validated_needs_review</code>、<code>request_failed</code>等结果。校验失败的操作没有可安排复习的有效卡片。</p>
+<h2 id="wiki-h-6">最容易误解的边界：数据库不能替远端保证“恰好一次”</h2>
+<p>想象三个时间点：</p>
+<ul>
+<li>刚提交<code>running</code>，还没发请求，程序退出了。</li>
+<li>请求发出，服务端可能已经处理，但本地没收到响应。</li>
+<li>本地已经保存响应JSON，却没来得及把结果提交到数据库。</li>
+</ul>
+<p>重启后，这三种情况都可能留下<code>running</code>。单看数据库，无法证明模型到底处理了没有，更无法证明是否已经计费。因此页面显示“执行中或结果未确认”，保留原操作编号，不自动把状态改回<code>ready</code>。</p>
+<p>如果普通异常被捕获，状态可记录为<code>uncertain</code>；突然终止则可能停在<code>running</code>。两种状态都没有“自动补发”按钮。即使这个选择有时让一次根本没发出的请求也停住，它仍比不加判断地重复发送更容易核对。</p>
+<p>遇到这种情况，先停止重复点击，找到<code>data/operations/操作编号/records</code>：查看有没有请求、attempt、响应和result记录；只读检查数据库中的状态。没有JSON也不能仅凭这一点判断远端绝对没处理。真实调用还应结合服务端可获得的请求记录或账单核对；不要因为本地错误就把费用记成零。</p>
+<p>本课不会自动把残留JSON“导回”数据库，也不建议手工把状态改成<code>ready</code>。检查后若确实决定重新尝试，需要从首页明确新建操作，并接受可能重复调用的事实。SQLite的提交只能保护数据库自身的变化，不能把网络请求和磁盘JSON一起变成一个原子动作。</p>
+<p>离线和真实模式也被写进操作记录。离线预览不能在重启为真实模式后突然变成一个付费请求，反过来也不行；模式不符返回409。已经完成的结果可以跨模式查看，并显示原操作的<code>demo</code>或<code>live</code>标记。API配置仍以本次启动配置为准，本例冻结的是资料和任务，不是重建一个历史版本的模型服务。</p>
+<h2 id="wiki-h-7">计划为什么要有第二次确认</h2>
+<p>第10篇展示了“模型提出工具调用—程序校验—用户确认—执行”。本篇复用其中的确认原则，但为了把持久化行为看清楚，网页计划由你填写，不再多发一次模型请求。旧<code>planner.py</code>仍保留原来的命令行流程和固定<code>N1—N3</code>白名单，没有偷偷放宽它。</p>
+<p>网页现在使用动态资料，不能把本次的<code>F1-C2</code>直接当作所有记录都通用的计划来源。下一次换文件顺序，<code>F1-C2</code>可能就指向别的内容。因此计划保存的是<strong>操作编号＋卡片序号</strong>，从对应操作再找到卡片、检索片段和来源快照。</p>
+<p>“预览复习计划”会校验标题、日期和时长，再保存不可变的<code>draft</code>。确认按钮只提交计划编号，后端重新读取这份草稿并检查会话，然后把状态变成<code>saved</code>。它不会信任确认表单里另外混入的日期、时长或标题。</p>
+<p>本课约定每次生成操作只有一份计划，数据库给<code>operation_id</code>加上唯一约束；重复提交建计划表单返回已有计划，重复确认只返回同一份已保存记录。标题或日期不会被旧表单悄悄覆盖。即使第一次保存成功、浏览器却没收到响应，再提交同一个计划编号也不会产生第二份。</p>
+<p>这是本地数据库内可以实现的重复操作处理。将来如果动作变成“创建外部日历事件”，还要考虑对方接口的操作标识和结果核对，不能把本篇结论直接外推。</p>
+<p>为保持本课范围清楚，尚未提供修改、删除或一张卡多份计划。填错草稿先不要确认；若要把它做成常用工具，下一步可加入显式编辑和版本校验，而不是让重复请求兼任“修改”。</p>
+<h2 id="wiki-h-8">数据该怎样保留，遇到问题怎样判断</h2>
+<p>本课仍默认离线。只有你自行停止服务后运行<code>web_app.py --live</code>，并在终端输入自己的Key，网页生成才会请求DeepSeek。请求继续使用<code>deepseek-flash</code>、关闭思考、非流式JSON，默认预算1024、一次尝试；所选笔记片段与问题会发送给API。<a href="https://api-docs.deepseek.com/api/create-chat-completion/">DeepSeek接口文档</a></p>
+<p>持久化后，资料不再随服务退出而消失。<code>data</code>里含来源全文、路径、卡片、计划和会话签名密钥，默认没有加密，也没有自动清理任务。不要把运行后的<code>data</code>打包进示例或公开仓库；<code>.gitignore</code>只是减少误提交，并不是访问控制。</p>
+<p>做一次简单备份：先正常停止这一份服务，再通过文件管理器复制整个<code>data</code>目录到你控制的位置。保留同一时间点的数据库、操作记录与会话密钥，不只复制其中一个文件。若数据库仍有程序正在写入，应采用SQLite的备份机制，不能把任意时刻复制文件当作可靠热备份。<a href="https://sqlite.org/backup.html">SQLite备份说明</a></p>
+<p>恢复到原项目时也先停止服务，保留现状备份再操作。即使数据完整，换电脑或清掉Cookie后也不会自动找回原浏览器身份。本课没有跨设备登录、会话找回或数据库版本迁移；不要把复制文件和账户迁移混为一谈。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>优先检查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>重启后首页没历史，旧地址404</td>
+<td>是否启动了同一目录？是否换浏览器、清了Cookie、Cookie过期或换了session.key？先用inspect_db检查记录还在不在</td>
+</tr>
+<tr>
+<td><code>database is locked</code>或网页503</td>
+<td>是否另一个进程正在写同一数据库？停止多余服务和数据库编辑器，保留文件后检查；不要靠重复生成解决</td>
+</tr>
+<tr>
+<td>页面仍为running或uncertain</td>
+<td>查对应操作目录；可能已经发出请求，不自动重发</td>
+</tr>
+<tr>
+<td>409</td>
+<td>是否把demo预览拿到live进程使用？回到匹配模式或明确建立新预览</td>
+</tr>
+<tr>
+<td>403</td>
+<td>旧表单的会话标记可能失效，从当前首页重新进入；不要关闭表单校验</td>
+</tr>
+<tr>
+<td>计划没有变成saved</td>
+<td>查看是否只做了“预览”，还没按“确认保存计划”</td>
+</tr>
+<tr>
+<td>再填不同日期仍显示旧计划</td>
+<td>本课每次生成只允许一份不可变计划，重复提交不会覆盖</td>
+</tr>
+<tr>
+<td>数据库或session.key损坏、版本不支持</td>
+<td>保留原文件和备份，检查错误原因；程序不会自动删除旧库重建</td>
+</tr>
+<tr>
+<td>inspect_db说数据库不存在</td>
+<td>确认在lesson-14运行过网页，检查脚本所在目录的data；检查命令不会创建数据库</td>
+</tr>
+</tbody></table></div>
+<p>本篇的97项离线测试包括74项原有核心回归与23项持久化、网页和故障边界检查，覆盖重复认领、不同会话访问、事务回滚、保存失败、模式切换与重启恢复。浏览器也实际完成了计划确认和重启后读取。它们验证的是应用行为，不代表真实模型质量、线上计费或Windows实机验证。</p>
+<p>你可以用三个问题检验自己的理解：清除Cookie后找不到历史，是否意味着数据库已删除？不一定，访问凭据与数据是两回事。计划草稿已写入数据库，是否表示用户确认了执行？没有，要看<code>draft</code>还是<code>saved</code>。数据库显示<code>running</code>，是否应该自动再发一次请求？不应该，它没有提供足够证据证明上次没执行。</p>
+<p>现在的助手已经能把一次工作保留下来：浏览器找到自己的记录，卡片找到对应证据，计划找到来源卡片，中断操作也有可追查的编号。下一篇会整理配置、启动与交付方式，让别人拿到代码后也能正确运行，并明确本机工具与公开服务之间还有哪些差别。</p>
+</article>

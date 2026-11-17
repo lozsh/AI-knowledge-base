@@ -1,0 +1,262 @@
+这一章只做一件事：在你的电脑上把 MiniMax Code CLI 装好，并跑通第一条命令。
+四种系统分别讲：macOS、Linux、Windows WSL2、Windows PowerShell。
+
+3.1 安装前要知道的
+CLI 命令叫什么
+
+公开的终端命令是 mcode，全小写。后续所有章节里说的 mcode xxx 就是这条命令。
+
+需要 Node.js，但通常不用自己装
+
+官方安装器会在需要时准备好兼容的 Node.js，所以大多数人直接跑安装器就行。只有当你想自己用 npm（Node.js 包管理工具）装、或者你的机器已经有 Node 时才需要关心版本。
+
+如果需要确认，Node.js 版本要求是：
+
+22.19.0 及以上的 22.x 版本
+或 24 / 25 / 26 中的任意一个
+不需要管理员权限
+
+官方安装器会把 CLI 装到当前用户的全局目录，不需要 sudo，也不会动系统目录。
+
+当前章节无法覆盖的特例
+Alpine Linux 当前不在官方一键安装器支持范围。如果你用 Alpine，需要先手动装 Node.js，再用 npm 装 CLI
+musl libc（一种 Linux 系统调用库，与常见的 glibc 不同）同上
+3.2 在 macOS 上安装
+
+打开"终端"应用（在 Spotlight 里搜 Terminal 就行）。
+
+方式一：官方一键安装器（推荐）
+curl -fsSL https://filecdn.minimax.chat/public/install.sh | bash
+
+
+执行过程解释：
+
+curl 是下载工具；-fsSL 让它在出错时安静退出、显示错误信息、自动跟随跳转
+| 是管道符，把下载到的脚本内容传给 bash 执行
+bash 是脚本解释器
+
+等待几秒到十几秒，你会看到一串安装日志。最后如果看到类似 "Installed mcode x.y.z" 字样就是成功了。
+
+方式二：用 npm 装（仅当你已经装了 Node.js）
+npm install -g @minimax-ai/code
+
+
+@minimax-ai/code 是 CLI 在 npm 上的官方包名；-g 表示全局安装。
+
+验证安装
+mcode --version
+mcode --help
+
+
+预期看到版本号和帮助列表。如果你看到的是 -bash: mcode: command not found，通常是 PATH（终端搜索命令的目录列表）还没刷新，重新打开一个终端窗口再试。
+
+验证完就可以登录了
+mcode login
+
+
+按提示在浏览器里完成授权，回到终端后看到 "Logged in" 字样就 OK 了。
+
+3.3 在 Linux 上安装
+
+打开你常用的终端（GNOME Terminal、Konsole、xterm 都行）。
+
+方式一：官方一键安装器（推荐）
+curl -fsSL https://filecdn.minimax.chat/public/install.sh | bash
+
+
+如果是 Debian/Ubuntu，curl 通常自带。如果是 Alpine、Arch、Minimal 镜像，确认 curl 已装；如果没有，先用包管理器装：
+
+# Debian / Ubuntu
+sudo apt update && sudo apt install -y curl
+
+# Fedora / RHEL
+sudo dnf install -y curl
+
+# Arch
+sudo pacman -S --noconfirm curl
+
+方式二：用 npm 装
+npm install -g @minimax-ai/code
+
+验证与登录
+mcode --version
+mcode --help
+mcode login
+
+
+登录流程同 macOS：浏览器授权 → 回到终端。
+
+3.4 在 Windows WSL 2 上安装
+
+WSL（Windows Subsystem for Linux，Windows 上的 Linux 子系统）2 是 Windows 上跑 Linux 的官方方案。对程序员来说，在 WSL 里装 CLI 比在原生 Windows 里更接近 macOS/Linux 体验，强烈推荐。
+
+第一步：确认你已经有 WSL 2 + Ubuntu
+
+打开 PowerShell（普通用户即可，不需要管理员），执行：
+
+wsl -l -v
+
+
+预期看到你已安装的 Linux 发行版（比如 Ubuntu），VERSION 列显示 2。如果没装过：
+
+wsl --install
+
+
+这条会自动启用 WSL 功能并装好 Ubuntu 默认发行版。装完后重启电脑，再打开 Ubuntu 终端。
+
+在开始菜单搜 "Ubuntu" 就能找到它的终端。第一次打开会要求你设置 Linux 用户名和密码。
+
+第二步：在 WSL 内的 Ubuntu 终端里执行
+
+从这一步开始，你就当自己用的是 macOS / Linux。安装命令一模一样：
+
+curl -fsSL https://filecdn.minimax.chat/public/install.sh | bash
+mcode --version
+mcode login
+
+
+如果你以后想从 Windows 的 PowerShell 调用 WSL 里的 mcode，可以这样：
+
+wsl mcode --version
+wsl mcode exec "跑测试"
+
+第三步：把 WSL 里的项目目录指到 Windows 文件系统
+
+默认情况下，WSL 访问 Windows 文件系统的路径是 /mnt/c/...（C 盘）。但是把项目放在 /mnt/c 下会很慢，所以推荐：
+
+# 在 WSL 内的家目录下建项目目录
+mkdir -p ~/projects
+cd ~/projects
+
+
+VS Code 用户可以装一个 "Remote - WSL" 扩展，直接在 Windows 上的 VS Code 里编辑 WSL 里的文件。
+
+3.5 在 Windows PowerShell 上安装
+
+如果你不想用 WSL，也可以直接在原生 Windows 的 PowerShell 里装。
+
+第一步：打开 PowerShell
+
+按 Win + X，选 Windows PowerShell（或 终端）。普通用户即可，不需要"以管理员身份运行"。
+
+第二步：执行官方安装器
+irm https://filecdn.minimax.chat/public/install.ps1 | iex
+
+
+执行过程解释：
+
+irm（Invoke-RestMethod 的别名）从 URL 下载内容
+| 把内容传给 iex（Invoke-Expression 的别名）执行
+
+早期教程习惯写 Invoke-WebRequest ... | Invoke-Expression，效果一样，但 irm | iex 更短。
+
+第三步：处理执行策略拦截
+
+PowerShell 默认的执行策略可能不允许运行下载的脚本。如果你看到红色报错提到 "running scripts is disabled"，先放宽当前用户的策略：
+
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+
+参数解释：
+
+-Scope CurrentUser：只对当前用户生效，不动系统全局
+RemoteSigned：本地脚本可直接运行，从互联网下载的脚本需要签名才放行（放宽后常见安装脚本能跑）
+
+改完后再跑一遍安装器：
+
+irm https://filecdn.minimax.chat/public/install.ps1 | iex
+
+第四步：验证与登录
+mcode --version
+mcode --help
+mcode login
+
+
+如果 mcode 命令仍然 "不是内部或外部命令"，关闭当前 PowerShell 重新打开一次 —— 第一次安装完后，环境变量可能要重开终端才生效。
+
+3.6 登录与账号
+
+不管哪种系统，登录都是同一条命令（中国大陆账号）：
+
+mcode login
+
+
+执行后会发生的事：
+
+CLI 在终端打印一个一次性授权链接和一个短码
+在浏览器里打开链接，输入短码，确认授权
+回到终端，看到 "Logged in" 字样
+
+Global 账号：
+
+mcode login --region global
+
+登录后立刻确认状态
+
+进入交互式 TUI：
+
+mcode
+
+
+启动后在输入框里输入：
+
+/status
+
+
+你应该能看到类似这样的状态面板：
+
+账号与套餐（已登录 / Token Plan）
+当前模型
+权限模式（默认 Ask）
+指令文件来源（决定 Agent 是否读 AGENTS.md）
+
+如果看不到模型列表，说明账号未订阅或网络受限。
+
+退出登录
+mcode logout
+
+3.7 三种入口速览
+
+CLI 有三种入口，本教程都会用到，但用得最多的是第一种：
+
+交互式 TUI
+mcode             # 不带参数直接进 TUI
+mcode "你好"      # 启动并提交第一条任务
+
+
+适合探索仓库、持续对话、审阅修改和处理权限确认。本教程前 10 章基本都在这个模式下完成。
+
+Headless（无交互）
+mcode exec "运行 pytest 并总结失败"
+mcode exec --output-format json "运行 pytest"   # 拿 JSON 输出
+
+
+不启动 TUI，适合 Shell 脚本、CI（持续集成）、批处理、评测。第 11 章会深入。
+
+ACP（编辑器协议）
+mcode acp
+
+
+通过 stdin/stdout 运行 Agent Client Protocol server（Agent 客户端协议服务）。编辑器负责显示回复、工具状态、权限请求。第 12 章会深入。
+
+3.8 安装后常见问题
+mcode: command not found
+关闭终端，重新打开一次（PATH 没刷新）
+macOS / Linux 上，确认安装器输出末尾没有 ERROR 字样
+Windows PowerShell 上，重新打开 PowerShell 窗口
+Linux 上确认你的用户主目录下 ~/.local/bin 在 PATH 里（官方安装器会把 mcode 装到这里）
+安装器卡住
+检查网络能否打开 https://filecdn.minimax.chat/
+关闭代理或 VPN 再试一次
+用方式二 npm install -g @minimax-ai/code 作为备选
+登录后 /status 看不到模型
+账号需要先在网页端订阅 Token Plan 或绑定 API Key
+浏览器里的授权可能没完成，回到终端重新跑 mcode login
+3.9 本章小结
+命令名是 mcode，安装不需要管理员权限
+macOS / Linux / WSL2 用 curl ... | bash 装；Windows PowerShell 用 irm ... | iex 装
+安装后 mcode --version、mcode --help、mcode login 三步走
+CLI 有三种入口：交互 TUI、Headless、ACP，后续章节都会用到
+Node.js 22.19.0+ 是官方版本要求；安装器通常会自动准备
+
+下一章我们会在项目目录里跑 mcode init .，让 Agent 帮我们生成 AGENTS.md，正式进入 habitlog 的开发。

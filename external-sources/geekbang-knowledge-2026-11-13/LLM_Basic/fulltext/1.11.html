@@ -1,0 +1,288 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你的复习助手已经会按照清楚的规则提取时间。现在，笔记从三行变成了几千条：有旧计划、新安排、读书摘录、代码错误记录，还有大量重复内容。</p>
+<p>你问：“第二章这周改到什么时候复习？”正确答案藏在某一条笔记里。把全部笔记交给模型，既可能超出上下文预算，也会带入大量无关信息。只搜索完整问句，又很可能什么都找不到，因为笔记写的是“第 2 章原定周五，现改为周六”。</p>
+<p>这时要先解决的任务是：<strong>从资料中找出值得阅读的候选内容。</strong>本篇讲 Embedding、相似度、关键词检索、混合检索和重排；下一篇再把检索结果接入回答过程。</p>
+<p>无需安装软件。本篇的笔记、向量、排名与检查结果均为教学构造，不是某个实际模型的输出。你只需能看懂一组数字和简单的加减乘除。</p>
+<h2 id="wiki-h-0">Embedding 把文本变成可比较的表示</h2>
+<p>在第一部分，我们把向量理解为一组按顺序排列的数字。这里的 <strong>Embedding，嵌入</strong>，是模型把输入映射成数字表示的结果。</p>
+<p>用于文本检索时，一种常见方式是让编码模型把一段文字变成固定维度的向量：</p>
+<pre><code class="hljs language-text">一条笔记 → 文本编码模型 → 一个向量
+一个问题 → 配套的查询编码方式 → 一个向量
+</code></pre><p>如果模型学到的表示适合当前任务，问题与相关资料的向量就有机会得到较高的匹配分数。SBERT 的原始研究展示了可分别计算的句子表示，再用余弦相似度比较的做法。<a href="https://arxiv.org/abs/1908.10084">《Sentence-BERT》</a></p>
+<p>这里有两个容易混淆的地方。</p>
+<p>首先，第 01 篇讲过的 Token 嵌入，是模型处理序列时的基础表示；这里需要的是适合比较整段文字的表示。把任意聊天模型某个位置的内部向量取出来，并不自动得到一个好用的检索模型。</p>
+<p>其次，向量的每一维通常没有“第 1 维是章节，第 2 维是日期”这样的固定人工含义。表示由训练塑造，很多维度共同参与表达。你不需要逐维解释它，才能使用相似度检索。</p>
+<h3 id="wiki-h-1">为什么“问题”和“答案段落”能够匹配</h3>
+<p>有些任务要找近义句，例如“怎样记笔记”和“如何整理学习记录”。另一些任务要给短问题找包含答案的长段落，两边并不是同一种句式。</p>
+<p>这分别对应比较对称的相似文本检索，与不对称的问答检索。编码模型是否针对这种任务训练，会影响效果；某些模型还要求问题和资料使用不同的前缀或编码入口。<a href="https://www.sbert.net/examples/sentence_transformer/applications/semantic-search/README.html">Sentence Transformers：Semantic Search</a></p>
+<p>一种训练思路是：给模型一个问题、一段相关资料和若干不相关资料，让相关配对的分数相对更高。DPR 原始论文采用问题与段落分别编码的结构，使用正负段落训练检索器。<a href="https://arxiv.org/html/2004.04906v3">《Dense Passage Retrieval》</a></p>
+<p>其中，有的负例很容易区分，例如复习问题配上天气笔记；有的负例很难区分，例如第 2 章的问题配上第 3 章的安排。后者提醒模型：主题相近还不够，细节也要匹配。这只是训练机制的直觉，不表示训练后就不会混淆章节。</p>
+<p>你在应用里把新笔记转换成向量，通常是在使用已经训练好的编码模型，不是在重新训练它。新向量进入检索库，也不代表回答模型的参数记住了这份笔记。</p>
+<h2 id="wiki-h-2">用四条笔记手算一次相似度</h2>
+<p>我们准备下面的材料。为简化，“本周”在这组材料中指同一周；C 的失效状态已确认，不需要根据文件顺序猜测。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>编号</th>
+<th>笔记内容</th>
+<th>补充信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td>第 2 章原定周五，现改为周六复习。</td>
+<td>当前有效</td>
+</tr>
+<tr>
+<td>B</td>
+<td>第 3 章安排在周六复习。</td>
+<td>当前有效</td>
+</tr>
+<tr>
+<td>C</td>
+<td>第 2 章安排在周五复习。</td>
+<td>旧安排，已失效</td>
+</tr>
+<tr>
+<td>D</td>
+<td>复习卡片采用“问题—答案—依据”的格式。</td>
+<td>格式说明</td>
+</tr>
+</tbody></table></div>
+<p>查询 Q 是：“第二章这周改到什么时候复习？”</p>
+<p>人为给它们分配以下二维向量，专门用来说明计算和失败情况。这些坐标没有来自模型，也没有给两个维度指定真实语义。</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>对象</th>
+<th>向量</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Q</td>
+<td><code>[1, 0]</code></td>
+</tr>
+<tr>
+<td>A</td>
+<td><code>[4, 3]</code></td>
+</tr>
+<tr>
+<td>B</td>
+<td><code>[3, 1]</code></td>
+</tr>
+<tr>
+<td>C</td>
+<td><code>[2, 1]</code></td>
+</tr>
+<tr>
+<td>D</td>
+<td><code>[0, 2]</code></td>
+</tr>
+</tbody></table></div>
+<p>一种常用比较方法是 <strong>余弦相似度，cosine similarity</strong>。它比较向量的方向，公式为：</p>
+<pre><code class="hljs language-text">余弦相似度 = 两个向量的点积 ÷ 两个向量长度的乘积
+
+点积：对应位置相乘，再相加
+长度：各位置的平方相加，再开平方
+</code></pre><p>这与信息检索教材中向量空间模型使用的余弦计算一致。<a href="https://nlp.stanford.edu/IR-book/html/htmledition/dot-products-1.html">《Introduction to Information Retrieval》：Dot products</a></p>
+<p>例如 Q 与 A：</p>
+<pre><code class="hljs language-text">点积 = 1×4 + 0×3 = 4
+Q 的长度 = √(1²+0²) = 1
+A 的长度 = √(4²+3²) = 5
+余弦相似度 = 4 ÷ (1×5) = 0.8
+</code></pre><p>用同样方法计算其余三条：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>笔记</th>
+<th align="right">与 Q 的余弦相似度</th>
+<th align="right">排名</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>B</td>
+<td align="right">3/√10 ≈ 0.949</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>C</td>
+<td align="right">2/√5 ≈ 0.894</td>
+<td align="right">2</td>
+</tr>
+<tr>
+<td>A</td>
+<td align="right">0.800</td>
+<td align="right">3</td>
+</tr>
+<tr>
+<td>D</td>
+<td align="right">0.000</td>
+<td align="right">4</td>
+</tr>
+</tbody></table></div>
+<p><strong>Top-k</strong> 指按当前分数取前 k 条。这个例子的 Top-2 是 B、C，恰好漏掉了能支持当前答案的 A。</p>
+<p>这个反例不是说某个真实模型一定会这样排，而是说明：排序程序即使完全算对，表示与任务之间仍可能存在差距。向量搜索正确执行，与检索结果对用户有用，是两层不同的问题。</p>
+<h3 id="wiki-h-3">0.949 不是“94.9% 正确”</h3>
+<p>余弦分数不是答案正确率，也不是经过校准的相关概率。对于非零向量，余弦范围在 -1 到 1 之间；某些模型的实际分数可能集中在较窄区间，不能拿一个通用阈值套所有任务。</p>
+<p>若把 A 从 <code>[4,3]</code> 放大成 <code>[8,6]</code>，方向不变，余弦仍为 0.8；直接点积却从 4 变成 8。如果双方都归一化成长度为 1 的向量，就可以直接用点积计算余弦。检索还可能使用点积或欧氏距离，应遵循所选模型与索引的约定，不能随意换算规则。</p>
+<p>零向量的长度是零，不能直接代入余弦公式。实际程序需要处理这种异常，而不是把除零结果当成有效相关性。</p>
+<h2 id="wiki-h-4">关键词检索仍然有用</h2>
+<p>看到语义检索能处理表达差异，很容易以为关键词搜索已经过时。但你的笔记未必总是在问抽象意思。</p>
+<p>如果你要找的是错误码 <code>E1042</code>、函数 <code>load_notes</code> 或文件 <code>chapter_02.md</code>，这些精确字符串本身就很重要。把 <code>E1042</code> 与 <code>E1043</code> 视为“都像错误码”，可能导致错误匹配。</p>
+<p>关键词检索依据词项匹配来寻找资料。常见的 <strong>BM25</strong> 不只是计算“出现了几个相同的词”，还考虑词项的区分能力、出现频率和文档长度；同一个词重复很多次，得分不会简单地无限按次数线性增长。<a href="https://nlp.stanford.edu/IR-book/html/htmledition/okapi-bm25-a-non-binary-model-1.html">《Introduction to Information Retrieval》：Okapi BM25</a></p>
+<p>实际效果也受文本处理影响。例如，“第二章”与“第 2 章”是否能匹配，可能取决于分词、归一化和同义表达配置。关键词系统也能配置同义词或查询扩展，因此不能把它描述成永远只能逐字照抄匹配。</p>
+<p>对复习助手，两类方法的侧重点可以这样理解：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>要找的内容</th>
+<th>可以先检查什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>一个明确的错误码、文件名或章节标识</td>
+<td>精确匹配、关键词和字段筛选</td>
+</tr>
+<tr>
+<td>与“把知识记牢”意思相关、用词不同的学习笔记</td>
+<td>向量检索是否能找回改写表达</td>
+</tr>
+<tr>
+<td>“第 2 章现在几点复习”这样的具体事实</td>
+<td>章节、有效版本、时间证据是否都正确</td>
+</tr>
+</tbody></table></div>
+<p>最后一种任务不是单靠某个相似度就能保证完成的。检索方式应围绕问题选择，而不是围绕“哪种技术更新”选择。</p>
+<h2 id="wiki-h-5">混合检索：把两种候选线索放到一起</h2>
+<p><strong>混合检索，hybrid retrieval</strong>，可以把关键词与向量检索的结果合并，让两种方法相互补充。</p>
+<p>但直接把 BM25 分数 12.6 与余弦分数 0.8 相加，通常没有清楚的尺度依据。一种做法是先校准或归一化分数；另一种做法只利用各自的名次。</p>
+<p><strong>RRF，Reciprocal Rank Fusion，倒数排名融合</strong>，属于后一种。它给每条结果按名次分配贡献，再把不同列表中的贡献相加。以下是等权重形式：</p>
+<pre><code class="hljs language-text">某条资料的融合分数 = 各列表贡献之和
+某列表中的贡献 = 1 ÷ (c + 该资料在列表中的名次)
+没有进入该列表，则该列表贡献为 0
+</code></pre><p>其中 c 是排名常数，名次从 1 开始。它与 Top-k 中的 k 不是同一个含义。<a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reciprocal-rank-fusion">Elasticsearch：Reciprocal rank fusion</a></p>
+<p>沿用刚才的向量排名，取前三条。再人为设定一个关键词候选列表，演示融合；这里的关键词顺序不是 BM25 实测结果。</p>
+<pre><code class="hljs language-text">关键词列表：A、C、D
+向量列表：  B、C、A
+</code></pre><p>取 c=60，仅作为算例，得到：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>资料</th>
+<th align="right">关键词名次</th>
+<th align="right">向量名次</th>
+<th align="right">融合分数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td align="right">1</td>
+<td align="right">3</td>
+<td align="right">1/61 + 1/63 ≈ 0.032266</td>
+</tr>
+<tr>
+<td>C</td>
+<td align="right">2</td>
+<td align="right">2</td>
+<td align="right">1/62 + 1/62 ≈ 0.032258</td>
+</tr>
+<tr>
+<td>B</td>
+<td align="right">未进入</td>
+<td align="right">1</td>
+<td align="right">1/61 ≈ 0.016393</td>
+</tr>
+<tr>
+<td>D</td>
+<td align="right">3</td>
+<td align="right">未进入</td>
+<td align="right">1/63 ≈ 0.015873</td>
+</tr>
+</tbody></table></div>
+<p>融合后 A 排在最前，C 紧随其后。读者可以拿计算器复核：A 与 C 的差距极小。</p>
+<p>这次 A 获得了更多曝光机会，但算法没有理解“C 已失效”这一业务事实。假如列表顺序变化，结果也可能变化；RRF 不保证自动选出有效版本。合并后还应按资料 ID 去重，避免同一条笔记因为来自两条路径而被重复塞进上下文。</p>
+<h2 id="wiki-h-6">重排与筛选：候选到了，还要看是否适用</h2>
+<p>假设检索从几千条笔记里找出了几十条候选。接下来可以用 <strong>Reranker，重排器</strong>，重新判断它们与问题的关系。</p>
+<p>一种常见重排模型是 <strong>Cross-Encoder，交叉编码器</strong>。它把“问题＋某条候选资料”放在一起处理，从而直接计算二者之间的关系；这与先独立计算问题和资料向量、再比较分数的双编码器方式不同。<a href="https://www.sbert.net/examples/sentence_transformer/applications/retrieve_rerank/README.html">Sentence Transformers：Retrieve &amp; Re-Rank</a></p>
+<p>资料向量可以事先算好，适合对大量内容快速搜索。交叉编码器通常需要为本次问题与每条候选分别计算，因而常放在候选缩小之后。重排分数的范围和含义取决于模型，不应默认它就是正确率。</p>
+<p>对于本篇例子，重排时希望识别的是：B 讲错了章节，C 是旧安排，D 没有回答时间，A 才提供了明确更新。要判断 C 的有效性，必须把“已失效”等已知信息一并提供给重排器，或交给程序筛选；只给它正文“第 2 章安排在周五”，不能期待它凭空知道版本状态。它可能改善这样的判断，但仍需要验证，不能把“再过一个模型”当作事实保证。</p>
+<h3 id="wiki-h-7">已知的硬条件，应明确表达</h3>
+<p>如果笔记已经有可靠的 <code>chapter=2</code>、<code>status=current</code> 等字段，就可以用这些<strong>元数据</strong>筛选候选。元数据是伴随正文存储的描述信息，例如章节、日期、来源、版本状态。</p>
+<p>在我们的四条材料中，按第 2 章且当前有效筛选，A 可以保留，B、C 不符合条件。不要只期待向量把这些约束全学会。</p>
+<p>不过，筛选依赖字段可靠。把“最后上传的文件”自动标为最新有效版本，就可能从源头选错。版本无法判定时，应保留冲突线索，而不是凭空加一个 current 标签。</p>
+<p>筛选放在哪里也有影响：如果先取向量 Top-2 得到 B、C，再把它们全部过滤掉，就只剩空列表；这不表示库里没有 A。可以在候选搜索时应用筛选，或扩大候选后再筛选，具体取决于系统能力。</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-9" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 1128px;" viewBox="4 4 1128 152" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-9{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-9 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-9 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-9 .error-icon{fill:#552222;}#wiki-mermaid-9 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-9 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-9 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-9 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-9 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-9 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-9 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-9 .marker{fill:#666;stroke:#666;}#wiki-mermaid-9 .marker.cross{stroke:#666;}#wiki-mermaid-9 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-9 p{margin:0;}#wiki-mermaid-9 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-9 .cluster-label text{fill:#333;}#wiki-mermaid-9 .cluster-label span{color:#333;}#wiki-mermaid-9 .cluster-label span p{background-color:transparent;}#wiki-mermaid-9 .label text,#wiki-mermaid-9 span{fill:#000000;color:#000000;}#wiki-mermaid-9 .node rect,#wiki-mermaid-9 .node circle,#wiki-mermaid-9 .node ellipse,#wiki-mermaid-9 .node polygon,#wiki-mermaid-9 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-9 .rough-node .label text,#wiki-mermaid-9 .node .label text,#wiki-mermaid-9 .image-shape .label,#wiki-mermaid-9 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-9 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-9 .rough-node .label,#wiki-mermaid-9 .node .label,#wiki-mermaid-9 .image-shape .label,#wiki-mermaid-9 .icon-shape .label{text-align:center;}#wiki-mermaid-9 .node.clickable{cursor:pointer;}#wiki-mermaid-9 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-9 .arrowheadPath{fill:#333333;}#wiki-mermaid-9 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-9 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-9 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-9 .edgeLabel p{background-color:white;}#wiki-mermaid-9 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-9 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-9 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-9 .cluster text{fill:#333;}#wiki-mermaid-9 .cluster span{color:#333;}#wiki-mermaid-9 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-9 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-9 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-9 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-9 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-9 .icon-shape,#wiki-mermaid-9 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-9 .icon-shape p,#wiki-mermaid-9 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-9 .icon-shape .label rect,#wiki-mermaid-9 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-9 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-9 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-9 .node .neo-node{stroke:#999;}#wiki-mermaid-9 [data-look="neo"].node rect,#wiki-mermaid-9 [data-look="neo"].cluster rect,#wiki-mermaid-9 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-9-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-9 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-9 [data-look="neo"].node path{stroke:url(#wiki-mermaid-9-gradient);stroke-width:1px;}#wiki-mermaid-9 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-9 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-9 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-9-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-9 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-9 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-9-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-9 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-9-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-9 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-9_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-9_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-9_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-9_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-9_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-9_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-9_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-9_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-9_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-9_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-9_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-9_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M164,71.33333333333333L176.92893218813452,71.33333333333333Q184,71.33333333333333 184,64.26226552146785L184,43.071067811865476Q184,36 191.07106781186548,36L200,36" id="wiki-mermaid-9-L_Q_K_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 62.00498962402344 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_Q_K_0" data-points="W3sieCI6MTY0LCJ5Ijo3MS4zMzMzMzMzMzMzMzMzM30seyJ4IjoxODQsInkiOjcxLjMzMzMzMzMzMzMzMzMzfSx7IngiOjE4NCwieSI6MzZ9LHsieCI6MjA0LCJ5IjozNn1d" data-look="neo" marker-end="url(#wiki-mermaid-9_flowchart-v2-pointEnd-margin)"></path><path d="M164,88.66666666666666L176.92893218813452,88.66666666666666Q184,88.66666666666666 184,95.73773447853213L184,116.92893218813452Q184,124 191.07106781186548,124L200,124" id="wiki-mermaid-9-L_Q_V_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 62.00498962402344 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_Q_V_0" data-points="W3sieCI6MTY0LCJ5Ijo4OC42NjY2NjY2NjY2NjY2Nn0seyJ4IjoxODQsInkiOjg4LjY2NjY2NjY2NjY2NjY2fSx7IngiOjE4NCwieSI6MTI0fSx7IngiOjIwNCwieSI6MTI0fV0=" data-look="neo" marker-end="url(#wiki-mermaid-9_flowchart-v2-pointEnd-margin)"></path><path d="M356,36L368.9289321881345,36Q376,36 376,43.071067811865476L376,68.26226552146787Q376,75.33333333333334 383.0710678118655,75.33333333333334L392,75.33333333333334" id="wiki-mermaid-9-L_K_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 66.00505828857422 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_K_M_0" data-points="W3sieCI6MzU2LCJ5IjozNn0seyJ4IjozNzYsInkiOjM2fSx7IngiOjM3NiwieSI6NzUuMzMzMzMzMzMzMzMzMzR9LHsieCI6Mzk2LCJ5Ijo3NS4zMzMzMzMzMzMzMzMzNH1d" data-look="neo" marker-end="url(#wiki-mermaid-9_flowchart-v2-pointEnd-margin)"></path><path d="M356,124L368.9289321881345,124Q376,124 376,116.92893218813452L376,91.73773447853215Q376,84.66666666666667 383.0710678118655,84.66666666666667L392,84.66666666666667" id="wiki-mermaid-9-L_V_M_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 66.00505065917969 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_V_M_0" data-points="W3sieCI6MzU2LCJ5IjoxMjR9LHsieCI6Mzc2LCJ5IjoxMjR9LHsieCI6Mzc2LCJ5Ijo4NC42NjY2NjY2NjY2NjY2N30seyJ4IjozOTYsInkiOjg0LjY2NjY2NjY2NjY2NjY3fV0=" data-look="neo" marker-end="url(#wiki-mermaid-9_flowchart-v2-pointEnd-margin)"></path><path d="M548,80L584,80" id="wiki-mermaid-9-L_M_R_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_M_R_0" data-points="W3sieCI6NTQ4LCJ5Ijo4MH0seyJ4Ijo1ODgsInkiOjgwfV0=" data-look="neo" marker-end="url(#wiki-mermaid-9_flowchart-v2-pointEnd-margin)"></path><path d="M740,80L776,80" id="wiki-mermaid-9-L_R_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_R_C_0" data-points="W3sieCI6NzQwLCJ5Ijo4MH0seyJ4Ijo3ODAsInkiOjgwfV0=" data-look="neo" marker-end="url(#wiki-mermaid-9_flowchart-v2-pointEnd-margin)"></path><path d="M932,80L968,80" id="wiki-mermaid-9-L_C_O_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_O_0" data-points="W3sieCI6OTMyLCJ5Ijo4MH0seyJ4Ijo5NzIsInkiOjgwfV0=" data-look="neo" marker-end="url(#wiki-mermaid-9_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"></g><g class="nodes"><g class="node default" id="wiki-mermaid-9-flowchart-Q-0" data-look="neo" transform="translate(88, 80)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>用户问题与明确条件</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-9-flowchart-K-1" data-look="neo" transform="translate(280, 36)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>关键词候选</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-9-flowchart-V-3" data-look="neo" transform="translate(280, 124)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>向量候选</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-9-flowchart-M-5" data-look="neo" transform="translate(472, 80)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>合并排名与去重</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-9-flowchart-R-9" data-look="neo" transform="translate(664, 80)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>可选重排</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-9-flowchart-C-11" data-look="neo" transform="translate(856, 80)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>检查条件与证据</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-9-flowchart-O-13" data-look="neo" transform="translate(1048, 80)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>原文片段与来源</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-9-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-9-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-9-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>图中是便于理解的示意流程；章节、权限、版本等适用条件应进入实际检索设计，不必统一等到最后一步才处理。</p>
+<h2 id="wiki-h-8">索引负责找得快，模型负责怎样表示</h2>
+<p>准备检索库时，通常保存的不只是向量，还包括资料 ID、原文或原文位置、元数据。否则找到了一个高分向量，也无法告诉读者它对应哪条笔记。</p>
+<p>资料向量可提前计算；用户提问时，再计算查询向量并搜索。若只维护少量笔记，可以直接比较所有向量，不必一开始就部署复杂的向量数据库。</p>
+<p>资料很多时，为每次查询逐一比较可能太慢。这时可以用 <strong>ANN，Approximate Nearest Neighbor，近似最近邻搜索</strong>，通过索引结构减少搜索工作，但可能漏掉真正位于向量前列的条目。Faiss 的索引指南区分了精确搜索与具有速度、内存、精度取舍的索引方案。<a href="https://github.com/facebookresearch/faiss/wiki/Guidelines-to-choose-an-index">Faiss：Guidelines to choose an index</a></p>
+<p>这里要区分两种“漏掉”：</p>
+<ul>
+<li>表示问题：按当前向量精确排序，A 本来就在第三名，Top-2 自然找不到它。</li>
+<li>搜索近似误差：按当前向量 A 本应进入所取范围，却被近似搜索遗漏。</li>
+</ul>
+<p>前者不能只靠把近似索引调得更精确来解决；后者也不能只靠修改回答模型的提示词来解决。</p>
+<p>编码配置同样要保持配套。问题与资料可以使用共享或分别训练的编码器，但必须处在兼容的向量空间中。两个模型都输出 768 维，不代表坐标含义一致；仅凭维数相同就混用，排序结果可能失去意义。</p>
+<p>更换不兼容的嵌入模型或编码方式后，需要重新生成相应资料向量并更新索引。修改、删除笔记时，也要同步更新原文和索引记录。否则检索可能继续找到已经过期甚至已删除的内容。</p>
+<h2 id="wiki-h-9">先检查“找回了什么”，再检查“回答得怎样”</h2>
+<p>不用调用模型，也可以为检索准备一份小检查集。针对你的真实笔记，写下问题、能支持答案的资料 ID，以及不应混入的干扰项。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>问题类型</th>
+<th>示例</th>
+<th>检查重点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>表达改写</td>
+<td>第二章改到哪天了？</td>
+<td>能否找到“第 2 章现改为周六”</td>
+</tr>
+<tr>
+<td>精确标识</td>
+<td>哪条笔记记录了 E1042？</td>
+<td>是否错取 E1043</td>
+</tr>
+<tr>
+<td>版本变化</td>
+<td>当前安排是什么？</td>
+<td>是否只找回旧安排</td>
+</tr>
+<tr>
+<td>多份证据</td>
+<td>对比两章的安排</td>
+<td>是否漏掉其中一章</td>
+</tr>
+<tr>
+<td>没有答案</td>
+<td>第 9 章何时复习？但库里没有记录</td>
+<td>是否把“最相似”误当成“有答案”</td>
+</tr>
+</tbody></table></div>
+<p>当检索被配置为返回前 k 条时，即使所有内容都不合适，也可能返回一些排名靠前的材料。是否有答案，还要检查证据；相似度阈值可以辅助，但阈值应在自己的模型、数据与任务上验证。</p>
+<p>可以先用召回率 Recall 衡量找回了多少相关资料，并在前 k 条的位置计算它；精确率 Precision 则衡量返回内容中有多少是相关的。<a href="https://nlp.stanford.edu/IR-book/html/htmledition/evaluation-of-unranked-retrieval-sets-1.html">《Introduction to Information Retrieval》：Precision 与 Recall</a></p>
+<p>本篇使用如下定义：</p>
+<pre><code class="hljs language-text">Recall@k = 前 k 条里找回的相关资料数 ÷ 全部已标注相关资料数
+</code></pre><p>这里的“相关”要按任务预先定义。例如本篇问题要求当前安排，已失效的 C 不算能支持当前答案的相关资料。</p>
+<p>在四条材料中，只有 A 符合这一定义。向量排序 B、C、A、D 的 Recall@2 是 0，Recall@3 是 1。后者表示找回了所需资料，不表示前三条都合适，更不表示后续模型一定会据此答对。</p>
+<p>再构造一个需要 A、E 两份证据的问题。若前三条是 A、B、D，Recall@3 为 1/2，Precision@3 为 1/3；前者看漏没漏，后者看返回内容里有多少相关资料。这里 E 是为指标练习额外设定的相关资料，不属于前面的四条向量算例。</p>
+<p>没有相关资料的查询会使上述召回率分母为零，应单独检查“无答案”处理，不把它机械计为 0 或 1。标注若不完整，指标也会有偏差。</p>
+<p>排查时，先看候选列表和原文：正确内容完全没进入候选，优先查检索与数据；正确内容已经在候选里却被移除，查筛选与重排；证据已经交给回答模型却仍答错，才进入下一篇的回答链路。</p>
+<h2 id="wiki-h-10">理解检查</h2>
+<p><strong>1. 一条笔记被转换为向量并存入检索库，是否说明回答模型已经学会它？</strong></p>
+<p>没有。通常只是编码与存储，没有更新回答模型的参数。后续还需要按问题找到这条记录，并把所需原文用于回答。</p>
+<p><strong>2. A 从 <code>[4,3]</code> 变成 <code>[8,6]</code>，与 Q=<code>[1,0]</code> 的余弦是多少？直接点积是多少？</strong></p>
+<p>余弦仍为 0.8；直接点积为 8。比例放大没有改变方向，但改变了向量长度和未归一化点积。</p>
+<p><strong>3. 向量 Top-2 为 B、C，过滤掉错误章节和失效资料后为空，能否认定没有答案？</strong></p>
+<p>不能。A 还在候选范围之外。应检查筛选时机、扩大候选或调整检索方式，不能把候选为空直接等同于资料不存在。</p>
+<p><strong>4. RRF 把 A 排在 C 前面，是否证明它理解了新旧版本？</strong></p>
+<p>不能。这个计算只用了名次。版本判断仍来自可靠元数据或对原文的进一步分析。</p>
+<p><strong>5. 两个嵌入模型输出维度相同，能否直接用一个编码问题、另一个编码笔记？</strong></p>
+<p>不能仅凭维度相同这样做。它们必须经过配套训练或其他兼容性验证，才能在同一空间比较。</p>
+<p><strong>6. 已知相关资料是 A、E，返回 A、B、D，Recall@3 与 Precision@3 各是多少？怎样改善？</strong></p>
+<p>分别是 1/2 和 1/3。先查 E 为什么未被召回，再查 B、D 为什么占据前列。重排只能调整已有候选；如果 E 根本没进入候选，仅重排这三条无法补回它。</p>
+<hr>
+<p>现在，你可以把检索过程拆成几个可检查的环节：表示是否适合任务、候选是否覆盖证据、排序是否保留有用资料，以及硬条件是否被正确执行。</p>
+<p>下一篇《RAG：怎样让模型依据你的资料回答》，将把这些候选原文组织进上下文，继续处理资料切分、来源引用和回答验证。</p>
+<p>上一篇：提示词与上下文学习 · 返回第二部分大纲</p>
+</article>

@@ -1,0 +1,154 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P31-P34<br><strong>版本</strong>：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 8 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<h2 id="wiki-h-0">用 Claude Code 定义需求</h2>
+<p><em>Bash</em></p>
+<pre><code>claude-code <span class="hljs-comment">--task "Debug authentication failure in user dashboard - getting 500 errors on login attempts"</span>
+</code></pre><p><strong>Environment information</strong></p>
+<ul>
+<li><strong>Operating system:</strong> macOS Sonoma 14.2.1</li>
+<li><strong>Node.js version:</strong> v18.17.1</li>
+<li><strong>npm version:</strong> 9.8.1</li>
+<li><strong>Framework:</strong> Express.js v4.18.2</li>
+<li><strong>Database:</strong> PostgreSQL 15.3</li>
+<li><strong>Key dependencies:</strong><ul>
+<li>jsonwebtoken: ^9.0.2</li>
+<li>bcryptjs: ^2.4.3</li>
+<li>pg: ^8.11.3</li>
+<li>express-rate-limit: ^6.10.0</li>
+</ul>
+</li>
+</ul>
+<p><strong>Full error information</strong></p>
+<pre><code><span class="hljs-attr">Error:</span> Authentication failed during login process
+    at UserController.login (<span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>controllers/userController.<span class="hljs-attr">js:</span><span class="hljs-number">45</span>)
+    at Layer.handle [<span class="hljs-keyword">as</span> handle_request] (<span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>node_modules<span class="hljs-regexp">/express/</span>lib<span class="hljs-regexp">/router/</span>layer.<span class="hljs-attr">js:</span><span class="hljs-number">95</span>)
+    at next (<span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>node_modules<span class="hljs-regexp">/express/</span>lib<span class="hljs-regexp">/router/</span>route.<span class="hljs-attr">js:</span><span class="hljs-number">144</span>)
+    at Route.dispatch (<span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>node_modules<span class="hljs-regexp">/express/</span>lib<span class="hljs-regexp">/router/</span>route.<span class="hljs-attr">js:</span><span class="hljs-number">114</span>)
+    at Layer.handle [<span class="hljs-keyword">as</span> handle_request] (<span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>node_modules<span class="hljs-regexp">/express/</span>lib<span class="hljs-regexp">/router/</span>layer.<span class="hljs-attr">js:</span><span class="hljs-number">95</span>)
+    at <span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>node_modules<span class="hljs-regexp">/express/</span>lib<span class="hljs-regexp">/router/</span>index.<span class="hljs-attr">js:</span><span class="hljs-number">284</span>
+    at Function.process_params (<span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>node_modules<span class="hljs-regexp">/express/</span>lib<span class="hljs-regexp">/router/</span>index.<span class="hljs-attr">js:</span><span class="hljs-number">346</span>)
+    at next (<span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>node_modules<span class="hljs-regexp">/express/</span>lib<span class="hljs-regexp">/router/</span>index.<span class="hljs-attr">js:</span><span class="hljs-number">280</span>)
+    at <span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>middleware/auth.<span class="hljs-attr">js:</span><span class="hljs-number">23</span>
+    at Layer.handle [<span class="hljs-keyword">as</span> handle_request] (<span class="hljs-regexp">/Users/</span>dev<span class="hljs-regexp">/myapp/</span>node_modules<span class="hljs-regexp">/express/</span>lib<span class="hljs-regexp">/router/</span>layer.<span class="hljs-attr">js:</span><span class="hljs-number">95</span>)
+
+Database connection error <span class="hljs-keyword">in</span> <span class="hljs-attr">logs:</span>
+[<span class="hljs-number">2024</span>-<span class="hljs-number">01</span>-<span class="hljs-number">15</span> <span class="hljs-number">14</span>:<span class="hljs-number">23</span>:<span class="hljs-number">15</span>] <span class="hljs-attr">ERROR:</span> connection to server at <span class="hljs-string">"localhost"</span> (<span class="hljs-number">127.0</span><span class="hljs-number">.0</span><span class="hljs-number">.1</span>), port <span class="hljs-number">5432</span> <span class="hljs-attr">failed:</span> <span class="hljs-attr">FATAL:</span> password authentication failed <span class="hljs-keyword">for</span> user <span class="hljs-string">"myapp_user"</span>
+[<span class="hljs-number">2024</span>-<span class="hljs-number">01</span>-<span class="hljs-number">15</span> <span class="hljs-number">14</span>:<span class="hljs-number">23</span>:<span class="hljs-number">15</span>] <span class="hljs-attr">ERROR:</span> Query execution failed - relation <span class="hljs-string">"users"</span> does not exist
+</code></pre><p><strong>Browser console error</strong></p>
+<pre><code>POST http://localhost:<span class="hljs-number">3000</span>/api/auth/login <span class="hljs-number">500</span> <span class="hljs-punctuation">(</span>Internal Server Error<span class="hljs-punctuation">)</span>
+Uncaught <span class="hljs-punctuation">(</span><span class="hljs-type">in</span> promise<span class="hljs-punctuation">)</span> Error: Request failed with status code <span class="hljs-number">500</span>
+    at createError <span class="hljs-punctuation">(</span>createError.js:<span class="hljs-number">16</span>:<span class="hljs-number">1</span><span class="hljs-punctuation">)</span>
+    at settle <span class="hljs-punctuation">(</span>settle.js:<span class="hljs-number">17</span>:<span class="hljs-number">1</span><span class="hljs-punctuation">)</span>
+    at XMLHttpRequest.onloadend <span class="hljs-punctuation">(</span>xhr.js:<span class="hljs-number">66</span>:<span class="hljs-number">1</span><span class="hljs-punctuation">)</span>
+</code></pre><p><strong>Reproduction steps</strong></p>
+<ol>
+<li>Start the application: <code>npm run dev</code></li>
+<li>Navigate to <code>http://localhost:3000/dashboard</code></li>
+<li>Enter credentials: <code>testuser@example.com</code> / <code>password123</code></li>
+<li>Click “Sign In” button</li>
+<li>Observe 500 error in browser network tab</li>
+</ol>
+<p>Check terminal logs showing database connection failure</p>
+<p><strong>Expected vs. actual behavior</strong></p>
+<ul>
+<li><strong>Expected:</strong> User successfully logs in, receives JWT token, and redirects to <code>/dashboard</code> with 200 status</li>
+<li><strong>Actual:</strong> Login attempt returns 500 status with “Authentication failed” message, user remains on login page</li>
+</ul>
+<p><strong>Relevant code files</strong></p>
+<p>controllers/userController.js (Login method causing error):</p>
+<p><em>Javascript</em></p>
+<pre><code><span class="hljs-keyword">const</span> bcrypt = <span class="hljs-title function_">require</span>(<span class="hljs-string">'bcryptjs'</span>);
+<span class="hljs-keyword">const</span> jwt = <span class="hljs-title function_">require</span>(<span class="hljs-string">'jsonwebtoken'</span>);
+<span class="hljs-keyword">const</span> <span class="hljs-title class_">User</span> = <span class="hljs-title function_">require</span>(<span class="hljs-string">'../models/User'</span>);
+
+exports.login = <span class="hljs-keyword">async</span> (req, res) =&gt; {
+  <span class="hljs-keyword">try</span> {
+    <span class="hljs-keyword">const</span> { email, password } = req.body;
+
+    <span class="hljs-comment">// Find user by email</span>
+    <span class="hljs-keyword">const</span> user = <span class="hljs-keyword">await</span> <span class="hljs-title class_">User</span>.<span class="hljs-title function_">findByEmail</span>(email);
+    <span class="hljs-keyword">if</span> (!user) {
+      <span class="hljs-keyword">return</span> res.<span class="hljs-title function_">status</span>(<span class="hljs-number">401</span>).<span class="hljs-title function_">json</span>({ message: <span class="hljs-string">'Invalid credentials'</span> });
+    }
+
+    <span class="hljs-comment">// Verify password</span>
+    <span class="hljs-keyword">const</span> isValidPassword = <span class="hljs-keyword">await</span> bcrypt.<span class="hljs-title function_">compare</span>(password, user.password_hash);
+    <span class="hljs-keyword">if</span> (!isValidPassword) {
+      <span class="hljs-keyword">return</span> res.<span class="hljs-title function_">status</span>(<span class="hljs-number">401</span>).<span class="hljs-title function_">json</span>({ message: <span class="hljs-string">'Invalid credentials'</span> });
+    }
+
+    <span class="hljs-comment">// Generate JWT token - LINE 45 WHERE ERROR OCCURS</span>
+    <span class="hljs-keyword">const</span> token = jwt.<span class="hljs-title function_">sign</span>(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: <span class="hljs-string">'24h'</span> }
+    );
+
+    res.<span class="hljs-title function_">json</span>({
+      message: <span class="hljs-string">'Login successful'</span>,
+      token: token,
+      user: { id: user.id, email: user.email }
+    });
+  } <span class="hljs-keyword">catch</span> (error) {
+    console.<span class="hljs-title function_">error</span>(<span class="hljs-string">'Login error:'</span>, error);
+    res.<span class="hljs-title function_">status</span>(<span class="hljs-number">500</span>).<span class="hljs-title function_">json</span>({ message: <span class="hljs-string">'Authentication failed'</span> });
+  }
+};
+</code></pre><p>config/database.js (Database configuration):</p>
+<p><em>Javascript</em></p>
+<pre><code><span class="hljs-keyword">const</span> { <span class="hljs-title class_">Pool</span> } = <span class="hljs-title function_">require</span>(<span class="hljs-string">'pg'</span>);
+
+<span class="hljs-keyword">const</span> pool = <span class="hljs-keyword">new</span> <span class="hljs-title class_">Pool</span>({
+  user: process.env.DB_USER || <span class="hljs-string">'myapp_user'</span>,
+  host: process.env.DB_HOST || <span class="hljs-string">'localhost'</span>,
+  database: process.env.DB_NAME || <span class="hljs-string">'myapp_db'</span>,
+  password: process.env.DB_PASSWORD || <span class="hljs-string">'defaultpassword'</span>,
+  port: process.env.DB_PORT || <span class="hljs-number">5432</span>,
+});
+
+module.exports = pool;
+</code></pre><p>current .env file</p>
+<pre><code><span class="hljs-attr">NODE_ENV</span><span class="hljs-operator">=</span>development
+<span class="hljs-attr">PORT</span><span class="hljs-operator">=</span>3000
+<span class="hljs-attr">JWT_SECRET</span><span class="hljs-operator">=</span>your-secret-key-here
+<span class="hljs-attr">DB_USER</span><span class="hljs-operator">=</span>myapp_user
+<span class="hljs-attr">DB_HOST</span><span class="hljs-operator">=</span>localhost
+<span class="hljs-attr">DB_NAME</span><span class="hljs-operator">=</span>myapp_db
+<span class="hljs-attr">DB_PASSWORD</span><span class="hljs-operator">=</span>wrongpassword123
+<span class="hljs-attr">DB_PORT</span><span class="hljs-operator">=</span>5432
+</code></pre><p><strong>Database schema (users table)</strong></p>
+<p><em>SQL</em></p>
+<pre><code><span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">TABLE</span> users (
+  id <span class="hljs-type">SERIAL</span> <span class="hljs-keyword">PRIMARY KEY</span>,
+  email <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">255</span>) <span class="hljs-keyword">UNIQUE</span> <span class="hljs-keyword">NOT</span> <span class="hljs-keyword">NULL</span>,
+  password_hash <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">255</span>) <span class="hljs-keyword">NOT</span> <span class="hljs-keyword">NULL</span>,
+  created_at <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">DEFAULT</span> <span class="hljs-built_in">CURRENT_TIMESTAMP</span>,
+  updated_at <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">DEFAULT</span> <span class="hljs-built_in">CURRENT_TIMESTAMP</span>
+);
+</code></pre><p><strong>Visual context</strong></p>
+<ul>
+<li>Login form UI: Standard email/password form with “Sign In” button</li>
+<li>Network tab: Shows POST request to /api/auth/login returning 500 status</li>
+<li>Console output: Application starts successfully on port 3000, but database connection fails immediately when login is attempted</li>
+</ul>
+<p><strong>Additional context</strong></p>
+<ul>
+<li>This worked fine yesterday before I updated some dependencies</li>
+<li>PostgreSQL service is running (confirmed with brew services list)</li>
+<li>Database exists and user table has test data</li>
+<li>Same issue occurs with different user accounts</li>
+<li>Problem started after running npm update this morning</li>
+</ul>
+<p><strong>What I've tried</strong></p>
+<ol>
+<li>Restarted PostgreSQL service</li>
+<li>Verified database credentials manually with psql</li>
+<li>Checked that users table exists and has data</li>
+<li>Cleared npm cache and reinstalled node_modules</li>
+<li>Rolled back to previous git commit - issue persists</li>
+</ol>
+<p>Please help identify the root cause and provide a fix that addresses both the database connection issue and any potential problems in the authentication flow.</p>
+<hr>
+<p><strong>原文备注</strong>：本页除标题外为示例提示词原文，按原样保留英文，不附中文对照。</p>
+</article>

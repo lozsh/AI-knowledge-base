@@ -1,0 +1,234 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>你准备把个人复习助手真正做出来。它需要读笔记、解释概念、看白板照片，还要把确认过的复习安排保存下来。</p>
+<p>摆在面前的选择很多：用能力更强但等待更久的模型，还是用响应快的小模型？把全部笔记放进上下文，还是先检索？要不要微调？直接调用 API，还是在自己的电脑上部署？</p>
+<p>如果每个问题都只问“哪个最好”，很快就会失去方向。本篇用一个完整的选型过程，把前面的理论转成判断依据。读完后，你应当能为自己的项目写下一份简短记录：<strong>我选了什么、它解决什么问题、用什么证据判断，以及什么时候需要重新选择。</strong></p>
+<p>文中的候选 A、B、C、价格、时延和评测结果均为教学构造，不对应真实产品，也没有进行实际模型调用。本篇不要求安装软件或付费测试；你可以先在纸上完成方案。</p>
+<h2 id="wiki-h-0">先把“我要一个 AI 助手”写成具体任务</h2>
+<p>复习助手至少包含几种不同工作：从笔记找证据、解释概念、提取日期、识别照片内容、执行保存。</p>
+<p>它们不一定需要相同的模型能力。日期加 40 分钟可以由程序算；文件按更新时间排序可以由数据库做。自然语言理解、模糊提问和跨段解释，才更需要模型参与。</p>
+<p>先为第一版写下范围：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>本例的第一版约定</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>使用者</td>
+<td>自己使用，主要用中文</td>
+</tr>
+<tr>
+<td>输入</td>
+<td>一组文本笔记，偶尔附一张清晰白板照片</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>基于笔记回答，指出来源；提取安排；按明确要求保存计划</td>
+</tr>
+<tr>
+<td>资料变化</td>
+<td>每周会更新，旧安排可能被新安排替代</td>
+</tr>
+<tr>
+<td>操作边界</td>
+<td>只管理复习计划；日期不明确时先澄清</td>
+</tr>
+<tr>
+<td>体验目标</td>
+<td>常见请求大多在数秒内完成；长解释可显示生成过程</td>
+</tr>
+<tr>
+<td>第一版暂缓</td>
+<td>长视频理解、多人协作、复杂自动安排与专门训练</td>
+</tr>
+</tbody></table></div>
+<p>这些约定不是软件需求的最终版本，但已经能排除很多无关比较。比如现阶段无需为了长视频能力承担额外复杂度，也不必为了一个日期计算搭建多 Agent 系统。</p>
+<p>再把条件分成两类。<strong>硬条件</strong>不满足就不能用，例如必须处理图片、必须离线，或者不得把特定资料传出设备。<strong>偏好</strong>可以权衡，例如解释更自然、回答更快、单次成本更低。</p>
+<p>不能把硬条件藏进综合评分：一个完全不能接收照片的模型，即使其他指标很高，也无法单独承担本例的图片输入。不过，“OCR 识别文字，再交给文本模型”可以作为另一个完整方案比较。</p>
+<h2 id="wiki-h-1">比较的是整个方案，而不只是模型名字</h2>
+<p>同一个模型，采用不同输入、提示和工具，也可能得到不同结果。先分清三个层次：</p>
+<ol>
+<li><strong>模型本身</strong>：语言、推理、视觉、上下文利用和工具参数生成能力。</li>
+<li><strong>服务或运行配置</strong>：具体版本、推理模式、量化方式、上下文设置、限流和运行硬件。</li>
+<li><strong>应用流程</strong>：送入什么资料，如何检索，如何检查结果，何时调用工具。</li>
+</ol>
+<p>模型权重开放，也可以由云服务托管；通过 API 使用，也不必然意味着权重封闭。这是不同维度。自己部署让你能控制运行环境，同时需要自己处理内存、速度、更新和故障。</p>
+<p>读候选模型资料时，优先找正式模型卡和接口文档。模型卡应说明用途、限制、训练或评测背景；Hugging Face 的模型卡还支持许可证等元数据。它们帮助理解适用范围，但不是你的项目已经达标的证明。<a href="https://arxiv.org/abs/1810.03993">Model Cards for Model Reporting</a>、<a href="https://huggingface.co/docs/hub/model-cards">Hugging Face 模型卡文档</a></p>
+<p>可以只记录这些会影响决定的项目：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>实际要问的问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>能力</td>
+<td>能处理我的中文、笔记风格和约束吗？</td>
+</tr>
+<tr>
+<td>模态</td>
+<td>支持文本、图片还是音频？通过什么接口输入？</td>
+</tr>
+<tr>
+<td>上下文</td>
+<td>实际输入和输出限制是多少？长材料是否用得好？</td>
+</tr>
+<tr>
+<td>输出与工具</td>
+<td>能按约定格式输出吗？目标服务支持所需工具调用吗？</td>
+</tr>
+<tr>
+<td>运行</td>
+<td>所在网络能稳定访问吗？离线或本地要求能满足吗？</td>
+</tr>
+<tr>
+<td>开放与使用条件</td>
+<td>权重是否可获得？许可证和服务条款是否适合计划用途？</td>
+</tr>
+<tr>
+<td>代价</td>
+<td>完成一次任务的费用、时间和维护负担是多少？</td>
+</tr>
+</tbody></table></div>
+<p>记录完整模型标识和日期。如果本地运行，还应记录权重版本、量化配置及推理程序；只写“某某 8B”不足以复现比较。下载得到权重，也不能据此假设所有使用方式都没有条件。</p>
+<h2 id="wiki-h-2">根据缺少的环节选择技术路线</h2>
+<p>不要先决定“我要用 RAG”，再四处找能塞进去的功能。先看失败发生在哪里。</p>
+<p><strong>资料少且已知位置</strong>，可以把相关原文直接放进上下文。比如只解释一篇笔记，先不需要向量数据库。容量是否足够，要把指令、历史、工具描述和输出预算一起考虑。</p>
+<p><strong>资料越来越多、经常更新，而且问题只涉及其中一小部分</strong>，再考虑检索。检索不一定一开始就用向量：文件名、章节标签、关键词和更新时间可能已经很有用。需要处理不同说法时，再加入 Embedding 或混合检索。</p>
+<p><strong>长上下文与 RAG 可以组合</strong>。先检索候选文档，再提供较完整的相关章节，有时比把文档切得极碎更合适。研究曾比较二者在特定模型和数据集上的质量、成本，并提出混合路线；这不意味着长上下文或 RAG 对所有项目都占优。<a href="https://arxiv.org/abs/2407.16833">RAG 与长上下文比较研究</a></p>
+<p><strong>模型已经拿到充分证据，却持续无法遵循稳定的任务行为</strong>，先改清楚规则和示例。若有足够、可靠且可留出验证的数据，再考虑微调。LoRA 减少需要训练的参数，但仍要准备数据、训练和检查，并没有消除这项投入。<a href="https://huggingface.co/docs/peft/v0.21.0/en/package_reference/lora">PEFT v0.21.0：LoRA</a></p>
+<p><strong>需要保存计划</strong>，就增加有明确输入、权限和结果的工具。若路径固定为“提取—校验—保存”，普通工作流就足够。只有当任务需要根据观察动态选择下一步，Agent 的灵活性才成为需要比较的价值。Anthropic 的工程文章也建议从满足需求的简单方案出发，再按需要增加复杂度。<a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a></p>
+<p>这些关系可以放在一张图里：</p>
+<div class="wiki-mermaid"><svg id="wiki-mermaid-17" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 574px;" viewBox="4 4 574 776" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#wiki-mermaid-17{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#wiki-mermaid-17 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#wiki-mermaid-17 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#wiki-mermaid-17 .error-icon{fill:#552222;}#wiki-mermaid-17 .error-text{fill:#552222;stroke:#552222;}#wiki-mermaid-17 .edge-thickness-normal{stroke-width:1px;}#wiki-mermaid-17 .edge-thickness-thick{stroke-width:3.5px;}#wiki-mermaid-17 .edge-pattern-solid{stroke-dasharray:0;}#wiki-mermaid-17 .edge-thickness-invisible{stroke-width:0;fill:none;}#wiki-mermaid-17 .edge-pattern-dashed{stroke-dasharray:3;}#wiki-mermaid-17 .edge-pattern-dotted{stroke-dasharray:2;}#wiki-mermaid-17 .marker{fill:#666;stroke:#666;}#wiki-mermaid-17 .marker.cross{stroke:#666;}#wiki-mermaid-17 svg{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:16px;}#wiki-mermaid-17 p{margin:0;}#wiki-mermaid-17 .label{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#000000;}#wiki-mermaid-17 .cluster-label text{fill:#333;}#wiki-mermaid-17 .cluster-label span{color:#333;}#wiki-mermaid-17 .cluster-label span p{background-color:transparent;}#wiki-mermaid-17 .label text,#wiki-mermaid-17 span{fill:#000000;color:#000000;}#wiki-mermaid-17 .node rect,#wiki-mermaid-17 .node circle,#wiki-mermaid-17 .node ellipse,#wiki-mermaid-17 .node polygon,#wiki-mermaid-17 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#wiki-mermaid-17 .rough-node .label text,#wiki-mermaid-17 .node .label text,#wiki-mermaid-17 .image-shape .label,#wiki-mermaid-17 .icon-shape .label{text-anchor:middle;}#wiki-mermaid-17 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#wiki-mermaid-17 .rough-node .label,#wiki-mermaid-17 .node .label,#wiki-mermaid-17 .image-shape .label,#wiki-mermaid-17 .icon-shape .label{text-align:center;}#wiki-mermaid-17 .node.clickable{cursor:pointer;}#wiki-mermaid-17 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#wiki-mermaid-17 .arrowheadPath{fill:#333333;}#wiki-mermaid-17 .edgePaths .path{stroke:#666;stroke-width:1px;}#wiki-mermaid-17 .flowchart-link{stroke:#666;fill:none;}#wiki-mermaid-17 .edgeLabel{background-color:white;text-align:center;}#wiki-mermaid-17 .edgeLabel p{background-color:white;}#wiki-mermaid-17 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-17 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#wiki-mermaid-17 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#wiki-mermaid-17 .cluster text{fill:#333;}#wiki-mermaid-17 .cluster span{color:#333;}#wiki-mermaid-17 .node .collapsed-indicator{fill:#707070;stroke:none;opacity:0.6;}#wiki-mermaid-17 .node .collapsed-separator{stroke:#707070;stroke-width:0.75px;}#wiki-mermaid-17 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#wiki-mermaid-17 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#wiki-mermaid-17 rect.text{fill:none;stroke-width:0;}#wiki-mermaid-17 .icon-shape,#wiki-mermaid-17 .image-shape{background-color:white;text-align:center;}#wiki-mermaid-17 .icon-shape p,#wiki-mermaid-17 .image-shape p{background-color:white;padding:2px;}#wiki-mermaid-17 .icon-shape .label rect,#wiki-mermaid-17 .image-shape .label rect{opacity:0.5;background-color:white;fill:white;}#wiki-mermaid-17 .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#wiki-mermaid-17 .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#wiki-mermaid-17 .node .neo-node{stroke:#999;}#wiki-mermaid-17 [data-look="neo"].node rect,#wiki-mermaid-17 [data-look="neo"].cluster rect,#wiki-mermaid-17 [data-look="neo"].node polygon{stroke:url(#wiki-mermaid-17-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-17 [data-look="neo"].swimlane.cluster rect{filter:none;}#wiki-mermaid-17 [data-look="neo"].node path{stroke:url(#wiki-mermaid-17-gradient);stroke-width:1px;}#wiki-mermaid-17 [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-17 [data-look="neo"].node .neo-line path{stroke:#999;filter:none;}#wiki-mermaid-17 [data-look="neo"].node circle{stroke:url(#wiki-mermaid-17-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-17 [data-look="neo"].node circle .state-start{fill:#000000;}#wiki-mermaid-17 [data-look="neo"].icon-shape .icon{fill:url(#wiki-mermaid-17-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-17 [data-look="neo"].icon-shape .icon-neo path{stroke:url(#wiki-mermaid-17-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#wiki-mermaid-17 :root{--mermaid-font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}</style><g><marker id="wiki-mermaid-17_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-17_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-17_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-17_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></polygon></marker><marker id="wiki-mermaid-17_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-17_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-17_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-17_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"></circle></marker><marker id="wiki-mermaid-17_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-17_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="wiki-mermaid-17_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"></path></marker><marker id="wiki-mermaid-17_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edges edgePaths"><path d="M346,84L346,120" id="wiki-mermaid-17-L_A_B_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_A_B_0" data-points="W3sieCI6MzQ2LCJ5Ijo4NH0seyJ4IjozNDYsInkiOjEyNH1d" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M313,196L313,208.92893218813452Q313,216 305.9289321881345,216L163.07106781186548,216Q156,216 156,223.07106781186548L156,310" id="wiki-mermaid-17-L_B_C_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 261.67169189453125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_C_0" data-points="W3sieCI6MzEzLCJ5IjoxOTZ9LHsieCI6MzEzLCJ5IjoyMTZ9LHsieCI6MTU2LCJ5IjoyMTZ9LHsieCI6MTU2LCJ5IjozMTR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M346,196L346,215Q346,216 347,216L347,216Q348,216 348,217L348,298" id="wiki-mermaid-17-L_B_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 99.24653625488281 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_D_0" data-points="W3sieCI6MzQ2LCJ5IjoxOTZ9LHsieCI6MzQ2LCJ5IjoyMTZ9LHsieCI6MzQ4LCJ5IjoyMTZ9LHsieCI6MzQ4LCJ5IjozMDJ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M379,196L379,208.92893218813452Q379,216 386.0710678118655,216L444.9289321881345,216Q452,216 452,223.07106781186548L452,338L452,406.9289321881345Q452,414 444.9289321881345,414L342.0710678118655,414Q335,414 335,421.0710678118655L335,430" id="wiki-mermaid-17-L_B_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 409.3434143066406 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_B_E_0" data-points="W3sieCI6Mzc5LCJ5IjoxOTZ9LHsieCI6Mzc5LCJ5IjoyMTZ9LHsieCI6NDUyLCJ5IjoyMTZ9LHsieCI6NDUyLCJ5IjozMzh9LHsieCI6NDUyLCJ5Ijo0MTR9LHsieCI6MzM1LCJ5Ijo0MTR9LHsieCI6MzM1LCJ5Ijo0MzR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M156,362L156,386.9289321881345Q156,394 163.07106781186548,394L261.9289321881345,394Q269,394 269,401.0710678118655L269,430" id="wiki-mermaid-17-L_C_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 171.6717071533203 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_C_E_0" data-points="W3sieCI6MTU2LCJ5IjozNjJ9LHsieCI6MTU2LCJ5IjozOTR9LHsieCI6MjY5LCJ5IjozOTR9LHsieCI6MjY5LCJ5Ijo0MzR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M348,374L348,386.9289321881345Q348,394 340.9289321881345,394L309.0710678118655,394Q302,394 302,401.0710678118655L302,430" id="wiki-mermaid-17-L_D_E_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 92.67170715332031 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_D_E_0" data-points="W3sieCI6MzQ4LCJ5IjozNzR9LHsieCI6MzQ4LCJ5IjozOTR9LHsieCI6MzAyLCJ5IjozOTR9LHsieCI6MzAyLCJ5Ijo0MzR9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M302,482L302,518" id="wiki-mermaid-17-L_E_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 32 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_E_F_0" data-points="W3sieCI6MzAyLCJ5Ijo0ODJ9LHsieCI6MzAyLCJ5Ijo1MjJ9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M269,594L269,606.9289321881345Q269,614 261.9289321881345,614L117.07106781186548,614Q110,614 110,621.0710678118655L110,696" id="wiki-mermaid-17-L_F_G_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 251.6717071533203 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_G_0" data-points="W3sieCI6MjY5LCJ5Ijo1OTR9LHsieCI6MjY5LCJ5Ijo2MTR9LHsieCI6MTEwLCJ5Ijo2MTR9LHsieCI6MTEwLCJ5Ijo3MDB9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M302,594L302,696" id="wiki-mermaid-17-L_F_H_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 98 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_H_0" data-points="W3sieCI6MzAyLCJ5Ijo1OTR9LHsieCI6MzAyLCJ5Ijo3MDB9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path><path d="M335,594L335,606.9289321881345Q335,614 342.0710678118655,614L486.9289321881345,614Q494,614 494,621.0710678118655L494,696" id="wiki-mermaid-17-L_F_I_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="stroke-dasharray: 0 0 251.67169189453125 4; stroke-dashoffset: 0;;" data-edge="true" data-et="edge" data-id="L_F_I_0" data-points="W3sieCI6MzM1LCJ5Ijo1OTR9LHsieCI6MzM1LCJ5Ijo2MTR9LHsieCI6NDk0LCJ5Ijo2MTR9LHsieCI6NDk0LCJ5Ijo3MDB9XQ==" data-look="neo" marker-end="url(#wiki-mermaid-17_flowchart-v2-pointEnd-margin)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(156, 249)"><g class="label" data-id="L_B_C_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-34" y="-3" width="68" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">资料缺失</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(348, 249)"><g class="label" data-id="L_B_D_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-34" y="-3" width="68" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">资料分散</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(452, 249)"><g class="label" data-id="L_B_E_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-50" y="-3" width="100" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">资料已经足够</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(110, 647)"><g class="label" data-id="L_F_G_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-98" y="-3" width="196" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">稳定行为仍不达标且有数据</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(302, 647)"><g class="label" data-id="L_F_H_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-50" y="-3" width="100" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">需要真实操作</tspan></tspan></text></g></g></g><g class="edgeLabel" transform="translate(494, 647)"><g class="label" data-id="L_F_I_0" transform="translate(0, -10)"><g><rect class="background" style="" x="-34" y="-3" width="68" height="26"></rect><text y="-10.1" text-anchor="middle" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">达到目标</tspan></tspan></text></g></g></g></g><g class="nodes"><g class="node default" id="wiki-mermaid-17-flowchart-A-0" data-look="neo" transform="translate(346, 48)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>明确任务与成功标准</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-17-flowchart-B-1" data-look="neo" transform="translate(346, 160)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>现有资料能支持回答吗</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-17-flowchart-C-3" data-look="neo" transform="translate(156, 338)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>澄清或补充资料</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-17-flowchart-D-5" data-look="neo" transform="translate(348, 338)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>检索并提供相关证据</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-17-flowchart-E-7" data-look="neo" transform="translate(302, 458)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>直接提示与示例</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-17-flowchart-F-13" data-look="neo" transform="translate(302, 558)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>检查质量 格式 速度和成本</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-17-flowchart-G-15" data-look="neo" transform="translate(110, 724)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>评估微调的收益</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-17-flowchart-H-17" data-look="neo" transform="translate(302, 736)"><rect class="basic label-container" style="" x="-76" y="-36" width="152" height="72"></rect><g class="label" style="" transform="translate(-60, -24)"><rect></rect><foreignObject width="120" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>增加工具与结果校验</p></span></div></foreignObject></g></g><g class="node default" id="wiki-mermaid-17-flowchart-I-19" data-look="neo" transform="translate(494, 724)"><rect class="basic label-container" style="" x="-76" y="-24" width="152" height="48"></rect><g class="label" style="" transform="translate(-60, -12)"><rect></rect><foreignObject width="120" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: nowrap; line-height: 1.5; max-width: 120px; text-align: center; width: 120px;"><span class="nodeLabel"><p>保留当前方案</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="wiki-mermaid-17-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><defs><filter id="wiki-mermaid-17-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"></feDropShadow></filter></defs><linearGradient id="wiki-mermaid-17-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="hsl(0, 0%, 83.3333333333%)" stop-opacity="1"></stop><stop offset="100%" stop-color="hsl(0, 0%, 88.9215686275%)" stop-opacity="1"></stop></linearGradient></svg></div><p>它不是必须走完的升级路线。做一个笔记问答项目，可以一直停留在检索加一次模型调用；采用微调，也仍然可能需要检索和工具。</p>
+<h2 id="wiki-h-3">准备一小组真正能决定选择的题</h2>
+<p>排行榜适合帮助发现候选，不适合直接替你决定。你的输入可能更口语化，资料更新方式不同，输出还有特定格式要求。HELM 的一个重要思路就是在多个场景、多个指标下评价模型，让取舍可见，而不是只保留一个总分。<a href="https://arxiv.org/abs/2211.09110">Holistic Evaluation of Language Models</a></p>
+<p>对于本例，可以先准备 24 个检查案例：</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th align="right">数量</th>
+<th>怎样算通过</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>日期、时长与状态提取</td>
+<td align="right">5</td>
+<td>条件提取正确；时间计算正确；结构符合约定</td>
+</tr>
+<tr>
+<td>新旧版本与冲突</td>
+<td align="right">5</td>
+<td>按明确生效信息选版本；信息不足时不乱选</td>
+</tr>
+<tr>
+<td>缺少必要条件</td>
+<td align="right">4</td>
+<td>准确指出缺口，保留仍可回答的部分</td>
+</tr>
+<tr>
+<td>根据笔记解释并给依据</td>
+<td align="right">4</td>
+<td>核心内容正确；引用支持对应陈述</td>
+</tr>
+<tr>
+<td>白板照片</td>
+<td align="right">3</td>
+<td>正确识别修改、否定和章节对应关系</td>
+</tr>
+<tr>
+<td>保存回执与失败处理</td>
+<td align="right">3</td>
+<td>如实报告成功、明确失败或状态未知</td>
+</tr>
+</tbody></table></div>
+<p>这些数量用于示范组织方式，不是“测 24 题就足够可靠”的结论。保存类案例可以提供模拟回执，不必真的创建日历记录。</p>
+<p>每题先写输入、参考证据、允许的答案范围和失败条件，再去看模型结果。例如缺少日期时，正确行为是询问；不能把澄清统一算作没答对。解释题不要求逐字复述参考答案，应检查核心陈述及证据。</p>
+<p>为了分清改进来自哪里，可以做两类比较：</p>
+<ul>
+<li>比较模型时，固定任务、证据、工具和成功标准；按各接口要求做等价输入，记录模式与预算。</li>
+<li>比较完整方案时，允许检索或流程不同，同时把这些差异和全部成本记下来。</li>
+</ul>
+<p>同一组题不能既被反复用来修改提示词，又作为最终独立成绩。可以用另一小组题调试，再把这 24 题留作首次对照；一旦看过并据此调整，它们就成为开发参考，应另补未参与调整的题来复核。遇到输出波动，还要重复检查代表性案例，并记录次数。</p>
+<h2 id="wiki-h-4">先筛掉不满足条件的，再比较取舍</h2>
+<p>假设我们比较三个都能接收图片、使用所需工具的候选服务。固定相同应用流程，得到下面这组<strong>构造结果</strong>。一题只有同时满足本题所有关键要求，才计为通过；关键错误次数是另一个指标，与失败题数可能重叠。</p>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th align="right">A</th>
+<th align="right">B</th>
+<th align="right">C</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>24 题通过数</td>
+<td align="right">14</td>
+<td align="right">21</td>
+<td align="right">23</td>
+</tr>
+<tr>
+<td>错报保存成功等关键错误次数</td>
+<td align="right">2</td>
+<td align="right">0</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>端到端时延 P95</td>
+<td align="right">4 秒</td>
+<td align="right">5 秒</td>
+<td align="right">14 秒</td>
+</tr>
+<tr>
+<td>每次请求平均服务费用</td>
+<td align="right">0.006 元</td>
+<td align="right">0.012 元</td>
+<td align="right">0.040 元</td>
+</tr>
+</tbody></table></div>
+<p>P95 是用于描述较慢请求的分位数。本例采用“将 24 次时延从小到大排列，取第 23 个”的计算约定，因为向上取整的 24×95% 为 23。不同工具可能采用插值等其他定义，比较时要统一。只有 24 次观察，这个尾部估计会很不稳定。</p>
+<p>比较前，我们为本轮筛选预先规定了门槛：至少通过 20 题，当前检查中不出现关键错误，P95 不超过 6 秒。</p>
+<p>A 便宜，但质量和关键错误不满足要求。C 通过数最高，但当前交互时间目标不满足。B 满足这轮条件，可以成为第一版继续验证的候选。</p>
+<p>这里的结论只是“按这组任务与门槛，优先试用 B”，不是“B 永远比 C 好”。如果项目改成可以等一分钟的离线整理，时间门槛就不同；如果错误代价更高，也可能需要更严格的检查和更多测试。</p>
+<p>零次关键错误只表示这次没观察到，不能保证以后为零。保存成功的最终判断仍然应该依靠工具证据。模型分数高，不构成移除校验的理由。</p>
+<h2 id="wiki-h-5">把成本和等待时间算到一次完整任务上</h2>
+<p>先做一笔可手算的费用估计。假设一个教学服务输入每百万 Token 2 元、输出每百万 Token 8 元，一次输入 4000、输出 500：</p>
+<pre><code class="hljs language-text">输入费用 = 4000 ÷ 1000000 × 2 = 0.008 元
+输出费用 =  500 ÷ 1000000 × 8 = 0.004 元
+合计     = 0.012 元
+</code></pre><p>每天 200 次、一个月按 30 天算，就是 6000 次，费用 72 元。若 10% 的请求需要额外重试一次，且重试与初次同价，预计共调用 6600 次，费用变成 79.2 元。</p>
+<p>这个算例暂不计缓存折扣、检索、图片处理、工具及其他开销；真实服务还可能有推理用量等单独口径，必须按实际用量和计费规则计算。长任务中的第二轮往往带上更多历史，也不能总按首轮价格估算。</p>
+<p>本地模型没有逐次 API 账单，但仍然消耗设备资源、电力和维护时间。第 14 篇算过，80 亿参数以 4 位存储，单算参数载荷约为 4 GB（十进制）。这不包括量化元数据、缓存、运行中间值和程序开销，不能据此断定一台剩余 4 GB 内存的电脑能顺畅运行。</p>
+<p>速度也要看用户在等什么。<strong>首个 Token 时间</strong>描述多久开始产生输出；<strong>端到端时间</strong>描述一次请求多久结束。流式显示能让人早点看到文字，却不一定缩短实际完成时间。vLLM 的指标文档也将首 Token、输出间隔和端到端时延分开记录。<a href="https://docs.vllm.ai/en/latest/usage/metrics/">vLLM Production Metrics</a></p>
+<p>应用中的“任务完成”还可能包含检索、网络、校验和保存工具，不能只测模型服务内部时间。比较时应统一任务与输出长度要求、并发数，以及是否计入重试；否则一个写三句话、一个写三页纸，直接比较耗时容易误导。</p>
+<h2 id="wiki-h-6">什么时候值得把一个模型换成多个</h2>
+<p>简单提取用较轻的模型，复杂推理再交给较强模型，可能降低平均费用。但这里多出来一个问题：谁来判断任务需要升级？</p>
+<p>可以先用容易检查的条件，例如图片输入交给支持视觉的路线，结果未通过结构校验就进入修复流程。不能只听模型说“我有 99% 把握”，就决定跳过检查。</p>
+<p>假设轻模型能生成草稿，但在处理冲突版本时失败，系统再调用强模型。完整成本要包括失败的第一次调用，等待时间也可能累加。只有最终质量提升、代价可以接受，路由才有价值。</p>
+<p>保存操作还需要特别区分：可以让另一模型重新检查计划草稿，却不能因为第一次回复不满意，就重新执行已经可能成功的写入。模型切换不能替代状态查询和幂等处理。</p>
+<p>因此，第一版先用一条清楚的路径更容易找到问题。等你能指出“这类输入占多少、在哪一步失败、升级后改善多少”，再增加分支，而不是先为所有可能情况搭建复杂架构。</p>
+<h2 id="wiki-h-7">把决定写成一张能被推翻的记录</h2>
+<p>下面是根据本篇构造条件写出的示例。它不是已完成部署的报告，而是读者可以照着组织自己决定的格式。</p>
+<blockquote>
+<p><strong>目标</strong>：中文个人笔记问答、白板识别和复习计划保存。<br><strong>首选候选</strong>：B；实际采用时填完整模型标识、服务、模式和验证日期。<br><strong>资料路线</strong>：先用章节与版本信息选出相关笔记并直接提供原文；数量和检索需求增长后再比较混合检索。<br><strong>操作路线</strong>：提取、程序校验、调用保存工具、核对回执；缺少日期则澄清。<br><strong>选择依据</strong>：构造对照中 21/24 通过，关键错误未观察到，P95 为 5 秒，满足本轮预设门槛。实际项目必须换成自己的测量。<br><strong>代价估计</strong>：上述简化流量下，每月服务费用约 72 元；计入一次重试假设后约 79.2 元，另核算其他开销。<br><strong>暂不做</strong>：专门微调、复杂 Agent 路由。现阶段没有证据证明其投入必要。<br><strong>重新评估条件</strong>：新增音视频任务、资料或流量明显增长、模型版本变化，或留出案例中出现不可接受的错误。</p>
+</blockquote>
+<p>最后检查这份记录有没有回答三个问题：失败时知道查哪里吗？换一个模型可以用同样的规则验证吗？新需求出现时知道哪些条件要重算吗？能回答这些问题，比记住一次排行榜名次更有用。</p>
+<h2 id="wiki-h-8">用几个变化检验你的选择</h2>
+<p><strong>1．项目要求资料完全不离开设备。一个云模型各项成绩都更好，能直接按总分选它吗？</strong></p>
+<p>不能。离线是硬条件。应比较满足条件的本地完整路线，并检查识别、检索等周边服务是否也在本地，而不只检查主模型。</p>
+<p><strong>2．每天更新的笔记没有送给模型，它答出了旧日期。第一步就微调合理吗？</strong></p>
+<p>通常应先检查资料是否被更新、检索和送入。微调不能替代本次任务缺失的最新证据；先定位失败原因，再决定是否需要训练。</p>
+<p><strong>3．24 次时延采用本篇的分位数约定，P95 取排序后的第几个？</strong></p>
+<p>第 23 个，因为向上取整的 24×0.95＝23。样本少时，个别慢请求就可能明显改变这个数，应补充更多观察。</p>
+<p><strong>4．仍是输入 4000 Token，但输出增到 1000，按本篇假想价格，一次多少钱？</strong></p>
+<p>输入 0.008 元，输出 0.008 元，共 0.016 元。输入输出单价不同，不能只看总 Token 数乘一个统一单价。</p>
+<p><strong>5．某次任务先调用 A，再升级到 C。假设各自费用等于表中平均数，这次能只记 0.040 元吗？</strong></p>
+<p>不能。仅这两次服务调用就共计 0.006＋0.040＝0.046 元，还要检查其他开销。也不能据此推断升级后的真实质量。</p>
+<p><strong>6．你反复用 24 题修改提示词，终于全部通过，可以宣布独立测试全对吗？</strong></p>
+<p>不能。这组题已参与开发。应保留它们作回归检查，并用未参与调整的代表性题目重新验证，报告两类结果各自的用途。</p>
+<p>至此，第一、第二部分的理论学习有了一个具体落点：你能够从任务出发，解释模型需要什么信息、选择哪些外围能力，并用可检查的结果决定是否继续投入。第三部分会把这些判断用于 DeepSeek API 接入实践；第四部分再用 Kimi Code 讨论工程方法。它们是后续实践方向，本篇的完成不代表应用已经部署或测试通过。</p>
+<hr>
+<p>上一篇：幻觉与不可靠性 · 返回本部分大纲 · 第一部分大纲</p>
+<p>资料观察基准：2026 年 10 月 3 日。文中的门槛、价格和候选成绩全部是教学构造，真实选型应核对当时文档并使用自己的任务验证。</p>
+</article>

@@ -1,0 +1,27 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p><strong>原文</strong>：《Scaling Agentic Coding Across Your Organization》组织指南 PDF，共 39 页，本页面对应原文 P23<br><strong>版本</strong>：内容截至 2025-08；PDF 由 Anthropic 于 2025-09-10 生成<br><strong>译本</strong>：v1.0，2026-11<br><strong>时效</strong>：内容为 2025 年 8 月版本，功能名与命令以官方文档为准<br><strong>版权</strong>：原文 © Anthropic。非官方中文译本，仅供学习交流。</p>
+</blockquote>
+<p><strong>示例：项目级 CLAUDE.md 结构</strong></p>
+<pre><code># <span class="hljs-title class_">Project</span> <span class="hljs-title class_">Feline</span> - <span class="hljs-title class_">Cloud</span> <span class="hljs-title class_">Task</span> <span class="hljs-title class_">Scheduler</span>
+
+## <span class="hljs-title class_">Development</span> <span class="hljs-title class_">Environment</span>
+- <span class="hljs-title class_">Use</span> <span class="hljs-title class_">Node</span>.js <span class="hljs-number">18</span>+ <span class="hljs-keyword">with</span> nvm <span class="hljs-keyword">for</span> version management
+- <span class="hljs-title class_">Run</span> `npm run setup` <span class="hljs-keyword">for</span> initial environment configuration
+- <span class="hljs-title class_">All</span> database changes require migration files <span class="hljs-keyword">in</span> `/migrations`
+
+## <span class="hljs-title class_">Claude</span> <span class="hljs-title class_">Code</span> <span class="hljs-title class_">Guidelines</span>
+- <span class="hljs-title class_">Always</span> run tests before committing: `npm test`
+- <span class="hljs-title class_">Use</span> <span class="hljs-title class_">TypeScript</span> <span class="hljs-keyword">for</span> all <span class="hljs-keyword">new</span> modules
+- <span class="hljs-title class_">Follow</span> our API naming convention: `/api/v2/tasks/{resource}`
+- <span class="hljs-title class_">Security</span>: <span class="hljs-title class_">Never</span> commit API keys or database credentials <span class="hljs-keyword">in</span> code
+
+## <span class="hljs-title class_">Architecture</span> <span class="hljs-title class_">Notes</span>
+- <span class="hljs-title class_">Task</span> scheduling uses <span class="hljs-title class_">Redis</span> queues <span class="hljs-keyword">for</span> job management
+- <span class="hljs-title class_">All</span> <span class="hljs-keyword">external</span> API calls must include retry logic and timeouts
+- <span class="hljs-title class_">Database</span> queries should use connection pooling <span class="hljs-keyword">for</span> performance
+
+## <span class="hljs-title class_">Current</span> <span class="hljs-title class_">Sprint</span> <span class="hljs-title class_">Focus</span>
+- <span class="hljs-title class_">Implementing</span> distributed task execution
+- <span class="hljs-title class_">Focus</span> <span class="hljs-keyword">on</span> fault-tolerance and recovery patterns
+- <span class="hljs-title class_">All</span> scheduling logic requires unit tests + integration tests
+</code></pre></article>

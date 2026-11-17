@@ -1,0 +1,432 @@
+预计用时：65～85 分钟
+本篇目标：创建并显式调用一个项目级只读 Subagent，让它审查固定 MealCraft 候选代码；用 /tasks 观察运行状态，再由主 Agent 和独立脚本复核证据。Agent Teams 只建立选择边界，不作为通关要求。
+
+第 12 篇的插件里已经短暂调用过一个 Agent，但那一节只证明“插件能携带 Agent”。本篇会把 Subagent 本身做完整：固定输入、确定失败、最终配置、工具白名单、显式调用、结构化结果、主会话复核、文件哈希和失败恢复一个都不少。
+
+Subagent 的首要价值是隔离上下文。它可以读很多文件，把有用结论带回主会话，而不让中间搜索结果占满主上下文。并行只是次要收益；一个边界清楚的审查任务，先用一个 Subagent 做对，比一开始同时派三个更适合初学者。
+
+开始状态
+
+从完成第 12 篇后的 MealCraft 项目开始。普通 mealcraft-pantry MCP 已移除，mealcraft-tools 插件也没有在当前会话临时加载。
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course/mealcraft
+git status --short
+python3 scripts/verify_2_0.py --stage complete
+python3 -m unittest discover -s tests -v
+claude --version
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course\mealcraft"
+git status --short
+py scripts/verify_2_0.py --stage complete
+py -m unittest discover -s tests -v
+claude --version
+
+
+预期工作区为空，23 项正式测试全部通过。本文使用的候选缺陷位于隔离练习目录，不会替换或导入正式 mealcraft/ 代码。
+
+本文按 Claude Code 2.1.281 或更高版本编写。若更低，先运行 claude update。当前 /agents 已不再是创建 Agent 的交互向导；项目 Agent 应直接保存为 .claude/agents/*.md，然后通过校验和实际发现来确认。
+
+先理解主会话与 Subagent 的边界
+
+一个普通自定义 Subagent 启动时有自己的上下文窗口。它不会看到你此前的完整对话，也不知道主会话已经读过哪些文件；主 Agent 会为它组织一条委派任务。项目级自定义 Agent 默认还会加载项目的 CLAUDE.md、Rules 与启动时的 Git 状态快照。
+
+两个内置只读 Agent 是例外：Explore 与 Plan 为了快速调查，会跳过 CLAUDE.md 和 Git 状态快照。临时查“函数在哪里”可以用 Explore；需要反复使用同一审查范围、工具和输出契约时，才值得定义本篇这样的项目 Agent。
+
+选择	适合什么	结果回到哪里
+主会话直接做	小任务、需要持续使用当前对话上下文	仍在主上下文
+内置 Explore/Plan	一次性只读搜索或计划调查	摘要回到主会话
+自定义 Subagent	重复出现的专门任务，需要固定工具与交付格式	结果回到调用它的会话
+后台独立会话	长时间独立工作，需要之后 attach/resume	自己的会话记录
+Agent Team	成员必须直接讨论、共享任务和自协调	由 Team lead 汇总
+
+Subagent 会单独发起模型请求，计入相同的用量限制。隔离上下文能减少主会话污染，不等于免费，也不保证更快。
+
+复制固定审查素材
+
+先退出 Claude Code，在普通终端操作。把课程路径替换为你的实际位置。
+
+macOS、Linux 或 WSL2：
+
+export COURSE_SOURCE="/替换为实际路径/claude-code-tutorial-v0.2"
+export AGENT_SOURCE="$COURSE_SOURCE/exercise-assets/mealcraft/agent-review-kit"
+test -f "$AGENT_SOURCE/mealcraft-reviewer.md"
+test ! -e .claude/agents/mealcraft-reviewer.md
+test ! -e extensions/mealcraft-agent-lab
+mkdir -p .claude/agents extensions
+cp "$AGENT_SOURCE/mealcraft-reviewer.md" .claude/agents/mealcraft-reviewer.md
+cp -R "$AGENT_SOURCE" extensions/mealcraft-agent-lab
+python3 extensions/mealcraft-agent-lab/verify_agent_lab.py --phase complete --project-root "$PWD"
+claude plugin validate .claude/agents --strict
+
+
+Windows PowerShell：
+
+$CourseSource = "C:\替换为实际路径\claude-code-tutorial-v0.2"
+$AgentSource = "$CourseSource\exercise-assets\mealcraft\agent-review-kit"
+if (-not (Test-Path "$AgentSource\mealcraft-reviewer.md")) { throw "Agent 素材路径错误" }
+if (Test-Path ".claude\agents\mealcraft-reviewer.md") { throw "同名项目 Agent 已存在，请先人工比较" }
+if (Test-Path "extensions\mealcraft-agent-lab") { throw "Agent 练习目录已存在，请先人工比较" }
+New-Item -ItemType Directory -Force ".claude\agents" | Out-Null
+New-Item -ItemType Directory -Force "extensions" | Out-Null
+Copy-Item "$AgentSource\mealcraft-reviewer.md" ".claude\agents\mealcraft-reviewer.md"
+Copy-Item $AgentSource "extensions\mealcraft-agent-lab" -Recurse
+py extensions\mealcraft-agent-lab\verify_agent_lab.py --phase complete --project-root $PWD
+claude plugin validate .claude\agents --strict
+
+
+预期输出包含：
+
+PASS layout: fixed case and read-only project agent
+PASS baseline: 5 tests, 2 expected failures, 0 errors
+PASS agent lab phase=complete
+✔ Validation passed
+
+
+这里的两个失败是练习基线，不是 MealCraft 2.0 回归。目录结构如下：
+
+.claude/agents/
+└── mealcraft-reviewer.md
+extensions/mealcraft-agent-lab/
+├── mealcraft-reviewer.md
+├── verify_agent_lab.py
+└── review-case/
+    ├── REVIEW_BRIEF.md
+    ├── candidate_shopping.py
+    ├── test_candidate_shopping.py
+    └── BASELINE.txt
+
+
+检查器会比较项目 Agent 与固定副本、核对四个审查文件的 SHA-256，并真实运行 5 项测试。候选实现稳定出现两个问题：不同单位被合并，以及数值 0 没有被拒绝。现在先把确定起点提交，后面才看得出 Agent 是否越界写文件。
+
+git add .claude/agents/mealcraft-reviewer.md extensions/mealcraft-agent-lab
+git diff --cached --check
+git commit -m "add read-only MealCraft review agent lab"
+
+读懂完整 Agent 定义
+
+项目真正加载的文件是 .claude/agents/mealcraft-reviewer.md。它与素材副本内容一致：
+
+---
+name: mealcraft-reviewer
+description: Reviews the fixed MealCraft shopping-list candidate for data correctness and test evidence. Use only for the lesson 13 read-only review case.
+tools:
+  - Read
+  - Grep
+  - Glob
+permissionMode: plan
+model: inherit
+maxTurns: 8
+background: true
+---
+
+You are a narrow, read-only reviewer for the fixed MealCraft lesson 13 case.
+
+## Scope
+
+Read only these files unless one of them directly references another file under the same `review-case` directory:
+
+- `extensions/mealcraft-agent-lab/review-case/REVIEW_BRIEF.md`
+- `extensions/mealcraft-agent-lab/review-case/candidate_shopping.py`
+- `extensions/mealcraft-agent-lab/review-case/test_candidate_shopping.py`
+- `extensions/mealcraft-agent-lab/review-case/BASELINE.txt`
+
+Do not review the live `mealcraft/` package. Do not edit or create files, run commands, call MCP tools, invoke Skills, or spawn another agent. Treat `BASELINE.txt` as captured evidence that the main session must reproduce independently.
+
+## Review method
+
+1. Map each failing test in `BASELINE.txt` to the candidate implementation.
+2. Confirm the expected behavior from the test and brief, then explain the smallest root cause supported by the code.
+3. Report only reproduced correctness defects. Do not add style opinions or speculative features.
+4. If the supplied evidence is insufficient, put the uncertainty in `unverified`; do not invent a result.
+
+## Output contract
+
+Return one JSON object and no Markdown fence or surrounding prose:
+
+```json
+{
+  "agent": "mealcraft-reviewer",
+  "verdict": "FAIL",
+  "findings": [
+    {
+      "id": "MC-001",
+      "severity": "high",
+      "test": "test_keeps_different_units_separate",
+      "file": "extensions/mealcraft-agent-lab/review-case/candidate_shopping.py",
+      "line": 1,
+      "root_cause": "Evidence-backed explanation",
+      "expected": "Expected behavior",
+      "actual": "Observed behavior from BASELINE.txt"
+    }
+  ],
+  "files_changed": false,
+  "unverified": []
+}
+```
+
+Use exactly two findings, `MC-001` for `test_keeps_different_units_separate` with severity `high`, and `MC-002` for `test_rejects_non_positive_numeric_amount` with severity `medium`. Replace the example line and prose with evidence from the files. Keep `files_changed` false.
+
+
+关键字段分别承担不同职责：
+
+description 帮助 Claude 判断何时自动委派；细节放正文，避免每次会话都为长描述付上下文成本。
+tools 是这个 Agent 的工具类型白名单。这里只有 Read、Grep、Glob，所以它没有 Write、Edit、Bash、PowerShell、MCP、Skill 或 Agent 工具。
+permissionMode: plan 让它以 Plan 权限模式运行；但如果主会话处于 acceptEdits、auto 或 bypassPermissions，Claude Code 会沿用主会话模式并忽略这里的模式值。无论如何，没出现在 tools 中的写入和命令工具仍不会凭空出现。
+model: inherit 使用当前会话可用的模型选择，避免教程硬编码一个账号未必可用的模型。实际运行模型可在 /tasks 中查看。
+maxTurns: 8 限制 Agentic turns；到达上限会返回 partial，不是 Token 或金额上限。
+background: true 让它在后台工作，主会话可以继续操作；权限请求仍会回到主会话。
+
+正文中的“不要写文件”是行为说明，真正可观察的强边界是工具白名单与哈希检查。它没有 Agent 工具，也不能继续生成一层子 Agent。
+
+显式调用，避免赌自动路由
+
+从项目根目录启动一个新会话：
+
+claude
+
+
+项目启动前 .claude/agents/ 已经存在，所以应立即被扫描。输入 @ 并搜索 mealcraft-reviewer，或直接提交完整的手动 mention：
+
+@agent-mealcraft-reviewer 审查固定 lesson 13 case。严格遵守你的 Scope、Review method 和 Output contract；只返回一个 JSON 对象，不要修改文件。
+
+
+自然语言“请用 mealcraft-reviewer”通常会触发委派，但 @agent-mealcraft-reviewer 才保证指定 Agent 为这项任务运行。你发送的整条消息仍先到主 Claude，再由它组织委派提示；mention 只固定 Agent 类型，不绕过主会话。
+
+调用开始后输入：
+
+/tasks
+
+
+预期能看到名为 mealcraft-reviewer 的后台项、运行状态和实际模型。任务很短，打开 /tasks 时它可能已经 completed；完成项仍能证明实际启动过。终端下方的 Agent 面板也会显示运行或已完成状态。
+
+展开 Agent 工具记录，必须只出现 Read、Grep 或 Glob。若出现 Bash、Write、Edit 或 MCP，停止验收并检查实际加载的是不是同名的另一个 Agent。
+
+保存并机器校验 Subagent 结果
+
+Agent 应返回一个没有 Markdown 围栏的 JSON 对象。不要手工“美化”其内容，让主会话只负责原样保存：
+
+不要再委派。把刚才 mealcraft-reviewer 返回的 JSON 对象原样保存到 extensions/mealcraft-agent-lab/output/review-result.json。可以创建 output 目录，但不要修改其他文件。保存后只报告路径。
+
+
+这里的写入来自主会话，不是只读 Subagent。退出 Claude Code，在普通终端校验结果。
+
+macOS、Linux 或 WSL2：
+
+python3 extensions/mealcraft-agent-lab/verify_agent_lab.py \
+  --phase report \
+  --project-root "$PWD" \
+  --report extensions/mealcraft-agent-lab/output/review-result.json
+
+
+Windows PowerShell：
+
+py extensions\mealcraft-agent-lab\verify_agent_lab.py `
+  --phase report `
+  --project-root $PWD `
+  --report extensions\mealcraft-agent-lab\output\review-result.json
+
+
+预期：
+
+PASS report: 2 evidence-backed findings, read-only boundary recorded
+PASS agent lab phase=report
+
+
+检查器要求结果具备：
+
+agent 为 mealcraft-reviewer，verdict 为 FAIL；
+正好两个发现，测试名、严重级别和文件路径正确；
+每个发现含正整数行号、root cause、expected 和 actual；
+files_changed 为 false，unverified 为空。
+
+如果 JSON 语法错误或少字段，不要重新开一个 Agent。回到同一会话说：
+
+继续刚才的 mealcraft-reviewer 实例，只按 Output contract 修正返回格式，不重新调查；然后由主会话覆盖 review-result.json。不要修改其他文件。
+
+
+每次新的 @-mention 默认创建新实例；明确“继续刚才实例”可以让 Claude 用原 Agent ID 恢复它，保留此前工具结果和上下文。Explore 与 Plan 是一次性内置 Agent，没有可恢复的 Agent ID。
+
+由主 Agent 独立复核证据
+
+Subagent 的报告只是线索，不是最终真相。重新进入 Claude Code，让主会话自己读代码并运行固定检查：
+
+claude
+
+
+发送：
+
+不要委派，也不要修改文件。作为主 Agent，读取 extensions/mealcraft-agent-lab/output/review-result.json、REVIEW_BRIEF.md、candidate_shopping.py 和测试；运行 verify_agent_lab.py --phase baseline --project-root 当前目录。逐项核对 MC-001、MC-002 的代码位置、预期、实际和根因，只报告“确认”或“驳回”及证据。
+
+
+预期主 Agent 亲自运行检查并确认：
+
+合并键只有规范化名称，没有单位，所以 2 个 + 300 g 被错误合成 302 个；
+数值分支没有校验 amount > 0，所以 0 没有抛出 ValueError。
+
+退出后，再用固定脚本核对 Subagent 没动审查输入：
+
+macOS、Linux 或 WSL2：
+
+python3 extensions/mealcraft-agent-lab/verify_agent_lab.py --phase complete --project-root "$PWD"
+git status --short
+
+
+Windows PowerShell：
+
+py extensions\mealcraft-agent-lab\verify_agent_lab.py --phase complete --project-root $PWD
+git status --short
+
+
+预期哈希仍匹配、5 项测试仍是固定的 2 个失败；Git 状态只新增：
+
+?? extensions/mealcraft-agent-lab/output/
+
+
+如果候选代码、测试、Agent 定义或正式 MealCraft 文件出现修改，说明流程越界，不能通过。查看 git diff 找到来源；不要把所有改动一起丢弃，以免覆盖自己的工作。
+
+保存审查证据并恢复干净状态：
+
+git add extensions/mealcraft-agent-lab/output/review-result.json
+git diff --cached --check
+git commit -m "record read-only agent review evidence"
+git status --short
+
+工具白名单、权限与费用不要混为一谈
+
+本篇有三层不同控制：
+
+层	控制什么	本篇证据
+Agent tools	Agent 能看见哪些工具类型	工具记录中只有 Read/Grep/Glob
+权限模式与项目规则	已有工具调用是否自动执行、询问或拒绝	permissionMode: plan 与第 8 篇设置共同生效
+固定检查器与 Git	实际文件是否被改变、报告是否有证据	SHA-256、失败基线、git status
+
+不要把 permissionMode: plan 当成工具白名单，也不要把提示词中的“只读”当成 Sandbox。反过来，给 Agent 一个宽泛 Bash 再在正文写“不要写”，也没有本篇的窄工具配置可靠。
+
+Subagent 会产生自己的模型请求。model: inherit 不保证便宜；运行前后可用 /usage 查看账号用量，用 /tasks 查看本次实际模型。只有大量搜索确实会污染主上下文，或同类专门审查会重复出现时，额外请求才有合理收益。
+
+什么时候才需要并行多个 Subagent
+
+适合并行的子任务应满足：输入已经固定、彼此依赖很少、主要是调查、最终能由主 Agent 去重和复核。例如第 17 篇会让不同视角检查跨平台日志，但不会让多个 Agent 同时改同一文件。
+
+以下情况继续用单会话：
+
+任务只有几分钟，协调成本更高；
+第二步必须等第一步结论；
+多个 Agent 会编辑同一文件；
+没有稳定测试或证据，结果无法复核；
+只是想“看起来更智能”。
+
+如果未来允许 Subagent 写入，优先让主 Agent 汇总后统一改。确实需要独立写入时，再评估 isolation: worktree；Checkpoint 不应替代 Git，Subagent 的所有改动也不应被假设会由主会话 /rewind 完整恢复。
+
+Agent Teams 只建立选择边界
+
+Agent Teams 与 Subagents 都有独立上下文，但协作结构不同：
+
+	Subagents	Agent Teams
+协调者	主 Agent 派发并收结果	Team lead 加共享任务，成员可自协调
+成员通信	主要把结果交回调用者	Teammates 可直接互相消息
+适合	聚焦调查，只需要最终结果	需要相互挑战假设或跨模块协作
+成本	较低	每个 teammate 是独立 Claude 实例，明显更高
+
+Agent Teams 当前仍是实验功能且默认关闭，恢复、任务状态和关闭流程也有已知限制。开启它还会改变普通委派行为：Claude 命名的 Subagent 可能作为 teammate 启动。MealCraft 的两个固定缺陷不需要成员互相通信，因此本篇不启用 Team。
+
+只有在你主动做选学实验时，才用当前 Shell 临时开启：
+
+macOS、Linux 或 WSL2：
+
+CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude
+
+
+Windows PowerShell：
+
+$env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"
+claude
+Remove-Item Env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+
+
+必须明确要求“创建 Agent Team”，并把输入、文件所有权、完成条件和预算写清；仅在 Agent 面板看到多个条目不能证明 Team 已建立，因为普通 Subagents 也出现在那里。claude -p 非交互模式不会生成 teammates，即使变量已开启。
+
+关键排错
+@ 搜不到 mealcraft-reviewer
+
+先运行：
+
+claude plugin validate .claude/agents --strict
+
+
+确认文件名是 .claude/agents/mealcraft-reviewer.md，frontmatter 的 name 没有冒号。如果 .claude/agents/ 是启动会话后才第一次创建，当前 watcher 不会自动发现新目录；退出并从项目根目录重启 Claude Code。
+
+Agent 请求运行 Bash 或写文件
+
+先拒绝请求，再打开实际加载的 Agent 文件。tools 应只有 Read、Grep、Glob。若配置正确却看到其他工具，检查是否存在同名用户级或更靠近当前目录的项目 Agent；项目层级越近优先级越高，/doctor 可报告同目录中的重名定义。
+
+/tasks 显示 partial
+
+说明达到 maxTurns: 8 或运行被中断。打开任务看最后进度；如果只是尚未输出 JSON，让主 Agent 恢复同一实例并要求直接按契约收口。不要反复新建 Agent，让它们重复读取同一批文件。
+
+报告检查通过，但根因文字很空泛
+
+机器检查只保证结构和最小证据字段，不能判断每句话的技术质量。主 Agent 必须对照代码与真实失败逐项复核。若 root_cause 只是改写测试名，没有指出合并键或正数校验缺失，应驳回并恢复原 Agent 补证据。
+
+正式 23 项测试失败
+
+本练习目录不应影响正式包。先用 git status --short 与 git diff 检查是否误改 mealcraft/、tests/ 或 data/recipes/。不要为了让教程继续而更新正式测试期望。
+
+文章级验收
+
+在普通终端完成最终检查：
+
+macOS、Linux 或 WSL2：
+
+cd ~/claude-code-course/mealcraft
+python3 extensions/mealcraft-agent-lab/verify_agent_lab.py --phase complete --project-root "$PWD"
+python3 extensions/mealcraft-agent-lab/verify_agent_lab.py --phase report --project-root "$PWD" --report extensions/mealcraft-agent-lab/output/review-result.json
+claude plugin validate .claude/agents --strict
+python3 scripts/verify_2_0.py --stage complete
+python3 -m unittest discover -s tests -v
+git status --short
+
+
+Windows PowerShell：
+
+Set-Location "$HOME\claude-code-course\mealcraft"
+py extensions\mealcraft-agent-lab\verify_agent_lab.py --phase complete --project-root $PWD
+py extensions\mealcraft-agent-lab\verify_agent_lab.py --phase report --project-root $PWD --report extensions\mealcraft-agent-lab\output\review-result.json
+claude plugin validate .claude\agents --strict
+py scripts\verify_2_0.py --stage complete
+py -m unittest discover -s tests -v
+git status --short
+
+
+完成标准：
+
+Agent 组件 strict validation 通过；
+固定 case 仍是 5 项测试、2 个预期失败、0 error，四个输入哈希不变；
+JSON 报告的两个 finding 通过检查；
+主 Agent 亲自复现并确认两个根因，而不是照抄 Subagent；
+/tasks 或 Agent 面板证明 mealcraft-reviewer 实际运行过；
+Agent 工具记录只有 Read/Grep/Glob；
+正式 MealCraft 23 项测试仍通过，Git 工作区为空。
+本篇小结
+
+Subagent 的价值不是“多叫几个模型”，而是把专门调查放进独立上下文，用窄工具、固定输入和交付契约收口。主 Agent 仍对最终结论负责，测试、哈希与 Git 才是文件没有越界的证据。
+
+Agent Teams 解决的是成员需要直接协作的问题，成本和协调面都更大；对个人 MealCraft 的一次两缺陷审查，一个受限 Subagent 已经足够。
+
+下一篇会进入 claude -p 自动化，并纠正一个更危险的误区：--allowedTools 只免审批，不会把未列出的工具从 Claude 的可用工具池中移除；真正限制工具要使用 --tools。
+
+官方参考：
+
+自定义 Subagents：作用域、frontmatter、工具和显式调用
+Agent Teams：适用场景、开启方式与当前限制
+内置命令：/tasks 与当前 /agents 行为
+迁移练习：格式正确之后，还要验证判断
+
+前面的“恰好两个缺陷”练习用于确认代理发现、调用和报告协议接通，不用于证明独立审查能力。完成后创建一个独立的 review-transfer 副本，让同伴在金额汇总、排序或空输入处理中任选一处改动，也可选择不引入缺陷；审查者不预先知道数量与位置。
+
+只给需求、候选代码和允许读取的范围，要求每项结论附文件位置、触发输入、预期和实际结果；允许报告零项。先检查 JSON 格式，再由未参与审查的人运行触发案例判断真假。记录漏报和误报，不用报告条数作分数。完成后可把同一方法用于第 14 篇：程序采集的测试状态才是事实，模型重新排成 JSON 只验格式转换。

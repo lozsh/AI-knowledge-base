@@ -1,0 +1,293 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>核对日期：2026-09-30<br>适用范围：Claude Code 命令行中的个人项目、课程练习、批量修改和 <code>claude -p</code> 自动化。</p>
+</blockquote>
+<p>这不是要求每次都走一套重流程。小改动使用“十项快速门禁”；涉及删除、批量数据、网络、密钥、插件、MCP、无人值守或发布时，再展开对应专项清单。</p>
+<p>勾选只代表“已经检查并有证据”，不代表“让 Claude 说已经完成”。证据可以是命令输出、测试报告、磁盘文件、Git Diff、真实运行结果或人工观察。</p>
+<h2 id="wiki-h-0">十项快速门禁</h2>
+<h3 id="wiki-h-1">开始前</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>pwd</code> 或 PowerShell 的 <code>Get-Location</code> 显示正确项目，而不是主目录、磁盘根目录或原始课程素材目录。</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>git status --short</code> 已保存；已有修改的归属清楚，不会被覆盖、回退或混入本次任务。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">目标、允许修改路径、禁止修改路径和完成标准都能用一句话说明。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">重要文件已有 Git 提交、练习副本或独立备份；<code>/rewind</code> 不是唯一恢复方案。</li>
+</ul>
+<h3 id="wiki-h-2">执行中</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">每次批准前看到了完整工具、参数、工作目录、目标路径和外部副作用。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">权限只覆盖当前必需动作；没有把“免审批”“提示词只读”或 Bare Mode 当成安全隔离。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">安装依赖、联网、写外部服务、产生费用、提交、推送、发布和删除都获得了明确授权。</li>
+</ul>
+<h3 id="wiki-h-3">交付前</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">目标测试、完整回归和至少一条真实用户路径都实际运行过，并记录命令、退出码和关键结果。</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>git diff --check</code>、<code>git diff --stat</code> 和 <code>/diff</code> 或 <code>git diff</code> 没有无关重构、密钥、调试残留或意外大文件。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">最终报告区分“已验证”“未验证”“已知限制”，并给出恢复入口。</li>
+</ul>
+<p>如果任一项答不上来，先暂停当前动作，不要靠扩大权限、重跑模型或跳过检查继续。</p>
+<h2 id="wiki-h-4">开始前：保护现场</h2>
+<h3 id="wiki-h-5">1. 确认目录和起始状态</h3>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">pwd</span>
+git status --short
+git rev-parse --show-toplevel
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Get-Location</span>
+git status <span class="hljs-literal">--short</span>
+git rev<span class="hljs-literal">-parse</span> <span class="hljs-literal">--show-toplevel</span>
+</code></pre><p>通过标准：项目根目录与任务描述一致；现有修改已识别。<code>git rev-parse</code> 报错表示当前不是 Git 仓库，此时必须明确使用副本或备份，而不是假装可以用 Git 回滚。</p>
+<h3 id="wiki-h-6">2. 识别敏感数据和外部副作用</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">提示词、截图、日志和测试夹具中没有真实 API Key、Cookie、Token、身份证号、地址或私人内容。</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>.env</code>、凭据目录、SSH Key 和云配置的读取规则已检查。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">网络目标、账户、数据用途和可能费用明确。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">任务是否会发消息、改数据库、创建云资源、推送或发布已写清。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">练习只使用课程提供的假数据，不把个人真实数据复制进夹具。</li>
+</ul>
+<p>只把密钥放进当前进程环境或合适的 Secret 管理中；不要写进提示词、脚本、仓库、Shell 历史或教程截图。日志只记录密钥名称和是否存在，不输出值。</p>
+<h3 id="wiki-h-7">3. 选择恢复方式</h3>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>任务</th>
+<th>最小恢复措施</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单个代码改动</td>
+<td>起始 <code>git status</code> + 可审查 Diff</td>
+</tr>
+<tr>
+<td>未提交个人数据</td>
+<td>独立副本或备份，再操作副本</td>
+</tr>
+<tr>
+<td>批量迁移</td>
+<td>清单 + Dry Run + 小批量 + 回滚映射</td>
+</tr>
+<tr>
+<td>外部写操作</td>
+<td>测试账户/沙箱 + 幂等键或撤销步骤</td>
+</tr>
+<tr>
+<td>课程练习</td>
+<td>从 <code>exercise-assets/</code> 重新复制干净副本</td>
+</tr>
+</tbody></table></div>
+<p><code>/rewind</code> 可以帮助回到对话检查点，但不能替代 Git、文件备份、数据库快照，也不能撤销已经发生的外部副作用。</p>
+<h2 id="wiki-h-8">批准工具调用前</h2>
+<p>看到审批提示时，逐项检查：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">工具名称和完整输入可见，没有只根据 Claude 的解释批准。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">当前工作目录和所有相对路径已确认。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">命令没有未解释的管道、重定向、命令替换、通配符或包装器。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">删除、覆盖、移动、递归操作的精确目标已由只读命令确认。</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>git clean</code>、<code>git reset</code>、强制推送、数据库写入和云资源操作有单独授权。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">网络域名、上传内容、认证身份和费用明确。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">“本次允许”足够时，没有选择跨会话永久放行。</li>
+</ul>
+<p>权限规则的顺序是 <code>deny</code>、<code>ask</code>、<code>allow</code>。Allow 表示匹配调用可免提示，不表示其他工具消失。命令文本规则也不是完整 OS 安全边界：同一程序可能用绝对路径、Shell 包装器或另一种参数形式调用。需要文件系统和网络边界时，应启用并验证 Sandbox。</p>
+<p>在会话中用 <code>/permissions</code> 查看规则来自哪个设置文件。项目中的永久批准通常会写入 <code>.claude/settings.local.json</code>；审批后再检查 <code>git status --short</code>，避免把本地授权意外提交。</p>
+<h2 id="wiki-h-9">五个最容易误判的安全开关</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>实际作用</th>
+<th>不能据此声称</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--allowedTools</code></td>
+<td>预批准匹配的工具调用</td>
+<td>“只剩这些工具”</td>
+</tr>
+<tr>
+<td><code>--tools</code></td>
+<td>限制模型可见的内置工具集合</td>
+<td>“MCP 也被一并禁用”</td>
+</tr>
+<tr>
+<td><code>--permission-mode dontAsk</code></td>
+<td>拒绝原本需要询问且未预批准的调用</td>
+<td>“所有工具都不能运行”</td>
+</tr>
+<tr>
+<td><code>--bare</code></td>
+<td>跳过大部分自动发现的自定义项和常规凭据加载</td>
+<td>“只读”“Sandbox”“安全模式”</td>
+</tr>
+<tr>
+<td><code>--safe-mode</code> / <code>--restricted</code></td>
+<td>各自提供不同的精简或受限运行环境</td>
+<td>“不需要再限制工具、MCP 和输出”</td>
+</tr>
+</tbody></table></div>
+<h3 id="wiki-h-10">Bare Mode 专项检查</h3>
+<p>Bare Mode 仍可拥有 Bash、Read、Edit 等内置工具。使用前确认：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">真正需要的内置工具已用 <code>--tools</code> 明确列出；不需要时传 <code>--tools ""</code>。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">不需要 MCP 时额外使用 <code>--disallowedTools "mcp__*"</code>，或采用严格的 MCP 配置。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">无人回答审批时使用 <code>--permission-prompts none</code>，并确认必要调用已被安全预批准。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">认证由受控环境显式注入；真实 Key 不在命令文本、文件或日志中。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">输出仍经过 Schema、确定性脚本或人工复核，而不是因 Bare Mode 自动变可信。</li>
+</ul>
+<p>仅写下面这条命令，不能证明安全或只读：</p>
+<pre><code class="hljs language-bash">claude --bare -p <span class="hljs-string">"检查项目"</span>
+</code></pre><p>受限只读调查的思路应同时覆盖工具集合、MCP、审批和输出，例如：</p>
+<pre><code class="hljs language-bash">claude -p <span class="hljs-string">"根据已提供的输入输出 JSON；不要猜测缺失事实"</span> \
+  --tools <span class="hljs-string">""</span> \
+  --disallowedTools <span class="hljs-string">"mcp__*"</span> \
+  --permission-mode dontAsk \
+  --permission-prompts none \
+  --output-format json
+</code></pre><p>这段示例没有内置工具，适合从标准输入或提示词接收已脱敏事实；它不是读取项目的模板。若需要读取仓库，应显式添加 <code>Read,Glob,Grep</code>，并在隔离副本中验证实际访问边界。</p>
+<h2 id="wiki-h-11">代码改动验收</h2>
+<h3 id="wiki-h-12">范围</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">改动文件都能映射到一个需求或必要测试。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有顺手重构、批量格式化、升级依赖或改公共接口。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">原有未提交修改仍在，且与本次 Diff 可区分。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">生成文件、缓存、日志和临时数据没有混入交付。</li>
+</ul>
+<h3 id="wiki-h-13">行为</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">新功能有正常、边界和错误行为的验收。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">缺陷修复有稳定复现；回归测试在修复前失败、修复后通过。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">目标测试和完整测试实际通过；没有用跳过、重试、吞错或扩大超时掩盖问题。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">至少运行一次真实入口，而不是只运行单元测试。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">旧数据、旧命令或旧接口的兼容性已按任务要求验证。</li>
+</ul>
+<h3 id="wiki-h-14">独立证据</h3>
+<pre><code class="hljs language-bash">git diff --check
+git diff --<span class="hljs-built_in">stat</span>
+git status --short
+</code></pre><p>预期：<code>git diff --check</code> 退出码为 0；统计和状态只出现预期文件。随后查看完整 Diff，并运行项目指定的测试和真实入口。</p>
+<p>不要把“Claude 已检查”“代码看起来正确”或一次成功截图当成完整回归证据。</p>
+<h2 id="wiki-h-15">数据与批量操作</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">先只读盘点总数、类型、异常和明确排除项。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">第一次在副本、独立分支或测试数据上执行。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">Dry Run 列出逐项计划，不写文件、不触发外部动作。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">缺字段、格式冲突、解析失败和符号链接有明确处理规则。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">小批量通过后才全量；批次边界和结果有记录。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">验收同时检查数量、结构、正文/数据完整性和受保护项。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">第二次 Dry Run 显示 0 个待改，证明幂等。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">回滚命令或 before/after 映射已在全量前验证。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">删除只针对已解析并核对的精确目标，不使用宽泛变量或未展开通配符。</li>
+</ul>
+<p>批量任务的最小证据链是：</p>
+<pre><code class="hljs language-text">盘点 -&gt; Dry Run -&gt; 小批量 -&gt; 小批量验收 -&gt; 全量 -&gt; 全量验收 -&gt; 幂等 -&gt; 回滚入口
+</code></pre><p>旅行笔记的完整示例见第 16 篇。</p>
+<h2 id="wiki-h-16">Skills、Hooks 与 Subagents</h2>
+<h3 id="wiki-h-17">Skill</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>description</code> 足够具体，不会和其他 Skill 大面积重叠。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">有副作用的 Skill 默认使用 <code>disable-model-invocation: true</code>，由用户显式触发。</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>$ARGUMENTS</code>、允许的输入、预期输出和失败行为已验证。</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>allowed-tools</code> 没有被误当成全局工具白名单。</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>/skills</code> 能发现；修改后使用 <code>/reload-skills</code> 或新会话复核。</li>
+</ul>
+<h3 id="wiki-h-18">Hook</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">matcher 命中精确工具或事件，不会意外覆盖所有动作。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">处理器可在 Claude Code 之外独立运行。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">正常、警告、阻止和脚本故障的退出行为都已测试。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">输出不泄露密钥、私人路径或完整用户数据。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">不会因自己写日志或修改文件形成自触发循环。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">已记录 <code>/hooks</code> 中的停用入口和配置恢复方法。</li>
+</ul>
+<h3 id="wiki-h-19">Subagent</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">任务足够独立，且并行收益大于用量和协调成本。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">工具、MCP、权限模式、模型和可访问文件按最小范围设置。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">多个 Agent 不会同时修改同一文件或依赖同一未完成结果。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">返回结果包含文件位置、实际命令、事实、假设和未验证项。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">主 Agent 或人工对关键结论做了独立复核。</li>
+</ul>
+<p>完整实操分别见第 11 篇和第 13 篇。</p>
+<h2 id="wiki-h-20">MCP 与插件供应链</h2>
+<p>MCP 服务和插件可能运行本地代码、读取环境变量、连接网络或向 Claude 暴露带副作用的工具。安装成功不等于来源可信。</p>
+<h3 id="wiki-h-21">添加前</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">来源、维护者、版本和下载位置可核对。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">阅读了 manifest、Hook、MCP 启动命令和安装脚本。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">没有 <code>curl | sh</code>、隐藏下载、宽泛文件访问或不必要的高权限。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">凭据使用测试账户和最小 scope，不写入仓库。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">外部服务的数据保留、费用和写操作边界已知。</li>
+</ul>
+<h3 id="wiki-h-22">第一次运行</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">优先本地、只读、假数据或测试账户。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">用 <code>/mcp</code> 确认连接的是预期服务。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">第一个工具调用无副作用，并独立核对结果来源。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">插件先运行 <code>claude plugin validate &lt;路径&gt; --strict</code>，再用 <code>--plugin-dir</code> 临时加载。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">Skill、Agent 和 MCP 使用预期命名空间，没有覆盖同名项目配置。</li>
+</ul>
+<h3 id="wiki-h-23">结束后</h3>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">写工具未继续开放；不用的服务已 disable、disconnect 或 remove。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">临时凭据撤销，测试数据和本地进程清理。</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>/context</code>、<code>/mcp</code> 或插件详情证明没有意外残留。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">安装或配置产生的文件都出现在预期 Diff 中。</li>
+</ul>
+<p>可运行的本地只读 MCP 和临时插件见第 12 篇。</p>
+<h2 id="wiki-h-24"><code>claude -p</code> 与无人值守自动化</h2>
+<p>无人值守意味着没人临场判断模糊审批，所以必须在启动前完成限制和验证。</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">使用 <code>--tools</code> 建立真正的内置工具集合，而不是只写 <code>--allowedTools</code>。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">用 <code>--disallowedTools "mcp__*"</code> 或严格配置处理 MCP；<code>--tools</code> 不控制 MCP。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">使用 <code>--permission-mode dontAsk</code> 与 <code>--permission-prompts none</code>，并测试被拒绝路径。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">设置 <code>--max-budget-usd</code>、外层超时和最大输入大小。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">机器消费的结果使用 <code>--json-schema</code>；另有本地校验器检查业务语义。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">捕获退出码、标准错误、超时、预算耗尽和部分输出。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">日志已经脱敏，不包含提示词中的私人数据或环境变量值。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">自动化默认不提交、推送、合并、发布或写生产服务。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">失败不会误报成功；下游只接收验证通过的结果。</li>
+</ul>
+<p>Schema 只证明输出形状正确，不能证明事实正确。最稳妥的结构是“确定性采集器产生事实 → Claude 做受约束映射 → 确定性校验器比对事实”。完整示例见第 14 篇。</p>
+<h2 id="wiki-h-25">课程练习的重置与验收</h2>
+<p>课程素材是只读起点，不要直接在 <code>exercise-assets/</code> 中练习。</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">原素材目录仍存在，<code>git status --short</code> 没有显示素材被改。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">每次练习先复制到文章指定的新目录；若目标已存在，先检查内容，不直接覆盖。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">复制后运行该素材自带的完整性或阶段验证脚本。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">失败基线与文章写明的失败数、退出码或关键输出一致。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">练习完成后运行目标验收、完整回归和真实入口。</li>
+<li class="task-list-item"><input disabled="" type="checkbox">需要重来时删除或归档的是明确的练习副本，不是原素材或整个工作区。</li>
+</ul>
+<p>如果基线与文章不同，先停止修改，检查复制来源、当前目录、Python 版本和是否混入上次练习文件。不要让 Claude“修到和教程一样”，那会抹掉真正的起始状态问题。</p>
+<h2 id="wiki-h-26">最终交付记录</h2>
+<p>完成时至少留下下面六类信息：</p>
+<pre><code class="hljs language-text">改动：具体文件和用户可见行为
+保留：没有触碰的范围与已有修改
+验证：实际运行的命令、退出码、通过数和真实结果
+安全：权限、网络、凭据、费用与外部副作用
+恢复：Git、备份、重置或撤销入口
+未验证：受环境、账号或平台限制而未完成的项目
+</code></pre><p>最终再问自己：</p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">一个新读者能从磁盘证据复核结果，而不用相信当前对话吗？</li>
+<li class="task-list-item"><input disabled="" type="checkbox">删除当前会话后，项目仍能通过文档、测试和 Git 说明状态吗？</li>
+<li class="task-list-item"><input disabled="" type="checkbox">失败时能在不扩大损失的情况下回到已知状态吗？</li>
+</ul>
+<p>三项都为“是”，才算完成。</p>
+<h2 id="wiki-h-27">关键排错</h2>
+<h3 id="wiki-h-28"><code>/permissions</code> 与预期不一致</h3>
+<p>查看规则来自哪个 settings 文件，并记住 <code>deny &gt; ask &gt; allow</code>。本地永久批准可能在 <code>.claude/settings.local.json</code>；修改后从下一次工具调用开始验证，不要只读配置文本推断。</p>
+<h3 id="wiki-h-29">Sandbox 已开，命令仍能访问不该访问的位置</h3>
+<p>先运行 <code>/sandbox</code> 检查状态和边界；确认是否在原生 Windows、是否通过已允许的外部进程间接访问、是否添加过额外目录或网络白名单。权限审批和 Sandbox 是两层控制，不能只检查其中一层。</p>
+<h3 id="wiki-h-30">自动化一直报权限错误</h3>
+<p>不要改成 <code>bypassPermissions</code>。先核对 <code>--tools</code>、权限规则、<code>dontAsk</code> 与 <code>--permission-prompts none</code>，再让 Dry Run 打印最终参数。必要工具应该被精确预批准；非必要工具应移除。</p>
+<h3 id="wiki-h-31">插件或 MCP 行为异常</h3>
+<p>先停用新增组件，保留日志和配置 Diff；再从 manifest、启动命令、作用域、连接状态和首个只读工具逐层恢复。不要同时重装插件、改 MCP 配置和扩大权限。</p>
+<h2 id="wiki-h-32">官方资料</h2>
+<ul>
+<li><a href="https://code.claude.com/docs/en/permissions">权限规则与模式</a></li>
+<li><a href="https://code.claude.com/docs/en/sandboxing">Sandbox</a></li>
+<li><a href="https://code.claude.com/docs/en/cli-reference">CLI 参数参考</a></li>
+<li><a href="https://code.claude.com/docs/en/headless">程序化运行</a></li>
+<li><a href="https://code.claude.com/docs/en/plugins/security">插件安全与信任</a></li>
+<li><a href="https://code.claude.com/docs/en/mcp">MCP</a></li>
+</ul>
+<p>官方行为会随版本变化。遇到命令或界面差异时，以本机 <code>claude --help</code>、对应子命令 <code>--help</code>、会话内 <code>/help</code> 和当前官方文档为准。</p>
+</article>

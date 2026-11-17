@@ -1,0 +1,13 @@
+<!DOCTYPE html><meta charset="utf-8"><article><h2 id="wiki-h-0">10.1 前提</h2>
+<p>完成第 4～5 章后，data/ledger.db 有三条固定九月账目，summary 通过验收。安装本课固定的官方 Python MCP SDK <code>mcp==1.26.0</code>，把 <a href="revision-assets/ledger_readonly_mcp.py">ledger_readonly_mcp.py</a> 复制到项目 scripts/。</p>
+<h2 id="wiki-h-1">10.2 配置一个 stdio MCP</h2>
+<p>在 CLI 2.0 的 <code>~/.trae/traecli.toml</code> 增加以下条目。先用 <code>python -c "import sys; print(sys.executable)"</code> 找到虚拟环境解释器，并替换三个绝对路径；Windows 可用 TOML 单引号保存反斜杠路径。</p>
+<pre><code class="hljs language-toml"><span class="hljs-section">[mcp_servers.ledger_readonly]</span>
+<span class="hljs-attr">command</span> = <span class="hljs-string">"/absolute/path/.venv/bin/python"</span>
+<span class="hljs-attr">args</span> = [<span class="hljs-string">"/absolute/path/scripts/ledger_readonly_mcp.py"</span>, <span class="hljs-string">"/absolute/path/data/ledger.db"</span>]
+</code></pre><p>重开会话后用 <code>/mcp</code> 核对服务和工具列表。只应暴露 monthly_totals。调用 2026-09，期望收入 800000 分、支出 4700 分。服务使用 SQLite mode=ro 和 query_only，不靠工具名字包含 write 与否判断权限。独立尝试同一连接执行 INSERT 必须得到 readonly 错误。</p>
+<h2 id="wiki-h-2">10.3 服务端与客户端不能混淆</h2>
+<p><code>gh api mcp</code> 不是 MCP 服务；gh api 是 HTTP API 客户端。需要 GitHub 能力时另行按 <a href="https://github.com/github/github-mcp-server">GitHub 官方 MCP server</a> 配置，分别验证初始化、工具列表、认证与只读调用，不复用不存在的 stdio 协议。</p>
+<p>本章先完成一条账本查询闭环。插件、传输和字段全集只在需要时查官方参考；<code>/plugins</code>、<code>/skills</code>、<code>/mcp</code> 是不同管理入口，避免为了介绍功能而加入无关配置。</p>
+<p>参考：<a href="https://docs.trae.cn/cli_config-file">CLI 2.0 配置</a>、<a href="https://docs.trae.cn/cli_tools-and-extensions">工具与扩展</a>。</p>
+</article>

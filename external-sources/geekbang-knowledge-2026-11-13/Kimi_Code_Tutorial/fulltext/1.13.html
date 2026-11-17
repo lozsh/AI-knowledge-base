@@ -1,0 +1,97 @@
+<!DOCTYPE html><meta charset="utf-8"><article><p>前面十一章，我们几乎都在终端里度过。但不是每个人都喜欢对着黑漆漆的窗口敲命令——比如你的家人想用 AI 帮忙整理个表格、写个小程序，让他们先学终端就劝退了。</p>
+<p>这一章介绍 <strong>Kimi Code Desktop</strong>：一个图形化的桌面应用，把 Kimi Code 的能力装进了一个点点鼠标就能用的窗口里。教程用一章的篇幅带你上手，最后以一份"全书结课清单"收尾。</p>
+<h2 id="wiki-h-0">12.1 它是什么，适合谁</h2>
+<p>Kimi Code Desktop 是一个独立的桌面应用，目前支持 <strong>macOS 和 Windows</strong>。它和 CLI 的核心能力是同一套：你用自然语言交代任务，它读代码、改文件、跑命令、验证结果——只不过这一切发生在一个图形窗口里，而不是终端里。</p>
+<p>它最大的特点是<strong>开箱即用、零配置</strong>：</p>
+<ul>
+<li>不用装 Node、不用配环境，下载安装即可；</li>
+<li>用 <strong>Kimi 账号直接登录</strong>，不需要手动管理 API Key；</li>
+<li>界面是图形化的，文件树、对话区、改动对比都看得见摸得着。</li>
+</ul>
+<p>所以它的目标用户很清晰：<strong>偏好图形应用、不想碰终端的人</strong>，或者想在电脑上多一个"打开文件夹就能聊"的轻量入口的人。</p>
+<h2 id="wiki-h-1">12.2 安装与登录</h2>
+<p>去 Kimi Code 官网下载对应你系统的 Desktop 安装包（macOS 一个 <code>.dmg</code>，Windows 一个 <code>.exe</code>），按常规方式安装：</p>
+<ul>
+<li><strong>macOS</strong>：打开 <code>.dmg</code>，把 Kimi Code 拖进"应用程序"文件夹。首次打开如果提示"无法验证开发者"，去"系统设置 → 隐私与安全性"里点"仍要打开"。</li>
+<li><strong>Windows</strong>：双击 <code>.exe</code>，按安装向导走完。如果 SmartScreen 弹出提示，点"更多信息 → 仍要运行"。</li>
+</ul>
+<p>装完打开应用，按提示<strong>用你的 Kimi 账号登录</strong>——就是 CLI 那个账号，会员权益和额度是共享的。登录成功后，不需要任何额外配置，直接就能用。</p>
+<h2 id="wiki-h-2">12.3 实战：用 Desktop 打开我们的体重管理项目</h2>
+<p>光说不练假把式。我们直接用 Desktop 打开做了十一章的 <code>weight-tracker</code> 项目，看看体验如何。</p>
+<ol>
+<li><p><strong>打开项目文件夹</strong>：启动 Desktop 后，用它的"打开文件夹"功能，选中我们的 <code>weight-tracker</code> 目录。</p>
+</li>
+<li><p><strong>看到熟悉的界面</strong>：左边是文件树，右边（或中间）是对话区——是不是有点像 VS Code 扩展的感觉？</p>
+</li>
+<li><p><strong>让它接着干活</strong>：在对话框里输入一句你现在已经很熟练的需求，比如：</p>
+<pre><code>看一下这个项目，给我讲讲现在的功能结构；
+然后帮我给首页加一个<span class="hljs-string">"最近 7 天体重趋势"</span>的小图表
+</code></pre></li>
+<li><p><strong>观察它的工作</strong>：它会去读项目文件（包括我们写的 <code>AGENTS.md</code> 和 Skill），然后动手改代码。改动会以<strong>可视化的 diff</strong> 呈现出来——哪行删了、哪行加了，一目了然，比在终端里看更直观。</p>
+</li>
+<li><p><strong>验收</strong>：改完它会让你确认。你打开浏览器刷新 <code>index.html</code>（或者 Desktop 可能内置预览），看看体重趋势图表是不是出来了。</p>
+</li>
+</ol>
+<p>你会发现，虽然换了图形界面，但<strong>你在 CLI 里学到的一切都管用</strong>：三要素需求描述、验收标准、AGENTS.md 约定、Skill 调用、审查改动……这些"怎么跟 AI 协作"的内功，换个壳依然有效。这就是我们把 CLI 作为主线的原因——内功练好，招式随便换。</p>
+<h2 id="wiki-h-3">12.4 Desktop、CLI、VS Code 扩展，到底怎么选</h2>
+<p>三种官方形态，给你一句话的选用建议：</p>
+<div class="wiki-table-scroll"><table>
+<thead>
+<tr>
+<th>你是谁 / 你要做什么</th>
+<th>选哪个</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>想学透、做自动化、写脚本、在服务器上用</td>
+<td><strong>CLI</strong></td>
+</tr>
+<tr>
+<td>平时就在 VS Code 写代码，想边看 diff 边协作</td>
+<td><strong>VS Code 扩展</strong></td>
+</tr>
+<tr>
+<td>不想碰终端，要一个打开文件夹就能聊的图形应用</td>
+<td><strong>Desktop</strong></td>
+</tr>
+</tbody></table></div>
+<p>它们不互斥，同一账号可以同时装、同时用。一个常见的搭配是：电脑上 CLI 和 Desktop 都装着——复杂的、要自动化的活儿在 CLI 里干；临时想快速看看项目、改个小东西，点开 Desktop 就行。</p>
+<h2 id="wiki-h-4">结课清单：你已经掌握的东西</h2>
+<p>十二章走完，是时候盘点一下你的收获了。下面这份清单，既是你学会的技能，也是以后可以随时回来翻的" cheatsheet "：</p>
+<p><strong>基础认知</strong></p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">Kimi Code 是一个能干活的 AI 编程 Agent（读、写、跑、规划），不只是代码生成器</li>
+<li class="task-list-item"><input disabled="" type="checkbox">四种形态：CLI、VS Code 扩展、Desktop、API Key，同一账号额度共享</li>
+</ul>
+<p><strong>安装与上手</strong></p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">按操作系统装好了 CLI（脚本 / npm / PowerShell），登录用 <code>/login</code> + OAuth</li>
+<li class="task-list-item"><input disabled="" type="checkbox">认识了 TUI 三要素：对话区、输入框、状态栏</li>
+</ul>
+<p><strong>核心操作</strong></p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">输入技巧：<code>@</code> 引用文件、<code>/</code> 唤起命令、<code>!</code> Shell 模式</li>
+<li class="task-list-item"><input disabled="" type="checkbox">三种权限模式（默认 / <code>/yolo</code> / <code>/auto</code>）什么时候用哪档</li>
+<li class="task-list-item"><input disabled="" type="checkbox">Plan 模式：复杂任务先审计划再动手</li>
+<li class="task-list-item"><input disabled="" type="checkbox">过程控制：<code>Esc</code> 打断、<code>Ctrl-S</code> 插话、<code>Ctrl+B</code> 转后台</li>
+<li class="task-list-item"><input disabled="" type="checkbox">会话管理：<code>kimi --continue</code> 恢复、<code>/sessions</code>、<code>/compact</code>、<code>/fork</code>、<code>/export-md</code></li>
+</ul>
+<p><strong>开发流程（实战项目全练过）</strong></p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">需求写法：目标 + 约束 + 验收标准</li>
+<li class="task-list-item"><input disabled="" type="checkbox">给项目配测试（tests.html），全绿才提交</li>
+<li class="task-list-item"><input disabled="" type="checkbox">修 bug：症状 + 复现 + 期望，先调查后动手</li>
+<li class="task-list-item"><input disabled="" type="checkbox">重构有测试和 git 双兜底</li>
+<li class="task-list-item"><input disabled="" type="checkbox">git 习惯：先 init、小步提交、分支隔离、规范提交信息</li>
+</ul>
+<p><strong>进阶能力</strong></p>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">联网搜索 + 图片/视频多模态输入</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>/goal</code> 目标模式、定时任务、<code>kimi -p</code> 脚本化</li>
+<li class="task-list-item"><input disabled="" type="checkbox">定制：AGENTS.md 立规矩、Skill 固化流程</li>
+<li class="task-list-item"><input disabled="" type="checkbox">扩展生态：子代理并行、MCP 接外部工具、Hooks 事件触发、插件打包分享</li>
+<li class="task-list-item"><input disabled="" type="checkbox">编辑器接入（VS Code / Zed / JetBrains）、API Key 接第三方</li>
+</ul>
+<p><strong>最重要的一句话</strong>：工具会更新，界面会变化，但"<strong>清晰地表达需求、用验收标准检查结果、让好习惯（测试、git、文档）为你兜底</strong>"这套方法，是会跟着你走很久的。</p>
+<p>祝你和你的新搭档合作愉快。如果在使用中遇到问题，先去翻<a href="https://www.kimi.com/code/docs/en/">官方文档</a>，那里有最权威的答案。</p>
+</article>

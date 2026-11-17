@@ -1,0 +1,327 @@
+预计阅读与练习时间：55～75 分钟
+本篇目标：把任务事实、当前阶段、事件历史、单轮证据和最终结果写入 .loop/，在任务领取后中断进程，再从一个明确的安全检查点恢复并完成任务。
+
+第 3 篇的 Runner 已经能完成一轮，但它的记忆主要留在终端。只要进程在任务进入 processing 后退出，下次启动就只能看到一个“处理中”的文件，却不知道 Agent 是否已经开始、代码是否已改、验证是否跑过。
+
+这一篇要建立状态脊柱（state spine）：不把聊天记录当记忆，也不靠人回忆上一轮，而是把每次控制决策写成机器可读、可核对的本地状态。
+
+这类做法也出现在长时运行 Agent 的工程实践中：把进度、测试结果和下一步显式留在工作区，让新的运行能够从外部事实继续，而不是依赖越来越长的会话。Anthropic 的长时运行 Agent Harness 实践
+
+先保存第 3 篇的成果
+
+起点是已经完成 issue-001 的 issue-garden-lab/。此时 src/search.mjs 已支持全角空格，任务文件位于 tasks/done/，但这些结果还没有提交。
+
+先独立确认上一项任务仍然通过：
+
+node --test acceptance/fullwidth-space.test.mjs
+npm test
+npm run check
+
+
+三项都通过后，保存这个基线：
+
+git add src/search.mjs tasks
+git commit -m "fix: normalize search whitespace"
+git status --short
+
+
+最后一条命令应没有输出。若你还没有完成第 3 篇，不要直接复制本篇素材；issue-002 会沿用上一轮加入的 normalizeText()，缺少这个基线时模拟 Agent 会主动停止。
+
+加入状态层和第二项任务
+
+从课程根目录复制本篇增量素材。
+
+macOS 或 Linux：
+
+cp -R assets/lesson-04-state/. issue-garden-lab/
+cd issue-garden-lab
+source .venv/bin/activate
+
+
+Windows PowerShell：
+
+Copy-Item -Recurse -Force assets/lesson-04-state/* issue-garden-lab
+Set-Location issue-garden-lab
+.\.venv\Scripts\Activate.ps1
+
+
+本篇新增了三个关键部件：
+
+issue_garden/state_store.py       原子写入、事件追加和状态目录
+issue_garden/stateful_round.py    领取、恢复和带证据的单轮流程
+tasks/inbox/issue-002.json        作者名标点归一化任务
+
+
+tools/run_once.py 也被替换成带状态的入口，并增加一个只用于教学的受控中断参数。
+
+先运行所有控制面测试：
+
+python -m unittest discover -s loop_tests -p "test_*.py" -v
+
+
+预期共十项通过：前两篇的八项检查仍在，本篇又验证了“相同 JSON 内容不因键顺序不同而改变摘要”和“状态文件更新后仍是完整 JSON，不残留临时文件”。
+
+将本篇代码和任务保存成干净基线：
+
+git add .
+git commit -m "feat: add recoverable loop state"
+git status --short
+
+
+.loop/ 已在 .gitignore 中，它不会进入提交。课程代码和任务定义属于项目版本，某次运行产生的领取记录、尝试报告和结果则属于运行时状态。
+
+状态脊柱不是一份越来越大的聊天记录
+
+Issue Garden 会为每个任务建立下面的结构：
+
+.loop/
+├── claims/
+│   └── issue-002.json
+├── results/
+│   └── issue-002.json
+└── tasks/
+    └── issue-002/
+        ├── facts.json
+        ├── state.json
+        ├── events.jsonl
+        └── attempts/
+            └── round-001.json
+
+
+这些文件分工不同。
+
+文件	保存什么	为什么单独放
+facts.json	原始任务快照、任务摘要、契约摘要、起始 Git HEAD	记录本轮开始时不可随意改写的事实
+state.json	当前 status、phase、轮次和更新时间	让 Runner 快速判断从哪个阶段继续
+events.jsonl	领取、恢复、Agent 启动、证据保存等追加事件	保留发生顺序，不用反复改写整段历史
+attempts/round-001.json	本轮 Agent 报告、真实 Diff、命令退出码与输出	把执行者说法与验证证据放在同一轮记录中，但字段分开
+results/issue-002.json	最终决策的完整快照	调度器和人无需重放所有事件就能读取结果
+
+Agent 的 summary 是执行者提供的解释，不是事实来源；命令退出码、Git Diff 和任务原文才是 Runner 能独立观察的证据。把它们拆开，下一轮才不会把“Agent 认为已经完成”误当成“验证已经通过”。
+
+先制造一次可控中断
+
+issue-002 要求作者名查询忽略中英文标点差异。先确认它尚未满足：
+
+node --test acceptance/punctuation-search.test.mjs
+
+
+测试应失败：书中作者是 Randal Bryant，查询使用 Randal，Bryant，当前归一化只移除空白，不移除标点。
+
+现在运行带中断参数的 Runner：
+
+python tools/run_once.py --simulate-interruption-after-claim
+
+
+预期输出：
+
+{
+  "decision": "interrupted",
+  "reason": "controlled_after_claim",
+  "task_id": "issue-002",
+  "checkpoint": ".loop/tasks/issue-002/state.json"
+}
+
+
+退出码是 75，表示本次没有完成任务，而是在明确的检查点主动结束。这个参数不会杀死操作系统进程；它用于稳定复现“任务已领取、Agent 尚未启动”的中断状态。
+
+此时检查队列。macOS 或 Linux：
+
+ls tasks/inbox
+ls tasks/processing
+
+
+Windows PowerShell：
+
+Get-ChildItem tasks/inbox
+Get-ChildItem tasks/processing
+
+
+issue-002.json 应位于 processing，inbox 中不再有同名文件。
+
+再查看状态：
+
+python -m json.tool .loop/tasks/issue-002/state.json
+
+
+关键字段应类似：
+
+{
+  "task_id": "issue-002",
+  "status": "active",
+  "phase": "claimed",
+  "round": 1,
+  "updated_at": "...Z"
+}
+
+
+active + claimed 的含义非常具体：Runner 已经拥有这个任务，但还没有记录 agent_started。这是一个可以自动恢复的安全边界。
+
+最后确认代码没有被修改：
+
+git diff -- src/search.mjs
+
+
+命令应没有输出。到这里形成一个完整检查：任务已经离开待办箱，磁盘上已有领取与状态记录，但 Agent 还没有产生代码副作用。
+
+领取本身也需要分阶段
+
+如果 Runner 先移动任务，后写 checkpoint，那么它恰好在两步之间崩溃时，就会留下没有解释的 processing 文件。新版的领取顺序是：
+
+写入 facts 与 claim
+  -> state.phase = claiming
+  -> 把任务移动到 processing
+  -> state.phase = claimed
+
+
+state.json 不是直接覆盖。atomic_write_json() 会先在同一目录写临时文件、刷新到磁盘，再用 os.replace() 替换正式文件。这样，中断更可能留下旧的完整状态或新的完整状态，而不是只写了一半的 JSON。
+
+events.jsonl 则采用追加写入，每行是一个独立 JSON 事件。查看它：
+
+macOS 或 Linux：
+
+cat .loop/tasks/issue-002/events.jsonl
+
+
+Windows PowerShell：
+
+Get-Content .loop/tasks/issue-002/events.jsonl
+
+
+你应该至少看到 claim_started、claim_completed 和 controlled_interruption。精确时间不同，但顺序应一致。
+
+原子替换只保护“单个状态文件不会半写”，并不让多个文件形成数据库事务。任务移动、事件追加和状态更新之间仍可能中断，因此恢复代码必须识别阶段，而不能只判断“文件存在”。
+
+从安全检查点恢复
+
+不移动任何文件，也不要重新创建任务。直接再次运行：
+
+python tools/run_once.py
+
+
+Runner 会先发现 tasks/processing/issue-002.json，然后依次核对：
+
+.loop/claims/issue-002.json、facts.json 和 state.json 是否都存在；
+当前任务内容的 SHA-256 摘要是否与领取时一致；
+文件名是否与领取记录一致；
+状态是否确实为 active + claimed。
+
+全部满足后，它追加一个 resumed 事件，再启动模拟 Agent。成功报告的关键字段如下：
+
+{
+  "decision": "completed",
+  "reason": "verified",
+  "task_id": "issue-002",
+  "round": 1,
+  "resumed": true,
+  "agent": {
+    "status": "changed"
+  },
+  "changes": {
+    "files": ["src/search.mjs"],
+    "lines": 2
+  },
+  "boundary_errors": []
+}
+
+
+resumed: true 证明本轮使用了已有领取状态，而不是把任务当成新任务再领一次。模拟 Agent 把归一化规则从“移除空白”扩展为“移除空白和 Unicode 标点”，仍只修改 src/search.mjs。
+
+从三处独立核对完成结果
+
+第一处是用户可见行为：
+
+node --test acceptance/punctuation-search.test.mjs
+node --test acceptance/fullwidth-space.test.mjs
+npm test
+npm run check
+
+
+新旧验收与基础检查都应通过。新能力没有破坏第 3 篇已经完成的全角空格行为。
+
+第二处是任务队列。macOS 或 Linux：
+
+ls tasks/processing
+ls tasks/done
+
+
+Windows PowerShell：
+
+Get-ChildItem tasks/processing
+Get-ChildItem tasks/done
+
+
+processing 应为空，done 中同时有 issue-001.json 与 issue-002.json。
+
+第三处是持久状态：
+
+python -m json.tool .loop/tasks/issue-002/state.json
+python -m json.tool .loop/results/issue-002.json
+python -m json.tool .loop/tasks/issue-002/attempts/round-001.json
+
+
+state.json 应为 status: completed、phase: finished；结果文件应包含最终 decision: completed；尝试文件应保存 resumed: true、Agent 说明、两行 Diff 规模，以及三条验证命令各自的退出码和输出。
+
+最后查看真实改动：
+
+git diff -- src/search.mjs
+git status --short
+
+
+.loop/ 不应出现在状态列表中，因为它是被忽略的运行数据。你仍会看到源文件修改和任务从 inbox 移到 done，课程不会替你自动提交这些候选结果。
+
+哪些阶段不能自动重放
+
+当前恢复器只自动接受 phase: claimed。如果状态是 agent_running 或 agent_finished，它会返回 blocked / unsafe_resume，而不是再次调用 Agent。
+
+这是保守但重要的选择。中断发生在 Agent 启动以后时，我们不知道它是否已经：
+
+写了一半代码；
+创建了未被旧版 Git 检查发现的新文件；
+调用了外部工具；
+完成了动作，但来不及写回状态。
+
+盲目重放可能把一次动作执行两次。持久状态能减少不确定性，却不能凭空提供“恰好一次”语义。只要任务包含发消息、付款、发布、删除远端数据等外部副作用，就需要目标系统提供幂等键、事务或人工确认；不能仅凭本地 state.json 宣称安全。
+
+在本课程中，所有默认任务只修改本地实验副本。第 6 篇会让重复失败变成显式升级，第 7 篇再用工作区隔离缩小不确定状态的影响面。
+
+常见阻塞
+unsafe_resume：缺少 checkpoint
+
+如果 tasks/processing/ 有任务，但 .loop/claims/、facts.json 或 state.json 不完整，Runner 会拒绝猜测。先查看 Git Diff、任务文件和现有 .loop/ 内容，判断 Agent 是否曾启动；不要为了继续而随手把任务移回 inbox。
+
+实验做乱且没有要保留的结果时，最清楚的恢复方式是重新复制一份课程实验目录，而不是伪造状态。
+
+任务摘要不一致
+
+领取以后不要直接编辑 tasks/processing/issue-002.json。Runner 会比较规范化 JSON 的 SHA-256 摘要，内容变化就停止。需要修正任务时，应先让当前运行进入人工终态，再以新任务 ID 提交新版本；复用 ID 会破坏去重依据。
+
+重做练习时提示已有领取记录
+
+即使你用 Git 还原了代码和 tasks/，.loop/ 默认不会随 Git 变化。如果只是想保留旧记录后重做，可以先把整个状态目录改名：
+
+macOS 或 Linux：
+
+mv .loop ../issue-garden-loop-previous
+
+
+Windows PowerShell：
+
+Move-Item .loop ../issue-garden-loop-previous
+
+
+然后确认源代码和任务队列已回到本篇开始前的状态。不要只删除某个 claim，否则事实、事件和结果会互相矛盾。
+
+本地日志能否作为合规审计证据
+
+不能直接等同。当前使用者同时拥有项目和 .loop/ 的写权限，本地 JSONL 可以被编辑。它足以教学、调试和恢复低风险本地任务；需要防篡改审计时，应把事件发送到权限隔离的外部存储，并记录身份、签名和保留策略。
+
+本篇留下了什么
+
+Issue Garden 现在不只会运行，还会留下可恢复的状态：稳定任务 ID 和摘要防止换单，facts.json 保存起点，state.json 标记阶段，events.jsonl 保存顺序，attempts/ 保存每轮证据，results/ 保存终态。你已经在 claimed 检查点中断一次，并在不重新领取任务的情况下恢复完成。
+
+下一篇，我们会处理另一个信任问题：目前 Agent 调用、Git 边界检查和命令验证仍集中在同一个控制模块。我们将把生成者与验证者拆开，让 Agent 只能提交候选改动，由独立验证器根据受保护规则裁决结果。
+
+修订后的边界验收
+
+所有任务入口限制 ID 为 1～80 位字母数字、下划线和连字符，不能包含路径分隔符。恢复时同时比对任务、契约摘要和 Git HEAD；任一变化都拒绝自动恢复，需核查后以新任务／新领取继续。

@@ -1,0 +1,187 @@
+<!DOCTYPE html><meta charset="utf-8"><article><blockquote>
+<p>预计用时：35～50 分钟<br>本篇目标：加入一份简短的项目说明和一份路径 Rules，并用静态检查、<code>/context</code> 和全新会话证明它们在正确时机加载；同时分清 Auto Memory 与安全规则。</p>
+</blockquote>
+<p>前几篇反复说明“不安装依赖、源菜谱只读、测试要跑完整套件”。这些是每次会话都应知道的项目事实，适合进入 <code>CLAUDE.md</code>。只有处理菜谱 JSON 时才需要的字段约束，则放进按路径加载的 Rules，避免每轮占用上下文。</p>
+<h2 id="wiki-h-0">开始状态</h2>
+<p>从第 8 篇的主 MealCraft 项目开始：</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">cd</span> ~/claude-code-course/mealcraft
+git status --short
+python3 scripts/verify_security_lab.py --after
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-built_in">Set-Location</span> <span class="hljs-string">"<span class="hljs-variable">$HOME</span>\claude-code-course\mealcraft"</span>
+git status <span class="hljs-literal">--short</span>
+py scripts/verify_security_lab.py <span class="hljs-literal">--after</span>
+</code></pre><p>如果你没有保留 <code>output/security-probe.txt</code>，安全检查器的 <code>--after</code> 会失败；这不影响本篇，可先只确认 <code>.claude/settings.json</code> 存在、测试通过且 <code>data/recipes</code> 没有 Diff。</p>
+<p>开始复制前，退出当前 Claude Code 会话。<code>CLAUDE.md</code> 在新会话启动时加载，使用旧会话会让验证结果含糊。</p>
+<h2 id="wiki-h-1">三种机制各自保存什么</h2>
+<div class="wiki-table-scroll wiki-table-wide"><table>
+<thead>
+<tr>
+<th>机制</th>
+<th>谁写</th>
+<th>适合内容</th>
+<th>加载方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CLAUDE.md</code></td>
+<td>你</td>
+<td>每次都要知道的命令、架构、项目约束</td>
+<td>新会话启动时加载</td>
+</tr>
+<tr>
+<td><code>.claude/rules/*.md</code></td>
+<td>你</td>
+<td>某类路径或主题的细节</td>
+<td>无 <code>paths</code> 时总是加载；有 <code>paths</code> 时匹配文件被读取后加载</td>
+</tr>
+<tr>
+<td>Auto Memory</td>
+<td>Claude</td>
+<td>从纠正中形成的项目经验和个人偏好</td>
+<td>每个仓库自动维护并在会话中加载</td>
+</tr>
+</tbody></table></div>
+<p>三者都是给模型看的上下文，不是强制访问控制。第 8 篇的 <code>permissions.deny</code> 和 Sandbox 才负责硬边界。即使 <code>CLAUDE.md</code> 写着“不要改菜谱”，也不能因此删除 <code>Edit(/data/recipes/**)</code>。</p>
+<h2 id="wiki-h-2">复制课程提供的简短说明</h2>
+<p>设置教程根目录变量；占位符必须替换。</p>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">export</span> COURSE_SOURCE=<span class="hljs-string">"/替换为实际路径/claude-code-tutorial-v0.2"</span>
+<span class="hljs-built_in">test</span> -f <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/memory-kit/CLAUDE.md"</span>
+<span class="hljs-built_in">test</span> ! -e CLAUDE.md
+<span class="hljs-built_in">test</span> ! -e .claude/rules/recipe-data.md
+<span class="hljs-built_in">cp</span> -R <span class="hljs-string">"<span class="hljs-variable">$COURSE_SOURCE</span>/exercise-assets/mealcraft/memory-kit/."</span> .
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell"><span class="hljs-variable">$CourseSource</span> = <span class="hljs-string">"C:\替换为实际路径\claude-code-tutorial-v0.2"</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-operator">-not</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\memory-kit\CLAUDE.md"</span>)) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"上下文素材路径错误"</span> }
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> CLAUDE.md) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"项目已有 CLAUDE.md，请先人工比较"</span> }
+<span class="hljs-keyword">if</span> (<span class="hljs-built_in">Test-Path</span> <span class="hljs-string">".claude\rules\recipe-data.md"</span>) { <span class="hljs-keyword">throw</span> <span class="hljs-string">"项目已有同名 Rules，请先人工比较"</span> }
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\memory-kit\*"</span> <span class="hljs-literal">-Destination</span> . <span class="hljs-literal">-Recurse</span>
+<span class="hljs-built_in">New-Item</span> <span class="hljs-literal">-ItemType</span> Directory <span class="hljs-literal">-Force</span> <span class="hljs-string">".claude\rules"</span> | <span class="hljs-built_in">Out-Null</span>
+<span class="hljs-built_in">Copy-Item</span> <span class="hljs-string">"<span class="hljs-variable">$CourseSource</span>\exercise-assets\mealcraft\memory-kit\.claude\rules\recipe-data.md"</span> <span class="hljs-literal">-Destination</span> <span class="hljs-string">".claude\rules\recipe-data.md"</span>
+</code></pre><p>如果已有说明文件，停止复制并人工合并，不要覆盖。重复或矛盾的指令会降低遵循度。</p>
+<p>新增文件：</p>
+<pre><code class="hljs language-text">CLAUDE.md
+.claude/rules/recipe-data.md
+scripts/verify_project_instructions.py
+</code></pre><h2 id="wiki-h-3">先自己读，不让 Claude 替你背书</h2>
+<p><code>CLAUDE.md</code> 只保留每次都会用到的内容：</p>
+<ul>
+<li>MealCraft 的个人、本地项目定位与技术栈；</li>
+<li>重要路径的职责；</li>
+<li>macOS/Linux/WSL2 与 Windows 测试、运行命令；</li>
+<li>源菜谱只读、临时测试、UTF-8 和结构化错误等约束；</li>
+<li>“完成”必须包含哪些验证和 Diff 审查。</li>
+</ul>
+<p><code>recipe-data.md</code> 的开头是：</p>
+<pre><code class="hljs language-yaml"><span class="hljs-meta">---</span>
+<span class="hljs-attr">paths:</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">"data/recipes/**/*.json"</span>
+  <span class="hljs-bullet">-</span> <span class="hljs-string">"tests/fixtures/**/*.json"</span>
+<span class="hljs-meta">---</span>
+</code></pre><p><code>paths</code> 是 Rules frontmatter 当前读取的唯一字段。它使这份规则只在 Claude 处理匹配的 JSON 时进入上下文；若 YAML 无法解析，规则可能退化为无条件加载，因此要验证语法和行为。</p>
+<h2 id="wiki-h-4">用静态检查器验证文件结构</h2>
+<p>macOS、Linux 或 WSL2：</p>
+<pre><code class="hljs language-bash">python3 scripts/verify_project_instructions.py
+</code></pre><p>Windows PowerShell：</p>
+<pre><code class="hljs language-powershell">py scripts/verify_project_instructions.py
+</code></pre><p>预期输出：</p>
+<pre><code class="hljs language-text">PASS: MealCraft 项目说明简洁，路径 Rules 结构完整
+</code></pre><p>检查器会验证：</p>
+<ul>
+<li><code>CLAUDE.md</code> 不超过本课程设定的 80 行；</li>
+<li>真实命令、路径、Windows 分支和完成标准存在；</li>
+<li>Rules 的 frontmatter 位于文件第一行且包含两个固定 glob；</li>
+<li>第 8 篇共享安全设置仍存在；</li>
+<li>项目说明没有密钥变量或演示密钥内容。</li>
+</ul>
+<p>再运行：</p>
+<pre><code class="hljs language-bash">git diff --check
+git status --short
+</code></pre><p>预期只多出这三个课程文件，没有菜谱或安全配置被改写。</p>
+<h2 id="wiki-h-5">用 <code>/context</code> 证明启动说明已加载</h2>
+<p>从 MealCraft 根目录启动一个全新会话：</p>
+<pre><code class="hljs language-bash">claude
+</code></pre><p>输入：</p>
+<pre><code class="hljs language-text">/context
+</code></pre><p>在 Memory files 区域确认项目 <code>CLAUDE.md</code> 已加载。界面布局可能随版本变化，稳定判断标准是能看到当前项目的文件路径，而不是某个固定颜色或位置。</p>
+<p>此时先不要读取菜谱，发送：</p>
+<pre><code class="hljs language-text">不要调用工具。仅根据启动时已经加载的项目说明，告诉我完整测试命令、源菜谱目录和“完成”的三个证据。
+</code></pre><p>预期回答包含完整 unittest 命令、<code>data/recipes</code>、完整测试/发布检查或人工验证、Git Diff。它不应建议安装框架或访问外部 API。</p>
+<p>如果答不出来，先检查启动目录和 <code>/context</code>，不要立即把同样内容追加十遍。</p>
+<h2 id="wiki-h-6">触发并验证路径 Rules</h2>
+<p>发送一个明确的只读任务：</p>
+<pre><code class="hljs language-text">只读 data/recipes/tomato-eggs.json。列出这份菜谱必须遵守的数据规则，并标明规则来自哪个项目文件。不要修改任何文件。
+</code></pre><p>Claude 读取匹配文件后，<code>recipe-data.md</code> 应进入上下文。再次运行：</p>
+<pre><code class="hljs language-text">/context
+</code></pre><p>确认 Memory files 中出现 <code>.claude/rules/recipe-data.md</code>，或当前界面明确显示该 Rules 已加载。然后核对 Claude 的回答至少包含：文件名与 <code>id</code> 一致、<code>amount</code> 保持字符串、UTF-8、源菜谱不被浏览或换算改写。</p>
+<p>独立磁盘检查：</p>
+<pre><code class="hljs language-bash">git diff -- data/recipes
+</code></pre><p>应无输出。<code>/context</code> 证明规则进入模型上下文，Git 则证明只读任务没有产生副作用。</p>
+<h2 id="wiki-h-7">用 Plan Mode 检查规则是否指导决策</h2>
+<p>输入：</p>
+<pre><code class="hljs language-text">/plan 为 MealCraft 增加一份名为“紫菜蛋花汤”的本地菜谱
+</code></pre><p>补充：</p>
+<pre><code class="hljs language-text">只给出计划和需要确认的信息，不要创建或修改文件。
+</code></pre><p>计划应自然引用现有契约，例如 kebab-case <code>id</code>、UTF-8、<code>amount</code> 字符串、固定字段、数据检查和完整 unittest，而不是重新发明 schema。</p>
+<p>若计划遗漏规则，先问 Claude 它实际加载了哪些 Memory files。仍然遗漏时，改写一条更具体的说明，而不是把整份 <code>REQUIREMENTS.md</code> 复制进 <code>CLAUDE.md</code>。</p>
+<p>退出 Plan 后运行 <code>git status --short</code>，确认没有新菜谱。</p>
+<h2 id="wiki-h-8">用全新会话验证跨会话持久性</h2>
+<p>输入 <code>/exit</code>，然后仍从 MealCraft 根目录重新运行：</p>
+<pre><code class="hljs language-bash">claude
+</code></pre><p>不要恢复旧会话。直接发送：</p>
+<pre><code class="hljs language-text">不要调用工具。只根据新会话启动上下文，用不超过 8 条说明 MealCraft 的技术边界、测试命令和完成标准。
+</code></pre><p>如果回答仍符合 <code>CLAUDE.md</code>，说明持久性来自磁盘文件，而不是上一段聊天记忆。会话内容可以丢失，项目说明仍会在新会话加载。</p>
+<h2 id="wiki-h-9">检查 Auto Memory，但不把它当项目文档</h2>
+<p>输入：</p>
+<pre><code class="hljs language-text">/memory
+</code></pre><p>当前命令会列出项目与用户范围的 CLAUDE 文件、Rules、Auto Memory 开关和存放位置。只浏览，不需要为了本篇强制开启或关闭。</p>
+<p>Auto Memory 适合保存 Claude 从纠正中学到、又无法直接从代码推导的经验。它不适合保存：</p>
+<ul>
+<li>API Key、账号、个人路径或私人数据；</li>
+<li>必须由所有读者共享的构建和测试契约；</li>
+<li>应该由测试、权限或 Sandbox 强制的安全边界；</li>
+<li>只对当前一次任务有用的临时状态。</li>
+</ul>
+<p>Auto Memory 按仓库维护并跨 worktree 共享；它由 Claude 写，不进入你的 Git 项目历史。需要所有人看到的事实应写入项目 <code>CLAUDE.md</code>、Rules、README 或测试。</p>
+<h2 id="wiki-h-10"><code>/init</code>、AGENTS.md 与审计边界</h2>
+<p>在一个没有项目说明的新仓库中，<code>/init</code> 可以分析代码并生成 <code>CLAUDE.md</code> 起点。如果文件已经存在，当前行为是提出改进而不是静默覆盖。本课程已经提供并验证了短文件，不需要再运行 <code>/init</code>。</p>
+<p>当前 Claude Code 也能读取 <code>AGENTS.md</code>，但默认情况下，工作目录或上级目录已经有 <code>CLAUDE.md</code> 时，不会同时自动加载项目 <code>AGENTS.md</code>。已有多 Agent 说明的仓库应先核对 Project instructions 设置或显式导入，不要假设两份文件都会生效。</p>
+<p>如果你的 <code>/help</code> 中存在 <code>/doctor prompt-audit</code>，可选运行它审计过时、冲突或找不到目标的项目说明。它先给报告，不应在未经确认时修改文件。无此命令时，静态检查器、<code>/context</code> 和人工 Diff 已足够完成本篇。</p>
+<h2 id="wiki-h-11">提交共享上下文</h2>
+<p>在 Claude Code 中运行 <code>/diff</code>，外部终端执行：</p>
+<pre><code class="hljs language-bash">git status --short
+git diff --check
+git diff -- data/recipes .claude/settings.json
+</code></pre><p>最后一条命令应无输出。提交共享文件：</p>
+<pre><code class="hljs language-bash">git add CLAUDE.md .claude/rules/recipe-data.md scripts/verify_project_instructions.py
+git diff --cached --check
+git commit -m <span class="hljs-string">"document MealCraft project context"</span>
+</code></pre><p>不要把 Auto Memory 目录、个人 <code>CLAUDE.local.md</code> 或用户级 <code>~/.claude/CLAUDE.md</code> 加入项目提交。</p>
+<h2 id="wiki-h-12">本篇验收清单</h2>
+<ul>
+<li class="task-list-item"><input disabled="" type="checkbox">能解释 CLAUDE.md、路径 Rules 与 Auto Memory 的作者、范围和加载时机；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">静态检查器输出 <code>PASS</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">新会话 <code>/context</code> 显示项目 <code>CLAUDE.md</code>；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">读取菜谱 JSON 后，路径 Rules 出现在已加载上下文中；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">Plan Mode 的菜谱计划引用固定 schema 与验证，而磁盘没有变化；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">第二个全新会话仍能根据启动上下文回答项目边界；</li>
+<li class="task-list-item"><input disabled="" type="checkbox"><code>/memory</code> 已检查，但未写入密钥或把 Auto Memory 当安全策略；</li>
+<li class="task-list-item"><input disabled="" type="checkbox">Git 提交只包含共享项目说明、Rules 和检查脚本。</li>
+</ul>
+<h2 id="wiki-h-13">关键排错</h2>
+<p><strong><code>/context</code> 看不到 CLAUDE.md</strong>：确认从 MealCraft 根目录启动、文件名大小写正确且不是只在旧会话中新增。退出后新建会话再查。</p>
+<p><strong>路径 Rules 一开始就无条件出现</strong>：检查 frontmatter 是否从文件第一行开始、两个 <code>---</code> 是否闭合、<code>paths</code> 缩进是否有效。无效 YAML 会让规则失去条件范围。</p>
+<p><strong>读取菜谱后仍看不到 Rules</strong>：确认读取路径实际匹配 <code>data/recipes/**/*.json</code>，再用 <code>/context</code> 查看。不要用只讨论文件名、但从未让 Read 工具打开文件的提示代替触发。</p>
+<p><strong>说明越来越长</strong>：把只适用于特定文件的内容移入 Rules，把多步骤流程留给后面的 Skill。<code>CLAUDE.md</code> 应保存每次都需要的最小事实，而不是复制整份手册。</p>
+<h2 id="wiki-h-14">本篇小结</h2>
+<p>MealCraft 现在有两层可维护上下文：短 <code>CLAUDE.md</code> 提供每次会话都需要的项目事实，路径 Rules 只在处理菜谱数据时加入细节。<code>/context</code> 和全新会话证明加载行为，权限与 Sandbox 继续负责强制边界。</p>
+<p>下一篇会用 MealCraft 2.0 的分阶段升级学习会话恢复、分支、压缩、<code>/fork</code> 与后台 Agent；项目事实仍以文件、Git 和测试为准。</p>
+<p>官方参考：</p>
+<ul>
+<li><a href="https://code.claude.com/docs/en/memory">How Claude remembers your project</a></li>
+<li><a href="https://code.claude.com/docs/en/commands">Commands</a></li>
+<li><a href="https://code.claude.com/docs/en/settings">Settings files and precedence</a></li>
+</ul>
+</article>
